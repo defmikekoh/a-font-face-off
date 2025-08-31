@@ -5,7 +5,7 @@
   "description": "Build scripts for A Font Face-off (web-ext)",
   "scripts": {
     "build": "web-ext build --overwrite-dest --artifacts-dir web-ext-artifacts",
-    "gen:css2": "node scripts/generate-css2-axis-ranges.js"
+    "gf:update": "node scripts/update-gf-metadata.js"
   },
   "devDependencies": {
     "web-ext": "^7.10.0"

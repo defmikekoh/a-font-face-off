@@ -10,8 +10,9 @@ Overview
 Sources & Permissions
 ---------------------
 - Google Fonts:
-  - Metadata: `https://fonts.google.com/metadata/fonts` (to build the family list).
-  - CSS2: axis‑tag URL built from a curated map (see “CSS2 Axis Map”), otherwise plain css2.
+  - Metadata: `https://fonts.google.com/metadata/fonts` (to build the family list and per‑family axis tags/ranges/defaults). If this network call fails, a local fallback is used from `data/gf-axis-registry.json` bundled with the extension.
+  - Update local metadata: `npm run gf:update` writes a fresh copy to `data/gf-axis-registry.json`.
+  - CSS2: axis‑tag URL built from metadata (see “CSS2 Axis Map”), otherwise plain css2.
   - Font files: served by Google (TTF/OTF or WOFF2).
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
@@ -22,7 +23,7 @@ Selection → Load Flow
 ---------------------
 1) User opens the Font Picker modal and clicks a family.
 2) `loadFont(position, fontName)` applies the choice and kicks off loading:
-   - Google families: adds a `css2` `<link>`. If the curated map has entries for the family, we request an axis‑tag css2 URL with exact ranges and all axes; otherwise we request the plain css2 URL.
+   - Google families: adds a `css2` `<link>`. If metadata provides axis information for the family, we request an axis‑tag css2 URL with exact ranges and all axes; otherwise we request the plain css2 URL.
    - ABC Ginto: injects the CDN stylesheet, then waits on `document.fonts.load('400 1em "ABC Ginto Normal Unlicensed Trial"')` before applying.
    - BBC Reith: relies on the static `@font-face` declarations in CSS.
 
@@ -34,22 +35,20 @@ File refs: `popup.js:136`, `popup.js:240`, `popup.js:378`
   - Extract a font URL from the css2 (already added to the page) with `extractFirstFontUrl`.
   - If TTF/OTF: fetch and parse `fvar` via `opentype.js`.
   - If only WOFF2: lazy‑load the vendored decoder (fonteditor‑core wasm) and convert WOFF2→TTF, then parse `fvar`.
-- If fvar is unavailable: fall back to CSS hints for registered axes (only when present in css2): `wght`/`wdth`/`slnt` ranges and `ital` presence.
+- If fvar is unavailable: fall back to CSS hints for registered axes (only when present in css2): `wght`/`wdth`/`slnt` ranges and `ital` presence; and use axis defaults derived from Google Fonts metadata when available.
 - Build `axes/defaults/ranges/steps`, cache in `dynamicFontDefinitions`.
 
 CSS2 Axis Map (no probing)
 --------------------------
-- We no longer “probe” css2 to guess ranges. Instead we build axis‑tag css2 URLs from a curated map generated from `docs/fonts`.
-- File: `data/css2-axis-ranges.json` — per‑family:
+- We no longer “probe” css2 to guess ranges. At runtime we derive axis‑tag css2 URLs from Google Fonts metadata (via `ensureGfMetadata`).
+- Runtime map (in memory), per family:
   - `tags`: all axes (ital and any custom axes), ordered for css2 (lowercase tags first, then uppercase; alphabetical within each group)
   - `ranges`: numeric `[min, max]` for every non‑ital axis
-  - `defaults`: axis default values from `docs/fonts` (when provided per family)
-- Generator: `scripts/generate-css2-axis-ranges.js`
-  - Run: `npm run gen:css2`
-  - Reads `docs/fonts` (Google’s metadata dump), emits `data/css2-axis-ranges.json`.
+  - `defaults`: axis default values from metadata (when provided per family)
+
 - URL composition: `buildCss2Url()`
-  - If a family exists in the map, composes `family=<Name>:<tags>@<tuple>[;…]&display=swap` using the same tag order for tuple positions. Ital yields two tuples (0,…;1,…).
-  - If not present, falls back to the plain css2 URL and relies on fvar parsing + CSS property mapping for wdth/slnt/ital.
+  - Uses the runtime map to compose `family=<Name>:<tags>@<tuple>[;…]&display=swap`. Ital yields two tuples (0,…;1,…).
+  - If metadata lacks entries for a family, falls back to the plain css2 URL and relies on fvar parsing + CSS property mapping for wdth/slnt/ital.
   - Example (Merriweather): `family=Merriweather:ital,opsz,wdth,wght@0,18..144,87..112,300..900;1,18..144,87..112,300..900`
   - Example (Roboto Flex): `family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC@…`
 
@@ -101,7 +100,7 @@ Logging
 -------
 - The loader logs:
   - `Loading css2 …` / `css2 loaded` / `css2 failed`
-  - `Using curated axis-tag css2 …` (when map is used)
+  - `Using metadata-derived axis-tag css2 …` (when map is used)
   - `Downloading font binary …` and whether WOFF2→TTF decoding is used
 
 Key Code References

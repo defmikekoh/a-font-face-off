@@ -103,7 +103,7 @@ const fontDefinitions = {
 
 // Google Fonts metadata cache
 let gfMetadata = null;
-let css2AxisRanges = null; // loaded from data/css2-axis-ranges.json
+let css2AxisRanges = null; // built from Google Fonts metadata at runtime
 
 // Heuristic steps when not specified per-axis
 const AXIS_STEP_DEFAULTS = {
@@ -173,6 +173,13 @@ async function getOrCreateFontDefinition(fontName) {
     // Try to derive registered axis ranges from CSS when fvar unavailable
     const axisRanges = fromFvar?.ranges || cssAxisHints;
 
+    // Load curated defaults/ranges from local dataset (used only when fvar is unavailable)
+    let curated = null;
+    if (!fromFvar) {
+        try { await ensureCss2AxisRanges(); } catch (_) {}
+        curated = css2AxisRanges && css2AxisRanges[fontName] ? css2AxisRanges[fontName] : null;
+    }
+
     // Compose axes list: registered from CSS + any remaining from metadata
     const combinedAxes = new Set();
     Object.keys(axisRanges || {}).forEach(a => combinedAxes.add(a));
@@ -198,40 +205,45 @@ async function getOrCreateFontDefinition(fontName) {
     axes.forEach(axis => {
         if (axisRanges && axisRanges[axis]) {
             ranges[axis] = [axisRanges[axis].min, axisRanges[axis].max];
+            // Use fvar/CSS-provided default when present
             defaults[axis] = axisRanges[axis].def;
+            // If no default from CSS hints and curated has one (and we are not using fvar), prefer curated
+            if ((defaults[axis] === undefined || defaults[axis] === null) && curated && curated.defaults && (axis in curated.defaults)) {
+                defaults[axis] = curated.defaults[axis];
+            }
             steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
         } else {
             // Fallbacks for axes present in metadata but not in CSS
             switch (axis) {
                 case 'wght':
-                    ranges[axis] = [100, 1000];
-                    defaults[axis] = AXIS_DEFAULTS.wght;
+                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [100, 1000];
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.wght;
                     steps[axis] = AXIS_STEP_DEFAULTS.wght;
                     break;
                 case 'wdth':
-                    ranges[axis] = [75, 125];
-                    defaults[axis] = AXIS_DEFAULTS.wdth;
+                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [75, 125];
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.wdth;
                     steps[axis] = AXIS_STEP_DEFAULTS.wdth;
                     break;
                 case 'opsz':
-                    ranges[axis] = [8, 144];
-                    defaults[axis] = AXIS_DEFAULTS.opsz;
+                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [8, 144];
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.opsz;
                     steps[axis] = AXIS_STEP_DEFAULTS.opsz;
                     break;
                 case 'slnt':
                     ranges[axis] = [-10, 0];
-                    defaults[axis] = AXIS_DEFAULTS.slnt;
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.slnt;
                     steps[axis] = AXIS_STEP_DEFAULTS.slnt;
                     break;
                 case 'ital':
                     ranges[axis] = [0, 1];
-                    defaults[axis] = AXIS_DEFAULTS.ital;
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.ital;
                     steps[axis] = AXIS_STEP_DEFAULTS.ital;
                     break;
                 default:
                     // Unknown/custom axis: conservative generic fallback
-                    ranges[axis] = [0, 1000];
-                    defaults[axis] = 0;
+                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [0, 1000];
+                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : 0;
                     steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
             }
         }
@@ -401,12 +413,29 @@ function getAxesForFamilyFromMetadata(fontName) {
 async function ensureGfMetadata() {
     if (gfMetadata) return gfMetadata;
     const url = 'https://fonts.google.com/metadata/fonts';
-    const res = await fetch(url, { credentials: 'omit' });
-    const text = await res.text();
-    // Strip XSSI prefix if present
-    const json = text.replace(/^\)\]\}'\n?/, '');
-    gfMetadata = JSON.parse(json);
-    return gfMetadata;
+    try {
+        const res = await fetch(url, { credentials: 'omit' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        // Strip XSSI prefix if present
+        const json = text.replace(/^\)\]\}'\n?/, '');
+        gfMetadata = JSON.parse(json);
+        return gfMetadata;
+    } catch (e) {
+        console.warn('GF metadata fetch failed; falling back to local data/gf-axis-registry.json', e);
+        try {
+            const resLocal = await fetch('data/gf-axis-registry.json', { credentials: 'omit' });
+            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+            const textLocal = await resLocal.text();
+            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
+            gfMetadata = JSON.parse(jsonLocal);
+            return gfMetadata;
+        } catch (e2) {
+            console.warn('Local metadata fallback failed; proceeding with empty metadata', e2);
+            gfMetadata = { familyMetadataList: [] };
+            return gfMetadata;
+        }
+    }
 }
 
 function familyToQuery(fontName) {
@@ -1239,7 +1268,7 @@ async function buildCss2Url(fontName) {
         const url = orderedTags.length
             ? `https://fonts.googleapis.com/css2?family=${familyParam}:${orderedTags.join(',')}@${tuples.join(';')}&display=swap`
             : `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
-        try { console.log(`[Fonts] Using curated axis-tag css2 for ${fontName}: ${url}`); } catch (_) {}
+        try { console.log(`[Fonts] Using metadata-derived axis-tag css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     }
     // Fallback: plain URL, rely on fvar parsing + CSS mapping to expose axes
@@ -1250,14 +1279,58 @@ async function buildCss2Url(fontName) {
 
 async function ensureCss2AxisRanges() {
     if (css2AxisRanges) return css2AxisRanges;
+    // Build mapping from Google Fonts metadata (no local file dependency)
     try {
-        const res = await fetch('data/css2-axis-ranges.json', { credentials: 'omit' });
-        css2AxisRanges = await res.json();
+        await ensureGfMetadata();
+        css2AxisRanges = buildCss2AxisRangesFromMetadata(gfMetadata);
     } catch (e) {
-        console.warn('Failed to load css2 axis ranges mapping', e);
+        console.warn('Failed to build css2 axis ranges from GF metadata', e);
         css2AxisRanges = {};
     }
     return css2AxisRanges;
+}
+
+function buildCss2AxisRangesFromMetadata(md) {
+    if (!md) return {};
+    const list = md.familyMetadataList || md.familyMetadata || md.families || [];
+    const out = {};
+    for (const fam of list) {
+        const name = fam.family || fam.name;
+        if (!name) continue;
+        const axes = Array.isArray(fam.axes) ? fam.axes : [];
+        const tagsSet = new Set();
+        const ranges = {};
+        const defaults = {};
+
+        for (const ax of axes) {
+            const tag = String(ax.tag || ax.axis || '').trim();
+            if (!tag) continue;
+            tagsSet.add(tag === 'ital' ? 'ital' : tag);
+            const min = ax.min;
+            const max = ax.max;
+            if (typeof min === 'number' && typeof max === 'number') {
+                ranges[tag] = [Number.isInteger(min) ? min : +min, Number.isInteger(max) ? max : +max];
+            }
+            const def = ax.defaultValue;
+            if (typeof def === 'number' && !Number.isNaN(def)) {
+                defaults[tag] = Number.isInteger(def) ? def : +def;
+            }
+        }
+
+        // Add ital if family has italic styles in `fonts` map
+        const fontsMap = fam.fonts || {};
+        const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
+        if (hasItalic) tagsSet.add('ital');
+
+        const allTags = Array.from(tagsSet);
+        if (!allTags.length) continue;
+        const lower = allTags.filter(t => /^[a-z]+$/.test(t)).sort();
+        const upper = allTags.filter(t => /^[A-Z]+$/.test(t)).sort();
+        const tags = [...lower, ...upper];
+
+        out[name] = { tags, ranges, defaults };
+    }
+    return out;
 }
 
 function generateFontControls(position, fontName) {
