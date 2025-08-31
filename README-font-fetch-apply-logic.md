@@ -43,6 +43,7 @@ CSS2 Axis Map (no probing)
 - File: `data/css2-axis-ranges.json` — per‑family:
   - `tags`: all axes (ital and any custom axes), ordered for css2 (lowercase tags first, then uppercase; alphabetical within each group)
   - `ranges`: numeric `[min, max]` for every non‑ital axis
+  - `defaults`: axis default values from `docs/fonts` (when provided per family)
 - Generator: `scripts/generate-css2-axis-ranges.js`
   - Run: `npm run gen:css2`
   - Reads `docs/fonts` (Google’s metadata dump), emits `data/css2-axis-ranges.json`.

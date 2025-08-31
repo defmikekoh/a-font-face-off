@@ -3,7 +3,8 @@
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "AR One Sans": {
     "tags": [
@@ -19,6 +20,10 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "ARRR": 10,
+      "wght": 400
     }
   },
   "Advent Pro": {
@@ -36,6 +41,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Afacad": {
@@ -48,6 +57,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Afacad Flux": {
@@ -64,6 +76,10 @@
         100,
         1000
       ]
+    },
+    "defaults": {
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Agu Display": {
@@ -75,6 +91,9 @@
         0,
         60
       ]
+    },
+    "defaults": {
+      "MORF": 0
     }
   },
   "Akshar": {
@@ -86,6 +105,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Albert Sans": {
@@ -98,6 +120,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Alegreya": {
@@ -110,25 +135,31 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Alegreya SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alegreya Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alegreya Sans SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Aleo": {
     "tags": [
@@ -140,6 +171,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Alexandria": {
@@ -151,6 +185,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Alkatra": {
@@ -162,13 +199,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Almendra": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alumni Sans": {
     "tags": [
@@ -180,25 +221,31 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Alumni Sans Collegiate One": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alumni Sans Inline One": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alumni Sans Pinstripe": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Alumni Sans SC": {
     "tags": [
@@ -210,19 +257,24 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Amaranth": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Amiri": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Anaheim": {
     "tags": [
@@ -233,6 +285,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ancizar Sans": {
@@ -245,6 +300,9 @@
         100,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ancizar Serif": {
@@ -257,6 +315,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Andada Pro": {
@@ -269,13 +330,17 @@
         400,
         840
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Andika": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Anek Bangla": {
     "tags": [
@@ -291,6 +356,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Devanagari": {
@@ -307,6 +376,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Gujarati": {
@@ -323,6 +396,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Gurmukhi": {
@@ -339,6 +416,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Kannada": {
@@ -355,6 +436,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Latin": {
@@ -371,6 +456,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Malayalam": {
@@ -387,6 +476,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Odia": {
@@ -403,6 +496,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Tamil": {
@@ -419,6 +516,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anek Telugu": {
@@ -435,13 +536,18 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Anonymous Pro": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Antonio": {
     "tags": [
@@ -452,6 +558,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Anuphan": {
@@ -463,6 +572,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Anybody": {
@@ -480,13 +592,18 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Arapey": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Archivo": {
     "tags": [
@@ -503,6 +620,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Archivo Narrow": {
@@ -515,6 +636,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Arima": {
@@ -526,6 +650,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Arimo": {
@@ -538,25 +665,31 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Arsenal": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Arsenal SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Arvo": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Asap": {
     "tags": [
@@ -573,13 +706,18 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Asap Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Assistant": {
     "tags": [
@@ -590,6 +728,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Asta Sans": {
@@ -601,13 +742,17 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Atkinson Hyperlegible": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Atkinson Hyperlegible Mono": {
     "tags": [
@@ -619,6 +764,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Atkinson Hyperlegible Next": {
@@ -631,25 +779,31 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Averia Libre": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Averia Sans Libre": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Averia Serif Libre": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Azeret Mono": {
     "tags": [
@@ -661,25 +815,31 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "B612": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "B612 Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Bai Jamjuree": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Ballet": {
     "tags": [
@@ -690,6 +850,9 @@
         16,
         72
       ]
+    },
+    "defaults": {
+      "opsz": 16
     }
   },
   "Baloo 2": {
@@ -701,6 +864,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Bhai 2": {
@@ -712,6 +878,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Bhaijaan 2": {
@@ -723,6 +892,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Bhaina 2": {
@@ -734,6 +906,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Chettan 2": {
@@ -745,6 +920,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Da 2": {
@@ -756,6 +934,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Paaji 2": {
@@ -767,6 +948,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Tamma 2": {
@@ -778,6 +962,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Tammudu 2": {
@@ -789,6 +976,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baloo Thambi 2": {
@@ -800,31 +990,38 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Balsamiq Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Barlow": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Barlow Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Barlow Semi Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Baskervville": {
     "tags": [
@@ -836,6 +1033,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Baskervville SC": {
@@ -847,13 +1047,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Be Vietnam Pro": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Beiruti": {
     "tags": [
@@ -864,19 +1068,24 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Bellota": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Bellota Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Besley": {
     "tags": [
@@ -888,13 +1097,17 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Bevan": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Big Shoulders": {
     "tags": [
@@ -910,6 +1123,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Big Shoulders Inline": {
@@ -926,6 +1143,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Big Shoulders Stencil": {
@@ -942,6 +1163,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "BioRhyme": {
@@ -958,6 +1183,10 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Bitcount": {
@@ -989,6 +1218,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitcount Grid Double": {
@@ -1020,6 +1256,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitcount Grid Single": {
@@ -1051,6 +1294,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitcount Prop Double": {
@@ -1082,6 +1332,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitcount Prop Single": {
@@ -1113,6 +1370,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitcount Single": {
@@ -1144,6 +1408,13 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0.5,
+      "ELSH": 0,
+      "ELXP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Bitter": {
@@ -1156,6 +1427,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Bodoni Moda": {
@@ -1173,6 +1447,10 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 11,
+      "wght": 400
     }
   },
   "Bodoni Moda SC": {
@@ -1190,19 +1468,25 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 11,
+      "wght": 400
     }
   },
   "Bona Nova": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Bona Nova SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Bricolage Grotesque": {
     "tags": [
@@ -1223,6 +1507,11 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Brygada 1918": {
@@ -1235,6 +1524,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Buenard": {
@@ -1246,6 +1538,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Cabin": {
@@ -1263,6 +1558,10 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Cairo": {
@@ -1279,6 +1578,10 @@
         200,
         1000
       ]
+    },
+    "defaults": {
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Cairo Play": {
@@ -1295,37 +1598,46 @@
         200,
         1000
       ]
+    },
+    "defaults": {
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Caladea": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cambay": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cantarell": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cardo": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Carlito": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cascadia Code": {
     "tags": [
@@ -1337,6 +1649,9 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Cascadia Mono": {
@@ -1349,13 +1664,17 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Castoro": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Catamaran": {
     "tags": [
@@ -1366,13 +1685,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Caudex": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Caveat": {
     "tags": [
@@ -1383,13 +1706,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Chakra Petch": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Changa": {
     "tags": [
@@ -1400,25 +1727,31 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Changa One": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Charis SIL": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Chau Philomene One": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Chiron GoRound TC": {
     "tags": [
@@ -1429,6 +1762,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Chiron Hei HK": {
@@ -1441,6 +1777,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Chiron Sung HK": {
@@ -1453,6 +1792,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Chivo": {
@@ -1465,6 +1807,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Chivo Mono": {
@@ -1477,6 +1822,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Cinzel": {
@@ -1488,6 +1836,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Climate Crisis": {
@@ -1499,6 +1850,9 @@
         1979,
         2050
       ]
+    },
+    "defaults": {
+      "YEAR": 1979
     }
   },
   "Comfortaa": {
@@ -1510,13 +1864,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Comic Neue": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Comme": {
     "tags": [
@@ -1527,6 +1885,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Commissioner": {
@@ -1553,6 +1914,12 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "FLAR": 0,
+      "VOLM": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Cormorant": {
@@ -1565,6 +1932,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Cormorant Garamond": {
@@ -1577,6 +1947,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Cormorant Infant": {
@@ -1589,25 +1962,31 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Courier Prime": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cousine": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Crete Round": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Crimson Pro": {
     "tags": [
@@ -1619,13 +1998,17 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Crimson Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Cuprum": {
     "tags": [
@@ -1637,13 +2020,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "DM Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "DM Sans": {
     "tags": [
@@ -1660,25 +2047,32 @@
         100,
         1000
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "DM Serif Display": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "DM Serif Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Dai Banna SIL": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Dancing Script": {
     "tags": [
@@ -1689,6 +2083,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Danfo": {
@@ -1700,6 +2097,9 @@
         0,
         100
       ]
+    },
+    "defaults": {
+      "ELSH": 0
     }
   },
   "Darker Grotesque": {
@@ -1711,6 +2111,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Domine": {
@@ -1722,6 +2125,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Dosis": {
@@ -1733,6 +2139,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Doto": {
@@ -1749,6 +2158,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "ROND": 0,
+      "wght": 400
     }
   },
   "DynaPuff": {
@@ -1765,6 +2178,10 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "EB Garamond": {
@@ -1777,13 +2194,17 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Economica": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Eczar": {
     "tags": [
@@ -1794,6 +2215,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu AU VIC WA NT Arrows": {
@@ -1805,6 +2229,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu AU VIC WA NT Dots": {
@@ -1816,6 +2243,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu AU VIC WA NT Guides": {
@@ -1827,6 +2257,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu AU VIC WA NT Hand": {
@@ -1838,6 +2271,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu AU VIC WA NT Pre": {
@@ -1849,6 +2285,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu NSW ACT Cursive": {
@@ -1860,6 +2299,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu NSW ACT Foundation": {
@@ -1871,6 +2313,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu NSW ACT Hand Pre": {
@@ -1882,6 +2327,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu QLD Beginner": {
@@ -1893,6 +2341,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu QLD Hand": {
@@ -1904,6 +2355,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu SA Beginner": {
@@ -1915,6 +2369,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu SA Hand": {
@@ -1926,6 +2383,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu TAS Beginner": {
@@ -1937,6 +2397,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu VIC WA NT Beginner": {
@@ -1948,6 +2411,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu VIC WA NT Hand": {
@@ -1959,6 +2425,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Edu VIC WA NT Hand Pre": {
@@ -1970,6 +2439,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "El Messiri": {
@@ -1981,6 +2453,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Encode Sans": {
@@ -1997,6 +2472,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Encode Sans SC": {
@@ -2013,6 +2492,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Epilogue": {
@@ -2025,6 +2508,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Epunda Sans": {
@@ -2037,6 +2523,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Epunda Slab": {
@@ -2049,6 +2538,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Exo": {
@@ -2061,6 +2553,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Exo 2": {
@@ -2073,6 +2568,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Expletus Sans": {
@@ -2085,13 +2583,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fahkwang": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Familjen Grotesk": {
     "tags": [
@@ -2103,13 +2605,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fanwood Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Faustina": {
     "tags": [
@@ -2121,6 +2627,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Figtree": {
@@ -2133,6 +2642,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Finlandica": {
@@ -2145,6 +2657,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fira Code": {
@@ -2156,25 +2671,31 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fira Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Fira Sans Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Fira Sans Extra Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Foldit": {
     "tags": [
@@ -2185,19 +2706,24 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fondamento": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Fragment Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Frank Ruhl Libre": {
     "tags": [
@@ -2208,6 +2734,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fraunces": {
@@ -2235,6 +2764,12 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "SOFT": 0,
+      "WONK": 0,
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Fredoka": {
@@ -2251,13 +2786,18 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Fruktur": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Funnel Display": {
     "tags": [
@@ -2268,6 +2808,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Funnel Sans": {
@@ -2280,6 +2823,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Fustat": {
@@ -2291,13 +2837,17 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "GFS Neohellenic": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Gabarito": {
     "tags": [
@@ -2308,6 +2858,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gantari": {
@@ -2320,6 +2873,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Geist": {
@@ -2331,6 +2887,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Geist Mono": {
@@ -2342,6 +2901,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gelasio": {
@@ -2354,6 +2916,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gemunu Libre": {
@@ -2365,6 +2930,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Genos": {
@@ -2377,25 +2945,31 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gentium Book Plus": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Gentium Plus": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Geo": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Geologica": {
     "tags": [
@@ -2421,6 +2995,12 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "CRSV": 0,
+      "SHRP": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Georama": {
@@ -2438,6 +3018,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Glory": {
@@ -2450,6 +3034,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gluten": {
@@ -2466,6 +3053,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Golos Text": {
@@ -2477,6 +3068,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Google Sans Code": {
@@ -2489,6 +3083,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Grandstander": {
@@ -2501,13 +3098,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Grenze": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Grenze Gotisch": {
     "tags": [
@@ -2518,13 +3119,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Gudea": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Hahmlet": {
     "tags": [
@@ -2535,6 +3140,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Handjet": {
@@ -2556,6 +3164,11 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "ELGR": 1,
+      "ELSH": 2,
+      "wght": 400
     }
   },
   "Hanken Grotesk": {
@@ -2568,6 +3181,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Hanuman": {
@@ -2579,6 +3195,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Hedvig Letters Serif": {
@@ -2590,6 +3209,9 @@
         12,
         24
       ]
+    },
+    "defaults": {
+      "opsz": 24
     }
   },
   "Heebo": {
@@ -2601,6 +3223,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Hepta Slab": {
@@ -2612,6 +3237,9 @@
         1,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Honk": {
@@ -2628,6 +3256,10 @@
         0,
         100
       ]
+    },
+    "defaults": {
+      "MORF": 15,
+      "SHLN": 50
     }
   },
   "Host Grotesk": {
@@ -2640,6 +3272,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Hubot Sans": {
@@ -2657,13 +3292,18 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "IBM Plex Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IBM Plex Sans": {
     "tags": [
@@ -2680,49 +3320,60 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "IBM Plex Sans Condensed": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IBM Plex Serif": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IM Fell DW Pica": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IM Fell Double Pica": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IM Fell English": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IM Fell French Canon": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "IM Fell Great Primer": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Ibarra Real Nova": {
     "tags": [
@@ -2734,6 +3385,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Imbue": {
@@ -2750,6 +3404,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 10,
+      "wght": 400
     }
   },
   "Inclusive Sans": {
@@ -2762,6 +3420,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Inconsolata": {
@@ -2778,19 +3439,25 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Inria Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Inria Serif": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Instrument Sans": {
     "tags": [
@@ -2807,13 +3474,18 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Instrument Serif": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Intel One Mono": {
     "tags": [
@@ -2825,6 +3497,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Inter": {
@@ -2842,6 +3517,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Inter Tight": {
@@ -2854,13 +3533,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Istok Web": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Jaro": {
     "tags": [
@@ -2871,6 +3554,9 @@
         6,
         72
       ]
+    },
+    "defaults": {
+      "opsz": 14
     }
   },
   "JetBrains Mono": {
@@ -2883,6 +3569,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Josefin Sans": {
@@ -2895,6 +3584,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Josefin Slab": {
@@ -2907,6 +3599,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Jost": {
@@ -2919,13 +3614,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Judson": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Jura": {
     "tags": [
@@ -2936,13 +3635,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "K2D": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kablammo": {
     "tags": [
@@ -2953,6 +3656,9 @@
         0,
         60
       ]
+    },
+    "defaults": {
+      "MORF": 0
     }
   },
   "Kalnia": {
@@ -2969,6 +3675,10 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Kalnia Glaze": {
@@ -2985,6 +3695,10 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Kameron": {
@@ -2996,13 +3710,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Kanit": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kantumruy Pro": {
     "tags": [
@@ -3014,6 +3732,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Kapakana": {
@@ -3025,6 +3746,9 @@
         300,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Karla": {
@@ -3037,19 +3761,24 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "KoHo": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kodchasan": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kode Mono": {
     "tags": [
@@ -3060,6 +3789,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Kreon": {
@@ -3071,13 +3803,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Krub": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kufam": {
     "tags": [
@@ -3089,13 +3825,17 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Kulim Park": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Kumbh Sans": {
     "tags": [
@@ -3111,6 +3851,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "YOPQ": 300,
+      "wght": 400
     }
   },
   "Labrada": {
@@ -3123,13 +3867,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lato": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "League Gothic": {
     "tags": [
@@ -3140,6 +3888,9 @@
         75,
         100
       ]
+    },
+    "defaults": {
+      "wdth": 100
     }
   },
   "League Spartan": {
@@ -3151,13 +3902,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lekton": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Lemonada": {
     "tags": [
@@ -3168,6 +3923,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend": {
@@ -3179,6 +3937,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Deca": {
@@ -3190,6 +3951,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Exa": {
@@ -3201,6 +3965,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Giga": {
@@ -3212,6 +3979,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Mega": {
@@ -3223,6 +3993,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Peta": {
@@ -3234,6 +4007,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Tera": {
@@ -3245,6 +4021,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Lexend Zetta": {
@@ -3256,25 +4035,31 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Libertinus Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Libertinus Serif": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Libre Baskerville": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Libre Bodoni": {
     "tags": [
@@ -3286,13 +4071,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Libre Caslon Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Libre Franklin": {
     "tags": [
@@ -3304,13 +4093,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Linden Hill": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Linefont": {
     "tags": [
@@ -3326,13 +4119,18 @@
         4,
         1000
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Lisu Bosa": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Literata": {
     "tags": [
@@ -3349,19 +4147,25 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Livvic": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Lobster Two": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Lora": {
     "tags": [
@@ -3373,6 +4177,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "M PLUS 1": {
@@ -3384,6 +4191,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "M PLUS 1 Code": {
@@ -3395,6 +4205,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "M PLUS 2": {
@@ -3406,6 +4219,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "M PLUS Code Latin": {
@@ -3422,6 +4238,10 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Mada": {
@@ -3433,13 +4253,17 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Mali": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Manrope": {
     "tags": [
@@ -3450,6 +4274,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Manuale": {
@@ -3462,6 +4289,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Marhey": {
@@ -3473,6 +4303,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Markazi Text": {
@@ -3484,6 +4317,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Martian Mono": {
@@ -3500,13 +4336,18 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Marvel": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Matangi": {
     "tags": [
@@ -3517,13 +4358,17 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Mate": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Maven Pro": {
     "tags": [
@@ -3534,6 +4379,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Menbere": {
@@ -3545,6 +4393,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Merienda": {
@@ -3556,6 +4407,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Merriweather": {
@@ -3578,6 +4432,11 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 18,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Merriweather Sans": {
@@ -3590,6 +4449,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Miriam Libre": {
@@ -3601,6 +4463,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Moderustic": {
@@ -3612,6 +4477,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Mohave": {
@@ -3624,13 +4492,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Molle": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Mona Sans": {
     "tags": [
@@ -3647,6 +4519,10 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Monda": {
@@ -3658,6 +4534,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Montagu Slab": {
@@ -3674,6 +4553,10 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "opsz": 144,
+      "wght": 400
     }
   },
   "Montserrat": {
@@ -3686,13 +4569,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Montserrat Alternates": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Montserrat Underline": {
     "tags": [
@@ -3704,6 +4591,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Mozilla Headline": {
@@ -3720,6 +4610,10 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Mozilla Text": {
@@ -3731,6 +4625,9 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Mulish": {
@@ -3743,6 +4640,9 @@
         200,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Murecho": {
@@ -3754,6 +4654,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "MuseoModerno": {
@@ -3766,6 +4669,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Nabla": {
@@ -3782,6 +4688,10 @@
         0,
         24
       ]
+    },
+    "defaults": {
+      "EDPT": 100,
+      "EHLT": 12
     }
   },
   "Nata Sans": {
@@ -3793,6 +4703,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "National Park": {
@@ -3804,13 +4717,17 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Neuton": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Newsreader": {
     "tags": [
@@ -3827,19 +4744,25 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "opsz": 16,
+      "wght": 400
     }
   },
   "Niramit": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Nobile": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Nokora": {
     "tags": [
@@ -3850,13 +4773,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noticia Text": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Noto Emoji": {
     "tags": [
@@ -3867,6 +4794,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Kufi Arabic": {
@@ -3878,6 +4808,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Naskh Arabic": {
@@ -3889,6 +4822,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Nastaliq Urdu": {
@@ -3900,6 +4836,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Rashi Hebrew": {
@@ -3911,6 +4850,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans": {
@@ -3928,6 +4870,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Adlam": {
@@ -3939,6 +4885,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Adlam Unjoined": {
@@ -3950,6 +4899,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Arabic": {
@@ -3966,6 +4918,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Armenian": {
@@ -3982,6 +4938,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Balinese": {
@@ -3993,6 +4953,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Bamum": {
@@ -4004,6 +4967,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Bassa Vah": {
@@ -4015,6 +4981,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Bengali": {
@@ -4031,6 +5000,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Canadian Aboriginal": {
@@ -4042,6 +5015,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Cham": {
@@ -4053,6 +5029,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Cherokee": {
@@ -4064,6 +5043,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Devanagari": {
@@ -4080,6 +5062,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Display": {
@@ -4097,6 +5083,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Ethiopic": {
@@ -4113,6 +5103,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Georgian": {
@@ -4129,6 +5123,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Gujarati": {
@@ -4145,6 +5143,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Gunjala Gondi": {
@@ -4156,6 +5158,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Gurmukhi": {
@@ -4172,6 +5177,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans HK": {
@@ -4183,6 +5192,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Hanifi Rohingya": {
@@ -4194,6 +5206,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Hebrew": {
@@ -4210,6 +5225,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans JP": {
@@ -4221,6 +5240,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Javanese": {
@@ -4232,6 +5254,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans KR": {
@@ -4243,6 +5268,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Kannada": {
@@ -4259,6 +5287,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Kawi": {
@@ -4270,6 +5302,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Kayah Li": {
@@ -4281,6 +5316,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Khmer": {
@@ -4297,6 +5335,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Lao": {
@@ -4313,6 +5355,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Lao Looped": {
@@ -4329,6 +5375,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Lisu": {
@@ -4340,6 +5390,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Malayalam": {
@@ -4356,6 +5409,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Medefaidrin": {
@@ -4367,6 +5424,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Meetei Mayek": {
@@ -4378,6 +5438,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Mono": {
@@ -4394,6 +5457,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans NKo Unjoined": {
@@ -4405,6 +5472,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Nag Mundari": {
@@ -4416,6 +5486,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans New Tai Lue": {
@@ -4427,6 +5500,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Ol Chiki": {
@@ -4438,6 +5514,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Oriya": {
@@ -4454,6 +5533,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans SC": {
@@ -4465,6 +5548,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Sinhala": {
@@ -4481,6 +5567,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Sora Sompeng": {
@@ -4492,6 +5582,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Sundanese": {
@@ -4503,6 +5596,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Symbols": {
@@ -4514,6 +5610,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Syriac": {
@@ -4525,6 +5624,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Syriac Eastern": {
@@ -4536,6 +5638,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans TC": {
@@ -4547,6 +5652,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Tai Tham": {
@@ -4558,6 +5666,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Tamil": {
@@ -4574,6 +5685,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Tangsa": {
@@ -4585,6 +5700,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Telugu": {
@@ -4601,6 +5719,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Thaana": {
@@ -4612,6 +5734,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Sans Thai": {
@@ -4628,6 +5753,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Thai Looped": {
@@ -4644,6 +5773,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Sans Vithkuqi": {
@@ -4655,6 +5788,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif": {
@@ -4672,6 +5808,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Armenian": {
@@ -4688,6 +5828,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Bengali": {
@@ -4704,6 +5848,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Devanagari": {
@@ -4720,6 +5868,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Display": {
@@ -4737,6 +5889,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Ethiopic": {
@@ -4753,6 +5909,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Georgian": {
@@ -4769,6 +5929,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Gujarati": {
@@ -4780,6 +5944,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Gurmukhi": {
@@ -4791,6 +5958,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif HK": {
@@ -4802,6 +5972,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Hebrew": {
@@ -4818,6 +5991,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Hentaigana": {
@@ -4829,6 +6006,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif JP": {
@@ -4840,6 +6020,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif KR": {
@@ -4851,6 +6034,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Kannada": {
@@ -4862,6 +6048,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Khmer": {
@@ -4878,6 +6067,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Khojki": {
@@ -4889,6 +6082,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Lao": {
@@ -4905,6 +6101,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Malayalam": {
@@ -4916,6 +6116,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif NP Hmong": {
@@ -4927,6 +6130,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Oriya": {
@@ -4938,6 +6144,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif SC": {
@@ -4949,6 +6158,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Sinhala": {
@@ -4965,6 +6177,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif TC": {
@@ -4976,6 +6192,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Tamil": {
@@ -4993,6 +6212,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Telugu": {
@@ -5004,6 +6227,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Thai": {
@@ -5020,6 +6246,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Noto Serif Tibetan": {
@@ -5031,6 +6261,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Toto": {
@@ -5042,6 +6275,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Vithkuqi": {
@@ -5053,6 +6289,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Serif Yezidi": {
@@ -5064,6 +6303,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Noto Traditional Nushu": {
@@ -5075,6 +6317,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Nunito": {
@@ -5087,6 +6332,9 @@
         200,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Nunito Sans": {
@@ -5114,6 +6362,12 @@
         200,
         1000
       ]
+    },
+    "defaults": {
+      "YTLC": 500,
+      "opsz": 12,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Ojuju": {
@@ -5125,13 +6379,17 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Old Standard TT": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Onest": {
     "tags": [
@@ -5142,6 +6400,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Open Sans": {
@@ -5159,6 +6420,10 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Orbitron": {
@@ -5170,13 +6435,17 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Oregano": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Oswald": {
     "tags": [
@@ -5187,6 +6456,9 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Outfit": {
@@ -5198,13 +6470,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Overlock": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Overpass": {
     "tags": [
@@ -5216,6 +6492,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Overpass Mono": {
@@ -5227,6 +6506,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Oxanium": {
@@ -5238,25 +6520,31 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "PT Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "PT Serif": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "PT Serif Caption": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Parastoo": {
     "tags": [
@@ -5267,6 +6555,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Parkinsans": {
@@ -5278,6 +6569,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Pathway Extreme": {
@@ -5300,6 +6594,11 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 12,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Petrona": {
@@ -5312,13 +6611,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Philosopher": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Phudu": {
     "tags": [
@@ -5329,6 +6632,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Piazzolla": {
@@ -5346,6 +6652,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Pixelify Sans": {
@@ -5357,6 +6667,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Platypi": {
@@ -5369,6 +6682,9 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playfair": {
@@ -5391,6 +6707,11 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Playfair Display": {
@@ -5403,13 +6724,17 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playfair Display SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Playpen Sans": {
     "tags": [
@@ -5420,6 +6745,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playpen Sans Arabic": {
@@ -5431,6 +6759,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playpen Sans Deva": {
@@ -5442,6 +6773,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playpen Sans Hebrew": {
@@ -5453,6 +6787,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playpen Sans Thai": {
@@ -5464,6 +6801,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AR": {
@@ -5475,6 +6815,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AT": {
@@ -5487,13 +6830,17 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AT Guides": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Playwrite AU NSW": {
     "tags": [
@@ -5504,6 +6851,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AU QLD": {
@@ -5515,6 +6865,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AU SA": {
@@ -5526,6 +6879,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AU TAS": {
@@ -5537,6 +6893,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite AU VIC": {
@@ -5548,6 +6907,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite BE VLG": {
@@ -5559,6 +6921,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite BE WAL": {
@@ -5570,6 +6935,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite BR": {
@@ -5581,6 +6949,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite CA": {
@@ -5592,6 +6963,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite CL": {
@@ -5603,6 +6977,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite CO": {
@@ -5614,6 +6991,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite CU": {
@@ -5625,6 +7005,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite CZ": {
@@ -5636,6 +7019,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DE Grund": {
@@ -5647,6 +7033,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DE LA": {
@@ -5658,6 +7047,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DE SAS": {
@@ -5669,6 +7061,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DE VA": {
@@ -5680,6 +7075,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DK Loopet": {
@@ -5691,6 +7089,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite DK Uloopet": {
@@ -5702,6 +7103,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite ES": {
@@ -5713,6 +7117,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite ES Deco": {
@@ -5724,6 +7131,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite FR Moderne": {
@@ -5735,6 +7145,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite FR Trad": {
@@ -5746,6 +7159,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite GB J": {
@@ -5758,13 +7174,17 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite GB J Guides": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Playwrite GB S": {
     "tags": [
@@ -5776,13 +7196,17 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite GB S Guides": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Playwrite HR": {
     "tags": [
@@ -5793,6 +7217,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite HR Lijeva": {
@@ -5804,6 +7231,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite HU": {
@@ -5815,6 +7245,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite ID": {
@@ -5826,6 +7259,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite IE": {
@@ -5837,6 +7273,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite IN": {
@@ -5848,6 +7287,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite IS": {
@@ -5859,6 +7301,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite IT Moderna": {
@@ -5870,6 +7315,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite IT Trad": {
@@ -5881,6 +7329,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite MX": {
@@ -5892,6 +7343,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite NG Modern": {
@@ -5903,6 +7357,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite NL": {
@@ -5914,6 +7371,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite NO": {
@@ -5925,6 +7385,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite NZ": {
@@ -5936,6 +7399,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite PE": {
@@ -5947,6 +7413,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite PL": {
@@ -5958,6 +7427,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite PT": {
@@ -5969,6 +7441,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite RO": {
@@ -5980,6 +7455,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite SK": {
@@ -5991,6 +7469,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite TZ": {
@@ -6002,6 +7483,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite US Modern": {
@@ -6013,6 +7497,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite US Trad": {
@@ -6024,6 +7511,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite VN": {
@@ -6035,6 +7525,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Playwrite ZA": {
@@ -6046,6 +7539,9 @@
         100,
         400
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Plus Jakarta Sans": {
@@ -6058,6 +7554,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Podkova": {
@@ -6069,6 +7568,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Poltawski Nowy": {
@@ -6081,13 +7583,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Poly": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Pontano Sans": {
     "tags": [
@@ -6098,25 +7604,31 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Poppins": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Prompt": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Proza Libre": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Public Sans": {
     "tags": [
@@ -6128,25 +7640,31 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Puritan": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Quantico": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Quattrocento Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Quicksand": {
     "tags": [
@@ -6157,6 +7675,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "REM": {
@@ -6169,6 +7690,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Radio Canada": {
@@ -6186,6 +7710,10 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Radio Canada Big": {
@@ -6198,13 +7726,17 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Radley": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Raleway": {
     "tags": [
@@ -6216,13 +7748,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Rambla": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Rasa": {
     "tags": [
@@ -6234,6 +7770,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Readex Pro": {
@@ -6250,6 +7789,10 @@
         160,
         700
       ]
+    },
+    "defaults": {
+      "HEXP": 0,
+      "wght": 400
     }
   },
   "Recursive": {
@@ -6281,6 +7824,13 @@
         300,
         1000
       ]
+    },
+    "defaults": {
+      "CASL": 0,
+      "CRSV": 0.5,
+      "MONO": 0,
+      "slnt": 0,
+      "wght": 400
     }
   },
   "Red Hat Display": {
@@ -6293,6 +7843,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Red Hat Mono": {
@@ -6305,6 +7858,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Red Hat Text": {
@@ -6317,6 +7873,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Red Rose": {
@@ -6328,6 +7887,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Reddit Mono": {
@@ -6339,6 +7901,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Reddit Sans": {
@@ -6351,6 +7916,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Reddit Sans Condensed": {
@@ -6362,6 +7930,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Reem Kufi": {
@@ -6373,6 +7944,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Reem Kufi Fun": {
@@ -6384,6 +7958,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Rethink Sans": {
@@ -6396,6 +7973,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Roboto": {
@@ -6413,6 +7993,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Roboto Condensed": {
@@ -6425,6 +8009,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Roboto Flex": {
@@ -6496,6 +8083,21 @@
         100,
         1000
       ]
+    },
+    "defaults": {
+      "GRAD": 0,
+      "XOPQ": 96,
+      "XTRA": 468,
+      "YOPQ": 79,
+      "YTAS": 750,
+      "YTDE": -203,
+      "YTFI": 738,
+      "YTLC": 514,
+      "YTUC": 712,
+      "opsz": 14,
+      "slnt": 0,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Roboto Mono": {
@@ -6508,6 +8110,9 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Roboto Serif": {
@@ -6535,6 +8140,12 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "GRAD": 0,
+      "opsz": 14,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Roboto Slab": {
@@ -6546,6 +8157,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Rokkitt": {
@@ -6558,13 +8172,17 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ropa Sans": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Rosario": {
     "tags": [
@@ -6576,13 +8194,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Rosarivo": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Rubik": {
     "tags": [
@@ -6594,6 +8216,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ruda": {
@@ -6605,6 +8230,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "STIX Two Text": {
@@ -6617,6 +8245,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "SUSE": {
@@ -6628,6 +8259,9 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Saira": {
@@ -6645,25 +8279,32 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Sanchez": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sansation": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sansita": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sansita Swashed": {
     "tags": [
@@ -6674,13 +8315,17 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sarabun": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Savate": {
     "tags": [
@@ -6692,13 +8337,17 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Scada": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Schibsted Grotesk": {
     "tags": [
@@ -6710,13 +8359,17 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sedan": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sen": {
     "tags": [
@@ -6727,6 +8380,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Shantell Sans": {
@@ -6754,13 +8410,20 @@
         300,
         800
       ]
+    },
+    "defaults": {
+      "BNCE": 0,
+      "INFM": 0,
+      "SPAC": 0,
+      "wght": 400
     }
   },
   "Share": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Signika": {
     "tags": [
@@ -6776,6 +8439,10 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "GRAD": 0,
+      "wght": 400
     }
   },
   "Signika Negative": {
@@ -6787,13 +8454,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Simonetta": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sixtyfour": {
     "tags": [
@@ -6809,6 +8480,10 @@
         -53,
         100
       ]
+    },
+    "defaults": {
+      "BLED": 0,
+      "SCAN": 0
     }
   },
   "Sixtyfour Convergence": {
@@ -6835,6 +8510,12 @@
         -100,
         100
       ]
+    },
+    "defaults": {
+      "BLED": 0,
+      "SCAN": 0,
+      "XELA": 0,
+      "YELA": 0
     }
   },
   "Smooch Sans": {
@@ -6846,6 +8527,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sofia Sans": {
@@ -6858,6 +8542,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sofia Sans Condensed": {
@@ -6870,6 +8557,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sofia Sans Extra Condensed": {
@@ -6882,6 +8572,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sofia Sans Semi Condensed": {
@@ -6894,6 +8587,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sometype Mono": {
@@ -6906,6 +8602,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sono": {
@@ -6922,6 +8621,10 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "MONO": 1,
+      "wght": 400
     }
   },
   "Sora": {
@@ -6933,13 +8636,17 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Sorts Mill Goudy": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Sour Gummy": {
     "tags": [
@@ -6956,6 +8663,10 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Source Code Pro": {
@@ -6968,6 +8679,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Source Sans 3": {
@@ -6980,6 +8694,9 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Source Serif 4": {
@@ -6997,6 +8714,10 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wght": 400
     }
   },
   "Space Grotesk": {
@@ -7008,13 +8729,17 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Space Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Special Gothic": {
     "tags": [
@@ -7030,19 +8755,25 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Spectral": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Spectral SC": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Spline Sans": {
     "tags": [
@@ -7053,6 +8784,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Spline Sans Mono": {
@@ -7065,6 +8799,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Stick No Bills": {
@@ -7076,6 +8813,9 @@
         200,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Syne": {
@@ -7087,6 +8827,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "TASA Explorer": {
@@ -7098,6 +8841,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "TASA Orbiter": {
@@ -7109,13 +8855,17 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Taviraj": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Teachers": {
     "tags": [
@@ -7127,6 +8877,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Teko": {
@@ -7138,6 +8891,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Tektur": {
@@ -7154,6 +8910,10 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Texturina": {
@@ -7171,13 +8931,18 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 12,
+      "wght": 400
     }
   },
   "Thasadith": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "TikTok Sans": {
     "tags": [
@@ -7203,6 +8968,12 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "slnt": 0,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Tilt Neon": {
@@ -7219,6 +8990,10 @@
         -45,
         45
       ]
+    },
+    "defaults": {
+      "XROT": 0,
+      "YROT": 0
     }
   },
   "Tilt Prism": {
@@ -7235,6 +9010,10 @@
         -45,
         45
       ]
+    },
+    "defaults": {
+      "XROT": 0,
+      "YROT": 0
     }
   },
   "Tilt Warp": {
@@ -7251,73 +9030,88 @@
         -45,
         45
       ]
+    },
+    "defaults": {
+      "XROT": 0,
+      "YROT": 0
     }
   },
   "Tinos": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Bangla": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Devanagari Hindi": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Devanagari Marathi": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Devanagari Sanskrit": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Gurmukhi": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Kannada": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Tamil": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tiro Telugu": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Titillium Web": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tomorrow": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Tourney": {
     "tags": [
@@ -7334,13 +9128,18 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Trirong": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Trispace": {
     "tags": [
@@ -7356,13 +9155,18 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Trochut": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Truculenta": {
     "tags": [
@@ -7383,25 +9187,33 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "opsz": 14,
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Tuffy": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Ubuntu": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Ubuntu Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Ubuntu Sans": {
     "tags": [
@@ -7418,6 +9230,10 @@
         100,
         800
       ]
+    },
+    "defaults": {
+      "wdth": 100,
+      "wght": 400
     }
   },
   "Ubuntu Sans Mono": {
@@ -7430,6 +9246,9 @@
         400,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Unbounded": {
@@ -7441,13 +9260,17 @@
         200,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Unna": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Urbanist": {
     "tags": [
@@ -7459,6 +9282,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Varta": {
@@ -7470,6 +9296,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Vazirmatn": {
@@ -7481,6 +9310,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Vend Sans": {
@@ -7493,6 +9325,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Victor Mono": {
@@ -7505,13 +9340,17 @@
         100,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Volkhov": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Vollkorn": {
     "tags": [
@@ -7523,6 +9362,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Wavefont": {
@@ -7544,6 +9386,11 @@
         4,
         1000
       ]
+    },
+    "defaults": {
+      "ROND": 100,
+      "YELA": -100,
+      "wght": 400
     }
   },
   "Winky Rough": {
@@ -7556,6 +9403,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Winky Sans": {
@@ -7568,6 +9418,9 @@
         300,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Wittgenstein": {
@@ -7580,6 +9433,9 @@
         400,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Wix Madefor Display": {
@@ -7591,6 +9447,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Wix Madefor Text": {
@@ -7603,6 +9462,9 @@
         400,
         800
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Work Sans": {
@@ -7615,6 +9477,9 @@
         100,
         900
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Workbench": {
@@ -7631,13 +9496,18 @@
         -53,
         100
       ]
+    },
+    "defaults": {
+      "BLED": 0,
+      "SCAN": 0
     }
   },
   "Xanh Mono": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Yaldevi": {
     "tags": [
@@ -7648,6 +9518,9 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Yanone Kaffeesatz": {
@@ -7659,6 +9532,9 @@
         200,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Yrsa": {
@@ -7671,6 +9547,9 @@
         300,
         700
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ysabeau": {
@@ -7683,6 +9562,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ysabeau Infant": {
@@ -7695,6 +9577,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ysabeau Office": {
@@ -7707,6 +9592,9 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Ysabeau SC": {
@@ -7718,24 +9606,30 @@
         1,
         1000
       ]
+    },
+    "defaults": {
+      "wght": 400
     }
   },
   "Zain": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Zen Loop": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   },
   "Zilla Slab": {
     "tags": [
       "ital"
     ],
-    "ranges": {}
+    "ranges": {},
+    "defaults": {}
   }
 }

@@ -2,10 +2,13 @@
 /*
  Generate data/css2-axis-ranges.json from docs/fonts
 
- - Reads per-family axes (tag/min/max)
+ - Reads per-family axes (tag/min/max/defaultValue)
  - Adds 'ital' tag when italic styles exist in family (e.g., keys ending with 'i')
  - Keeps only css2-registered tags: ital, wdth, wght, slnt, opsz
- - Writes tags (ordered with ital first when present) and numeric ranges for non-boolean tags
+ - Writes:
+   - tags (ordered with lowercase first, then uppercase)
+   - ranges: numeric [min, max] for non-boolean tags
+   - defaults: per-axis defaultValue from docs/fonts when provided
 */
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +34,7 @@ function main() {
   // (css2 URL builder will later filter to standard tags for tuples)
   const orderHint = ['ital', 'wdth', 'wght', 'slnt', 'opsz'];
 
-  const out = {};
+ const out = {};
   for (const fam of list) {
     const name = fam.family || fam.name;
     if (!name) continue;
@@ -39,6 +42,7 @@ function main() {
     const axes = Array.isArray(fam.axes) ? fam.axes : [];
     const tagsSet = new Set();
     const ranges = {};
+    const defaults = {};
 
     // Collect ranges from axes entries — include all axes present
     for (const ax of axes) {
@@ -56,6 +60,10 @@ function main() {
       if (typeof min === 'number' && typeof max === 'number') {
         ranges[tag] = [min, max];
       }
+      const def = roundMaybe(ax.defaultValue);
+      if (typeof def === 'number' && !Number.isNaN(def)) {
+        defaults[tag] = def;
+      }
     }
 
     // Add ital if family has italic styles in `fonts` map
@@ -70,7 +78,7 @@ function main() {
     const tags = [...lower, ...upper];
     if (tags.length === 0) continue; // nothing to emit
 
-    out[name] = { tags, ranges };
+    out[name] = { tags, ranges, defaults };
   }
 
   if (!fs.existsSync(OUTDIR)) fs.mkdirSync(OUTDIR, { recursive: true });
