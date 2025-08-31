@@ -144,108 +144,49 @@ async function getOrCreateFontDefinition(fontName) {
     try { await ensureGfMetadata(); } catch (e) { console.warn('GF metadata load failed:', e); }
 
     const axesFromMetadata = getAxesForFamilyFromMetadata(fontName);
-    const cssInfo = await fetchGoogleCssInfo(fontName, axesFromMetadata);
+    // Build from runtime metadata map (no remote CSS/fvar probing)
+    try { await ensureCss2AxisRanges(); } catch (_) {}
+    const curated = css2AxisRanges && css2AxisRanges[fontName] ? css2AxisRanges[fontName] : null;
 
-    // Prefer exact fvar parsing when we can fetch a TTF (or decode WOFF2) and opentype is available
-    let fromFvar = null;
-    try {
-        if (isOpentypeAvailable()) {
-            const fontUrl = extractFirstFontUrl(cssInfo.cssText);
-            try {
-                if (fontUrl) {
-                    const fmt = /\.([a-z0-9]+)(?:\?|$)/i.exec(fontUrl)?.[1] || 'unknown';
-                    console.log(`[Fonts] ${fontName}: extracted primary font URL (${fmt}): ${fontUrl}`);
-                } else {
-                    console.warn(`[Fonts] ${fontName}: no direct font URL extracted from css2`);
-                }
-            } catch (_) {}
-            if (fontUrl) {
-                const sfntBuffer = await fetchSfntBuffer(fontUrl);
-                if (sfntBuffer) fromFvar = parseFvarFromSfnt(sfntBuffer);
-            }
-        }
-    } catch (e) {
-        console.warn('fvar parsing failed; falling back to CSS detection', e);
-    }
-
-    // Gather CSS hints (for ital, etc.)
-    const cssAxisHints = deriveAxisRangesFromCss(cssInfo.cssText);
-    // Try to derive registered axis ranges from CSS when fvar unavailable
-    const axisRanges = fromFvar?.ranges || cssAxisHints;
-
-    // Load curated defaults/ranges from local dataset (used only when fvar is unavailable)
-    let curated = null;
-    if (!fromFvar) {
-        try { await ensureCss2AxisRanges(); } catch (_) {}
-        curated = css2AxisRanges && css2AxisRanges[fontName] ? css2AxisRanges[fontName] : null;
-    }
-
-    // Compose axes list: registered from CSS + any remaining from metadata
+    // Compose axes list from curated.tags when present; else metadata tags
     const combinedAxes = new Set();
-    Object.keys(axisRanges || {}).forEach(a => combinedAxes.add(a));
+    if (curated && Array.isArray(curated.tags)) curated.tags.forEach(a => combinedAxes.add(a));
     axesFromMetadata.forEach(a => combinedAxes.add(a));
-    // Ensure ital is present when CSS advertises italic faces
-    if (cssAxisHints && cssAxisHints.ital) {
-        combinedAxes.add('ital');
-        if (!axisRanges.ital) {
-            axisRanges.ital = { min: 0, max: 1, def: 0 };
-        }
-    }
-    // Remove unknown ital/slnt conflicts: if css shows italic only with no slnt range, keep ital
-    if (combinedAxes.has('ital') && combinedAxes.has('slnt') && !('slnt' in axisRanges)) {
-        // keep both; users may want oblique vs italic
-    }
 
-    // Build defaults, ranges, steps
+    // Build defaults, ranges, steps strictly from curated/metadata
     const axes = Array.from(combinedAxes);
     const defaults = {};
     const ranges = {};
     const steps = {};
 
     axes.forEach(axis => {
-        if (axisRanges && axisRanges[axis]) {
-            ranges[axis] = [axisRanges[axis].min, axisRanges[axis].max];
-            // Use fvar/CSS-provided default when present
-            defaults[axis] = axisRanges[axis].def;
-            // If no default from CSS hints and curated has one (and we are not using fvar), prefer curated
-            if ((defaults[axis] === undefined || defaults[axis] === null) && curated && curated.defaults && (axis in curated.defaults)) {
-                defaults[axis] = curated.defaults[axis];
-            }
-            steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
-        } else {
-            // Fallbacks for axes present in metadata but not in CSS
-            switch (axis) {
-                case 'wght':
-                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [100, 1000];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.wght;
-                    steps[axis] = AXIS_STEP_DEFAULTS.wght;
-                    break;
-                case 'wdth':
-                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [75, 125];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.wdth;
-                    steps[axis] = AXIS_STEP_DEFAULTS.wdth;
-                    break;
-                case 'opsz':
-                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [8, 144];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.opsz;
-                    steps[axis] = AXIS_STEP_DEFAULTS.opsz;
-                    break;
-                case 'slnt':
-                    ranges[axis] = [-10, 0];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.slnt;
-                    steps[axis] = AXIS_STEP_DEFAULTS.slnt;
-                    break;
-                case 'ital':
-                    ranges[axis] = [0, 1];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : AXIS_DEFAULTS.ital;
-                    steps[axis] = AXIS_STEP_DEFAULTS.ital;
-                    break;
-                default:
-                    // Unknown/custom axis: conservative generic fallback
-                    ranges[axis] = (curated && curated.ranges && Array.isArray(curated.ranges[axis])) ? curated.ranges[axis] : [0, 1000];
-                    defaults[axis] = (curated && curated.defaults && (axis in curated.defaults)) ? curated.defaults[axis] : 0;
-                    steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
-            }
+        const curatedRange = curated && curated.ranges ? curated.ranges[axis] : undefined;
+        const curatedDefault = curated && curated.defaults ? curated.defaults[axis] : undefined;
+        switch (axis) {
+            case 'wght':
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [100, 1000];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : AXIS_DEFAULTS.wght;
+                steps[axis] = AXIS_STEP_DEFAULTS.wght; break;
+            case 'wdth':
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [75, 125];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : AXIS_DEFAULTS.wdth;
+                steps[axis] = AXIS_STEP_DEFAULTS.wdth; break;
+            case 'opsz':
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [8, 144];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : AXIS_DEFAULTS.opsz;
+                steps[axis] = AXIS_STEP_DEFAULTS.opsz; break;
+            case 'slnt':
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [-10, 0];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : AXIS_DEFAULTS.slnt;
+                steps[axis] = AXIS_STEP_DEFAULTS.slnt; break;
+            case 'ital':
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [0, 1];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : AXIS_DEFAULTS.ital;
+                steps[axis] = AXIS_STEP_DEFAULTS.ital; break;
+            default:
+                ranges[axis] = Array.isArray(curatedRange) ? curatedRange : [0, 1000];
+                defaults[axis] = (curatedDefault !== undefined) ? curatedDefault : 0;
+                steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
         }
     });
 
@@ -412,29 +353,17 @@ function getAxesForFamilyFromMetadata(fontName) {
 
 async function ensureGfMetadata() {
     if (gfMetadata) return gfMetadata;
-    const url = 'https://fonts.google.com/metadata/fonts';
     try {
-        const res = await fetch(url, { credentials: 'omit' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-        // Strip XSSI prefix if present
-        const json = text.replace(/^\)\]\}'\n?/, '');
-        gfMetadata = JSON.parse(json);
+        const resLocal = await fetch('data/gf-axis-registry.json', { credentials: 'omit' });
+        if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+        const textLocal = await resLocal.text();
+        const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
+        gfMetadata = JSON.parse(jsonLocal);
         return gfMetadata;
-    } catch (e) {
-        console.warn('GF metadata fetch failed; falling back to local data/gf-axis-registry.json', e);
-        try {
-            const resLocal = await fetch('data/gf-axis-registry.json', { credentials: 'omit' });
-            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-            const textLocal = await resLocal.text();
-            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
-            gfMetadata = JSON.parse(jsonLocal);
-            return gfMetadata;
-        } catch (e2) {
-            console.warn('Local metadata fallback failed; proceeding with empty metadata', e2);
-            gfMetadata = { familyMetadataList: [] };
-            return gfMetadata;
-        }
+    } catch (e2) {
+        console.warn('Local metadata load failed; proceeding with empty metadata', e2);
+        gfMetadata = { familyMetadataList: [] };
+        return gfMetadata;
     }
 }
 

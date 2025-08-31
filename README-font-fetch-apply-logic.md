@@ -10,14 +10,13 @@ Overview
 Sources & Permissions
 ---------------------
 - Google Fonts:
-  - Metadata: `https://fonts.google.com/metadata/fonts` (to build the family list and per‑family axis tags/ranges/defaults). If this network call fails, a local fallback is used from `data/gf-axis-registry.json` bundled with the extension.
-  - Update local metadata: `npm run gf:update` writes a fresh copy to `data/gf-axis-registry.json`.
-  - CSS2: axis‑tag URL built from metadata (see “CSS2 Axis Map”), otherwise plain css2.
-  - Font files: served by Google (TTF/OTF or WOFF2).
+  - Metadata: bundled `data/gf-axis-registry.json` (family list + axis tags/ranges/defaults). Update via `npm run gf:update`.
+  - CSS2: axis‑tag URL built from metadata (see “CSS2 Axis Map”) and added via a `<link>`.
+  - Font files: downloaded by the browser via the css2 stylesheet (no host permissions required).
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
   - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
-- Manifest permissions/CSP allow all above hosts for style and font loading.
+- Permissions: no host permissions requested. CSP allows style/font loads from required CDNs.
 
 Selection → Load Flow
 ---------------------
@@ -29,14 +28,9 @@ Selection → Load Flow
 
 Axis Discovery (getOrCreateFontDefinition)
 -----------------------------------------
-File refs: `popup.js:136`, `popup.js:240`, `popup.js:378`
-- Fetch metadata (once per session): `ensureGfMetadata()` → family list and axis tags.
-- Prefer exact fvar parsing:
-  - Extract a font URL from the css2 (already added to the page) with `extractFirstFontUrl`.
-  - If TTF/OTF: fetch and parse `fvar` via `opentype.js`.
-  - If only WOFF2: lazy‑load the vendored decoder (fonteditor‑core wasm) and convert WOFF2→TTF, then parse `fvar`.
-- If fvar is unavailable: fall back to CSS hints for registered axes (only when present in css2): `wght`/`wdth`/`slnt` ranges and `ital` presence; and use axis defaults derived from Google Fonts metadata when available.
-- Build `axes/defaults/ranges/steps`, cache in `dynamicFontDefinitions`.
+File refs: `popup.js:136`
+- Load bundled metadata once: `ensureGfMetadata()` → family list + axis tags/ranges/defaults.
+- Build `axes/defaults/ranges/steps` entirely from metadata (no remote CSS probing, no fvar parsing), cache in `dynamicFontDefinitions`.
 
 CSS2 Axis Map (no probing)
 --------------------------
@@ -48,7 +42,7 @@ CSS2 Axis Map (no probing)
 
 - URL composition: `buildCss2Url()`
   - Uses the runtime map to compose `family=<Name>:<tags>@<tuple>[;…]&display=swap`. Ital yields two tuples (0,…;1,…).
-  - If metadata lacks entries for a family, falls back to the plain css2 URL and relies on fvar parsing + CSS property mapping for wdth/slnt/ital.
+  - If metadata lacks entries for a family, falls back to the plain css2 URL; only registered axes inferred by the browser will apply.
   - Example (Merriweather): `family=Merriweather:ital,opsz,wdth,wght@0,18..144,87..112,300..900;1,18..144,87..112,300..900`
   - Example (Roboto Flex): `family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC@…`
 
