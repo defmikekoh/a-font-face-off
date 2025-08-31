@@ -1063,8 +1063,18 @@ function selectFont(name) {
     const triggerOpen = (pos) => () => open(pos);
     topTrigger?.addEventListener('click', triggerOpen('top'));
     bottomTrigger?.addEventListener('click', triggerOpen('bottom'));
-    topTrigger?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open('top'); } });
-    bottomTrigger?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open('bottom'); } });
+    topTrigger?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            open('top');
+        }
+    });
+    bottomTrigger?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            open('bottom');
+        }
+    });
     closeBtn?.addEventListener('click', close);
     cancelBtn?.addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
