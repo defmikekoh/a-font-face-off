@@ -76,11 +76,9 @@ File refs: `popup.js:720` (setup), `popup.html` (modal markup), `popup.css` (sty
 - Search filters the list; A–Z rail jumps within the scrollable list (title bar and rail remain fixed).
 - Opens by clicking the Font Family field; closes via X, overlay click, or Esc.
 
-Decoder & Parsers
+No Remote Probing
 -----------------
-- opentype.js (vendored as `lib/opentype.min.js`) parses `fvar` from TTF/OTF.
-- WOFF2 decoder: vendored from `fonteditor-core@2.6.3` (as `lib/fonteditor-woff2.js/.wasm`).
-  - Loaded on demand; configured via `ensureFonteditorWoff2()` so the wasm path resolves.
+- No CSS probing or fvar parsing. Axes and defaults come from metadata only.
 
 Notable Edge Cases
 ------------------
@@ -95,13 +93,11 @@ Logging
 - The loader logs:
   - `Loading css2 …` / `css2 loaded` / `css2 failed`
   - `Using metadata-derived axis-tag css2 …` (when map is used)
-  - `Downloading font binary …` and whether WOFF2→TTF decoding is used
+  - (Removed) No binary downloads or WOFF2 decoding
 
 Key Code References
 -------------------
 - `popup.js:1034` — `loadFont(position, fontName)`
 - `popup.js:1107` — `loadGoogleFont(fontName)` (css2 link)
-- `popup.js:136` — `getOrCreateFontDefinition(fontName)` (fvar/CSS axes discovery + cache)
-- `popup.js:240` — `extractFirstFontUrl(cssText)` (prefer TTF/OTF)
-- `popup.js:378` — `deriveAxisRangesFromCss(cssText)` (registered axes)
+- `popup.js:136` — `getOrCreateFontDefinition(fontName)` (metadata-derived axes/defaults)
 - `popup.js:1386` — `applyFont(position)` (style application + persistence)

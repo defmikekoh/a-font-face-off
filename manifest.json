@@ -26,11 +26,7 @@
 
   "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.gstatic.com https://static.files.bbci.co.uk https://fonts.cdnfonts.com;",
 
-  "web_accessible_resources": [
-    "lib/opentype.min.js",
-    "lib/fonteditor-woff2.js",
-    "lib/fonteditor-woff2.wasm"
-  ],
+  
 
   "applications": {
     "gecko": {

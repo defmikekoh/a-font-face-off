@@ -5,8 +5,8 @@ Compare two fonts quickly and explore their variable axes directly in your brows
 ## Highlights
 
 - Pick any Google Font at runtime via the Font Picker modal (search + A–Z rail)
-- Variable axes sliders generated automatically from the font’s fvar table (exact min/default/max)
-- Works even when Google serves WOFF2 only (bundled WOFF2→TTF decoder + opentype.js)
+- Variable axes sliders generated automatically from Google Fonts metadata (tags, ranges, defaults)
+- No remote probing or binary parsing; fonts load via css2 and CSP only
 - Only axes you “activate” get applied, so defaults stay true until you tweak them
 - Per‑panel favorites (save, load, edit) and persistent state across sessions
 - Custom font hosts supported (not bundled): BBC Reith Serif (static.files.bbci.co.uk), ABC Ginto Normal Unlicensed Trial (fonts.cdnfonts.com)
