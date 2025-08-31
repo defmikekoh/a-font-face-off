@@ -442,15 +442,15 @@ body {
 
 /* Active (set) state - white icons */
 .control-group:not(.unset) .axis-info-btn {
-    background: white;
-    color: #3498db;
+    background: #3498db;
+    color: #ffffff; /* active question mark white */
     border: 1px solid #3498db;
 }
 
 .control-group:not(.unset) .axis-info-btn:hover {
-    background: #3498db;
-    color: white;
-    border-color: #3498db;
+    background: #2980b9;
+    color: #ffffff;
+    border-color: #2980b9;
 }
 
 .control-group:not(.unset) .axis-reset-btn {

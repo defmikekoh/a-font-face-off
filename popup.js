@@ -103,6 +103,7 @@ const fontDefinitions = {
 
 // Google Fonts metadata cache
 let gfMetadata = null;
+let css2AxisRanges = null; // loaded from data/css2-axis-ranges.json
 
 // Heuristic steps when not specified per-axis
 const AXIS_STEP_DEFAULTS = {
@@ -150,6 +151,14 @@ async function getOrCreateFontDefinition(fontName) {
     try {
         if (isOpentypeAvailable()) {
             const fontUrl = extractFirstFontUrl(cssInfo.cssText);
+            try {
+                if (fontUrl) {
+                    const fmt = /\.([a-z0-9]+)(?:\?|$)/i.exec(fontUrl)?.[1] || 'unknown';
+                    console.log(`[Fonts] ${fontName}: extracted primary font URL (${fmt}): ${fontUrl}`);
+                } else {
+                    console.warn(`[Fonts] ${fontName}: no direct font URL extracted from css2`);
+                }
+            } catch (_) {}
             if (fontUrl) {
                 const sfntBuffer = await fetchSfntBuffer(fontUrl);
                 if (sfntBuffer) fromFvar = parseFvarFromSfnt(sfntBuffer);
@@ -278,6 +287,7 @@ function extractFirstFontUrl(cssText) {
 }
 
 async function fetchSfntBuffer(fontUrl) {
+    try { console.log(`[Fonts] Downloading font binary: ${fontUrl}`); } catch (_) {}
     const res = await fetch(fontUrl, { credentials: 'omit' });
     const buf = await res.arrayBuffer();
     if (/\.(ttf|otf)(\?|$)/i.test(fontUrl)) {
@@ -289,6 +299,7 @@ async function fetchSfntBuffer(fontUrl) {
             await ensureFonteditorWoff2();
             const mod = window.__fonteditorWoff2Module;
             if (mod && typeof mod.woff2Dec === 'function') {
+                try { console.log('[Fonts] Using fonteditor-core WASM decoder for WOFF2→TTF'); } catch (_) {}
                 const vec = mod.woff2Dec(input, input.byteLength);
                 if (vec && typeof vec.size === 'function' && typeof vec.get === 'function') {
                     const len = vec.size();
@@ -362,13 +373,29 @@ function parseFvarFromSfnt(sfntBuffer) {
 }
 
 function getAxesForFamilyFromMetadata(fontName) {
-    if (!gfMetadata) return [];
-    const fam = gfMetadata.familyMetadata?.find(f => f.family === fontName) || gfMetadata.families?.find(f => f.family === fontName);
+    if (!gfMetadata || !fontName) return [];
+    const lists = [
+        gfMetadata.familyMetadataList,
+        gfMetadata.familyMetadata,
+        gfMetadata.families
+    ].filter(Boolean);
+
+    let fam = null;
+    const target = String(fontName).toLowerCase();
+    for (const list of lists) {
+        fam = list.find(f => String(f.family || f.name || '').toLowerCase() === target);
+        if (fam) break;
+    }
     if (!fam) return [];
-    // Some metadata shapes: `axes` or `axesTags`
-    const axes = fam.axes || fam.axesTags || [];
-    // Normalize axes tags
-    return Array.from(new Set(axes.map(a => (typeof a === 'string' ? a : a.tag || a.axis || a))));
+
+    // Some metadata shapes: `axes`, `axesTags`, or array of objects with { tag }
+    const raw = fam.axes || fam.axesTags || fam.axes_tags || [];
+    const tags = Array.from(new Set((Array.isArray(raw) ? raw : [raw]).flat().map(a => {
+        if (typeof a === 'string') return a;
+        if (a && typeof a === 'object') return a.tag || a.axis || a.name || '';
+        return '';
+    }).filter(Boolean)));
+    return tags;
 }
 
 async function ensureGfMetadata() {
@@ -393,6 +420,7 @@ async function fetchGoogleCssInfo(fontName, axesList) {
     const axisParam = axesList && axesList.length ? `:${axesList.join(',')}` : '';
     const cssUrl = `https://fonts.googleapis.com/css2?family=${familyParam}${axisParam}&display=swap`;
     // Fetch CSS to discover the actual @font-face descriptors
+    try { console.log(`[Fonts] Fetch css2 for ${fontName}: ${cssUrl}`); } catch (_) {}
     const res = await fetch(cssUrl, { credentials: 'omit' });
     const cssText = await res.text();
     return { cssUrl, cssText };
@@ -1167,15 +1195,69 @@ async function loadGoogleFont(fontName) {
     // Check if font is already loaded
     const existingLink = document.querySelector(`link[data-font="${fontName}"]`);
     if (existingLink) return;
-    // Use generic Google Fonts URL. Variable axes work without enumerating ranges here.
-    const fontUrl = `https://fonts.googleapis.com/css2?family=${familyToQuery(fontName)}&display=swap`;
+    // Prefer axis-tag form to guarantee variable family + axes are served
+    const fontUrl = await buildCss2Url(fontName);
 
     // Create and append link element
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = fontUrl;
     link.setAttribute('data-font', fontName);
+    try {
+        console.log(`[Fonts] Loading css2 for ${fontName}: ${fontUrl}`);
+    } catch (_) {}
+    link.onload = () => { try { console.log(`[Fonts] css2 loaded for ${fontName}`); } catch (_) {} };
+    link.onerror = () => { try { console.warn(`[Fonts] css2 failed for ${fontName}: ${fontUrl}`); } catch (_) {} };
     document.head.appendChild(link);
+}
+
+// Build a css2 URL that includes axis tags when available (e.g., :ital,wdth,wght)
+async function buildCss2Url(fontName) {
+    const familyParam = familyToQuery(fontName);
+    // Prefer curated axis-tag ranges from local data file (no probe)
+    try { await ensureCss2AxisRanges(); } catch (_) {}
+    const entry = css2AxisRanges && css2AxisRanges[fontName];
+    if (entry && entry.tags && entry.tags.length) {
+        // Include ALL axes present in data (ital + custom), but drop any tag lacking a numeric range
+        const tagsRaw = entry.tags.slice();
+        const filtered = tagsRaw.filter(tag => {
+            if (tag === 'ital') return true;
+            const r = entry.ranges && entry.ranges[tag];
+            return Array.isArray(r) && r.length === 2 && isFinite(r[0]) && isFinite(r[1]);
+        });
+        // Order requirement: alphabetical with lowercase tags first, then uppercase
+        const lower = filtered.filter(t => /^[a-z]+$/.test(t)).sort();
+        const upper = filtered.filter(t => /^[A-Z]+$/.test(t)).sort();
+        const orderedTags = [...lower, ...upper];
+        const hasItal = orderedTags.includes('ital');
+        const makeTuple = (italVal) => orderedTags.map(tag => {
+            if (tag === 'ital') return String(italVal);
+            const r = entry.ranges[tag];
+            return `${r[0]}..${r[1]}`;
+        }).join(',');
+        const tuples = hasItal ? [makeTuple(0), makeTuple(1)] : [makeTuple('')];
+        const url = orderedTags.length
+            ? `https://fonts.googleapis.com/css2?family=${familyParam}:${orderedTags.join(',')}@${tuples.join(';')}&display=swap`
+            : `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+        try { console.log(`[Fonts] Using curated axis-tag css2 for ${fontName}: ${url}`); } catch (_) {}
+        return url;
+    }
+    // Fallback: plain URL, rely on fvar parsing + CSS mapping to expose axes
+    const url = `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+    try { console.log(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
+    return url;
+}
+
+async function ensureCss2AxisRanges() {
+    if (css2AxisRanges) return css2AxisRanges;
+    try {
+        const res = await fetch('data/css2-axis-ranges.json', { credentials: 'omit' });
+        css2AxisRanges = await res.json();
+    } catch (e) {
+        console.warn('Failed to load css2 axis ranges mapping', e);
+        css2AxisRanges = {};
+    }
+    return css2AxisRanges;
 }
 
 function generateFontControls(position, fontName) {
@@ -1491,10 +1573,20 @@ function applyFont(position) {
     // Apply variable axes if available - only active ones
     if (fontDef && fontDef.axes && fontDef.axes.length > 0) {
         const activeAxes = position === 'top' ? topActiveAxes : bottomActiveAxes;
+        let wdthVal = null;
+        let slntVal = null;
+        let italVal = null;
         const variations = fontDef.axes.map(axis => {
             const control = document.getElementById(`${position}-${axis}`);
+            const isActive = control && activeAxes.has(axis);
+            if (isActive) {
+                const num = parseFloat(control.value);
+                if (axis === 'wdth') wdthVal = num;
+                if (axis === 'slnt') slntVal = num;
+                if (axis === 'ital') italVal = num;
+            }
             // Only include axis if it's been activated (touched)
-            return (control && activeAxes.has(axis)) ? `"${axis}" ${control.value}` : null;
+            return (isActive) ? `"${axis}" ${control.value}` : null;
         }).filter(Boolean).join(', ');
         
         if (variations) {
@@ -1506,10 +1598,35 @@ function applyFont(position) {
             textElement.style.fontVariationSettings = '';
             headingElement.style.fontVariationSettings = '';
         }
+
+        // For registered axes, map to high-level CSS properties (which take precedence)
+        if (wdthVal !== null) {
+            const pct = Math.max(1, Math.min(1000, wdthVal));
+            textElement.style.fontStretch = pct + '%';
+            headingElement.style.fontStretch = pct + '%';
+        } else {
+            textElement.style.fontStretch = '';
+            headingElement.style.fontStretch = '';
+        }
+
+        if (italVal !== null && italVal >= 1) {
+            textElement.style.fontStyle = 'italic';
+            headingElement.style.fontStyle = 'italic';
+        } else if (slntVal !== null && slntVal !== 0) {
+            textElement.style.fontStyle = `oblique ${slntVal}deg`;
+            headingElement.style.fontStyle = `oblique ${slntVal}deg`;
+        } else {
+            textElement.style.fontStyle = '';
+            headingElement.style.fontStyle = '';
+        }
     } else {
         // Ensure no leftover variations linger for non-variable fonts
         textElement.style.fontVariationSettings = '';
         headingElement.style.fontVariationSettings = '';
+        textElement.style.fontStretch = '';
+        headingElement.style.fontStretch = '';
+        textElement.style.fontStyle = '';
+        headingElement.style.fontStyle = '';
     }
     
     // Save state after applying font changes

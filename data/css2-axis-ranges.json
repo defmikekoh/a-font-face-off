@@ -1,0 +1,7741 @@
+{
+  "ABeeZee": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "AR One Sans": {
+    "tags": [
+      "wght",
+      "ARRR"
+    ],
+    "ranges": {
+      "ARRR": [
+        10,
+        60
+      ],
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Advent Pro": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        200
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Afacad": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Afacad Flux": {
+    "tags": [
+      "slnt",
+      "wght"
+    ],
+    "ranges": {
+      "slnt": [
+        -14,
+        14
+      ],
+      "wght": [
+        100,
+        1000
+      ]
+    }
+  },
+  "Agu Display": {
+    "tags": [
+      "MORF"
+    ],
+    "ranges": {
+      "MORF": [
+        0,
+        60
+      ]
+    }
+  },
+  "Akshar": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Albert Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Alegreya": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Alegreya SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alegreya Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alegreya Sans SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Aleo": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Alexandria": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Alkatra": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Almendra": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alumni Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Alumni Sans Collegiate One": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alumni Sans Inline One": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alumni Sans Pinstripe": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Alumni Sans SC": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Amaranth": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Amiri": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Anaheim": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Ancizar Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        1000
+      ]
+    }
+  },
+  "Ancizar Serif": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Andada Pro": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        840
+      ]
+    }
+  },
+  "Andika": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Anek Bangla": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Devanagari": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Gujarati": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Gurmukhi": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Kannada": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Latin": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Malayalam": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Odia": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Tamil": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anek Telugu": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Anonymous Pro": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Antonio": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Anuphan": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Anybody": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        50,
+        150
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Arapey": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Archivo": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Archivo Narrow": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Arima": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Arimo": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Arsenal": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Arsenal SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Arvo": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Asap": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Asap Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Assistant": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Asta Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Atkinson Hyperlegible": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Atkinson Hyperlegible Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Atkinson Hyperlegible Next": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Averia Libre": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Averia Sans Libre": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Averia Serif Libre": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Azeret Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "B612": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "B612 Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Bai Jamjuree": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Ballet": {
+    "tags": [
+      "opsz"
+    ],
+    "ranges": {
+      "opsz": [
+        16,
+        72
+      ]
+    }
+  },
+  "Baloo 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Bhai 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Bhaijaan 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Bhaina 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Chettan 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Da 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Paaji 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Tamma 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Tammudu 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Baloo Thambi 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Balsamiq Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Barlow": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Barlow Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Barlow Semi Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Baskervville": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Baskervville SC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Be Vietnam Pro": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Beiruti": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Bellota": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Bellota Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Besley": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Bevan": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Big Shoulders": {
+    "tags": [
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        10,
+        72
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Big Shoulders Inline": {
+    "tags": [
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        10,
+        72
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Big Shoulders Stencil": {
+    "tags": [
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        10,
+        72
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "BioRhyme": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        125
+      ],
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Bitcount": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitcount Grid Double": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitcount Grid Single": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitcount Prop Double": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitcount Prop Single": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitcount Single": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "ELSH",
+      "ELXP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "ELSH": [
+        0,
+        100
+      ],
+      "ELXP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -8,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bitter": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Bodoni Moda": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        6,
+        96
+      ],
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Bodoni Moda SC": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        6,
+        96
+      ],
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Bona Nova": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Bona Nova SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Bricolage Grotesque": {
+    "tags": [
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        12,
+        96
+      ],
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Brygada 1918": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Buenard": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Cabin": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Cairo": {
+    "tags": [
+      "slnt",
+      "wght"
+    ],
+    "ranges": {
+      "slnt": [
+        -11,
+        11
+      ],
+      "wght": [
+        200,
+        1000
+      ]
+    }
+  },
+  "Cairo Play": {
+    "tags": [
+      "slnt",
+      "wght"
+    ],
+    "ranges": {
+      "slnt": [
+        -11,
+        11
+      ],
+      "wght": [
+        200,
+        1000
+      ]
+    }
+  },
+  "Caladea": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cambay": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cantarell": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cardo": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Carlito": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cascadia Code": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Cascadia Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Castoro": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Catamaran": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Caudex": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Caveat": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Chakra Petch": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Changa": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Changa One": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Charis SIL": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Chau Philomene One": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Chiron GoRound TC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Chiron Hei HK": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Chiron Sung HK": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Chivo": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Chivo Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Cinzel": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Climate Crisis": {
+    "tags": [
+      "YEAR"
+    ],
+    "ranges": {
+      "YEAR": [
+        1979,
+        2050
+      ]
+    }
+  },
+  "Comfortaa": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Comic Neue": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Comme": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Commissioner": {
+    "tags": [
+      "slnt",
+      "wght",
+      "FLAR",
+      "VOLM"
+    ],
+    "ranges": {
+      "FLAR": [
+        0,
+        100
+      ],
+      "VOLM": [
+        0,
+        100
+      ],
+      "slnt": [
+        -12,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Cormorant": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Cormorant Garamond": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Cormorant Infant": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Courier Prime": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cousine": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Crete Round": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Crimson Pro": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Crimson Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Cuprum": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "DM Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "DM Sans": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        9,
+        40
+      ],
+      "wght": [
+        100,
+        1000
+      ]
+    }
+  },
+  "DM Serif Display": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "DM Serif Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Dai Banna SIL": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Dancing Script": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Danfo": {
+    "tags": [
+      "ELSH"
+    ],
+    "ranges": {
+      "ELSH": [
+        0,
+        100
+      ]
+    }
+  },
+  "Darker Grotesque": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Domine": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Dosis": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Doto": {
+    "tags": [
+      "wght",
+      "ROND"
+    ],
+    "ranges": {
+      "ROND": [
+        0,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "DynaPuff": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "EB Garamond": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Economica": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Eczar": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Edu AU VIC WA NT Arrows": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu AU VIC WA NT Dots": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu AU VIC WA NT Guides": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu AU VIC WA NT Hand": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu AU VIC WA NT Pre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu NSW ACT Cursive": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu NSW ACT Foundation": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu NSW ACT Hand Pre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu QLD Beginner": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu QLD Hand": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu SA Beginner": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu SA Hand": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu TAS Beginner": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu VIC WA NT Beginner": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu VIC WA NT Hand": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Edu VIC WA NT Hand Pre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "El Messiri": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Encode Sans": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Encode Sans SC": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Epilogue": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Epunda Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Epunda Slab": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Exo": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Exo 2": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Expletus Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Fahkwang": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Familjen Grotesk": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Fanwood Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Faustina": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Figtree": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Finlandica": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Fira Code": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Fira Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Fira Sans Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Fira Sans Extra Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Foldit": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Fondamento": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Fragment Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Frank Ruhl Libre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Fraunces": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght",
+      "SOFT",
+      "WONK"
+    ],
+    "ranges": {
+      "SOFT": [
+        0,
+        100
+      ],
+      "WONK": [
+        0,
+        1
+      ],
+      "opsz": [
+        9,
+        144
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Fredoka": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Fruktur": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Funnel Display": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Funnel Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Fustat": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "GFS Neohellenic": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Gabarito": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Gantari": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Geist": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Geist Mono": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Gelasio": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Gemunu Libre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Genos": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Gentium Book Plus": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Gentium Plus": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Geo": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Geologica": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CRSV",
+      "SHRP"
+    ],
+    "ranges": {
+      "CRSV": [
+        0,
+        1
+      ],
+      "SHRP": [
+        0,
+        100
+      ],
+      "slnt": [
+        -12,
+        0
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Georama": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        150
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Glory": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Gluten": {
+    "tags": [
+      "slnt",
+      "wght"
+    ],
+    "ranges": {
+      "slnt": [
+        -13,
+        13
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Golos Text": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Google Sans Code": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Grandstander": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Grenze": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Grenze Gotisch": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Gudea": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Hahmlet": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Handjet": {
+    "tags": [
+      "wght",
+      "ELGR",
+      "ELSH"
+    ],
+    "ranges": {
+      "ELGR": [
+        1,
+        2
+      ],
+      "ELSH": [
+        0,
+        16
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Hanken Grotesk": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Hanuman": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Hedvig Letters Serif": {
+    "tags": [
+      "opsz"
+    ],
+    "ranges": {
+      "opsz": [
+        12,
+        24
+      ]
+    }
+  },
+  "Heebo": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Hepta Slab": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        900
+      ]
+    }
+  },
+  "Honk": {
+    "tags": [
+      "MORF",
+      "SHLN"
+    ],
+    "ranges": {
+      "MORF": [
+        0,
+        45
+      ],
+      "SHLN": [
+        0,
+        100
+      ]
+    }
+  },
+  "Host Grotesk": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Hubot Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "IBM Plex Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IBM Plex Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "IBM Plex Sans Condensed": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IBM Plex Serif": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IM Fell DW Pica": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IM Fell Double Pica": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IM Fell English": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IM Fell French Canon": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "IM Fell Great Primer": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Ibarra Real Nova": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Imbue": {
+    "tags": [
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        10,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Inclusive Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Inconsolata": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        50,
+        200
+      ],
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Inria Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Inria Serif": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Instrument Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Instrument Serif": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Intel One Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Inter": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        14,
+        32
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Inter Tight": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Istok Web": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Jaro": {
+    "tags": [
+      "opsz"
+    ],
+    "ranges": {
+      "opsz": [
+        6,
+        72
+      ]
+    }
+  },
+  "JetBrains Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Josefin Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Josefin Slab": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Jost": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Judson": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Jura": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "K2D": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kablammo": {
+    "tags": [
+      "MORF"
+    ],
+    "ranges": {
+      "MORF": [
+        0,
+        60
+      ]
+    }
+  },
+  "Kalnia": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        125
+      ],
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Kalnia Glaze": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        125
+      ],
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Kameron": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Kanit": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kantumruy Pro": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Kapakana": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        400
+      ]
+    }
+  },
+  "Karla": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "KoHo": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kodchasan": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kode Mono": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Kreon": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Krub": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kufam": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Kulim Park": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Kumbh Sans": {
+    "tags": [
+      "wght",
+      "YOPQ"
+    ],
+    "ranges": {
+      "YOPQ": [
+        40,
+        300
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Labrada": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lato": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "League Gothic": {
+    "tags": [
+      "wdth"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ]
+    }
+  },
+  "League Spartan": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lekton": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Lemonada": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Lexend": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Deca": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Exa": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Giga": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Mega": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Peta": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Tera": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Lexend Zetta": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Libertinus Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Libertinus Serif": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Libre Baskerville": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Libre Bodoni": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Libre Caslon Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Libre Franklin": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Linden Hill": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Linefont": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        25,
+        200
+      ],
+      "wght": [
+        4,
+        1000
+      ]
+    }
+  },
+  "Lisu Bosa": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Literata": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        7,
+        72
+      ],
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Livvic": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Lobster Two": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Lora": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "M PLUS 1": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "M PLUS 1 Code": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "M PLUS 2": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "M PLUS Code Latin": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        125
+      ],
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Mada": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Mali": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Manrope": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Manuale": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Marhey": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Markazi Text": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Martian Mono": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        112.5
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Marvel": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Matangi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Mate": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Maven Pro": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Menbere": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Merienda": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Merriweather": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        18,
+        144
+      ],
+      "wdth": [
+        87,
+        112
+      ],
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Merriweather Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Miriam Libre": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Moderustic": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Mohave": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Molle": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Mona Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Monda": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Montagu Slab": {
+    "tags": [
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        16,
+        144
+      ],
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Montserrat": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Montserrat Alternates": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Montserrat Underline": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Mozilla Headline": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Mozilla Text": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Mulish": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        1000
+      ]
+    }
+  },
+  "Murecho": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "MuseoModerno": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Nabla": {
+    "tags": [
+      "EDPT",
+      "EHLT"
+    ],
+    "ranges": {
+      "EDPT": [
+        0,
+        200
+      ],
+      "EHLT": [
+        0,
+        24
+      ]
+    }
+  },
+  "Nata Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "National Park": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Neuton": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Newsreader": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        6,
+        72
+      ],
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Niramit": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Nobile": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Nokora": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noticia Text": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Noto Emoji": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Noto Kufi Arabic": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Naskh Arabic": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Nastaliq Urdu": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Rashi Hebrew": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Adlam": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Adlam Unjoined": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Arabic": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Armenian": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Balinese": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Bamum": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Bassa Vah": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Bengali": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Canadian Aboriginal": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Cham": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Cherokee": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Devanagari": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Display": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Ethiopic": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Georgian": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Gujarati": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Gunjala Gondi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Gurmukhi": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans HK": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Hanifi Rohingya": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Hebrew": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans JP": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Javanese": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans KR": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Kannada": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Kawi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Kayah Li": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Khmer": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Lao": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Lao Looped": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Lisu": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Malayalam": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Medefaidrin": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Meetei Mayek": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Mono": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans NKo Unjoined": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Nag Mundari": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans New Tai Lue": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Ol Chiki": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Oriya": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans SC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Sinhala": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Sora Sompeng": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Sundanese": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Symbols": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Syriac": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Syriac Eastern": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans TC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Tai Tham": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Tamil": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Tangsa": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Sans Telugu": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Thaana": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Thai": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Thai Looped": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Sans Vithkuqi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Armenian": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Bengali": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Devanagari": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Display": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Ethiopic": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Georgian": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Gujarati": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Gurmukhi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif HK": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif Hebrew": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Hentaigana": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif JP": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif KR": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif Kannada": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Khmer": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Khojki": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif Lao": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Malayalam": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif NP Hmong": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif Oriya": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif SC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif Sinhala": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif TC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Noto Serif Tamil": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Telugu": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Thai": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        62.5,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Tibetan": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Noto Serif Toto": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif Vithkuqi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Serif Yezidi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Noto Traditional Nushu": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Nunito": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        1000
+      ]
+    }
+  },
+  "Nunito Sans": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wdth",
+      "wght",
+      "YTLC"
+    ],
+    "ranges": {
+      "YTLC": [
+        440,
+        540
+      ],
+      "opsz": [
+        6,
+        12
+      ],
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        200,
+        1000
+      ]
+    }
+  },
+  "Ojuju": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Old Standard TT": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Onest": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Open Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Orbitron": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Oregano": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Oswald": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Outfit": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Overlock": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Overpass": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Overpass Mono": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Oxanium": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "PT Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "PT Serif": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "PT Serif Caption": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Parastoo": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Parkinsans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Pathway Extreme": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        8,
+        144
+      ],
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Petrona": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Philosopher": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Phudu": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Piazzolla": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        8,
+        30
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Pixelify Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Platypi": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Playfair": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        5,
+        1200
+      ],
+      "wdth": [
+        87.5,
+        112.5
+      ],
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Playfair Display": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Playfair Display SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Playpen Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Playpen Sans Arabic": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Playpen Sans Deva": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Playpen Sans Hebrew": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Playpen Sans Thai": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Playwrite AR": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AT": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AT Guides": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Playwrite AU NSW": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AU QLD": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AU SA": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AU TAS": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite AU VIC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite BE VLG": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite BE WAL": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite BR": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite CA": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite CL": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite CO": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite CU": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite CZ": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DE Grund": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DE LA": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DE SAS": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DE VA": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DK Loopet": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite DK Uloopet": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite ES": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite ES Deco": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite FR Moderne": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite FR Trad": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite GB J": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite GB J Guides": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Playwrite GB S": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite GB S Guides": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Playwrite HR": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite HR Lijeva": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite HU": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite ID": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite IE": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite IN": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite IS": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite IT Moderna": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite IT Trad": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite MX": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite NG Modern": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite NL": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite NO": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite NZ": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite PE": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite PL": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite PT": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite RO": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite SK": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite TZ": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite US Modern": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite US Trad": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite VN": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Playwrite ZA": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        400
+      ]
+    }
+  },
+  "Plus Jakarta Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Podkova": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Poltawski Nowy": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Poly": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Pontano Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Poppins": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Prompt": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Proza Libre": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Public Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Puritan": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Quantico": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Quattrocento Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Quicksand": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "REM": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Radio Canada": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Radio Canada Big": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Radley": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Raleway": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Rambla": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Rasa": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Readex Pro": {
+    "tags": [
+      "wght",
+      "HEXP"
+    ],
+    "ranges": {
+      "HEXP": [
+        0,
+        100
+      ],
+      "wght": [
+        160,
+        700
+      ]
+    }
+  },
+  "Recursive": {
+    "tags": [
+      "slnt",
+      "wght",
+      "CASL",
+      "CRSV",
+      "MONO"
+    ],
+    "ranges": {
+      "CASL": [
+        0,
+        1
+      ],
+      "CRSV": [
+        0,
+        1
+      ],
+      "MONO": [
+        0,
+        1
+      ],
+      "slnt": [
+        -15,
+        0
+      ],
+      "wght": [
+        300,
+        1000
+      ]
+    }
+  },
+  "Red Hat Display": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Red Hat Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Red Hat Text": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Red Rose": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Reddit Mono": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Reddit Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Reddit Sans Condensed": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Reem Kufi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Reem Kufi Fun": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Rethink Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Roboto": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Roboto Condensed": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Roboto Flex": {
+    "tags": [
+      "opsz",
+      "slnt",
+      "wdth",
+      "wght",
+      "GRAD",
+      "XOPQ",
+      "XTRA",
+      "YOPQ",
+      "YTAS",
+      "YTDE",
+      "YTFI",
+      "YTLC",
+      "YTUC"
+    ],
+    "ranges": {
+      "GRAD": [
+        -200,
+        150
+      ],
+      "XOPQ": [
+        27,
+        175
+      ],
+      "XTRA": [
+        323,
+        603
+      ],
+      "YOPQ": [
+        25,
+        135
+      ],
+      "YTAS": [
+        649,
+        854
+      ],
+      "YTDE": [
+        -305,
+        -98
+      ],
+      "YTFI": [
+        560,
+        788
+      ],
+      "YTLC": [
+        416,
+        570
+      ],
+      "YTUC": [
+        528,
+        760
+      ],
+      "opsz": [
+        8,
+        144
+      ],
+      "slnt": [
+        -10,
+        0
+      ],
+      "wdth": [
+        25,
+        151
+      ],
+      "wght": [
+        100,
+        1000
+      ]
+    }
+  },
+  "Roboto Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Roboto Serif": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wdth",
+      "wght",
+      "GRAD"
+    ],
+    "ranges": {
+      "GRAD": [
+        -50,
+        100
+      ],
+      "opsz": [
+        8,
+        144
+      ],
+      "wdth": [
+        50,
+        150
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Roboto Slab": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Rokkitt": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Ropa Sans": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Rosario": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Rosarivo": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Rubik": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Ruda": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "STIX Two Text": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "SUSE": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Saira": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        50,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Sanchez": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sansation": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sansita": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sansita Swashed": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Sarabun": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Savate": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Scada": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Schibsted Grotesk": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Sedan": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sen": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Shantell Sans": {
+    "tags": [
+      "ital",
+      "wght",
+      "BNCE",
+      "INFM",
+      "SPAC"
+    ],
+    "ranges": {
+      "BNCE": [
+        -100,
+        100
+      ],
+      "INFM": [
+        0,
+        100
+      ],
+      "SPAC": [
+        0,
+        100
+      ],
+      "wght": [
+        300,
+        800
+      ]
+    }
+  },
+  "Share": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Signika": {
+    "tags": [
+      "wght",
+      "GRAD"
+    ],
+    "ranges": {
+      "GRAD": [
+        -30,
+        0
+      ],
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Signika Negative": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Simonetta": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sixtyfour": {
+    "tags": [
+      "BLED",
+      "SCAN"
+    ],
+    "ranges": {
+      "BLED": [
+        0,
+        100
+      ],
+      "SCAN": [
+        -53,
+        100
+      ]
+    }
+  },
+  "Sixtyfour Convergence": {
+    "tags": [
+      "BLED",
+      "SCAN",
+      "XELA",
+      "YELA"
+    ],
+    "ranges": {
+      "BLED": [
+        0,
+        100
+      ],
+      "SCAN": [
+        -53,
+        100
+      ],
+      "XELA": [
+        -100,
+        100
+      ],
+      "YELA": [
+        -100,
+        100
+      ]
+    }
+  },
+  "Smooch Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Sofia Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Sofia Sans Condensed": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Sofia Sans Extra Condensed": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Sofia Sans Semi Condensed": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Sometype Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Sono": {
+    "tags": [
+      "wght",
+      "MONO"
+    ],
+    "ranges": {
+      "MONO": [
+        0,
+        1
+      ],
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Sora": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Sorts Mill Goudy": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Sour Gummy": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        100,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Source Code Pro": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Source Sans 3": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Source Serif 4": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        8,
+        60
+      ],
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Space Grotesk": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Space Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Special Gothic": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Spectral": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Spectral SC": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Spline Sans": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Spline Sans Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Stick No Bills": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        800
+      ]
+    }
+  },
+  "Syne": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "TASA Explorer": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "TASA Orbiter": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Taviraj": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Teachers": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Teko": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Tektur": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Texturina": {
+    "tags": [
+      "ital",
+      "opsz",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        12,
+        72
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Thasadith": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "TikTok Sans": {
+    "tags": [
+      "opsz",
+      "slnt",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        12,
+        36
+      ],
+      "slnt": [
+        -6,
+        0
+      ],
+      "wdth": [
+        75,
+        150
+      ],
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Tilt Neon": {
+    "tags": [
+      "XROT",
+      "YROT"
+    ],
+    "ranges": {
+      "XROT": [
+        -45,
+        45
+      ],
+      "YROT": [
+        -45,
+        45
+      ]
+    }
+  },
+  "Tilt Prism": {
+    "tags": [
+      "XROT",
+      "YROT"
+    ],
+    "ranges": {
+      "XROT": [
+        -45,
+        45
+      ],
+      "YROT": [
+        -45,
+        45
+      ]
+    }
+  },
+  "Tilt Warp": {
+    "tags": [
+      "XROT",
+      "YROT"
+    ],
+    "ranges": {
+      "XROT": [
+        -45,
+        45
+      ],
+      "YROT": [
+        -45,
+        45
+      ]
+    }
+  },
+  "Tinos": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Bangla": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Devanagari Hindi": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Devanagari Marathi": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Devanagari Sanskrit": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Gurmukhi": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Kannada": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Tamil": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tiro Telugu": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Titillium Web": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tomorrow": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Tourney": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Trirong": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Trispace": {
+    "tags": [
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Trochut": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Truculenta": {
+    "tags": [
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "opsz": [
+        12,
+        72
+      ],
+      "wdth": [
+        75,
+        125
+      ],
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Tuffy": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Ubuntu": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Ubuntu Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Ubuntu Sans": {
+    "tags": [
+      "ital",
+      "wdth",
+      "wght"
+    ],
+    "ranges": {
+      "wdth": [
+        75,
+        100
+      ],
+      "wght": [
+        100,
+        800
+      ]
+    }
+  },
+  "Ubuntu Sans Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        700
+      ]
+    }
+  },
+  "Unbounded": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        900
+      ]
+    }
+  },
+  "Unna": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Urbanist": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Varta": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Vazirmatn": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Vend Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Victor Mono": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        700
+      ]
+    }
+  },
+  "Volkhov": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Vollkorn": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Wavefont": {
+    "tags": [
+      "wght",
+      "ROND",
+      "YELA"
+    ],
+    "ranges": {
+      "ROND": [
+        0,
+        100
+      ],
+      "YELA": [
+        -100,
+        100
+      ],
+      "wght": [
+        4,
+        1000
+      ]
+    }
+  },
+  "Winky Rough": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Winky Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        900
+      ]
+    }
+  },
+  "Wittgenstein": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        900
+      ]
+    }
+  },
+  "Wix Madefor Display": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Wix Madefor Text": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        400,
+        800
+      ]
+    }
+  },
+  "Work Sans": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        100,
+        900
+      ]
+    }
+  },
+  "Workbench": {
+    "tags": [
+      "BLED",
+      "SCAN"
+    ],
+    "ranges": {
+      "BLED": [
+        0,
+        100
+      ],
+      "SCAN": [
+        -53,
+        100
+      ]
+    }
+  },
+  "Xanh Mono": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Yaldevi": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Yanone Kaffeesatz": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        200,
+        700
+      ]
+    }
+  },
+  "Yrsa": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        300,
+        700
+      ]
+    }
+  },
+  "Ysabeau": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Ysabeau Infant": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Ysabeau Office": {
+    "tags": [
+      "ital",
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Ysabeau SC": {
+    "tags": [
+      "wght"
+    ],
+    "ranges": {
+      "wght": [
+        1,
+        1000
+      ]
+    }
+  },
+  "Zain": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Zen Loop": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  },
+  "Zilla Slab": {
+    "tags": [
+      "ital"
+    ],
+    "ranges": {}
+  }
+}

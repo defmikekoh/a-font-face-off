@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "description": "Build scripts for A Font Face-off (web-ext)",
   "scripts": {
-    "build": "web-ext build --overwrite-dest --artifacts-dir web-ext-artifacts"
+    "build": "web-ext build --overwrite-dest --artifacts-dir web-ext-artifacts",
+    "gen:css2": "node scripts/generate-css2-axis-ranges.js"
   },
   "devDependencies": {
     "web-ext": "^7.10.0"
   }
 }
-

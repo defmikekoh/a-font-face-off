@@ -10,8 +10,8 @@ Overview
 Sources & Permissions
 ---------------------
 - Google Fonts:
-  - Metadata: `https://fonts.google.com/metadata/fonts` (used to build the family list).
-  - CSS: `https://fonts.googleapis.com/css2?family=<Family+Name>&display=swap` (used to load the font and discover axis hints).
+  - Metadata: `https://fonts.google.com/metadata/fonts` (to build the family list).
+  - CSS2: axis‑tag URL built from a curated map (see “CSS2 Axis Map”), otherwise plain css2.
   - Font files: served by Google (TTF/OTF or WOFF2).
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
@@ -22,25 +22,35 @@ Selection → Load Flow
 ---------------------
 1) User opens the Font Picker modal and clicks a family.
 2) `loadFont(position, fontName)` applies the choice and kicks off loading:
-   - Google families: adds a `css2` `<link>` (if not present).
+   - Google families: adds a `css2` `<link>`. If the curated map has entries for the family, we request an axis‑tag css2 URL with exact ranges and all axes; otherwise we request the plain css2 URL.
    - ABC Ginto: injects the CDN stylesheet, then waits on `document.fonts.load('400 1em "ABC Ginto Normal Unlicensed Trial"')` before applying.
    - BBC Reith: relies on the static `@font-face` declarations in CSS.
 
 Axis Discovery (getOrCreateFontDefinition)
-------------------------------------------
+-----------------------------------------
 File refs: `popup.js:136`, `popup.js:240`, `popup.js:378`
 - Fetch metadata (once per session): `ensureGfMetadata()` → family list and axis tags.
-- Get the family’s CSS: `fetchGoogleCssInfo()` builds the `css2` URL correctly (spaces → `+`, no extra encoding).
 - Prefer exact fvar parsing:
-  - Extract a font URL from the CSS (`extractFirstFontUrl`), preferring `.ttf`/`.otf` when present.
+  - Extract a font URL from the css2 (already added to the page) with `extractFirstFontUrl`.
   - If TTF/OTF: fetch and parse `fvar` via `opentype.js`.
   - If only WOFF2: lazy‑load the vendored decoder (fonteditor‑core wasm) and convert WOFF2→TTF, then parse `fvar`.
-- If fvar is unavailable: fall back to CSS hints for registered axes:
-  - `font-weight: 100 900` → `wght` range
-  - `font-stretch: 75% 125%` → `wdth` range
-  - `font-style: oblique -10deg 0deg` → `slnt` range
-  - Presence of italic blocks → `ital`
-- Build `axes/defaults/ranges/steps`, merge with metadata tags, cache in `dynamicFontDefinitions`.
+- If fvar is unavailable: fall back to CSS hints for registered axes (only when present in css2): `wght`/`wdth`/`slnt` ranges and `ital` presence.
+- Build `axes/defaults/ranges/steps`, cache in `dynamicFontDefinitions`.
+
+CSS2 Axis Map (no probing)
+--------------------------
+- We no longer “probe” css2 to guess ranges. Instead we build axis‑tag css2 URLs from a curated map generated from `docs/fonts`.
+- File: `data/css2-axis-ranges.json` — per‑family:
+  - `tags`: all axes (ital and any custom axes), ordered for css2 (lowercase tags first, then uppercase; alphabetical within each group)
+  - `ranges`: numeric `[min, max]` for every non‑ital axis
+- Generator: `scripts/generate-css2-axis-ranges.js`
+  - Run: `npm run gen:css2`
+  - Reads `docs/fonts` (Google’s metadata dump), emits `data/css2-axis-ranges.json`.
+- URL composition: `buildCss2Url()`
+  - If a family exists in the map, composes `family=<Name>:<tags>@<tuple>[;…]&display=swap` using the same tag order for tuple positions. Ital yields two tuples (0,…;1,…).
+  - If not present, falls back to the plain css2 URL and relies on fvar parsing + CSS property mapping for wdth/slnt/ital.
+  - Example (Merriweather): `family=Merriweather:ital,opsz,wdth,wght@0,18..144,87..112,300..900;1,18..144,87..112,300..900`
+  - Example (Roboto Flex): `family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC@…`
 
 Controls UI (generateFontControls)
 ----------------------------------
@@ -56,6 +66,7 @@ File ref: `popup.js:1386`
 - Applies basic properties (size, line‑height, color).
 - Weight: applied only if you’ve “touched” the Weight control; otherwise the font’s default weight shows.
 - Variable axes: only axes you’ve activated are written to `font-variation-settings`.
+- Registered axis mapping: when active, wdth → `font-stretch: <wdth>%`, slnt/ital → `font-style: oblique <deg>` / `italic`. These take precedence for visible changes.
 - Non‑variable fonts: any previous `font-variation-settings` are cleared.
 
 Persistence
@@ -79,10 +90,18 @@ Decoder & Parsers
 
 Notable Edge Cases
 ------------------
-- css2 URL building must preserve `+` between words (don’t `encodeURIComponent` the family string after adding `+`).
-- If a family serves only WOFF2, the decoder is required for exact custom axis sliders; without it, only registered axes are shown.
+- css2 family param must preserve `+` between words (don’t over‑encode after replacing spaces).
+- Only list axes that have numeric ranges in tuples; ital is handled as 0/1.
+- If a family serves only WOFF2, the decoder is required for exact custom axis sliders; otherwise only registered axes may be shown.
 - ABC Ginto is static; weight is available at specific steps. It’s activated deterministically by waiting on `document.fonts`.
 - BBC Reith loads via CSS @font‑face; CSP + server CORS enable use within the extension.
+
+Logging
+-------
+- The loader logs:
+  - `Loading css2 …` / `css2 loaded` / `css2 failed`
+  - `Using curated axis-tag css2 …` (when map is used)
+  - `Downloading font binary …` and whether WOFF2→TTF decoding is used
 
 Key Code References
 -------------------
