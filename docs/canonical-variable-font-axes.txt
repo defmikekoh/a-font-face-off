@@ -1,0 +1,217 @@
+Canonical Variable Font Axis Definitions
+==========================================
+Source: Google Fonts Variable Fonts Axis Definitions
+
+Standard Axes (in canonical order):
+===================================
+
+ital - Italic
+Default: 0, Min: 0, Max: 1, Step: 1
+Adjust the style from roman to italic. This can be provided as a continuous range within a single font file, like most axes, or as a toggle between two roman and italic files that form a family as a pair.
+
+opsz - Optical Size  
+Default: 14, Min: 5, Max: 1200, Step: 0.1
+Adapt the style to specific text sizes. At smaller sizes, letters typically become optimized for more legibility. At larger sizes, optimized for headlines, with more extreme weights and widths. In CSS this axis is activated automatically when it is available.
+
+slnt - Slant
+Default: 0, Min: -90, Max: 90, Step: 1
+Adjust the style from upright to slanted. Negative values produce right-leaning forms, also known to typographers as an 'oblique' style. Positive values produce left-leaning forms, also called a 'backslanted' or 'reverse oblique' style.
+
+wght - Weight
+Default: 400, Min: 1, Max: 1000, Step: 1
+Adjust the style from lighter to bolder in typographic color, by varying stroke weights, spacing and kerning, and other aspects of the type. This typically changes overall width, and so may be used in conjunction with Width and Grade axes.
+
+wdth - Width
+Default: 100, Min: 25, Max: 200, Step: 0.1
+Adjust the style from narrower to wider, by varying the proportions of counters, strokes, spacing and kerning, and other aspects of the type. This typically changes the typographic color in a subtle way, and so may be used in conjunction with Weight and Grade axes.
+
+Custom Axes (in canonical order):
+=================================
+
+ARRR - AR Retinal Resolution
+Default: 10, Min: 10, Max: 60, Step: 1
+Resolution-specific enhancements in AR/VR typefaces to optimize rendering across the different resolutions of the headsets making designs accessible and easy to read.
+
+YTAS - Ascender Height
+Default: 750, Min: 0, Max: 1000, Step: 1
+A parametric axis for varying the height of lowercase ascenders.
+
+BLED - Bleed
+Default: 0, Min: 0, Max: 100, Step: 1
+Bleed adjusts the overall darkness in the typographic color of strokes or other forms, without any changes in overall width, line breaks, or page layout.
+
+BNCE - Bounce
+Default: 0, Min: -100, Max: 100, Step: 1
+Shift glyphs up and down in the Y dimension, resulting in an uneven, bouncy baseline.
+
+CASL - Casual
+Default: 0, Min: 0, Max: 1, Step: 0.01
+Adjust stroke curvature, contrast, and terminals from a sturdy, rational Linear style to a friendly, energetic Casual style.
+
+CTRS - Contrast
+Default: 0, Min: -100, Max: 100, Step: 10
+Contrast describes the stroke width difference between the thick and thin parts of the font glyphs.
+
+XTRA - Counter Width
+Default: 400, Min: -1000, Max: 2000, Step: 1
+A parametric axis for varying counter widths in the X dimension.
+
+CRSV - Cursive
+Default: 0.5, Min: 0, Max: 1, Step: 0.1
+Control the substitution of cursive forms along the Slant axis.
+
+YTDE - Descender Depth
+Default: -250, Min: -1000, Max: 0, Step: 1
+A parametric axis for varying the depth of lowercase descenders.
+
+EHLT - Edge Highlight
+Default: 12, Min: 0, Max: 1000, Step: 1
+Controls thickness of edge highlight details.
+
+ELXP - Element Expansion
+Default: 0, Min: 0, Max: 100, Step: 1
+As the Element Expansion axis progresses, the elements move apart.
+
+ELGR - Element Grid
+Default: 1, Min: 1, Max: 2, Step: 0.1
+In modular fonts, controls how many elements are used per one grid unit.
+
+ELSH - Element Shape
+Default: 0, Min: 0, Max: 100, Step: 0.1
+In modular fonts, controls the shape of the element.
+
+EDPT - Extrusion Depth
+Default: 100, Min: 0, Max: 1000, Step: 1
+Controls the 3D depth on contours.
+
+YTFI - Figure Height
+Default: 600, Min: -1000, Max: 2000, Step: 1
+A parametric axis for varying the height of figures.
+
+FILL - Fill
+Default: 0, Min: 0, Max: 1, Step: 0.01
+Fill in transparent forms with opaque ones.
+
+FLAR - Flare
+Default: 0, Min: 0, Max: 100, Step: 1
+As the flare axis grows, the stem terminals go from straight to develop a swelling.
+
+GRAD - Grade
+Default: 0, Min: -1000, Max: 1000, Step: 1
+Finesse the style from lighter to bolder in typographic color, without any changes overall width, line breaks or page layout.
+
+XELA - Horizontal Element Alignment
+Default: 0, Min: -100, Max: 100, Step: 1
+Align glyph elements from their default position to a rightmost or leftmost position.
+
+XPN1 - Horizontal Position of Paint 1
+Default: 0, Min: -100, Max: 100, Step: 1
+The position of the paint moves left and right in the X dimension. Paint 1 is behind Paint 2.
+
+XPN2 - Horizontal Position of Paint 2
+Default: 0, Min: -100, Max: 100, Step: 1
+The position of the paint moves left and right in the X dimension. Paint 2 is in front of Paint 1.
+
+HEXP - Hyper Expansion
+Default: 0, Min: 0, Max: 100, Step: 0.1
+Expansion of inner and outer space of glyphs.
+
+INFM - Informality
+Default: 0, Min: 0, Max: 100, Step: 1
+Adjusts overall design from formal and traditional to informal and unconventional.
+
+YTLC - Lowercase Height
+Default: 500, Min: 0, Max: 1000, Step: 1
+A parametric axis for varying the height of the lowercase.
+
+MONO - Monospace
+Default: 0, Min: 0, Max: 1, Step: 0.01
+Adjust the style from Proportional (natural widths, default) to Monospace (fixed width).
+
+MORF - Morph
+Default: 0, Min: 0, Max: 60, Step: 1
+Letterforms morph in unconventional ways. Range from 0 to 60 can be understood as seconds.
+
+XROT - Rotation in X
+Default: 0, Min: -180, Max: 180, Step: 1
+Glyphs rotate left and right in the X dimension.
+
+YROT - Rotation in Y
+Default: 0, Min: -180, Max: 180, Step: 1
+Glyphs rotate up and down in the Y dimension.
+
+ZROT - Rotation in Z
+Default: 0, Min: -180, Max: 180, Step: 1
+Glyphs rotate left and right in the Z dimension.
+
+ROND - Roundness
+Default: 0, Min: 0, Max: 100, Step: 1
+Adjust shapes from angular defaults to become increasingly rounded.
+
+SCAN - Scanlines
+Default: 0, Min: -100, Max: 100, Step: 1
+Break up shapes into horizontal segments.
+
+SHLN - Shadow Length
+Default: 50, Min: 0, Max: 100, Step: 0.1
+Adjusts the font's shadow length from no shadow visible to maximum shadow applied.
+
+SHRP - Sharpness
+Default: 0, Min: 0, Max: 100, Step: 1
+Adjust shapes from angular or blunt default shapes to become increasingly sharped forms.
+
+SZP1 - Size of Paint 1
+Default: 0, Min: -100, Max: 100, Step: 1
+Modifies the size of a paint element. Paint 1 is behind Paint 2.
+
+SZP2 - Size of Paint 2
+Default: 0, Min: -100, Max: 100, Step: 1
+Modifies the size of a paint element. Paint 2 is in front of Paint 1.
+
+SOFT - Softness
+Default: 0, Min: 0, Max: 100, Step: 0.1
+Adjust letterforms to become more and more soft and rounded.
+
+SPAC - Spacing
+Default: 0, Min: -100, Max: 100, Step: 0.1
+Adjusts the overall letter spacing of a font as relative percentage change from default.
+
+XOPQ - Thick Stroke
+Default: 88, Min: -1000, Max: 2000, Step: 1
+A parametric axis for varying thick stroke weights, such as stems.
+
+YOPQ - Thin Stroke
+Default: 116, Min: -1000, Max: 2000, Step: 1
+A parametric axis for varying thin stroke weights, such as bars and hairlines.
+
+YTUC - Uppercase Height
+Default: 725, Min: 0, Max: 1000, Step: 1
+A parametric axis for varying the heights of uppercase letterforms.
+
+YELA - Vertical Element Alignment
+Default: 0, Min: -100, Max: 100, Step: 1
+Align glyphs elements from their default position to an upper or lower position.
+
+YEXT - Vertical Extension
+Default: 0, Min: 0, Max: 100, Step: 1
+Extends glyphs in the Y dimension, such as the Cap Height, Ascender and Descender lengths.
+
+YPN1 - Vertical Position of Paint 1
+Default: 0, Min: -100, Max: 100, Step: 1
+The position of the paint moves up and down. Paint 1 is behind Paint 2.
+
+YPN2 - Vertical Position of Paint 2
+Default: 0, Min: -100, Max: 100, Step: 1
+The position of the paint moves up and down. Paint 2 is in front of Paint 1.
+
+VOLM - Volume
+Default: 0, Min: 0, Max: 100, Step: 1
+Expands and exaggerates details of a typeface to emphasize the personality.
+
+WONK - Wonky
+Default: 0, Min: 0, Max: 1, Step: 1
+Toggle the substitution of wonky forms between conventional and wonky letterforms.
+
+YEAR - Year
+Default: 2000, Min: -4000, Max: 4000, Step: 1
+Axis that shows in a metaphoric way the effect of time on a chosen topic.

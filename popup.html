@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Font Face-off</title>
+    <link rel="stylesheet" href="popup.css">
+    <!-- Variable font parsing lib for exact fvar ranges (TTF direct, no WOFF2 required) -->
+    <script src="lib/opentype.min.js"></script>
+</head>
+<body>
+    <!-- Panel overlay -->
+    <div id="panel-overlay" class="panel-overlay"></div>
+
+    <!-- Save Modal -->
+    <div id="save-modal" class="save-modal">
+        <div class="save-modal-content">
+            <div class="save-modal-header">
+                <h3>Save Font Configuration</h3>
+                <button id="save-modal-close" class="save-modal-close">&times;</button>
+            </div>
+            <div class="save-modal-body">
+                <label for="save-modal-name">Favorite Name:</label>
+                <input type="text" id="save-modal-name" class="save-modal-input" placeholder="Enter name...">
+                <div class="save-modal-preview">
+                    <strong>Configuration:</strong>
+                    <div id="save-modal-config"></div>
+                </div>
+            </div>
+            <div class="save-modal-footer">
+                <button id="save-modal-cancel" class="save-modal-btn cancel-btn">Cancel</button>
+                <button id="save-modal-save" class="save-modal-btn save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorites Load Popup -->
+    <div id="favorites-popup" class="favorites-popup">
+        <div class="favorites-popup-content">
+            <div class="favorites-popup-header">
+                <h3>Load Favorite</h3>
+                <button id="favorites-popup-close" class="popup-close">&times;</button>
+            </div>
+            <div class="favorites-popup-body">
+                <div id="favorites-popup-list" class="favorites-list-container">
+                    <!-- Favorites will be populated here -->
+                </div>
+                <div class="no-favorites" id="no-favorites" style="display: none;">
+                    No saved favorites yet.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Favorites Modal -->
+    <div id="edit-favorites-modal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-header">
+                <h3>Edit Favorites</h3>
+                <button id="edit-modal-close" class="popup-close">&times;</button>
+            </div>
+            <div class="edit-modal-body">
+                <div id="edit-favorites-list" class="edit-favorites-container">
+                    <!-- Editable favorites will be populated here -->
+                </div>
+                <div class="no-favorites" id="no-edit-favorites" style="display: none;">
+                    No saved favorites to edit.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert" class="custom-alert">
+        <div class="custom-alert-content">
+            <div class="custom-alert-message" id="custom-alert-message">
+                <!-- Alert message will be inserted here -->
+            </div>
+            <div class="custom-alert-footer">
+                <button id="custom-alert-ok" class="custom-alert-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm" class="custom-alert">
+        <div class="custom-alert-content">
+            <div class="custom-alert-message" id="custom-confirm-message">
+                <!-- Confirm message will be inserted here -->
+            </div>
+            <div class="custom-alert-footer">
+                <button id="custom-confirm-cancel" class="custom-alert-btn custom-confirm-cancel">Cancel</button>
+                <button id="custom-confirm-ok" class="custom-alert-btn custom-confirm-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel control grips and favorites at bottom -->
+    <div id="panel-grips">
+        <div class="grip-area" id="top-font-grip" data-panel="top">
+            <div class="grip-handle">≡</div>
+            <span class="grip-label">Top Font</span>
+        </div>
+
+        <!-- Separate Favorites UI for each font -->
+        <div class="favorites-container">
+            <!-- Top Font Favorites -->
+            <div class="favorites-section">
+                <div class="favorites-title">Top Font Favorites</div>
+                <div class="favorites-row">
+                    <button id="top-load-favorite" class="favorite-btn load-btn" title="Load top font favorite">📁</button>
+                    <button id="top-save-favorite" class="favorite-btn save-btn" title="Save top font configuration">💾</button>
+                </div>
+            </div>
+
+            <!-- Edit button in center -->
+            <div class="favorites-edit-section">
+                <button id="edit-favorites" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
+            </div>
+
+            <!-- Bottom Font Favorites -->
+            <div class="favorites-section">
+                <div class="favorites-title">Bottom Font Favorites</div>
+                <div class="favorites-row">
+                    <button id="bottom-load-favorite" class="favorite-btn load-btn" title="Load bottom font favorite">📁</button>
+                    <button id="bottom-save-favorite" class="favorite-btn save-btn" title="Save bottom font configuration">💾</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grip-area" id="bottom-font-grip" data-panel="bottom">
+            <div class="grip-handle">≡</div>
+            <span class="grip-label">Bottom Font</span>
+        </div>
+    </div>
+
+    <!-- Top Font Control Panel -->
+    <div id="top-font-controls" class="controls-panel">
+        <h2>Top Font</h2>
+
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="top-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <div id="top-font-display" class="font-family-display" tabindex="0" role="button" aria-haspopup="dialog" aria-controls="font-picker-modal" aria-expanded="false">Roboto Flex</div>
+                    <select id="top-font-select" class="hidden">
+                    <option value="Roboto Flex" selected>Roboto Flex</option>
+                    <option value="Inter">Inter</option>
+                    <option value="Open Sans">Open Sans</option>
+                    <option value="Recursive">Recursive</option>
+                    <option value="Fraunces">Fraunces</option>
+                    <option value="DM Sans">DM Sans</option>
+                    <option value="Outfit">Outfit</option>
+                    <option value="Nunito Sans">Nunito Sans</option>
+                    <option value="Source Sans 3">Source Sans 3</option>
+                    <option value="Crimson Pro">Crimson Pro</option>
+                    <option value="Merriweather">Merriweather</option>
+                    <option value="Lora">Lora</option>
+                    <option value="Roboto Slab">Roboto Slab</option>
+                    <option value="BBC Reith Serif">BBC Reith Serif</option>
+                    <option value="ABC Ginto Normal Unlicensed Trial">ABC Ginto Normal</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group">
+                <label for="top-font-size">Font Size:</label>
+                <input type="range" id="top-font-size" min="10" max="72" step="0.01" value="17">
+                <input type="number" id="top-font-size-text" class="size-text-input" min="6" max="200" step="0.1" value="17">
+                <span id="top-font-size-value">17px</span>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="top-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset to default">↻</span>
+                    <span id="top-line-height-value" class="axis-readonly-input" aria-live="polite">1.2</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="top-line-height" min="1" max="3" step="0.1" value="1.2">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="top-font-weight">Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="top-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="top-font-weight" min="100" max="900" step="100" value="400">
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="top-font-color">Color:</label>
+                <select id="top-font-color">
+                    <option value="#000000" selected>Black</option>
+                    <option value="#212121">Gray 900</option>
+                    <option value="#424242">Gray 800</option>
+                    <option value="#616161">Gray 700</option>
+                    <option value="#757575">Gray 600</option>
+                    <option value="#9E9E9E">Gray 500</option>
+                    <option value="#BDBDBD">Gray 400</option>
+                    <option value="#E0E0E0">Gray 300</option>
+                    <option value="#EEEEEE">Gray 200</option>
+                    <option value="#F5F5F5">Gray 100</option>
+                </select>
+            </div>
+        </div>
+
+
+        <!-- Dynamic Variable Axes -->
+        <div id="top-axes-section" class="control-section">
+            <h3>Variable Axes</h3>
+            <div class="control-group">
+                <label for="roboto-wght">Weight: <span class="axis-tag">(wght)</span></label>
+                <input type="range" id="roboto-wght" min="100" max="1000" value="400">
+                <span id="roboto-wght-value">400</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-wdth">Width: <span class="axis-tag">(wdth)</span></label>
+                <input type="range" id="roboto-wdth" min="25" max="151" value="100">
+                <span id="roboto-wdth-value">100%</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-opsz">Optical Size: <span class="axis-tag">(opsz)</span></label>
+                <input type="range" id="roboto-opsz" min="8" max="144" step="0.1" value="14">
+                <span id="roboto-opsz-value">14pt</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-GRAD">Grade: <span class="axis-tag">(GRAD)</span></label>
+                <input type="range" id="roboto-GRAD" min="-200" max="150" value="0">
+                <span id="roboto-GRAD-value">0</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-slnt">Slant: <span class="axis-tag">(slnt)</span></label>
+                <input type="range" id="roboto-slnt" min="-10" max="0" value="0">
+                <span id="roboto-slnt-value">0°</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-XTRA">X Transparent: <span class="axis-tag">(XTRA)</span></label>
+                <input type="range" id="roboto-XTRA" min="323" max="603" value="468">
+                <span id="roboto-XTRA-value">468</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-XOPQ">X Opaque: <span class="axis-tag">(XOPQ)</span></label>
+                <input type="range" id="roboto-XOPQ" min="27" max="175" value="96">
+                <span id="roboto-XOPQ-value">96</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YOPQ">Y Opaque: <span class="axis-tag">(YOPQ)</span></label>
+                <input type="range" id="roboto-YOPQ" min="25" max="135" value="79">
+                <span id="roboto-YOPQ-value">79</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YTLC">Y Transparent Lowercase: <span class="axis-tag">(YTLC)</span></label>
+                <input type="range" id="roboto-YTLC" min="416" max="570" value="514">
+                <span id="roboto-YTLC-value">514</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YTUC">Y Transparent Uppercase: <span class="axis-tag">(YTUC)</span></label>
+                <input type="range" id="roboto-YTUC" min="528" max="760" value="712">
+                <span id="roboto-YTUC-value">712</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YTAS">Y Transparent Ascenders: <span class="axis-tag">(YTAS)</span></label>
+                <input type="range" id="roboto-YTAS" min="649" max="854" value="750">
+                <span id="roboto-YTAS-value">750</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YTDE">Y Transparent Descenders: <span class="axis-tag">(YTDE)</span></label>
+                <input type="range" id="roboto-YTDE" min="-305" max="-98" value="-203">
+                <span id="roboto-YTDE-value">-203</span>
+            </div>
+            <div class="control-group">
+                <label for="roboto-YTFI">Y Transparent Figures: <span class="axis-tag">(YTFI)</span></label>
+                <input type="range" id="roboto-YTFI" min="560" max="788" value="738">
+                <span id="roboto-YTFI-value">738</span>
+            </div>
+        </div>
+
+        <button class="reset-button" id="reset-top-font">Reset Font</button>
+    </div>
+
+    <!-- Bottom Font Control Panel -->
+    <div id="bottom-font-controls" class="controls-panel">
+        <h2>Bottom Font</h2>
+
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="bottom-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <div id="bottom-font-display" class="font-family-display" tabindex="0" role="button" aria-haspopup="dialog" aria-controls="font-picker-modal" aria-expanded="false">Rubik</div>
+                    <select id="bottom-font-select" class="hidden">
+                    <option value="Rubik" selected>Rubik</option>
+                    <option value="Inter">Inter</option>
+                    <option value="Open Sans">Open Sans</option>
+                    <option value="Recursive">Recursive</option>
+                    <option value="Fraunces">Fraunces</option>
+                    <option value="DM Sans">DM Sans</option>
+                    <option value="Outfit">Outfit</option>
+                    <option value="Nunito Sans">Nunito Sans</option>
+                    <option value="Source Sans 3">Source Sans 3</option>
+                    <option value="Crimson Pro">Crimson Pro</option>
+                    <option value="Merriweather">Merriweather</option>
+                    <option value="Lora">Lora</option>
+                    <option value="Roboto Slab">Roboto Slab</option>
+                    <option value="BBC Reith Serif">BBC Reith Serif</option>
+                    <option value="ABC Ginto Normal Unlicensed Trial">ABC Ginto Normal</option>
+                    <option value="Roboto Flex">Roboto Flex</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group">
+                <label for="bottom-font-size">Font Size:</label>
+                <input type="range" id="bottom-font-size" min="10" max="72" step="0.01" value="17">
+                <input type="number" id="bottom-font-size-text" class="size-text-input" min="6" max="200" step="0.1" value="17">
+                <span id="bottom-font-size-value">17px</span>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="bottom-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset to default">↻</span>
+                    <span id="bottom-line-height-value" class="axis-readonly-input" aria-live="polite">1.2</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="bottom-line-height" min="1" max="3" step="0.1" value="1.2">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="bottom-font-weight">Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="bottom-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="bottom-font-weight" min="100" max="900" step="100" value="400">
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="bottom-font-color">Color:</label>
+                <select id="bottom-font-color">
+                    <option value="#000000" selected>Black</option>
+                    <option value="#212121">Gray 900</option>
+                    <option value="#424242">Gray 800</option>
+                    <option value="#616161">Gray 700</option>
+                    <option value="#757575">Gray 600</option>
+                    <option value="#9E9E9E">Gray 500</option>
+                    <option value="#BDBDBD">Gray 400</option>
+                    <option value="#E0E0E0">Gray 300</option>
+                    <option value="#EEEEEE">Gray 200</option>
+                    <option value="#F5F5F5">Gray 100</option>
+                </select>
+            </div>
+        </div>
+
+
+        <!-- Dynamic Variable Axes -->
+        <div id="bottom-axes-section" class="control-section">
+            <h3>Variable Axes</h3>
+            <div class="control-group">
+                <label for="rubik-wght">Weight: <span class="axis-tag">(wght)</span></label>
+                <input type="range" id="rubik-wght" min="300" max="900" value="400">
+                <span id="rubik-wght-value">400</span>
+            </div>
+            <div class="control-group">
+                <label for="rubik-ital">Italic: <span class="axis-tag">(ital)</span></label>
+                <input type="range" id="rubik-ital" min="0" max="1" value="0">
+                <span id="rubik-ital-value">0</span>
+            </div>
+        </div>
+
+        <button class="reset-button" id="reset-bottom-font">Reset Font</button>
+    </div>
+
+    <!-- Font Comparison Area -->
+    <div id="font-comparison">
+        <!-- Top section -->
+        <div class="font-section" id="top-font-section">
+            <h3 id="top-font-name">Roboto Flex</h3>
+            <p id="top-font-text" style="font-family: 'Roboto Flex', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+
+        <!-- Horizontal separator -->
+        <div class="separator"></div>
+
+        <!-- Bottom section -->
+        <div class="font-section" id="bottom-font-section">
+            <h3 id="bottom-font-name">Rubik</h3>
+            <p id="bottom-font-text" style="font-family: 'Rubik', serif; font-weight: 700;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+
+    <!-- Font Picker Modal -->
+    <div id="font-picker-modal" class="font-picker-modal">
+        <div class="font-picker-content">
+            <div class="font-picker-header">
+                <h3 id="font-picker-title">Select Font</h3>
+                <button id="font-picker-close" class="popup-close">&times;</button>
+            </div>
+            <div class="font-picker-toolbar">
+                <input type="text" id="font-picker-search" class="font-picker-search" placeholder="Search fonts..." aria-label="Search fonts">
+            </div>
+            <div class="font-picker-body">
+                <div id="font-picker-list" class="font-picker-list" role="listbox" aria-label="Font list"></div>
+                <div id="font-picker-rail" class="font-picker-rail" aria-label="Alphabet navigation"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

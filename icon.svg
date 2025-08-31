@@ -1,0 +1,33 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="#2c3e50"/>
+  
+  <!-- Hockey Sticks -->
+  <!-- Left stick -->
+  <path d="M20 30 L35 45 L40 40 L55 55 L60 50 L45 35 Z" fill="#8b4513" stroke="#654321" stroke-width="1"/>
+  <rect x="55" y="50" width="25" height="8" rx="4" fill="#8b4513" stroke="#654321" stroke-width="1"/>
+  
+  <!-- Right stick -->
+  <path d="M108 30 L93 45 L88 40 L73 55 L68 50 L83 35 Z" fill="#8b4513" stroke="#654321" stroke-width="1"/>
+  <rect x="48" y="50" width="25" height="8" rx="4" fill="#8b4513" stroke="#654321" stroke-width="1"/>
+  
+  <!-- Faces -->
+  <!-- Left face -->
+  <circle cx="32" cy="85" r="18" fill="#fdbcb4"/>
+  <!-- Eyes -->
+  <circle cx="28" cy="80" r="2" fill="#333"/>
+  <circle cx="36" cy="80" r="2" fill="#333"/>
+  <!-- Lips -->
+  <path d="M28 90 Q32 93 36 90" stroke="#d63384" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- Right face -->
+  <circle cx="96" cy="85" r="18" fill="#fdbcb4"/>
+  <!-- Eyes -->
+  <circle cx="92" cy="80" r="2" fill="#333"/>
+  <circle cx="100" cy="80" r="2" fill="#333"/>
+  <!-- Lips -->
+  <path d="M92 90 Q96 93 100 90" stroke="#d63384" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- VS text -->
+  <text x="64" y="45" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#ecf0f1">VS</text>
+</svg>
