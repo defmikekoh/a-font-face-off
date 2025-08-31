@@ -1,0 +1,235 @@
+name: Sign prerelease Firefox Android XPI (from build ZIP)
+
+concurrency:
+  group: xpi-prerelease-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+
+      - name: Install tools (web-ext, jq, unzip)
+        run: |
+          npm i -g web-ext
+          sudo apt-get update
+          sudo apt-get install -y jq unzip
+
+      - name: Install deps and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Locate build ZIP
+        id: findzip
+        run: |
+          ls -1 web-ext-artifacts/*.zip | sort | tail -n 1 > /tmp/zip_path
+          ZIP=$(cat /tmp/zip_path)
+          if [ ! -s /tmp/zip_path ]; then
+            echo "No ZIP found in web-ext-artifacts/" >&2
+            exit 1
+          fi
+          echo "zip=$ZIP" >> $GITHUB_OUTPUT
+          echo "Found ZIP: $ZIP"
+
+      - name: Unzip to source dir for signing
+        id: unzip
+        run: |
+          rm -rf build_src
+          mkdir -p build_src
+          unzip -q "${{ steps.findzip.outputs.zip }}" -d build_src
+
+          # Find the folder that actually contains manifest.json
+          MF=$(find build_src -maxdepth 3 -type f -name manifest.json | head -n 1 || true)
+          if [ -z "$MF" ]; then
+            echo "manifest.json not found inside the ZIP" >&2
+            exit 1
+          fi
+          SRC_DIR=$(dirname "$MF")
+          echo "src_dir=$SRC_DIR" >> $GITHUB_OUTPUT
+          echo "Using source dir: $SRC_DIR"
+
+      - name: Ensure Gecko ID exists
+        run: |
+          ID=$(jq -r '.browser_specific_settings.gecko.id // .applications.gecko.id // empty' "${{ steps.unzip.outputs.src_dir }}/manifest.json")
+          if [ -z "$ID" ]; then
+            echo "ERROR: manifest.json must include browser_specific_settings.gecko.id (or applications.gecko.id)." >&2
+            exit 1
+          fi
+          echo "Gecko ID: $ID"
+
+      # Optional: bump version inside the unzipped manifest so AMO accepts each submission
+      # Remove this step if your build already changes version per-commit.
+      - name: Bump version (4th = run number)
+        run: |
+          MF="${{ steps.unzip.outputs.src_dir }}/manifest.json"
+
+          # Grab first 3 numeric components from manifest
+          base=$(jq -r .version "$MF" | cut -d. -f1-3)
+          if ! echo "$base" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: manifest.json version must start with three numeric components" >&2
+            exit 1
+          fi
+
+          # Use GitHub Actions run number as the 4th component (offset by 100)
+          rn="$((GITHUB_RUN_NUMBER + 100))"
+
+          new_version="${base}.${rn}"
+          jq --arg v "$new_version" '.version = $v' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
+          echo "New version: $(jq -r .version "$MF")"
+
+      - name: Capture version for artifact/release names
+        id: ver
+        run: |
+          MF="${{ steps.unzip.outputs.src_dir }}/manifest.json"
+          echo "v=$(jq -r .version "$MF")" >> $GITHUB_OUTPUT
+          echo "Version: $(jq -r .version "$MF")"
+
+      - name: Sign on AMO (unlisted, with retry)
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          mkdir -p signed
+          # Try up to 6 times, waiting up to ~15 minutes total.
+          # Each attempt gives AMO up to 5 minutes to approve before timing out.
+          attempts=2
+          attempt=1
+          while [ $attempt -le $attempts ]; do
+            echo "::group::web-ext sign attempt $attempt/$attempts"
+            # Clean any partials so we can detect success
+            rm -f signed/*.xpi || true
+            # Run sign with a longer timeout (ms)
+            if web-ext sign \
+              --channel=unlisted \
+              --source-dir "${{ steps.unzip.outputs.src_dir }}" \
+              --artifacts-dir ./signed \
+              --api-key "$AMO_JWT_ISSUER" \
+              --api-secret "$AMO_JWT_SECRET" \
+              --timeout 1020000 ; then
+              echo "web-ext sign completed."
+            else
+              echo "web-ext sign exited non-zero (possible approval timeout)."
+            fi
+            echo "::endgroup::"
+            # Success condition: a signed XPI now exists
+            if ls signed/*.xpi >/dev/null 2>&1; then
+              echo "Found signed XPI after attempt $attempt."
+              break
+            fi
+            if [ $attempt -lt $attempts ]; then
+              echo "No XPI yet; sleeping 90s before retry..."
+              sleep 90
+            fi
+            attempt=$((attempt+1))
+          done
+          # Final check
+          if ! ls signed/*.xpi >/dev/null 2>&1; then
+            echo "ERROR: No signed XPI produced after $attempts attempts. AMO may still be processing or rejected the upload."
+            exit 1
+          fi
+
+      - name: Upload signed XPI
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-xpi-${{ steps.ver.outputs.v }}
+          path: signed/*.xpi
+
+      # Move android-test-latest tag to this commit so the release has a real tag
+      - name: Move android-test-latest tag to this commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
+          git tag -f android-test-latest $GITHUB_SHA
+          git push -f origin android-test-latest
+
+      # Prerelease on every push for a direct .xpi link
+
+      - name: Create/Update "latest" release (manual)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-test-latest
+          target_commitish: ${{ github.sha }}
+          name: Android test (latest) ${{ steps.ver.outputs.v }}
+          body: |
+            Draft build for Android testing.
+            Version: ${{ steps.ver.outputs.v }}
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: true
+          make_latest: false
+          files: signed/*.xpi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prune old assets from android-test-latest release
+        run: |
+          echo "Pruning old assets..."
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/android-test-latest"
+          RELEASE_JSON=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$API_URL")
+          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
+          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+            echo "No release found for tag android-test-latest."
+            exit 0
+          fi
+          # Collect asset IDs beyond the 5 most recent (keep newest first)
+          ASSET_IDS=($(echo "$RELEASE_JSON" | jq -r '.assets | sort_by(.created_at) | reverse | .[5:] | .[].id'))
+          if [ ${#ASSET_IDS[@]} -eq 0 ]; then
+            echo "No old assets to delete."
+            exit 0
+          fi
+          for AID in "${ASSET_IDS[@]}"; do
+            echo "Deleting asset ID $AID..."
+            curl -sSL -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$AID"
+          done
+
+      - name: Print direct link and QR to latest .xpi
+        run: |
+          echo "Fetching latest (tagged) release download URL..."
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/android-test-latest"
+
+          # Retry up to 3 times with 10 second delays
+          attempts=3
+          attempt=1
+          while [ $attempt -le $attempts ]; do
+            echo "Attempt $attempt/$attempts: Checking for release asset..."
+            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r '.assets[0].browser_download_url')
+            if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
+              echo "Asset found!"
+              break
+            fi
+            if [ $attempt -lt $attempts ]; then
+              echo "No asset found yet, waiting 10 seconds..."
+              sleep 10
+            fi
+            attempt=$((attempt+1))
+          done
+
+          if [ "$DOWNLOAD_URL" = "null" ] || [ -z "$DOWNLOAD_URL" ]; then
+            echo "No asset found for latest tagged release after $attempts attempts."
+            exit 1
+          fi
+          echo "Direct download URL: $DOWNLOAD_URL"
+          echo
+          echo "QR code for mobile download:"
+          curl -s "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${DOWNLOAD_URL}" --output qrcode.png
+          # Display as base64 in logs so it's clickable
+          echo "data:image/png;base64,$(base64 -w0 qrcode.png)"

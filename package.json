@@ -1,0 +1,13 @@
+{
+  "name": "a-font-face-off",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Build scripts for A Font Face-off (web-ext)",
+  "scripts": {
+    "build": "web-ext build --overwrite-dest --artifacts-dir web-ext-artifacts"
+  },
+  "devDependencies": {
+    "web-ext": "^7.10.0"
+  }
+}
+

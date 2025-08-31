@@ -1,0 +1,28 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Web-ext build/sign artifacts
+web-ext-artifacts/
+signed/
+build_src/
+*.xpi
+qrcode.png
+
+# Local tooling
+.claude/
+
+# Temporary/working files
+tmp/
+temp/
+
+# Optional: large local data at repo root (kept locally)
+/fonts

@@ -1,0 +1,28 @@
+# Exclude development and CI files from extension bundle
+.git/
+.github/
+node_modules/
+web-ext-artifacts/
+signed/
+build_src/
+
+# Docs and repo metadata
+README.md
+README-*.md
+docs/
+.gitignore
+.web-extignore
+package.json
+package-lock.json
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local tooling
+.claude/
+
+# Maps and misc
+*.map
