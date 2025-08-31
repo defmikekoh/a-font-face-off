@@ -204,6 +204,20 @@ body {
     width: 33.334%;
 }
 
+/* Small screens: single-panel overlay not full width */
+@media (max-width: 640px) {
+    .controls-panel {
+        width: 90%; /* leave ~10% gutter so it doesn't cover edge-to-edge */
+    }
+    #font-comparison.top-panel-open,
+    #font-comparison.bottom-panel-open,
+    #font-comparison.both-panels-open {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+}
+
 /* Font sections */
 .font-section {
     flex: 1;
@@ -725,6 +739,12 @@ body {
     transform: scale(0.95);
 }
 
+/* Persisted active state (panel open) */
+.grip-area.active {
+    background: rgba(127, 140, 141, 0.45); /* neutral gray highlight in dark theme */
+    box-shadow: inset 0 0 0 2px rgba(236, 240, 241, 0.2);
+}
+
 .grip-handle {
     font-size: 18px;
     color: #3498db;
@@ -774,6 +794,56 @@ body {
     justify-content: center;
     gap: 6px;
     width: 100%;
+}
+
+/* Responsive adjustments: phones and narrow devices */
+@media (max-width: 640px) {
+    #panel-grips {
+        flex-wrap: wrap; /* two rows on phones */
+        justify-content: space-between;
+        height: auto;
+        padding: 6px 8px;
+        column-gap: 8px;
+        row-gap: 6px;
+    }
+    /* Top row: grips side by side */
+    #top-font-grip { order: 1; }
+    #bottom-font-grip { order: 2; }
+    .grip-area {
+        flex: 1 1 48%;
+        padding: 6px 8px;
+    }
+    /* Second row: full-width, horizontally scrollable favorites */
+    .favorites-container {
+        order: 3;
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: 100%;
+        justify-content: center; /* center favorites row on phones */
+        gap: 10px;
+        overflow-x: auto; /* allow horizontal scroll instead of overflow */
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px; /* breathing room for scrollbar */
+    }
+    .favorites-section {
+        flex: 0 0 auto;
+        min-width: 120px; /* slightly tighter on phones */
+        max-width: 160px;
+    }
+    .favorites-title {
+        display: none; /* save vertical space on phones */
+    }
+}
+
+/* Mid-size tablets: slightly tighter sections to avoid overflow */
+@media (min-width: 641px) and (max-width: 900px) {
+    .favorites-section {
+        min-width: 130px;
+        max-width: 170px;
+    }
+    #panel-grips {
+        height: 90px;
+    }
 }
 
 /* Custom Alert Modal */
@@ -1578,8 +1648,8 @@ body {
     }
     
     .control-group:not(.unset) .axis-info-btn {
-        background: white;
-        color: #495057;
+        background: #495057;
+        color: #ffffff; /* activated '?' icon white */
         border: 1px solid #495057;
     }
     
@@ -1738,6 +1808,16 @@ body {
     
     .grip-area:active {
         background: rgba(108, 117, 125, 0.4);
+    }
+
+    .grip-area.active {
+        background: rgba(108, 117, 125, 0.35); /* neutral gray highlight in light theme */
+        box-shadow: inset 0 0 0 2px rgba(33, 37, 41, 0.15);
+    }
+
+    /* On touch devices, avoid sticky hover/active states */
+    @media (hover: none) {
+        .grip-area:hover { background: transparent; }
     }
     
     .font-section {
@@ -2005,9 +2085,9 @@ body {
 
     #top-axes-section .control-group:not(.unset) .axis-info-btn,
     #bottom-axes-section .control-group:not(.unset) .axis-info-btn {
-        background: #adb5bd;
-        color: #212529;
-        border: 1px solid #adb5bd;
+        background: #495057;
+        color: #ffffff; /* activated '?' icon white */
+        border: 1px solid #495057;
     }
 
     #top-axes-section .control-group:not(.unset) .axis-reset-btn,

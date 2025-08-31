@@ -453,7 +453,8 @@ function getCurrentFontConfig(position) {
 function applyFontConfig(position, config) {
     // Set font family
     document.getElementById(`${position}-font-select`).value = config.fontName;
-    loadFont(position, config.fontName);
+    // Suppress immediate apply/save during restore; we'll apply after values are set
+    loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
     
     // Wait for font controls to be generated, then apply settings
     setTimeout(() => {
@@ -900,7 +901,8 @@ function selectFont(name) {
 }
 
 // Font loading and management functions
-function loadFont(position, fontName) {
+function loadFont(position, fontName, options = {}) {
+    const { suppressImmediateApply = false, suppressImmediateSave = false } = options || {};
     // Save current font settings before switching
     const currentFontName = document.getElementById(`${position}-font-name`).textContent;
     if (currentFontName && currentFontName !== fontName) {
@@ -947,7 +949,9 @@ function loadFont(position, fontName) {
             // Regenerate controls if the dynamic def was just created
             generateFontControls(position, fontName);
             restoreFontSettings(position, fontName);
-            applyFont(position);
+            if (!suppressImmediateApply) {
+                applyFont(position);
+            }
         }).catch(err => console.warn('Dynamic axis discovery failed', err));
     }
     // Custom fonts are already loaded via CSS @font-face declarations
@@ -963,14 +967,18 @@ function loadFont(position, fontName) {
     // Restore saved settings for this font (if any)
     restoreFontSettings(position, fontName);
     
-    // Apply font to text
-    applyFont(position);
+    // Apply font to text (unless suppressed to allow a restore to set values first)
+    if (!suppressImmediateApply) {
+        applyFont(position);
+    }
     
     // Update basic controls
     updateBasicControls(position);
     
-    // Save current state
-    setTimeout(() => saveExtensionState(), 100);
+    // Save current state unless explicitly suppressed (restores will save after values are applied)
+    if (!suppressImmediateSave) {
+        setTimeout(() => saveExtensionState(), 100);
+    }
 }
 
 async function loadGoogleFont(fontName) {
@@ -2115,14 +2123,28 @@ document.addEventListener('DOMContentLoaded', function() {
     let bottomPanelOpen = false;
     
     function showPanel(panel) {
+        // On narrow screens, enforce single-panel mode
+        const isNarrow = window.innerWidth <= 640;
+        if (isNarrow) {
+            if (panel === 'top' && bottomPanelOpen) hidePanel('bottom');
+            if (panel === 'bottom' && topPanelOpen) hidePanel('top');
+        }
         if (panel === 'top') {
             topFontControlsPanel.classList.add('visible');
             panelOverlay.classList.add('visible');
             topPanelOpen = true;
+            topFontGrip.classList.add('active');
+            bottomFontGrip.classList.remove('active');
+            topFontGrip.setAttribute('aria-pressed', 'true');
+            bottomFontGrip.setAttribute('aria-pressed', 'false');
         } else if (panel === 'bottom') {
             bottomFontControlsPanel.classList.add('visible');
             panelOverlay.classList.add('visible');
             bottomPanelOpen = true;
+            bottomFontGrip.classList.add('active');
+            topFontGrip.classList.remove('active');
+            bottomFontGrip.setAttribute('aria-pressed', 'true');
+            topFontGrip.setAttribute('aria-pressed', 'false');
         }
         updateFontComparisonLayout();
     }
@@ -2131,9 +2153,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (panel === 'top') {
             topFontControlsPanel.classList.remove('visible');
             topPanelOpen = false;
+            topFontGrip.classList.remove('active');
+            topFontGrip.setAttribute('aria-pressed', 'false');
         } else if (panel === 'bottom') {
             bottomFontControlsPanel.classList.remove('visible');
             bottomPanelOpen = false;
+            bottomFontGrip.classList.remove('active');
+            bottomFontGrip.setAttribute('aria-pressed', 'false');
         }
         
         // Hide overlay only if no panels are open
@@ -2149,6 +2175,10 @@ document.addEventListener('DOMContentLoaded', function() {
         panelOverlay.classList.remove('visible');
         topPanelOpen = false;
         bottomPanelOpen = false;
+        topFontGrip.classList.remove('active');
+        bottomFontGrip.classList.remove('active');
+        topFontGrip.setAttribute('aria-pressed', 'false');
+        bottomFontGrip.setAttribute('aria-pressed', 'false');
         updateFontComparisonLayout();
     }
     
@@ -2185,6 +2215,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Close panels when clicking overlay
     panelOverlay.addEventListener('click', hideAllPanels);
+
+    // Enforce single-panel mode on narrow screens when resizing
+    window.addEventListener('resize', () => {
+        if (window.innerWidth <= 640 && topPanelOpen && bottomPanelOpen) {
+            hidePanel('bottom');
+        }
+    });
     
     // Reference to panel elements  
     const topFontControlsPanel = topFontControls;
