@@ -48,3 +48,9 @@ Toggle modes with the center button in the bottom strip of the popup.
 - One injected `<style>` on the page (Facade) drives the change — no per‑node mutations.
 - Fonts load via Google Fonts css2 and the `FontFace` API with a safe background fetch.
 - See details in README‑font‑application.md.
+
+## Scary install Required permissions
+
+The install permissions are unfortunately scary looking. Given that the extension is intended to change fonts on any web page and persist across page reloads, they can not be reduced unfortuately.
+
+CSS injected only to change fonts you choose. No tracking, no content collection. All code is open source.

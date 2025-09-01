@@ -26,8 +26,18 @@ function applyViewMode(forceView) {
     if (botGripLabel) botGripLabel.textContent = getPanelLabel('bottom');
 }
 
+// Helper: get current active tab's origin without requiring 'tabs' permission
+async function getActiveOrigin() {
+    try {
+        const res = await browser.tabs.executeScript({ code: 'location.origin' });
+        if (Array.isArray(res) && res.length) return String(res[0]);
+    } catch (_) {}
+    return null;
+}
+
 // Dynamic font axis cache populated from Google Fonts metadata + CSS parsing
-const appliedCssByTab = { serif: {}, sans: {} };
+// Track last applied CSS for the active tab to avoid 'tabs' permission
+const appliedCssActive = { serif: null, sans: null };
 const dynamicFontDefinitions = {};
 
 // Font definitions from YAML data (fallbacks for known families)
@@ -1334,11 +1344,7 @@ function formatAxisValue(axis, value) {
 async function toggleApplyToPage(position) {
     const genericKey = (position === 'top') ? 'serif' : 'sans';
     try {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!tabs || !tabs.length) return false;
-        const tab = tabs[0];
-        const tabId = tab.id;
-        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        const origin = await getActiveOrigin();
         // Determine saved state for this origin/role
         let savedEntry = null;
         if (origin) {
@@ -1348,15 +1354,15 @@ async function toggleApplyToPage(position) {
                 savedEntry = applyMap[origin] ? applyMap[origin][genericKey] : null;
             } catch (_) { savedEntry = null; }
         }
-        const map = appliedCssByTab[genericKey];
+        
         // If there is a saved entry and current UI matches it, treat this click as Unapply
         if (savedEntry) {
             const currentPayload = buildCurrentPayload(position);
             if (!currentPayload || payloadEquals(savedEntry, currentPayload)) {
                 // Remove immediate CSS if present
-                if (map && map[tabId]) {
-                    try { await browser.tabs.removeCSS(tabId, { code: map[tabId] }); } catch (_) {}
-                    delete map[tabId];
+                if (appliedCssActive[genericKey]) {
+                    try { await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] }); } catch (_) {}
+                    appliedCssActive[genericKey] = null;
                 }
                 // Remove saved persistence
                 if (origin) {
@@ -1374,7 +1380,7 @@ async function toggleApplyToPage(position) {
                 const styleIdOff = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
                 const linkIdOff = styleIdOff + '-link';
                 try {
-                    await browser.tabs.executeScript(tabId, { code: `
+                    await browser.tabs.executeScript({ code: `
                         (function(){
                             try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
                             try{ var l=document.getElementById('${linkIdOff}'); if(l) l.remove(); }catch(_){}
@@ -1423,7 +1429,7 @@ async function toggleApplyToPage(position) {
                         }catch(e){}
                     }
                 )();`;
-                await browser.tabs.executeScript(tabId, { code });
+                await browser.tabs.executeScript({ code });
             } catch(e) {}
         }
 
@@ -1457,8 +1463,8 @@ async function toggleApplyToPage(position) {
                        'font-weight: 700 !important; font-variation-settings: ' + varPartsBold.join(', ') + ' !important; }');
         }
         var cssCode = lines.join('\n');
-        await browser.tabs.insertCSS(tabId, { code: cssCode });
-        map[tabId] = cssCode;
+        await browser.tabs.insertCSS({ code: cssCode });
+        appliedCssActive[genericKey] = cssCode;
         // Persist payload for this origin so content script can reapply on reload
         if (origin) {
             const payload = {
@@ -1498,10 +1504,7 @@ async function syncApplyButtonsForOrigin() {
         const applyTopBtn = document.getElementById('apply-top');
         const applyBottomBtn = document.getElementById('apply-bottom');
         if (!applyTopBtn && !applyBottomBtn) return;
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!tabs || !tabs.length) return;
-        const tab = tabs[0];
-        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        const origin = await getActiveOrigin();
         if (!origin) return;
         const data = await browser.storage.local.get('affoApplyMap');
         const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
@@ -2384,12 +2387,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const active = await toggleApplyToPage('top');
             if (active) {
                 try {
-                    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-                    const tabId = tabs && tabs[0] && tabs[0].id;
                     const family = (before && before.fontName) || (document.getElementById('top-font-name')?.textContent) || '';
                     const deadline = Date.now() + 6000;
                     while (Date.now() < deadline) {
-                        const res = await browser.tabs.executeScript(tabId, { code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
+                        const res = await browser.tabs.executeScript({ code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
                         if (Array.isArray(res) && res[0] === true) break;
                         await new Promise(r => setTimeout(r, 200));
                     }
@@ -2411,12 +2412,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const active = await toggleApplyToPage('bottom');
             if (active) {
                 try {
-                    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-                    const tabId = tabs && tabs[0] && tabs[0].id;
                     const family = (before && before.fontName) || (document.getElementById('bottom-font-name')?.textContent) || '';
                     const deadline = Date.now() + 6000;
                     while (Date.now() < deadline) {
-                        const res = await browser.tabs.executeScript(tabId, { code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
+                        const res = await browser.tabs.executeScript({ code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
                         if (Array.isArray(res) && res[0] === true) break;
                         await new Promise(r => setTimeout(r, 200));
                     }
@@ -3149,10 +3148,7 @@ function buildConfigFromPayload(position, payload) {
 async function prepopulateFacadeFromSavedOrigin() {
     if (currentViewMode !== 'facade') return;
     try {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!tabs || !tabs.length) return;
-        const tab = tabs[0];
-        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        const origin = await getActiveOrigin();
         if (!origin) return;
         const data = await browser.storage.local.get('affoApplyMap');
         const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
@@ -3229,9 +3225,7 @@ function buildCurrentPayload(position) {
 // Reflect button labels based on saved vs current (Applied/Update/Apply)
 async function refreshApplyButtonsDirtyState() {
     try {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (!tabs || !tabs.length) return;
-        const origin = (() => { try { return new URL(tabs[0].url).origin; } catch (_) { return null; } })();
+        const origin = await getActiveOrigin();
         const data = await browser.storage.local.get('affoApplyMap');
         const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
         const entry = origin ? (map[origin] || {}) : {};
