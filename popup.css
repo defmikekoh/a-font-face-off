@@ -205,7 +205,7 @@ body {
 }
 
 /* Small screens: single-panel overlay not full width */
-@media (max-width: 640px) {
+@media (max-width: 599px) {
     .controls-panel {
         width: 90%; /* leave ~10% gutter so it doesn't cover edge-to-edge */
     }
@@ -717,6 +717,67 @@ body {
     padding: 0 10px;
 }
 
+/* Apply buttons near grips (visible in Facade view) */
+.apply-btn {
+    display: none; /* hidden by default, shown in facade mode */
+    padding: 6px 10px;
+    background: #16a085;
+    color: white;
+    border: 1px solid #13866f;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.apply-btn:hover { background: #13866f; }
+.apply-btn.active { background: #1abc9c; border-color: #149b84; }
+
+/* Add breathing room between grips and Apply buttons */
+#apply-top { margin-left: 10px; }
+#apply-bottom { margin-right: 10px; }
+
+/* Cluster Apply + Save/Open icons together */
+.apply-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.apply-cluster .favorite-btn { width: 24px; height: 24px; font-size: 12px; }
+
+body.view-facade .apply-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+/* Loading state for Apply buttons */
+.apply-btn.loading {
+    opacity: 0.85;
+    pointer-events: none;
+    position: relative;
+}
+.apply-btn.loading::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    margin-left: 6px;
+    border: 2px solid rgba(255,255,255,0.6);
+    border-top-color: #fff;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    animation: affo-spin 0.9s linear infinite;
+}
+
+@keyframes affo-spin { to { transform: rotate(360deg); } }
+
+
+/* Phone layout ordering for apply buttons */
+@media (max-width: 599px) {
+    /* Keep two-row layout: grips top row, favorites second row */
+    #top-font-grip { order: 1; }
+    #apply-top { order: 2; }
+    #apply-bottom { order: 3; }
+    #bottom-font-grip { order: 4; }
+}
+
 .grip-area {
     display: flex;
     flex-direction: column;
@@ -728,6 +789,8 @@ body {
     transition: all 0.2s ease;
     user-select: none;
     flex-shrink: 0;
+    border: 1px solid #4a5a6a; /* ensure visible box when rolled in */
+    background: transparent; /* default no gray */
 }
 
 .grip-area:hover {
@@ -739,10 +802,11 @@ body {
     transform: scale(0.95);
 }
 
-/* Persisted active state (panel open) */
+/* Persisted active state (panel open) -> border accent, no gray */
 .grip-area.active {
-    background: rgba(127, 140, 141, 0.45); /* neutral gray highlight in dark theme */
-    box-shadow: inset 0 0 0 2px rgba(236, 240, 241, 0.2);
+    background: transparent;
+    border-color: #3498db; /* accent border when panel is open */
+    box-shadow: none;
 }
 
 .grip-handle {
@@ -797,7 +861,7 @@ body {
 }
 
 /* Responsive adjustments: phones and narrow devices */
-@media (max-width: 640px) {
+@media (max-width: 599px) {
     #panel-grips {
         flex-wrap: wrap; /* two rows on phones */
         justify-content: space-between;
@@ -836,7 +900,7 @@ body {
 }
 
 /* Mid-size tablets: slightly tighter sections to avoid overflow */
-@media (min-width: 641px) and (max-width: 900px) {
+@media (min-width: 600px) and (max-width: 900px) {
     .favorites-section {
         min-width: 130px;
         max-width: 170px;
@@ -925,31 +989,31 @@ body {
         color: #333;
         border-color: #333;
     }
-    
+
     .custom-alert-btn {
         background: #007cba;
         color: white;
         border-color: #005a87;
     }
-    
+
     .custom-alert-btn:hover {
         background: #005a87;
     }
-    
+
     .custom-confirm-cancel {
         background: #6c757d;
         border-color: #545b62;
     }
-    
+
     .custom-confirm-cancel:hover {
         background: #545b62;
     }
-    
+
     .custom-confirm-ok {
         background: #dc3545;
         border-color: #c82333;
     }
-    
+
     .custom-confirm-ok:hover {
         background: #c82333;
     }
@@ -1227,8 +1291,10 @@ body {
 /* Favorites Edit Section */
 .favorites-edit-section {
     display: flex;
+    flex-direction: column; /* stack edit + view toggle */
     justify-content: center;
     align-items: center;
+    gap: 6px;
     flex-shrink: 0;
 }
 
@@ -1239,6 +1305,20 @@ body {
 
 .favorite-btn.edit-btn:hover {
     background: #e67e22;
+}
+
+/* View toggle button (uses extension icon) */
+.favorite-btn.view-toggle-btn {
+    background: #2ecc71;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+}
+
+.favorite-btn.view-toggle-btn:hover {
+    background: #27ae60;
 }
 
 /* Favorites Popup */
@@ -1534,6 +1614,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative; /* for drop indicator positioning */
 }
 
 .edit-favorite-item {
@@ -1544,6 +1625,50 @@ body {
     background: #34495e;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
+}
+
+/* Drag handle for reordering */
+.drag-handle {
+    width: 18px;
+    margin-right: 10px;
+    cursor: grab;
+    color: #95a5a6;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none; /* enable pointer-based drag on mobile */
+}
+.drag-handle:active { cursor: grabbing; }
+.edit-favorite-item.dragging { opacity: 0.25; }
+
+/* Floating proxy shown while dragging (pointer fallback) */
+.edit-favorite-item.dragging-proxy,
+.dragging-proxy {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translate(0, 0);
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 1;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    background: transparent !important; /* don't lighten target under finger */
+}
+
+/* Drop indicator line showing insertion point */
+.drop-indicator {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 0;
+    border-top: 6px solid #3498db; /* thicker, solid line */
+    border-radius: 3px;
+    box-shadow: 0 0 0 3px rgba(52,152,219,0.15); /* subtle glow */
+    z-index: 10002; /* above drag proxy */
+    pointer-events: none;
 }
 
 .edit-favorite-info {
@@ -1597,165 +1722,165 @@ body {
         background: #ffffff;
         color: #2c3e50;
     }
-    
+
     .controls-panel {
         background: #f8f9fa;
         color: #2c3e50;
         border-right-color: #dee2e6;
         border-left-color: #dee2e6;
     }
-    
+
     .controls-panel h2 {
         color: #2c3e50;
         border-bottom-color: #dee2e6;
     }
-    
+
     .control-section h3 {
         color: #495057;
         border-left-color: #495057;
     }
-    
+
     .control-group label {
         color: #495057;
     }
-    
+
     .axis-tag {
         color: #6c757d;
     }
-    
+
     .axis-info-btn {
         background: #495057;
         color: white;
         border: 1px solid #343a40;
     }
-    
+
     .axis-info-btn:hover {
         background: #343a40;
         color: white;
         border-color: #212529;
     }
-    
+
     .control-group.unset .axis-info-btn {
         background: #6c757d;
         color: white;
         border: 1px solid #495057;
     }
-    
+
     .control-group.unset .axis-info-btn:hover {
         background: #495057;
         color: white;
         border-color: #343a40;
     }
-    
+
     .control-group:not(.unset) .axis-info-btn {
         background: #495057;
         color: #ffffff; /* activated '?' icon white */
         border: 1px solid #495057;
     }
-    
+
     .control-group:not(.unset) .axis-info-btn:hover {
         background: #495057;
         color: white;
         border-color: #495057;
     }
-    
+
     .axis-reset-btn {
         background: #dc3545;
         color: white;
         border: 1px solid #c82333;
     }
-    
+
     .axis-reset-btn:hover {
         background: #c82333;
         color: white;
         border-color: #bd2130;
     }
-    
+
     .control-group.unset .axis-reset-btn {
         background: #6c757d;
         color: white;
         border: 1px solid #495057;
     }
-    
+
     .control-group.unset .axis-reset-btn:hover {
         background: #dc3545;
         color: white;
         border-color: #c82333;
     }
-    
+
     .control-group:not(.unset) .axis-reset-btn {
         background: #dc3545;
         color: white;
         border: 1px solid #dc3545;
     }
-    
+
     .control-group:not(.unset) .axis-reset-btn:hover {
         background: #c82333;
         color: white;
         border-color: #c82333;
     }
-    
+
     .control-group input[type="range"] {
         background: #dee2e6;
         border: 1px solid #6c757d;
     }
-    
+
     .axis-text-input,
     .axis-readonly-input {
         background: #ffffff;
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .control-group.unset .axis-text-input,
     .control-group.unset .axis-readonly-input {
         color: #6c757d;
         background: #f8f9fa;
         opacity: 1;
     }
-    
+
     .axis-text-input:focus,
     .control-group.unset .axis-text-input:focus {
         border-color: #495057 !important;
         background: #ffffff !important;
         color: #212529 !important;
     }
-    
+
     .control-group input[type="range"]::-webkit-slider-thumb {
         background: #495057;
         border-color: #ffffff;
     }
-    
+
     .control-group input[type="range"]::-moz-range-thumb {
         background: #495057;
         border-color: #ffffff;
     }
-    
+
     .control-group span {
         color: #495057;
     }
-    
+
     .control-group.unset {
         opacity: 0.7;
     }
-    
+
     .control-group.unset label {
         color: #6c757d;
     }
-    
+
     .control-group.unset span {
         color: #6c757d;
     }
-    
+
     .control-group.unset input[type="range"] {
         border-color: #adb5bd;
         opacity: 0.7;
     }
-    
+
     .axis-value-display {
         color: #6c757d;
     }
-    
+
     /* Ensure readonly value styling overrides generic span color */
     .control-group .axis-readonly-input {
         color: #495057;
@@ -1763,316 +1888,317 @@ body {
         background: #ffffff;
         border-color: #ced4da;
     }
-    
+
     .control-group select {
         background: #ffffff;
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .control-group select:focus {
         border-color: #495057;
         background: #ffffff;
     }
-    
+
     .control-group select option {
         background: #ffffff;
         color: #495057;
     }
-    
+
     .reset-button {
         background: #dc3545;
         color: white;
     }
-    
+
     .reset-button:hover {
         background: #c82333;
     }
-    
+
     #panel-grips {
         background: linear-gradient(to top, rgba(248, 249, 250, 0.95), rgba(248, 249, 250, 0.8));
         border-top-color: #dee2e6;
     }
-    
+
     .grip-handle {
         color: #495057;
     }
-    
+
     .grip-label {
         color: #6c757d;
     }
-    
+
     .grip-area:hover {
         background: rgba(108, 117, 125, 0.2);
     }
-    
+
     .grip-area:active {
         background: rgba(108, 117, 125, 0.4);
     }
 
     .grip-area.active {
-        background: rgba(108, 117, 125, 0.35); /* neutral gray highlight in light theme */
-        box-shadow: inset 0 0 0 2px rgba(33, 37, 41, 0.15);
+        background: transparent; /* no sticky gray in light theme */
+        border-color: #007bff; /* light theme accent */
+        box-shadow: none;
     }
 
     /* On touch devices, avoid sticky hover/active states */
     @media (hover: none) {
         .grip-area:hover { background: transparent; }
     }
-    
+
     .font-section {
         background: #ffffff;
         color: #212529;
     }
-    
+
     .font-section h3 {
         color: #495057;
         border-bottom-color: #dee2e6;
     }
-    
+
     .font-section p {
         color: #212529;
     }
-    
+
     #top-font-section {
         background: #ffffff;
     }
-    
+
     #top-font-section h3 {
         color: #495057;
     }
-    
+
     #bottom-font-section {
         background: #f8f9fa;
     }
-    
+
     #bottom-font-section h3 {
         color: #495057;
     }
-    
+
     .separator {
         background: linear-gradient(to right, #495057, #6c757d);
     }
-    
+
     .axis-tooltip {
         background: #f8f9fa;
         color: #495057;
         border-color: #dee2e6;
     }
-    
+
     .favorites-title {
         color: #6c757d;
     }
-    
+
     /* Favorites UI light theme */
     .favorite-name-input {
         background: rgba(255, 255, 255, 0.9);
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .favorite-name-input:focus {
         border-color: #495057;
         background: rgba(255, 255, 255, 0.95);
         box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
     }
-    
+
     .favorite-name-input::placeholder {
         color: #adb5bd;
     }
-    
+
     .favorites-dropdown {
         background: rgba(255, 255, 255, 0.9);
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .favorites-dropdown:focus {
         border-color: #495057;
         background: rgba(255, 255, 255, 0.95);
         box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
     }
-    
+
     .favorites-dropdown option {
         background: #ffffff;
         color: #495057;
     }
-    
+
     .favorite-btn {
         background: #495057;
         color: white;
     }
-    
+
     .favorite-btn:hover {
         background: #343a40;
     }
-    
+
     .favorite-btn.save-btn:hover {
         background: #28a745;
     }
-    
+
     .favorite-btn.delete-btn {
         background: #dc3545;
     }
-    
+
     .favorite-btn.delete-btn:hover {
         background: #c82333;
     }
-    
+
     .favorite-btn:disabled {
         background: #adb5bd;
     }
-    
+
     .favorite-btn:disabled:hover {
         background: #adb5bd;
     }
-    
+
     /* Size text inputs light theme */
     .size-text-input {
         background: #ffffff;
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .size-text-input:focus {
         border-color: #495057 !important;
         background: #ffffff !important;
         color: #212529 !important;
     }
-    
+
     /* Save Modal light theme */
     .save-modal-content {
         background: #ffffff;
         color: #495057;
     }
-    
+
     .save-modal-header {
         border-bottom-color: #dee2e6;
     }
-    
+
     .save-modal-header h3 {
         color: #495057;
     }
-    
+
     .save-modal-close {
         color: #6c757d;
     }
-    
+
     .save-modal-close:hover {
         background: #dc3545;
         color: white;
     }
-    
+
     .save-modal-body label {
         color: #495057;
     }
-    
+
     .save-modal-input {
         background: #ffffff;
         color: #495057;
         border-color: #ced4da;
     }
-    
+
     .save-modal-input:focus {
         border-color: #495057;
         background: #ffffff;
         box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
     }
-    
+
     .save-modal-preview {
         background: #f8f9fa;
         border-color: #dee2e6;
     }
-    
+
     .save-modal-preview strong {
         color: #495057;
     }
-    
+
     #save-modal-config {
         color: #6c757d;
     }
-    
+
     .save-modal-footer {
         border-top-color: #dee2e6;
     }
-    
+
     .save-modal-btn.cancel-btn {
         background: #6c757d;
         color: white;
     }
-    
+
     .save-modal-btn.cancel-btn:hover {
         background: #5a6268;
     }
-    
+
     .save-modal-btn.save-btn {
         background: #28a745;
         color: white;
     }
-    
+
     .save-modal-btn.save-btn:hover {
         background: #218838;
     }
-    
+
     /* New Favorites UI light theme */
     .favorite-btn.edit-btn {
         background: #fd7e14;
         color: white;
     }
-    
+
     .favorite-btn.edit-btn:hover {
         background: #e66b00;
     }
-    
+
     .favorites-popup-content, .edit-modal-content {
         background: #ffffff;
         color: #495057;
     }
-    
+
     .favorites-popup-header, .edit-modal-header {
         border-bottom-color: #dee2e6;
     }
-    
+
     .favorites-popup-header h3, .edit-modal-header h3 {
         color: #495057;
     }
-    
+
     .popup-close {
         color: #6c757d;
     }
-    
+
     .popup-close:hover {
         background: #dc3545;
         color: white;
     }
-    
+
     .favorite-item, .edit-favorite-item {
         background: #f8f9fa;
         border-color: #dee2e6;
     }
-    
+
     .favorite-item:hover {
         background: #e9ecef;
         border-color: #495057;
     }
-    
+
     .favorite-item-name, .edit-favorite-name {
         color: #495057;
     }
-    
+
     .favorite-item-preview, .edit-favorite-preview {
         color: #6c757d;
     }
-    
+
     .no-favorites {
         color: #6c757d;
     }
-    
+
     .delete-favorite-btn {
         background: #dc3545;
         color: white;
     }
-    
+
     .delete-favorite-btn:hover {
         background: #c82333;
     }

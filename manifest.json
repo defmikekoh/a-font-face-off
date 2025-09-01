@@ -22,11 +22,35 @@
     "128": "icon128.png"
   },
 
-  
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "<all_urls>"
+  ],
+
+
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
 
   "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://fonts.cdnfonts.com; font-src 'self' https://fonts.gstatic.com https://static.files.bbci.co.uk https://fonts.cdnfonts.com;",
 
   
+
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
 
   "applications": {
     "gecko": {

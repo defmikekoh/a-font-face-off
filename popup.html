@@ -100,33 +100,29 @@
             <div class="grip-handle">≡</div>
             <span class="grip-label">Top Font</span>
         </div>
+        <!-- Apply to page (Serif) -->
+        <div class="apply-cluster">
+            <button id="apply-top" class="apply-btn" title="Apply Serif to page">Apply</button>
+            <button id="top-load-favorite-bar" class="favorite-btn" title="Load Top favorite">📂</button>
+            <button id="top-save-favorite-bar" class="favorite-btn" title="Save Top favorite">💾</button>
+        </div>
 
-        <!-- Separate Favorites UI for each font -->
+        <!-- Center section: Edit Favorites + View Toggle -->
         <div class="favorites-container">
-            <!-- Top Font Favorites -->
-            <div class="favorites-section">
-                <div class="favorites-title">Top Font Favorites</div>
-                <div class="favorites-row">
-                    <button id="top-load-favorite" class="favorite-btn load-btn" title="Load top font favorite">📁</button>
-                    <button id="top-save-favorite" class="favorite-btn save-btn" title="Save top font configuration">💾</button>
-                </div>
-            </div>
-
-            <!-- Edit button in center -->
             <div class="favorites-edit-section">
                 <button id="edit-favorites" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
-            </div>
-
-            <!-- Bottom Font Favorites -->
-            <div class="favorites-section">
-                <div class="favorites-title">Bottom Font Favorites</div>
-                <div class="favorites-row">
-                    <button id="bottom-load-favorite" class="favorite-btn load-btn" title="Load bottom font favorite">📁</button>
-                    <button id="bottom-save-favorite" class="favorite-btn save-btn" title="Save bottom font configuration">💾</button>
-                </div>
+                <button id="toggle-view" class="favorite-btn view-toggle-btn" title="Switch view">
+                    <img src="icon32.png" alt="Toggle view" width="24" height="24" />
+                </button>
             </div>
         </div>
 
+        <!-- Apply to page (Sans Serif) -->
+        <div class="apply-cluster">
+            <button id="bottom-load-favorite-bar" class="favorite-btn" title="Load Bottom favorite">📂</button>
+            <button id="bottom-save-favorite-bar" class="favorite-btn" title="Save Bottom favorite">💾</button>
+            <button id="apply-bottom" class="apply-btn" title="Apply Sans Serif to page">Apply</button>
+        </div>
         <div class="grip-area" id="bottom-font-grip" data-panel="bottom">
             <div class="grip-handle">≡</div>
             <span class="grip-label">Bottom Font</span>
@@ -163,16 +159,27 @@
                     </select>
                 </div>
             </div>
+            <div class="control-group">
+                <label>Favorites:</label>
+                <div class="control-row">
+                    <button id="top-load-favorite" class="favorite-btn" title="Load a saved Top favorite">📂</button>
+                    <button id="top-save-favorite" class="favorite-btn" title="Save current Top configuration">💾</button>
+                </div>
+            </div>
         </div>
 
         <!-- Basic Font Properties -->
         <div class="control-section">
             <h3>Basic Properties</h3>
-            <div class="control-group">
+            <div class="control-group unset" data-control="font-size">
                 <label for="top-font-size">Font Size:</label>
-                <input type="range" id="top-font-size" min="10" max="72" step="0.01" value="17">
-                <input type="number" id="top-font-size-text" class="size-text-input" min="6" max="200" step="0.1" value="17">
-                <span id="top-font-size-value">17px</span>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="top-font-size-text" class="size-text-input" value="17" aria-label="Top font size in pixels (e.g., 16 or 16px)">
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="top-font-size" min="10" max="72" step="0.01" value="17">
+                </div>
             </div>
             <div class="control-group unset" data-control="line-height">
                 <label for="top-line-height">Line Height:</label>
@@ -316,16 +323,27 @@
                     </select>
                 </div>
             </div>
+            <div class="control-group">
+                <label>Favorites:</label>
+                <div class="control-row">
+                    <button id="bottom-load-favorite" class="favorite-btn" title="Load a saved Bottom favorite">📂</button>
+                    <button id="bottom-save-favorite" class="favorite-btn" title="Save current Bottom configuration">💾</button>
+                </div>
+            </div>
         </div>
 
         <!-- Basic Font Properties -->
         <div class="control-section">
             <h3>Basic Properties</h3>
-            <div class="control-group">
+            <div class="control-group unset" data-control="font-size">
                 <label for="bottom-font-size">Font Size:</label>
-                <input type="range" id="bottom-font-size" min="10" max="72" step="0.01" value="17">
-                <input type="number" id="bottom-font-size-text" class="size-text-input" min="6" max="200" step="0.1" value="17">
-                <span id="bottom-font-size-value">17px</span>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="bottom-font-size-text" class="size-text-input" value="17" aria-label="Bottom font size in pixels (e.g., 16 or 16px)">
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="bottom-font-size" min="10" max="72" step="0.01" value="17">
+                </div>
             </div>
             <div class="control-group unset" data-control="line-height">
                 <label for="bottom-line-height">Line Height:</label>

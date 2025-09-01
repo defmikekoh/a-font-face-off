@@ -1,4 +1,33 @@
+// View mode: 'facade' (Serif/Sans Serif) or 'faceoff' (Top/Bottom)
+let currentViewMode = 'facade';
+
+function getPanelLabel(position) {
+    if (currentViewMode === 'facade') return position === 'top' ? 'Serif' : 'Sans Serif';
+    return position === 'top' ? 'Top Font' : 'Bottom Font';
+}
+
+function applyViewMode(forceView) {
+    if (forceView) currentViewMode = forceView;
+    try { localStorage.setItem('fontFaceoffView', currentViewMode); } catch (_) {}
+    // Toggle body classes so CSS can react (e.g., show Apply buttons in Facade)
+    try {
+        document.body.classList.toggle('view-facade', currentViewMode === 'facade');
+        document.body.classList.toggle('view-faceoff', currentViewMode === 'faceoff');
+    } catch (_) {}
+    // Update control panel headings
+    const topH2 = document.querySelector('#top-font-controls h2');
+    const botH2 = document.querySelector('#bottom-font-controls h2');
+    if (topH2) topH2.textContent = getPanelLabel('top');
+    if (botH2) botH2.textContent = getPanelLabel('bottom');
+    // Update grip labels
+    const topGripLabel = document.querySelector('#top-font-grip .grip-label');
+    const botGripLabel = document.querySelector('#bottom-font-grip .grip-label');
+    if (topGripLabel) topGripLabel.textContent = getPanelLabel('top');
+    if (botGripLabel) botGripLabel.textContent = getPanelLabel('bottom');
+}
+
 // Dynamic font axis cache populated from Google Fonts metadata + CSS parsing
+const appliedCssByTab = { serif: {}, sans: {} };
 const dynamicFontDefinitions = {};
 
 // Font definitions from YAML data (fallbacks for known families)
@@ -347,6 +376,7 @@ let bottomFontMemory = {};
 
 // Favorites storage
 let savedFavorites = {};
+let savedFavoritesOrder = [];
 
 // Extension state storage
 let extensionState = {
@@ -358,17 +388,36 @@ let extensionState = {
 function loadFavoritesFromStorage() {
     try {
         const stored = localStorage.getItem('fontFaceoffFavorites');
-        savedFavorites = stored ? JSON.parse(stored) : {};
+        // Backward compatible: may be a plain object map
+        const parsed = stored ? JSON.parse(stored) : {};
+        // Support both legacy map form and wrapped { map, order }
+        if (parsed && parsed.map && typeof parsed.map === 'object') {
+            savedFavorites = parsed.map || {};
+            const ord = Array.isArray(parsed.order) ? parsed.order : Object.keys(savedFavorites);
+            savedFavoritesOrder = ord.filter(name => savedFavorites[name] !== undefined);
+        } else {
+            savedFavorites = parsed && typeof parsed === 'object' ? parsed : {};
+            const ordRaw = localStorage.getItem('fontFaceoffFavoritesOrder');
+            const ord = ordRaw ? JSON.parse(ordRaw) : null;
+            savedFavoritesOrder = Array.isArray(ord) ? ord.filter(name => savedFavorites[name] !== undefined)
+                                                     : Object.keys(savedFavorites);
+        }
     } catch (error) {
         console.error('Error loading favorites:', error);
         savedFavorites = {};
+        savedFavoritesOrder = [];
     }
 }
 
 // Save favorites to localStorage
 function saveFavoritesToStorage() {
     try {
+        // Persist map and order in separate keys for compatibility
         localStorage.setItem('fontFaceoffFavorites', JSON.stringify(savedFavorites));
+        // Keep order aligned to existing keys
+        const cleaned = savedFavoritesOrder.filter(name => savedFavorites[name] !== undefined);
+        localStorage.setItem('fontFaceoffFavoritesOrder', JSON.stringify(cleaned));
+        savedFavoritesOrder = cleaned;
     } catch (error) {
         console.error('Error saving favorites:', error);
     }
@@ -470,8 +519,9 @@ function applyFontConfig(position, config) {
         if (fontSizeTextInput) fontSizeTextInput.value = config.basicControls.fontSize;
         if (lineHeightTextInput) lineHeightTextInput.value = config.basicControls.lineHeight;
         
-        // Update display values
-        document.getElementById(`${position}-font-size-value`).textContent = config.basicControls.fontSize + 'px';
+        // Update display values (font size span may be absent if using only text input)
+        const fsVal = document.getElementById(`${position}-font-size-value`);
+        if (fsVal) fsVal.textContent = config.basicControls.fontSize + 'px';
         document.getElementById(`${position}-line-height-value`).textContent = config.basicControls.lineHeight;
         document.getElementById(`${position}-font-weight-value`).textContent = config.basicControls.fontWeight;
         
@@ -729,7 +779,7 @@ function setupFontPicker() {
 
     async function open(position) {
         currentPosition = position;
-        titleEl.textContent = `Select ${position === 'top' ? 'Top' : 'Bottom'} Font`;
+        titleEl.textContent = `Select ${getPanelLabel(position)} Font`;
         // Build family list (custom pinned + google)
         if (!gfMetadata) {
             try { await ensureGfMetadata(); } catch (e) { console.warn('GF metadata load failed:', e); }
@@ -868,6 +918,8 @@ function selectFont(name) {
     if (displayEl) displayEl.textContent = name;
     loadFont(currentPosition, name);
     close();
+    // Reflect Apply/Update state immediately after changing family
+    try { setTimeout(() => { try { refreshApplyButtonsDirtyState(); } catch (_) {} }, 0); } catch (_) {}
 }
 
     // Listeners
@@ -917,14 +969,17 @@ function loadFont(position, fontName, options = {}) {
     }
     
     // Load font CSS (Google Fonts or custom fonts)
-    if (fontName === 'ABC Ginto Normal Unlicensed Trial') {
-        // Ensure Ginto CSS is present (more robust than relying on @import)
+    if (fontName === 'ABC Ginto Normal Unlicensed Trial' || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(fontName)) {
+        // Ensure Ginto CSS is present (choose Normal or Nord stylesheet)
         const id = 'ginto-css-link';
+        const href = (fontName === 'ABC Ginto Normal Unlicensed Trial')
+            ? 'https://fonts.cdnfonts.com/css/abc-ginto-normal-unlicensed-trial'
+            : 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
         if (!document.getElementById(id)) {
             const link = document.createElement('link');
             link.id = id;
             link.rel = 'stylesheet';
-            link.href = 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
+            link.href = href;
             link.onload = () => {
                 // After CSS is in, attempt to load the family
                 if (document.fonts && document.fonts.load) {
@@ -979,6 +1034,8 @@ function loadFont(position, fontName, options = {}) {
     if (!suppressImmediateSave) {
         setTimeout(() => saveExtensionState(), 100);
     }
+    // Update Apply/Applied/Update buttons to reflect new UI vs saved state
+    try { setTimeout(() => { try { refreshApplyButtonsDirtyState(); } catch (_) {} }, 0); } catch (_) {}
 }
 
 async function loadGoogleFont(fontName) {
@@ -1274,6 +1331,194 @@ function formatAxisValue(axis, value) {
     }
 }
 
+async function toggleApplyToPage(position) {
+    const genericKey = (position === 'top') ? 'serif' : 'sans';
+    try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || !tabs.length) return false;
+        const tab = tabs[0];
+        const tabId = tab.id;
+        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        // Determine saved state for this origin/role
+        let savedEntry = null;
+        if (origin) {
+            try {
+                const data = await browser.storage.local.get('affoApplyMap');
+                const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+                savedEntry = applyMap[origin] ? applyMap[origin][genericKey] : null;
+            } catch (_) { savedEntry = null; }
+        }
+        const map = appliedCssByTab[genericKey];
+        // If there is a saved entry and current UI matches it, treat this click as Unapply
+        if (savedEntry) {
+            const currentPayload = buildCurrentPayload(position);
+            if (!currentPayload || payloadEquals(savedEntry, currentPayload)) {
+                // Remove immediate CSS if present
+                if (map && map[tabId]) {
+                    try { await browser.tabs.removeCSS(tabId, { code: map[tabId] }); } catch (_) {}
+                    delete map[tabId];
+                }
+                // Remove saved persistence
+                if (origin) {
+                    try {
+                        const data = await browser.storage.local.get('affoApplyMap');
+                        const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+                        if (applyMap[origin]) {
+                            delete applyMap[origin][genericKey];
+                            if (!applyMap[origin].serif && !applyMap[origin].sans) delete applyMap[origin];
+                        }
+                        await browser.storage.local.set({ affoApplyMap: applyMap });
+                    } catch (_) {}
+                }
+                // Remove any previously injected <style>/<link> nodes
+                const styleIdOff = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+                const linkIdOff = styleIdOff + '-link';
+                try {
+                    await browser.tabs.executeScript(tabId, { code: `
+                        (function(){
+                            try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
+                            try{ var l=document.getElementById('${linkIdOff}'); if(l) l.remove(); }catch(_){}
+                        })();
+                    `});
+                } catch (_) {}
+                return false;
+            }
+            // else: saved exists but differs from current (Update) — fall through to apply updated payload
+        }
+        const cfg = getCurrentFontConfig(position);
+        if (!cfg || !cfg.fontName) return false;
+        const fontName = cfg.fontName;
+        const isCustom = (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
+        const css2Url = isCustom ? '' : await buildCss2Url(fontName);
+        const activeAxes = new Set(cfg.activeAxes || []);
+        var varParts = [];
+        var wdthVal = null, slntVal = null, italVal = null;
+        Object.entries(cfg.variableAxes || {}).forEach(function(entry){
+            var axis = entry[0];
+            var value = Number(entry[1]);
+            if (!activeAxes.has(axis) || !isFinite(value)) return;
+            if (axis === 'wght') return; // preserve page's native weight per element
+            if (axis === 'wdth') wdthVal = value;
+            if (axis === 'slnt') slntVal = value;
+            if (axis === 'ital') italVal = value;
+            varParts.push('"' + axis + '" ' + value);
+        });
+        // Keep site semantics globally, but allow optional override on non-strong/b elements
+        var weightActive = (cfg.activeControls || []).indexOf('weight') !== -1;
+        var fontWeight = weightActive ? Number(cfg.basicControls && cfg.basicControls.fontWeight) : null;
+
+        // Ensure a css2 <link> is present to start font download quickly (matches reload path)
+        if (css2Url) {
+            try {
+                const styleIdEnsure = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+                const linkIdEnsure = styleIdEnsure + '-link';
+                const hrefEnsure = css2Url;
+                const code = `(
+                    function(){
+                        try{
+                            var id = ${JSON.stringify(linkIdEnsure)};
+                            var href = ${JSON.stringify(hrefEnsure)};
+                            var l = document.getElementById(id);
+                            if(!l){ l = document.createElement('link'); l.id = id; l.rel = 'stylesheet'; l.href = href; document.documentElement.appendChild(l); }
+                        }catch(e){}
+                    }
+                )();`;
+                await browser.tabs.executeScript(tabId, { code });
+            } catch(e) {}
+        }
+
+        var lines = [];
+        if (css2Url) lines.push('@import url("' + css2Url + '");');
+        var decl = [];
+        decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
+        const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
+        const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
+        if (!isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
+        if (!isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
+        if (wdthVal !== null) decl.push('font-stretch: ' + wdthVal + '% !important');
+        if (italVal !== null && italVal >= 1) decl.push('font-style: italic !important');
+        else if (slntVal !== null && slntVal !== 0) decl.push('font-style: oblique ' + slntVal + 'deg !important');
+        if (varParts.length) decl.push('font-variation-settings: ' + varParts.join(', ') + ' !important');
+        // High-specificity guard: :not(#affo-guard) boosts specificity without excluding elements
+        const baseSel = "body:not(#affo-guard), body :not(#affo-guard):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
+        lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
+        // If user activated Weight, override only non-strong/b elements
+        if (weightActive && isFinite(fontWeight)) {
+            const weightSel = baseSel + ':not(strong):not(b)';
+            // Also reinforce with wght axis in case the page sets font-variation-settings
+            const varPartsWeight = varParts.slice();
+            varPartsWeight.push('\"wght\" ' + fontWeight);
+            lines.push(weightSel + ' { font-weight: ' + fontWeight + ' !important; font-variation-settings: ' + varPartsWeight.join(', ') + ' !important; }');
+            // Explicitly reassert bold for strong/b and all descendants after our non-bold override
+            const varPartsBold = varParts.slice().filter(p => !/^"wght"\s/i.test(p));
+            varPartsBold.push('\"wght\" 700');
+            lines.push('strong:not(#affo-guard), strong:not(#affo-guard) *,' +
+                       ' b:not(#affo-guard), b:not(#affo-guard) * { ' +
+                       'font-weight: 700 !important; font-variation-settings: ' + varPartsBold.join(', ') + ' !important; }');
+        }
+        var cssCode = lines.join('\n');
+        await browser.tabs.insertCSS(tabId, { code: cssCode });
+        map[tabId] = cssCode;
+        // Persist payload for this origin so content script can reapply on reload
+        if (origin) {
+            const payload = {
+                fontName,
+                generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
+                css2Url,
+                varPairs: varParts.map(function(p){
+                    var m = p.match(/"([A-Za-z]+)"\s+([\-0-9\.]+)/); return m ? { tag: m[1], value: Number(m[2]) } : null;
+                }).filter(Boolean),
+                wdthVal,
+                slntVal,
+                italVal,
+                fontWeight,
+                fontSizePx: isNaN(fontSizePx) ? null : fontSizePx,
+                lineHeight: isNaN(lineHeight) ? null : lineHeight,
+                styleId: 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans'),
+                linkId: 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans') + '-link'
+            };
+            try {
+                const data = await browser.storage.local.get('affoApplyMap');
+                const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+                if (!applyMap[origin]) applyMap[origin] = {};
+                applyMap[origin][genericKey] = Object.assign({}, payload, { preserveBold: !!weightActive });
+                await browser.storage.local.set({ affoApplyMap: applyMap });
+            } catch (_) {}
+        }
+        return true;
+    } catch (e) {
+        try { console.warn('toggleApplyToPage failed', e); } catch (_) {}
+        return false;
+    }
+}
+
+// Pre-highlight Apply buttons based on saved per-origin settings
+async function syncApplyButtonsForOrigin() {
+    try {
+        const applyTopBtn = document.getElementById('apply-top');
+        const applyBottomBtn = document.getElementById('apply-bottom');
+        if (!applyTopBtn && !applyBottomBtn) return;
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || !tabs.length) return;
+        const tab = tabs[0];
+        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        if (!origin) return;
+        const data = await browser.storage.local.get('affoApplyMap');
+        const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+        const entry = map[origin] || {};
+        if (applyTopBtn) {
+            const on = !!entry.serif;
+            applyTopBtn.classList.toggle('active', on);
+            applyTopBtn.textContent = on ? 'Applied' : 'Apply';
+        }
+        if (applyBottomBtn) {
+            const on = !!entry.sans;
+            applyBottomBtn.classList.toggle('active', on);
+            applyBottomBtn.textContent = on ? 'Applied' : 'Apply';
+        }
+    } catch (_) {}
+}
+
 function saveFontSettings(position, fontName) {
     const memory = position === 'top' ? topFontMemory : bottomFontMemory;
     const activeAxes = position === 'top' ? topActiveAxes : bottomActiveAxes;
@@ -1381,8 +1626,8 @@ function applyFont(position) {
     const fontColor = fontColorControl.value;
     const activeControls = position === 'top' ? topActiveControls : bottomActiveControls;
     
-    textElement.style.fontSize = fontSize;
-    textElement.style.lineHeight = lineHeight;
+    if (activeControls.has('font-size')) { textElement.style.fontSize = fontSize; } else { textElement.style.fontSize = ''; }
+    if (activeControls.has('line-height')) { textElement.style.lineHeight = lineHeight; } else { textElement.style.lineHeight = ''; }
     textElement.style.color = fontColor;
     textElement.style.fontFamily = `"${fontName}"`;
     
@@ -1479,7 +1724,7 @@ function updateBasicControls(position) {
     // Add event listeners for basic controls if not already added
     if (fontSizeControl && !fontSizeControl.hasListener) {
         fontSizeControl.addEventListener('input', function() {
-            fontSizeValue.textContent = this.value + 'px';
+            if (fontSizeValue) fontSizeValue.textContent = this.value + 'px';
             const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
             if (fontSizeTextInput) {
                 fontSizeTextInput.value = this.value;
@@ -1496,7 +1741,7 @@ function updateBasicControls(position) {
                     const value = Math.min(Math.max(parseFloat(this.value) || 17, 6), 200);
                     this.value = value;
                     fontSizeControl.value = Math.min(Math.max(value, 10), 72); // Clamp to slider range for display
-                    fontSizeValue.textContent = value + 'px';
+                    if (fontSizeValue) fontSizeValue.textContent = value + 'px';
                     applyFont(position);
                     this.blur();
                 }
@@ -1506,7 +1751,7 @@ function updateBasicControls(position) {
                 const value = Math.min(Math.max(parseFloat(this.value) || 17, 6), 200);
                 this.value = value;
                 fontSizeControl.value = Math.min(Math.max(value, 10), 72); // Clamp to slider range for display
-                fontSizeValue.textContent = value + 'px';
+                if (fontSizeValue) fontSizeValue.textContent = value + 'px';
                 applyFont(position);
             });
             fontSizeTextInput.hasListener = true;
@@ -1610,6 +1855,16 @@ function updateBasicControls(position) {
 }
 
 // Save Modal functionality
+// Helpers for resilient checks against arrays, Sets, or object maps
+function hasInCollection(coll, item) {
+    if (!coll) return false;
+    if (Array.isArray(coll)) return coll.indexOf(item) !== -1;
+    if (typeof coll.has === 'function') return coll.has(item);
+    if (typeof coll.includes === 'function') return coll.includes(item);
+    if (typeof coll === 'object') return !!coll[item];
+    return false;
+}
+
 function generateFontConfigName(position) {
     const config = getCurrentFontConfig(position);
     if (!config) return 'Font Configuration';
@@ -1619,10 +1874,10 @@ function generateFontConfigName(position) {
     
     // Always include font size in name
     parts.push(`${config.basicControls.fontSize}px`);
-    if (config.activeControls.includes('weight') && config.basicControls.fontWeight !== 400) {
+    if (hasInCollection(config.activeControls, 'weight') && config.basicControls.fontWeight !== 400) {
         parts.push(`${config.basicControls.fontWeight}wt`);
     }
-    if (config.activeControls.includes('line-height') && config.basicControls.lineHeight !== 1.2) {
+    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.2) {
         parts.push(`${config.basicControls.lineHeight}lh`);
     }
     
@@ -1675,10 +1930,10 @@ function generateConfigPreview(position) {
     
     // Always show font size
     lines.push(`Size: ${config.basicControls.fontSize}px`);
-    if (config.activeControls.includes('line-height') && config.basicControls.lineHeight !== 1.2) {
+    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.2) {
         lines.push(`Line Height: ${config.basicControls.lineHeight}`);
     }
-    if (config.activeControls.includes('weight') && config.basicControls.fontWeight !== 400) {
+    if (hasInCollection(config.activeControls, 'weight') && config.basicControls.fontWeight !== 400) {
         lines.push(`Weight: ${config.basicControls.fontWeight}`);
     }
     
@@ -1687,7 +1942,7 @@ function generateConfigPreview(position) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
                 const fontDef = fontDefinitions[config.fontName];
-                return config.activeAxes.includes(axis) && 
+                return hasInCollection(config.activeAxes, axis) && 
                        fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
             });
@@ -1739,15 +1994,19 @@ function showFavoritesPopup(position) {
     listContainer.innerHTML = '';
     
     // Check if there are any favorites
-    if (Object.keys(savedFavorites).length === 0) {
+    const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
+        ? savedFavoritesOrder.filter(n => savedFavorites[n])
+        : Object.keys(savedFavorites);
+    if (names.length === 0) {
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
     } else {
         noFavorites.style.display = 'none';
         listContainer.style.display = 'flex';
         
-        // Populate favorites
-        Object.entries(savedFavorites).forEach(([name, config]) => {
+        // Populate favorites in saved order
+        names.forEach(name => {
+            const config = savedFavorites[name];
             const item = document.createElement('div');
             item.className = 'favorite-item';
             item.setAttribute('data-position', position);
@@ -1802,18 +2061,35 @@ function showEditFavoritesModal() {
     listContainer.innerHTML = '';
     
     // Check if there are any favorites
-    if (Object.keys(savedFavorites).length === 0) {
+    const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
+        ? savedFavoritesOrder.filter(n => savedFavorites[n])
+        : Object.keys(savedFavorites);
+    if (names.length === 0) {
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
     } else {
         noFavorites.style.display = 'none';
         listContainer.style.display = 'flex';
         
-        // Populate editable favorites
-        Object.entries(savedFavorites).forEach(([name, config]) => {
+        // Populate editable favorites in saved order
+        names.forEach(name => {
+            const config = savedFavorites[name];
             const item = document.createElement('div');
             item.className = 'edit-favorite-item';
+            item.setAttribute('data-name', name);
             
+            // Drag handle
+            const drag = document.createElement('div');
+            drag.className = 'drag-handle';
+            drag.setAttribute('title', 'Drag to reorder');
+            drag.textContent = '⋮⋮';
+            // Only allow drag when dragging the handle
+            drag.addEventListener('mousedown', function() { item.setAttribute('draggable', 'true'); });
+            drag.addEventListener('touchstart', function() { item.setAttribute('draggable', 'true'); }, { passive: true });
+            const disableDrag = () => item.removeAttribute('draggable');
+            drag.addEventListener('mouseup', disableDrag);
+            drag.addEventListener('touchend', disableDrag);
+
             const info = document.createElement('div');
             info.className = 'edit-favorite-info';
             
@@ -1825,6 +2101,7 @@ function showEditFavoritesModal() {
             previewDiv.className = 'edit-favorite-preview';
             previewDiv.innerHTML = generateDetailedFavoritePreview(config);
             
+            item.appendChild(drag);
             info.appendChild(nameDiv);
             info.appendChild(previewDiv);
             
@@ -1838,6 +2115,10 @@ function showEditFavoritesModal() {
             deleteBtn.addEventListener('click', function() {
                 showCustomConfirm(`Are you sure you want to delete "${name}"?`, function() {
                     delete savedFavorites[name];
+                    if (Array.isArray(savedFavoritesOrder)) {
+                        const i = savedFavoritesOrder.indexOf(name);
+                        if (i !== -1) savedFavoritesOrder.splice(i, 1);
+                    }
                     saveFavoritesToStorage();
                     showEditFavoritesModal(); // Refresh the modal
                 });
@@ -1849,6 +2130,8 @@ function showEditFavoritesModal() {
             item.appendChild(actions);
             listContainer.appendChild(item);
         });
+        // Enable drag-and-drop reordering
+        enableFavoritesReorder(listContainer);
     }
     
     modal.classList.add('visible');
@@ -1857,6 +2140,148 @@ function showEditFavoritesModal() {
 function hideEditFavoritesModal() {
     const modal = document.getElementById('edit-favorites-modal');
     modal.classList.remove('visible');
+}
+
+// Drag-and-drop reordering for Edit Favorites
+function enableFavoritesReorder(container) {
+    if (!container) return;
+    const items = container.querySelectorAll('.edit-favorite-item');
+    let dropIndicator = null;
+    function ensureIndicator() {
+        if (!dropIndicator) {
+            dropIndicator = document.createElement('div');
+            dropIndicator.className = 'drop-indicator';
+        }
+        if (!dropIndicator.parentNode) container.appendChild(dropIndicator);
+        return dropIndicator;
+    }
+    function hideIndicator() {
+        if (dropIndicator && dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
+    }
+    items.forEach(item => {
+        // Desktop HTML5 DnD
+        item.addEventListener('dragstart', (e) => {
+            item.classList.add('dragging');
+            ensureIndicator();
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            item.removeAttribute('draggable');
+            persistFavoritesOrder(container);
+            hideIndicator();
+        });
+    });
+    container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const after = getDragAfterElement(container, e.clientY);
+        const dragging = container.querySelector('.dragging');
+        if (!dragging) return;
+        // Position drop indicator
+        const ind = ensureIndicator();
+        const crect = container.getBoundingClientRect();
+        let topPx;
+        if (after == null) {
+            container.appendChild(dragging);
+            const last = container.querySelector('.edit-favorite-item:last-child');
+            const lrect = last ? last.getBoundingClientRect() : null;
+            topPx = (lrect ? (lrect.bottom - crect.top + container.scrollTop) : (container.scrollTop + container.scrollHeight));
+        } else {
+            container.insertBefore(dragging, after);
+            const arect = after.getBoundingClientRect();
+            topPx = (arect.top - crect.top + container.scrollTop);
+        }
+        ind.style.top = `${Math.max(0, topPx)}px`;
+    });
+
+    // Pointer/touch fallback (works on mobile)
+    const handles = container.querySelectorAll('.drag-handle');
+    let ptr = { active: false, item: null, container: null };
+    let proxy = null;
+    let startOffsetY = 0;
+    const onPointerMove = (e) => {
+        if (!ptr.active || !ptr.container || !ptr.item) return;
+        const after = getDragAfterElement(ptr.container, e.clientY);
+        const dragging = ptr.item;
+        // Update proxy position
+        if (proxy) {
+            const y = e.clientY - startOffsetY;
+            proxy.style.top = `${y}px`;
+        }
+        // Reorder
+        const ind = ensureIndicator();
+        const crect = ptr.container.getBoundingClientRect();
+        let topPx;
+        if (after == null) {
+            ptr.container.appendChild(dragging);
+            const last = ptr.container.querySelector('.edit-favorite-item:last-child');
+            const lrect = last ? last.getBoundingClientRect() : null;
+            topPx = (lrect ? (lrect.bottom - crect.top + ptr.container.scrollTop) : (ptr.container.scrollTop + ptr.container.scrollHeight));
+        } else {
+            ptr.container.insertBefore(dragging, after);
+            const arect = after.getBoundingClientRect();
+            topPx = (arect.top - crect.top + ptr.container.scrollTop);
+        }
+        ind.style.top = `${Math.max(0, topPx)}px`;
+    };
+    const onPointerUp = (e) => {
+        if (!ptr.active) return;
+        try { e.target.releasePointerCapture && e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+        ptr.item.classList.remove('dragging');
+        ptr.item.removeAttribute('draggable');
+        persistFavoritesOrder(ptr.container);
+        if (proxy && proxy.parentNode) proxy.parentNode.removeChild(proxy);
+        proxy = null;
+        hideIndicator();
+        ptr = { active: false, item: null, container: null };
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
+    };
+    handles.forEach(h => {
+        h.addEventListener('pointerdown', (e) => {
+            const item = e.target.closest('.edit-favorite-item');
+            if (!item) return;
+            ptr = { active: true, item, container };
+            item.classList.add('dragging');
+            // Prevent page scroll while dragging
+            try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
+            // Create floating proxy of the item for clearer drag feedback
+            const rect = item.getBoundingClientRect();
+            startOffsetY = e.clientY - rect.top;
+            proxy = item.cloneNode(true);
+            proxy.classList.add('dragging-proxy');
+            proxy.style.width = `${rect.width}px`;
+            proxy.style.left = `${rect.left}px`;
+            proxy.style.top = `${rect.top}px`;
+            document.body.appendChild(proxy);
+            ensureIndicator();
+            document.addEventListener('pointermove', onPointerMove, { passive: false });
+            document.addEventListener('pointerup', onPointerUp, { passive: true });
+            document.addEventListener('pointercancel', onPointerUp, { passive: true });
+            e.preventDefault();
+        }, { passive: false });
+    });
+}
+
+function getDragAfterElement(container, y) {
+    const els = [...container.querySelectorAll('.edit-favorite-item:not(.dragging)')];
+    let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+    els.forEach(child => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            closest = { offset, element: child };
+        }
+    });
+    return closest.element;
+}
+
+function persistFavoritesOrder(container) {
+    const names = Array.from(container.querySelectorAll('.edit-favorite-item'))
+        .map(el => el.getAttribute('data-name'))
+        .filter(Boolean);
+    savedFavoritesOrder = names;
+    saveFavoritesToStorage();
 }
 
 function generateFavoritePreview(config) {
@@ -1874,7 +2299,7 @@ function generateFavoritePreview(config) {
     return parts.join(' • ');
 }
 
-function generateDetailedFavoritePreview(config) {
+    function generateDetailedFavoritePreview(config) {
     if (!config) return 'No configuration';
     
     const lines = [];
@@ -1884,11 +2309,11 @@ function generateDetailedFavoritePreview(config) {
     if (config.basicControls?.fontSize) {
         lines.push(`Size: ${config.basicControls.fontSize}px`);
     }
-    if (config.activeControls && config.activeControls.includes('line-height') && 
+    if (hasInCollection(config && config.activeControls, 'line-height') && 
         config.basicControls?.lineHeight && config.basicControls.lineHeight !== 1.2) {
         lines.push(`Line Height: ${config.basicControls.lineHeight}`);
     }
-    if (config.activeControls && config.activeControls.includes('weight') && 
+    if (hasInCollection(config && config.activeControls, 'weight') && 
         config.basicControls?.fontWeight && config.basicControls.fontWeight !== 400) {
         lines.push(`Weight: ${config.basicControls.fontWeight}`);
     }
@@ -1898,7 +2323,7 @@ function generateDetailedFavoritePreview(config) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
                 const fontDef = getEffectiveFontDefinition(config.fontName);
-                return config.activeAxes.includes(axis) && 
+                return hasInCollection(config && config.activeAxes, axis) && 
                        fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
             });
@@ -1934,6 +2359,177 @@ document.addEventListener('DOMContentLoaded', function() {
     const bottomFontGrip = document.getElementById('bottom-font-grip');
     const fontComparison = document.getElementById('font-comparison');
     
+    // View mode init: always start in 'facade' on popup open
+    currentViewMode = 'facade';
+    try { localStorage.setItem('fontFaceoffView', currentViewMode); } catch (_) {}
+    applyViewMode();
+
+    // Hook view toggle
+    const viewToggleBtn = document.getElementById('toggle-view');
+    if (viewToggleBtn) {
+        viewToggleBtn.addEventListener('click', function() {
+            currentViewMode = (currentViewMode === 'facade') ? 'faceoff' : 'facade';
+            applyViewMode();
+        });
+    }
+
+    // Apply-to-page buttons (Facade mode)
+    const applyTopBtn = document.getElementById('apply-top');
+    const applyBottomBtn = document.getElementById('apply-bottom');
+    if (applyTopBtn) {
+        applyTopBtn.addEventListener('click', async () => {
+            const before = buildCurrentPayload('top');
+            applyTopBtn.classList.add('loading');
+            applyTopBtn.textContent = 'Loading…';
+            const active = await toggleApplyToPage('top');
+            if (active) {
+                try {
+                    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+                    const tabId = tabs && tabs[0] && tabs[0].id;
+                    const family = (before && before.fontName) || (document.getElementById('top-font-name')?.textContent) || '';
+                    const deadline = Date.now() + 6000;
+                    while (Date.now() < deadline) {
+                        const res = await browser.tabs.executeScript(tabId, { code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
+                        if (Array.isArray(res) && res[0] === true) break;
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                } catch (_) {}
+                applyTopBtn.classList.add('active');
+                applyTopBtn.textContent = 'Applied';
+            } else {
+                applyTopBtn.classList.remove('active');
+                applyTopBtn.textContent = 'Apply';
+            }
+            applyTopBtn.classList.remove('loading');
+        });
+    }
+    if (applyBottomBtn) {
+        applyBottomBtn.addEventListener('click', async () => {
+            const before = buildCurrentPayload('bottom');
+            applyBottomBtn.classList.add('loading');
+            applyBottomBtn.textContent = 'Loading…';
+            const active = await toggleApplyToPage('bottom');
+            if (active) {
+                try {
+                    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+                    const tabId = tabs && tabs[0] && tabs[0].id;
+                    const family = (before && before.fontName) || (document.getElementById('bottom-font-name')?.textContent) || '';
+                    const deadline = Date.now() + 6000;
+                    while (Date.now() < deadline) {
+                        const res = await browser.tabs.executeScript(tabId, { code: `document.fonts && document.fonts.check('16px "${family.replace(/"/g, '\\"')}"')` });
+                        if (Array.isArray(res) && res[0] === true) break;
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                } catch (_) {}
+                applyBottomBtn.classList.add('active');
+                applyBottomBtn.textContent = 'Applied';
+            } else {
+                applyBottomBtn.classList.remove('active');
+                applyBottomBtn.textContent = 'Apply';
+            }
+            applyBottomBtn.classList.remove('loading');
+        });
+    }
+
+    // Pre-highlight Apply buttons based on saved state for current origin
+    try { syncApplyButtonsForOrigin(); } catch (_) {}
+
+    // Track changes to mark buttons as Update when UI differs from saved
+    const debouncedRefresh = debounce(refreshApplyButtonsDirtyState, 200);
+    document.addEventListener('input', debouncedRefresh, true);
+    document.addEventListener('change', debouncedRefresh, true);
+
+
+
+
+    const topSizeSlider = document.getElementById('top-font-size');
+    const bottomSizeSlider = document.getElementById('bottom-font-size');
+    const topSizeText = document.getElementById('top-font-size-text');
+    const bottomSizeText = document.getElementById('bottom-font-size-text');
+    const topSizeGroup = document.querySelector('#top-font-controls .control-group[data-control="font-size"]');
+    const bottomSizeGroup = document.querySelector('#bottom-font-controls .control-group[data-control="font-size"]');
+    if (topSizeSlider) {
+        topSizeSlider.addEventListener('input', function() {
+            topActiveControls.add('font-size');
+            if (topSizeGroup) topSizeGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (topSizeText) topSizeText.value = v;
+            applyFont('top');
+        });
+    }
+    if (bottomSizeSlider) {
+        bottomSizeSlider.addEventListener('input', function() {
+            bottomActiveControls.add('font-size');
+            if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (bottomSizeText) bottomSizeText.value = v;
+            applyFont('bottom');
+        });
+    }
+    function parseSizeVal(v){
+    if (v == null) return null;
+    const str = String(v).trim();
+    if (!str) return null;
+    const m = str.match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*(px)?\s*$/i);
+    if (!m) return null;
+    return Number(m[1]);
+}
+function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) return null; return Math.min(max, Math.max(min, v)); }
+    if (topSizeText) {
+        topSizeText.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                const min = Number(topSizeSlider?.min || 10), max = Number(topSizeSlider?.max || 72);
+                const vv = clamp(this.value, min, max);
+                if (vv !== null) {
+                    topActiveControls.add('font-size');
+                    if (topSizeGroup) topSizeGroup.classList.remove('unset');
+                    if (topSizeSlider) topSizeSlider.value = String(vv);
+                    this.value = String(vv);
+                    applyFont('top');
+                }
+                this.blur();
+            }
+        });
+        topSizeText.addEventListener('blur', function(){
+            const min = Number(topSizeSlider?.min || 10), max = Number(topSizeSlider?.max || 72);
+            const vv = clamp(this.value, min, max);
+            if (vv !== null) {
+                topActiveControls.add('font-size');
+                if (topSizeGroup) topSizeGroup.classList.remove('unset');
+                if (topSizeSlider) topSizeSlider.value = String(vv);
+                this.value = String(vv);
+                applyFont('top');
+            }
+        });
+    }
+    if (bottomSizeText) {
+        bottomSizeText.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                const min = Number(bottomSizeSlider?.min || 10), max = Number(bottomSizeSlider?.max || 72);
+                const vv = clamp(this.value, min, max);
+                if (vv !== null) {
+                    bottomActiveControls.add('font-size');
+                    if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
+                    if (bottomSizeSlider) bottomSizeSlider.value = String(vv);
+                    this.value = String(vv);
+                    applyFont('bottom');
+                }
+                this.blur();
+            }
+        });
+        bottomSizeText.addEventListener('blur', function(){
+            const min = Number(bottomSizeSlider?.min || 10), max = Number(bottomSizeSlider?.max || 72);
+            const vv = clamp(this.value, min, max);
+            if (vv !== null) {
+                bottomActiveControls.add('font-size');
+                if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
+                if (bottomSizeSlider) bottomSizeSlider.value = String(vv);
+                this.value = String(vv);
+                applyFont('bottom');
+            }
+        });
+    }
+
     // Font Picker wiring
     setupFontPicker();
 
@@ -2048,6 +2644,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => saveExtensionState(), 50);
             }
         }
+
+        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'font-size') {
+            const position = e.target.closest('.controls-panel').id.includes('top') ? 'top' : 'bottom';
+            const activeControls = position === 'top' ? topActiveControls : bottomActiveControls;
+            const group = e.target.closest('.control-group');
+            const slider = document.getElementById(`${position}-font-size`);
+            const textInput = document.getElementById(`${position}-font-size-text`);
+            const span = document.getElementById(`${position}-font-size-value`);
+            if (slider) {
+                slider.value = 17;
+                if (textInput) textInput.value = 17;
+                if (span) span.textContent = '17px';
+                activeControls.delete('font-size');
+                if (group) group.classList.add('unset');
+                applyFont(position);
+                setTimeout(() => saveExtensionState(), 50);
+            }
+        }
     });
     
     // Load saved state and initialize fonts
@@ -2116,6 +2730,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (botSel2 && botDisp2) botDisp2.textContent = botSel2.value;
         // Persist any canonicalized names
         saveExtensionState();
+        // In Facade mode, prepopulate from saved per-origin settings (if any)
+        try { await prepopulateFacadeFromSavedOrigin(); } catch (_) {}
     }, 250);
     
     // Panel state
@@ -2124,7 +2740,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function showPanel(panel) {
         // On narrow screens, enforce single-panel mode
-        const isNarrow = window.innerWidth <= 640;
+        const isNarrow = window.innerWidth <= 599;
         if (isNarrow) {
             if (panel === 'top' && bottomPanelOpen) hidePanel('bottom');
             if (panel === 'bottom' && topPanelOpen) hidePanel('top');
@@ -2218,7 +2834,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Enforce single-panel mode on narrow screens when resizing
     window.addEventListener('resize', () => {
-        if (window.innerWidth <= 640 && topPanelOpen && bottomPanelOpen) {
+        if (window.innerWidth <= 599 && topPanelOpen && bottomPanelOpen) {
             hidePanel('bottom');
         }
     });
@@ -2232,19 +2848,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Save favorite functionality
     function setupSaveFavorite(position) {
-        const saveBtn = document.getElementById(`${position}-save-favorite`);
-        
-        saveBtn.addEventListener('click', function() {
-            showSaveModal(position);
+        const ids = [
+            `${position}-save-favorite`,
+            `${position}-save-favorite-bar`
+        ];
+        ids.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn && !btn.__affoBound) {
+                btn.addEventListener('click', function() { showSaveModal(position); });
+                btn.__affoBound = true;
+            }
         });
     }
     
     // Load favorite functionality - now opens popup
     function setupLoadFavorite(position) {
-        const loadBtn = document.getElementById(`${position}-load-favorite`);
-        
-        loadBtn.addEventListener('click', function() {
-            showFavoritesPopup(position);
+        const ids = [
+            `${position}-load-favorite`,
+            `${position}-load-favorite-bar`
+        ];
+        ids.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn && !btn.__affoBound) {
+                btn.addEventListener('click', function() { showFavoritesPopup(position); });
+                btn.__affoBound = true;
+            }
         });
     }
     
@@ -2285,6 +2913,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const config = getCurrentFontConfig(position);
         savedFavorites[name] = config;
+        if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
+        if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
         saveFavoritesToStorage();
         
         hideSaveModal();
@@ -2306,23 +2936,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const editFavoritesBtn = document.getElementById('edit-favorites');
     
     // Favorites popup handlers
-    favoritesPopupClose.addEventListener('click', hideFavoritesPopup);
-    favoritesPopup.addEventListener('click', function(e) {
-        if (e.target === favoritesPopup) {
-            hideFavoritesPopup();
-        }
-    });
+    if (favoritesPopupClose) {
+        favoritesPopupClose.addEventListener('click', hideFavoritesPopup);
+    }
+    if (favoritesPopup) {
+        favoritesPopup.addEventListener('click', function(e) {
+            if (e.target === favoritesPopup) {
+                hideFavoritesPopup();
+            }
+        });
+    }
     
     // Edit favorites modal handlers
-    editModalClose.addEventListener('click', hideEditFavoritesModal);
-    editFavoritesModal.addEventListener('click', function(e) {
-        if (e.target === editFavoritesModal) {
-            hideEditFavoritesModal();
-        }
-    });
+    if (editModalClose) {
+        editModalClose.addEventListener('click', hideEditFavoritesModal);
+    }
+    if (editFavoritesModal) {
+        editFavoritesModal.addEventListener('click', function(e) {
+            if (e.target === editFavoritesModal) {
+                hideEditFavoritesModal();
+            }
+        });
+    }
     
     // Edit favorites button
-    editFavoritesBtn.addEventListener('click', showEditFavoritesModal);
+    if (editFavoritesBtn) {
+        editFavoritesBtn.addEventListener('click', showEditFavoritesModal);
+    }
     
     // Close popups/modals on Escape key
     document.addEventListener('keydown', function(e) {
@@ -2362,7 +3002,7 @@ function resetTopFont() {
     document.getElementById('top-font-color').value = '#000000';
     
     // Reset display values
-    document.getElementById('top-font-size-value').textContent = '17px';
+    (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
     document.getElementById('top-line-height-value').textContent = '1.2';
     document.getElementById('top-font-weight-value').textContent = '400';
     
@@ -2420,7 +3060,7 @@ function resetBottomFont() {
     if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.2;
     
     // Reset display values
-    document.getElementById('bottom-font-size-value').textContent = '17px';
+    (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
     document.getElementById('bottom-line-height-value').textContent = '1.2';
     document.getElementById('bottom-font-weight-value').textContent = '400';
     
@@ -2459,4 +3099,172 @@ function resetBottomFont() {
     
     // Apply the reset state
     applyFont('bottom');
+}
+
+// (apply buttons listeners are bound in the primary DOMContentLoaded block above)
+
+
+// Build a UI config from a persisted per-origin payload (serif/sans)
+function buildConfigFromPayload(position, payload) {
+    const base = getCurrentFontConfig(position) || {
+        fontName: payload.fontName,
+        basicControls: { fontSize: 17, lineHeight: 1.2, fontWeight: 400, fontColor: '#000000' },
+        activeControls: [],
+        activeAxes: [],
+        variableAxes: {}
+    };
+    const config = {
+        fontName: payload.fontName,
+        basicControls: {
+            fontSize: base.basicControls.fontSize,
+            lineHeight: base.basicControls.lineHeight,
+            fontWeight: (payload.fontWeight !== null && payload.fontWeight !== undefined)
+                ? Number(payload.fontWeight)
+                : base.basicControls.fontWeight,
+            fontColor: base.basicControls.fontColor
+        },
+        activeControls: Array.isArray(base.activeControls) ? base.activeControls.slice() : [],
+        activeAxes: [],
+        variableAxes: {}
+    };
+    const hasWeight = (payload.fontWeight !== null && payload.fontWeight !== undefined);
+    const idx = config.activeControls.indexOf('weight');
+    if (hasWeight && idx === -1) config.activeControls.push('weight');
+    if (!hasWeight && idx !== -1) config.activeControls.splice(idx, 1);
+    const tags = new Set();
+    (payload.varPairs || []).forEach(p => { if (p && p.tag) { tags.add(p.tag); config.variableAxes[p.tag] = Number(p.value); } });
+    // If a fontWeight was saved (user activated Weight), reflect it as an active wght axis in the UI
+    if (payload.fontWeight !== null && payload.fontWeight !== undefined) {
+        const w = Number(payload.fontWeight);
+        if (isFinite(w)) { tags.add('wght'); config.variableAxes.wght = w; }
+    }
+    if (payload.wdthVal !== null && payload.wdthVal !== undefined && !tags.has('wdth')) { tags.add('wdth'); config.variableAxes.wdth = Number(payload.wdthVal); }
+    if (payload.slntVal !== null && payload.slntVal !== undefined && !tags.has('slnt')) { tags.add('slnt'); config.variableAxes.slnt = Number(payload.slntVal); }
+    if (payload.italVal !== null && payload.italVal !== undefined && !tags.has('ital')) { tags.add('ital'); config.variableAxes.ital = Number(payload.italVal); }
+    config.activeAxes = Array.from(tags);
+    return config;
+}
+
+// Prepopulate Serif/Sans controls from saved per-origin settings (Facade mode)
+async function prepopulateFacadeFromSavedOrigin() {
+    if (currentViewMode !== 'facade') return;
+    try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || !tabs.length) return;
+        const tab = tabs[0];
+        const origin = (() => { try { return new URL(tab.url).origin; } catch (_) { return null; } })();
+        if (!origin) return;
+        const data = await browser.storage.local.get('affoApplyMap');
+        const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+        const entry = map[origin];
+        if (!entry) return;
+        if (entry.serif && entry.serif.fontName) {
+            const cfgTop = buildConfigFromPayload('top', entry.serif);
+            applyFontConfig('top', cfgTop);
+        }
+        if (entry.sans && entry.sans.fontName) {
+            const cfgBottom = buildConfigFromPayload('bottom', entry.sans);
+            applyFontConfig('bottom', cfgBottom);
+        }
+    } catch (_) {}
+}
+
+
+// Compare two apply payloads for equality (font + axes + weight)
+function payloadEquals(a, b) {
+    if (!a || !b) return false;
+    if (a.fontName !== b.fontName) return false;
+    const numEq = (x, y) => (x === null || x === undefined) && (y === null || y === undefined) ? true : Number(x) === Number(y);
+    if (!numEq(a.fontWeight, b.fontWeight)) return false;
+    if (!numEq(a.fontSizePx, b.fontSizePx)) return false;
+    if (!numEq(a.lineHeight, b.lineHeight)) return false;
+    if (!numEq(a.wdthVal, b.wdthVal)) return false;
+    if (!numEq(a.slntVal, b.slntVal)) return false;
+    if (!numEq(a.italVal, b.italVal)) return false;
+    const toMap = (pairs) => {
+        const m = new Map();
+        (pairs || []).forEach(p => { if (p && p.tag !== undefined) m.set(String(p.tag), Number(p.value)); });
+        return m;
+    };
+    const ma = toMap(a.varPairs);
+    const mb = toMap(b.varPairs);
+    if (ma.size !== mb.size) return false;
+    for (const [k, v] of ma.entries()) { if (!mb.has(k) || mb.get(k) !== v) return false; }
+    return true;
+}
+
+// Build a payload from current UI config (used to detect dirty state)
+function buildCurrentPayload(position) {
+    const genericKey = (position === 'top') ? 'serif' : 'sans';
+    const cfg = getCurrentFontConfig(position);
+    if (!cfg || !cfg.fontName) return null;
+    const activeAxes = new Set(cfg.activeAxes || []);
+    const varPairs = [];
+    let wdthVal = null, slntVal = null, italVal = null;
+    Object.entries(cfg.variableAxes || {}).forEach(([axis, value]) => {
+        const num = Number(value);
+        if (!activeAxes.has(axis) || !isFinite(num)) return;
+        if (axis === 'wdth') wdthVal = num;
+        if (axis === 'slnt') slntVal = num;
+        if (axis === 'ital') italVal = num;
+        varPairs.push({ tag: axis, value: num });
+    });
+    const weightActive = (cfg.activeControls || []).indexOf('weight') !== -1;
+    const fontWeight = weightActive ? Number(cfg.basicControls && cfg.basicControls.fontWeight) : null;
+    const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
+    const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
+    return {
+        fontName: cfg.fontName,
+        generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
+        varPairs,
+        wdthVal,
+        slntVal,
+        italVal,
+        fontWeight,
+        fontSizePx,
+        lineHeight
+    };
+}
+
+// Reflect button labels based on saved vs current (Applied/Update/Apply)
+async function refreshApplyButtonsDirtyState() {
+    try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || !tabs.length) return;
+        const origin = (() => { try { return new URL(tabs[0].url).origin; } catch (_) { return null; } })();
+        const data = await browser.storage.local.get('affoApplyMap');
+        const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+        const entry = origin ? (map[origin] || {}) : {};
+        const btnTop = document.getElementById('apply-top');
+        const btnBottom = document.getElementById('apply-bottom');
+        if (btnTop) {
+            const saved = entry.serif || null;
+            if (!saved) {
+                btnTop.classList.remove('active');
+                btnTop.textContent = 'Apply';
+            } else {
+                const current = buildCurrentPayload('top');
+                const same = payloadEquals(saved, current);
+                btnTop.classList.toggle('active', same);
+                btnTop.textContent = same ? 'Applied' : 'Apply';
+            }
+        }
+        if (btnBottom) {
+            const saved = entry.sans || null;
+            if (!saved) {
+                btnBottom.classList.remove('active');
+                btnBottom.textContent = 'Apply';
+            } else {
+                const current = buildCurrentPayload('bottom');
+                const same = payloadEquals(saved, current);
+                btnBottom.classList.toggle('active', same);
+                btnBottom.textContent = same ? 'Applied' : 'Apply';
+            }
+        }
+    } catch (_) {}
+}
+
+// Debounce helper
+function debounce(fn, wait) {
+    let t = null; return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
 }
