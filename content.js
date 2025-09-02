@@ -2,6 +2,40 @@
 (function(){
   function inject(payload){
     try {
+      // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
+      try {
+        if (!document.documentElement.hasAttribute('data-affo-base')) {
+          var fam = '';
+          try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch(_) {}
+          var parts = fam.replace(/["']/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+          var hasSansGen = parts.indexOf('sans-serif') !== -1;
+          var hasSerifGen = parts.indexOf('serif') !== -1;
+          // Prefer explicit generic if present; treat "Merriweather, sans-serif" as sans
+          var base;
+          if (hasSansGen) base = 'sans';
+          else if (hasSerifGen) base = 'serif';
+          else {
+            // Fall back to name hints
+            var serifNames = ['pt serif','georgia','times','times new roman','merriweather','garamond','charter','spectral','lora','abril'];
+            var isSerifName = parts.some(function(p){ return serifNames.indexOf(p) !== -1; });
+            base = isSerifName ? 'serif' : 'sans';
+          }
+          document.documentElement.setAttribute('data-affo-base', base);
+          // Asynchronously refine using user-provided lists
+          try {
+            browser.storage.local.get(['affoKnownSerif','affoKnownSans']).then(function(opt){
+              try {
+                var ks = Array.isArray(opt.affoKnownSerif) ? opt.affoKnownSerif.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
+                var kn = Array.isArray(opt.affoKnownSans) ? opt.affoKnownSans.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
+                var nameHitSerif = parts.some(function(p){ return ks.indexOf(p) !== -1; });
+                var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
+                if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
+                else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
+              } catch(_){ }
+            }).catch(function(){});
+          } catch(_){ }
+        }
+      } catch(_){}
       // For Google Fonts payloads, ensure a css2 <link> is present to start font download quickly
       try {
         var linkId = payload.linkId || (payload.styleId + '-link');
@@ -13,12 +47,8 @@
       async function loadCustomIfNeeded(){
         try {
           if (payload && payload.fontName === 'BBC Reith Serif'){
-            // Choose style and weight
-            var ital = !!(payload.italVal !== null && payload.italVal !== undefined && Number(payload.italVal) >= 1);
-            var target = Number(payload.fontWeight);
-            if (!isFinite(target)) target = 400;
-            var candidates = [300,400,500,700,800];
-            var best = candidates.reduce(function(p, c){ return Math.abs(c - target) < Math.abs(p - target) ? c : p; }, candidates[0]);
+            // Load a minimal real-face set so bold/italic render properly on pages
+            // Always preload 400/700 in both normal and italic. Cache by session to avoid duplicates.
             var base = 'https://static.files.bbci.co.uk/fonts/reith/2.512/';
             function urlFor(w, it){
               if (it){
@@ -35,17 +65,31 @@
                 return base + 'BBCReithSerif_W_ExBd.woff2';
               }
             }
-            var url = urlFor(best, ital);
-            // Fetch via background to avoid page CSP font-src restrictions
-            var binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
-            if (binResp && binResp.ok && Array.isArray(binResp.data)){
-              var u8 = new Uint8Array(binResp.data);
-              var desc = { weight: String(best), style: ital ? 'italic' : 'normal' };
+            var toLoad = [
+              { w: 400, it: false },
+              { w: 700, it: false },
+              { w: 400, it: true  },
+              { w: 700, it: true  }
+            ];
+            try { window.__affoBBCLoaded = window.__affoBBCLoaded || {}; } catch(_) { /* ignore */ }
+            for (var i = 0; i < toLoad.length; i++){
+              var pair = toLoad[i];
+              var key = 'BBCReithSerif:' + pair.w + ':' + (pair.it ? 'italic' : 'normal');
               try {
-                var ff = new FontFace(payload.fontName, u8, desc);
-                await ff.load();
-                document.fonts.add(ff);
-              } catch (e) {}
+                if (window.__affoBBCLoaded && window.__affoBBCLoaded[key]) continue;
+              } catch(_){}
+              var url = urlFor(pair.w, pair.it);
+              try {
+                var binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
+                if (binResp && binResp.ok && Array.isArray(binResp.data)){
+                  var u8 = new Uint8Array(binResp.data);
+                  var desc = { weight: String(pair.w), style: pair.it ? 'italic' : 'normal' };
+                  var ff = new FontFace(payload.fontName, u8, desc);
+                  await ff.load();
+                  document.fonts.add(ff);
+                  try { if (window.__affoBBCLoaded) window.__affoBBCLoaded[key] = true; } catch(_){}
+                }
+              } catch(_){}
             }
           } else if (payload && (/ABC\s+Ginto\s+Normal\s+Unlicensed\s+Trial/i.test(payload.fontName) || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(payload.fontName))) {
             // Load from CDNFonts CSS by parsing @font-face blocks and picking best match
@@ -57,8 +101,11 @@
             var cssText = String(cssResp.data || '');
             var blocks = cssText.split('@font-face').slice(1);
             var italWanted = !!(payload.italVal !== null && payload.italVal !== undefined && Number(payload.italVal) >= 1);
-            var target = Number(payload.fontWeight);
-            if (!isFinite(target)) target = 400;
+            // Default unset weight to 400 to prevent unintended 300 selection
+            var target = (payload.fontWeight === null || payload.fontWeight === undefined)
+              ? 400
+              : Number(payload.fontWeight);
+            if (!isFinite(target) || target <= 0) target = 400;
             var best = null;
             function getUrl(b){
               // Prefer woff2, then woff, then ttf
@@ -97,8 +144,11 @@
       }
       function buildCSS(){
         // Target typical body text only; exclude headings, code/monospace, UI/nav, and form controls
-        // High-specificity guard: :not(#affo-guard) boosts specificity without excluding elements
-        var sel = 'body:not(#affo-guard), body :not(#affo-guard):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
+        // Guard support: require body itself not be guarded for descendant matches
+        var guardNeg = ':not(#affo-guard):not(.affo-guard):not([data-affo-guard])';
+        var sel = 'body' + guardNeg + ', ' +
+                  'body' + guardNeg + ' :not(#affo-guard):not(.affo-guard):not([data-affo-guard])' +
+                  ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
         var decl = [];
         decl.push('font-family:"'+payload.fontName+'", '+payload.generic+' !important');
         // Preserve site bold semantics; weight override is applied via a separate rule to non-strong/b only
@@ -132,6 +182,44 @@
       }
       (async function(){
         try {
+          // User-configured lists are for classification only now; no guarding here.
+          // Heuristically guard “fake blockquote” callouts with inline left borders
+          try {
+            function tagGuard(el){
+              try {
+                el.setAttribute('data-affo-guard','1');
+                try { el.querySelectorAll('*').forEach(function(n){ try{ n.setAttribute('data-affo-guard','1'); }catch(_){} }); } catch(_){ }
+              } catch(_){ }
+            }
+            function scanGuards(root){
+              var scope = root || document;
+              var guardCandidates = scope.querySelectorAll('[style*="border-left"]');
+              guardCandidates.forEach(function(el){
+                try {
+                  var s = String(el.getAttribute('style')||'').toLowerCase();
+                  if ((/border-left-style\s*:\s*solid/.test(s) || /border-left\s*:\s*\d/.test(s)) &&
+                      (/border-left-width\s*:\s*\d/.test(s) || /border-left\s*:\s*\d/.test(s))) {
+                    tagGuard(el);
+                  }
+                } catch(_){}
+              });
+            }
+            scanGuards(document);
+            // Observe brief post-load mutations to catch late-rendered content
+            try {
+              var mo = new MutationObserver(function(muts){
+                muts.forEach(function(m){
+                  (m.addedNodes||[]).forEach(function(n){
+                    try {
+                      if (n && n.nodeType === 1) scanGuards(n);
+                    } catch(_){}
+                  });
+                });
+              });
+              mo.observe(document.documentElement || document.body, { childList: true, subtree: true });
+              setTimeout(function(){ try{ mo.disconnect(); }catch(_){} }, 8000);
+            } catch(_){ }
+          } catch(_){}
           // If css2Url is present, use Google Fonts path; otherwise try custom loader
           if (payload.css2Url) {
             const cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: payload.css2Url, binary: false });

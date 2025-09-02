@@ -1,20 +1,20 @@
 /* Custom font imports */
 @import url('https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial');
 
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 /* BBC Reith Serif font definitions */
 @font-face {
   font-family: "BBC Reith Serif";
   src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
   font-style: normal;
   font-weight: 300;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
-  font-style: normal;
-  font-weight: 400;
   font-display: swap;
 }
 
@@ -116,6 +116,32 @@ body {
     align-items: center;
     position: relative;
 }
+.font-family-display.placeholder { color: #8a8f98; font-style: italic; }
+/* Family reset icon: match size/shape of other reset icons */
+.family-reset-btn {
+    display: none;
+    width: 24px;
+    height: 24px;
+    aspect-ratio: 1 / 1;
+    align-items: center;
+    justify-content: center;
+    background: #e74c3c;
+    color: #ffffff;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: all 0.2s ease;
+    user-select: none;
+    vertical-align: middle;
+    box-sizing: border-box;
+    line-height: 1;
+    padding: 0;
+}
+.family-reset-btn:hover { background: #c0392b; transform: scale(1.05); }
+body.view-facade .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
+body.view-faceoff .family-reset-btn { display: none; }
 .font-family-display:hover, .font-family-display:focus {
     outline: none;
     background: #fafafa;
@@ -146,15 +172,18 @@ body {
 
 .controls-panel {
     width: 33.333%;
-    height: calc(100vh - 100px);
     background: #2c3e50;
     color: white;
     padding: 20px;
     box-sizing: border-box;
-    overflow-y: auto;
+    overflow: hidden; /* scroll is on panel-body so footer doesn't overlap */
+    display: flex;
+    flex-direction: column;
     flex-shrink: 0;
     position: fixed;
     top: 0;
+    bottom: 100px; /* match bottom strip height so footer sits lower */
+    height: auto;
     transition: transform 0.3s ease-in-out;
     z-index: 1000;
 }
@@ -178,6 +207,11 @@ body {
 #bottom-font-controls.visible {
     transform: translateX(0);
 }
+
+/* Scrollable panel content area */
+.panel-body { flex: 1 1 auto; overflow-y: auto; }
+.panel-body { scrollbar-width: none; -ms-overflow-style: none; }
+.panel-body::-webkit-scrollbar { width: 0; height: 0; }
 
 #font-comparison {
     width: 100%;
@@ -594,7 +628,7 @@ body {
 }
 
 /* Exclude icon buttons from the generic span sizing */
-.control-group span:not(.axis-info-btn):not(.axis-reset-btn):not(.axis-readonly-input) {
+.control-group span:not(.axis-info-btn):not(.axis-reset-btn):not(.axis-readonly-input):not(.family-reset-btn) {
     color: #ecf0f1;
     font-size: 11px;
     font-weight: bold;
@@ -715,6 +749,7 @@ body {
     z-index: 900;
     border-top: 2px solid #34495e;
     padding: 0 10px;
+    --grip-width: 160px;
 }
 
 /* Apply buttons near grips (visible in Facade view) */
@@ -733,18 +768,7 @@ body {
 .apply-btn:hover { background: #13866f; }
 .apply-btn.active { background: #1abc9c; border-color: #149b84; }
 
-/* Add breathing room between grips and Apply buttons */
-#apply-top { margin-left: 10px; }
-#apply-bottom { margin-right: 10px; }
-
-/* Cluster Apply + Save/Open icons together */
-.apply-cluster {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-.apply-cluster .favorite-btn { width: 24px; height: 24px; font-size: 12px; }
-
+/* Apply buttons shown in Facade mode */
 body.view-facade .apply-btn { display: inline-flex; align-items: center; justify-content: center; }
 
 /* Loading state for Apply buttons */
@@ -766,16 +790,75 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
     animation: affo-spin 0.9s linear infinite;
 }
 
+/* Panel footer: persistent controls at bottom of each panel */
+.panel-footer {
+    position: relative; /* anchored by flex at the bottom */
+    bottom: auto;
+    background: #f6f7f9; /* light, non-dark surface */
+    color: #222222;
+    border-top: 1px solid #e6e6e6;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 5;
+}
+.footer-icons { display: flex; gap: 6px; flex: 0 0 auto; }
+.footer-actions { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.footer-actions .apply-btn,
+.footer-actions .reset-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
+    text-align: center;
+}
+.reset-btn {
+    display: none; /* shown when applied */
+    padding: 6px 10px;
+    background: #e74c3c;
+    color: #ffffff;
+    border: 1px solid #c0392b;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+}
+.reset-btn:hover { background: #c0392b; }
+
+/* Footer no longer overlays content; no extra pad needed */
+
 @keyframes affo-spin { to { transform: rotate(360deg); } }
 
 
-/* Phone layout ordering for apply buttons */
+/* Phone layout: single-row bottom bar */
 @media (max-width: 599px) {
-    /* Keep two-row layout: grips top row, favorites second row */
-    #top-font-grip { order: 1; }
-    #apply-top { order: 2; }
-    #apply-bottom { order: 3; }
-    #bottom-font-grip { order: 4; }
+    #panel-grips {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        height: 72px; /* more compact single row */
+        padding: 6px 10px;
+        column-gap: 8px;
+        --grip-width: 128px;
+    }
+    .grip-area { flex: 0 0 var(--grip-width); width: var(--grip-width); padding: 6px 8px; }
+    .favorites-container {
+        flex: 1 1 auto;
+        order: 0;
+        width: auto;
+        max-width: none;
+        justify-content: center;
+        gap: 10px;
+        overflow: visible;
+        -webkit-overflow-scrolling: auto;
+        padding-bottom: 0;
+    }
+    /* Tighten footer spacing on phones to prevent overflow */
+    .panel-footer { padding: 8px 8px; gap: 8px; }
+    .footer-icons { gap: 4px; }
+    .footer-actions { gap: 6px; }
+    .footer-actions .apply-btn,
+    .footer-actions .reset-btn { padding: 6px 8px; font-size: 11px; }
 }
 
 .grip-area {
@@ -791,6 +874,12 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
     flex-shrink: 0;
     border: 1px solid #4a5a6a; /* ensure visible box when rolled in */
     background: transparent; /* default no gray */
+    touch-action: manipulation; /* reduce tap delay on mobile */
+    position: relative;
+    z-index: 2; /* ensure above siblings in bar */
+    width: var(--grip-width);
+    flex: 0 0 var(--grip-width);
+    box-sizing: border-box;
 }
 
 .grip-area:hover {
@@ -862,41 +951,9 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
 
 /* Responsive adjustments: phones and narrow devices */
 @media (max-width: 599px) {
-    #panel-grips {
-        flex-wrap: wrap; /* two rows on phones */
-        justify-content: space-between;
-        height: auto;
-        padding: 6px 8px;
-        column-gap: 8px;
-        row-gap: 6px;
-    }
-    /* Top row: grips side by side */
-    #top-font-grip { order: 1; }
-    #bottom-font-grip { order: 2; }
-    .grip-area {
-        flex: 1 1 48%;
-        padding: 6px 8px;
-    }
-    /* Second row: full-width, horizontally scrollable favorites */
-    .favorites-container {
-        order: 3;
-        flex: 0 0 100%;
-        width: 100%;
-        max-width: 100%;
-        justify-content: center; /* center favorites row on phones */
-        gap: 10px;
-        overflow-x: auto; /* allow horizontal scroll instead of overflow */
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 6px; /* breathing room for scrollbar */
-    }
-    .favorites-section {
-        flex: 0 0 auto;
-        min-width: 120px; /* slightly tighter on phones */
-        max-width: 160px;
-    }
-    .favorites-title {
-        display: none; /* save vertical space on phones */
-    }
+    /* single-row bottom bar: overrides legacy two-row rules */
+    .favorites-section { flex: 0 0 auto; min-width: 120px; max-width: 160px; }
+    .favorites-title { display: none; }
 }
 
 /* Mid-size tablets: slightly tighter sections to avoid overflow */

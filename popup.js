@@ -24,6 +24,34 @@ function applyViewMode(forceView) {
     const botGripLabel = document.querySelector('#bottom-font-grip .grip-label');
     if (topGripLabel) topGripLabel.textContent = getPanelLabel('top');
     if (botGripLabel) botGripLabel.textContent = getPanelLabel('bottom');
+    // Reset button visibility: only meaningful in Facade view
+    try {
+        const rt = document.getElementById('reset-top');
+        const rb = document.getElementById('reset-bottom');
+        if (currentViewMode === 'faceoff') {
+            if (rt) rt.style.display = 'none';
+            if (rb) rb.style.display = 'none';
+            // Ensure family is never unset in Faceoff: clear any 'Default' placeholders
+            const fixFamily = (position, fallback) => {
+                const disp = document.getElementById(`${position}-font-display`);
+                const sel = document.getElementById(`${position}-font-select`);
+                const heading = document.getElementById(`${position}-font-name`);
+                const group = disp && disp.closest('.control-group');
+                const txt = (disp && String(disp.textContent).trim().toLowerCase()) || '';
+                if (disp && (disp.classList.contains('placeholder') || txt === 'default')) {
+                    const name = (sel && sel.value) || (heading && heading.textContent && heading.textContent.toLowerCase() !== 'default' ? heading.textContent : fallback);
+                    disp.textContent = name;
+                    disp.classList.remove('placeholder');
+                    if (group) group.classList.remove('unset');
+                    if (heading) heading.textContent = name;
+                }
+            };
+            fixFamily('top', 'Roboto Flex');
+            fixFamily('bottom', 'Rubik');
+        } else {
+            try { syncApplyButtonsForOrigin(); } catch (_) {}
+        }
+    } catch (_) {}
 }
 
 // Helper: get current active tab's origin without requiring 'tabs' permission
@@ -33,6 +61,45 @@ async function getActiveOrigin() {
         if (Array.isArray(res) && res.length) return String(res[0]);
     } catch (_) {}
     return null;
+}
+
+// Reset facade for a panel: remove stored per-origin data, remove injected CSS, and unset controls (keep family)
+async function resetFacadeFor(position) {
+    try {
+        const genericKey = (position === 'top') ? 'serif' : 'sans';
+        const origin = await getActiveOrigin();
+        // Remove injected CSS (immediate apply) if present
+        try {
+            if (appliedCssActive && appliedCssActive[genericKey]) {
+                await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] });
+                appliedCssActive[genericKey] = null;
+            }
+            const styleIdOff = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+            const linkIdOff = styleIdOff + '-link';
+            await browser.tabs.executeScript({ code: `
+                (function(){
+                    try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
+                    try{ var l=document.getElementById('${linkIdOff}'); if(l) l.remove(); }catch(_){}
+                })();
+            `});
+        } catch (_) {}
+        // Remove stored persistence for this origin/role
+        if (origin) {
+            try {
+                const data = await browser.storage.local.get('affoApplyMap');
+                const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+                if (applyMap[origin]) {
+                    delete applyMap[origin][genericKey];
+                    if (!applyMap[origin].serif && !applyMap[origin].sans) delete applyMap[origin];
+                }
+                await browser.storage.local.set({ affoApplyMap: applyMap });
+            } catch (_) {}
+        }
+        // Unset controls (keep family)
+        if (position === 'top') resetTopFont(); else resetBottomFont();
+        // Reflect buttons
+        try { await syncApplyButtonsForOrigin(); } catch (_) {}
+    } catch (_) {}
 }
 
 // Dynamic font axis cache populated from Google Fonts metadata + CSS parsing
@@ -510,10 +577,17 @@ function getCurrentFontConfig(position) {
 
 // Apply font configuration
 function applyFontConfig(position, config) {
-    // Set font family
-    document.getElementById(`${position}-font-select`).value = config.fontName;
-    // Suppress immediate apply/save during restore; we'll apply after values are set
-    loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
+    // Set font family (allow unset in Facade -> Default)
+    if (config.fontName === null || String(config.fontName).toLowerCase() === 'default') {
+        const disp = document.getElementById(`${position}-font-display`);
+        const group = disp && disp.closest('.control-group');
+        if (disp) { disp.textContent = 'Default'; disp.classList.add('placeholder'); }
+        if (group) group.classList.add('unset');
+    } else {
+        document.getElementById(`${position}-font-select`).value = config.fontName;
+        // Suppress immediate apply/save during restore; we'll apply after values are set
+        loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
+    }
     
     // Wait for font controls to be generated, then apply settings
     setTimeout(() => {
@@ -1393,8 +1467,9 @@ async function toggleApplyToPage(position) {
         }
         const cfg = getCurrentFontConfig(position);
         if (!cfg || !cfg.fontName) return false;
-        const fontName = cfg.fontName;
-        const isCustom = (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
+        const famUnset = String(cfg.fontName).toLowerCase() === 'default';
+        const fontName = famUnset ? null : cfg.fontName;
+        const isCustom = (!!fontName) && (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
         const css2Url = isCustom ? '' : await buildCss2Url(fontName);
         const activeAxes = new Set(cfg.activeAxes || []);
         var varParts = [];
@@ -1433,20 +1508,45 @@ async function toggleApplyToPage(position) {
             } catch(e) {}
         }
 
+        // Heuristically guard inline left-border callouts ("fake blockquotes") so we don't restyle them
+        try {
+            const guardCode = `(() => {
+              try {
+                var nodes = document.querySelectorAll('[style*="border-left"]');
+                nodes.forEach(function(el){
+                  try {
+                    var s = String(el.getAttribute('style')||'').toLowerCase();
+                    if ((/border-left-style\s*:\s*solid/.test(s) || /border-left\s*:\s*\d/.test(s)) &&
+                        (/border-left-width\s*:\s*\d/.test(s) || /border-left\s*:\s*\d/.test(s))) {
+                      el.setAttribute('data-affo-guard', '1');
+                      try { el.querySelectorAll('*').forEach(function(n){ try{ n.setAttribute('data-affo-guard','1'); }catch(_){ } }); } catch(_){ }
+                    }
+                  } catch(_){ }
+                });
+              } catch(_){ }
+            })();`;
+            await browser.tabs.executeScript({ code: guardCode });
+        } catch (_) {}
+
         var lines = [];
         if (css2Url) lines.push('@import url("' + css2Url + '");');
         var decl = [];
-        decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
+        if (fontName) decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
         const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
         const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
-        if (!isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
-        if (!isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
+        const sizeActive = (cfg.activeControls || []).indexOf('font-size') !== -1;
+        const lineActive = (cfg.activeControls || []).indexOf('line-height') !== -1;
+        if (sizeActive && !isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
+        if (lineActive && !isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
         if (wdthVal !== null) decl.push('font-stretch: ' + wdthVal + '% !important');
         if (italVal !== null && italVal >= 1) decl.push('font-style: italic !important');
         else if (slntVal !== null && slntVal !== 0) decl.push('font-style: oblique ' + slntVal + 'deg !important');
         if (varParts.length) decl.push('font-variation-settings: ' + varParts.join(', ') + ' !important');
         // High-specificity guard: :not(#affo-guard) boosts specificity without excluding elements
-        const baseSel = "body:not(#affo-guard), body :not(#affo-guard):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
+        const guardNeg = ":not(#affo-guard):not(.affo-guard):not([data-affo-guard])";
+        const baseSel = "body" + guardNeg + ", " +
+                        "body" + guardNeg + " :not(#affo-guard):not(.affo-guard):not([data-affo-guard])" +
+                        ":not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
         // If user activated Weight, override only non-strong/b elements
         if (weightActive && isFinite(fontWeight)) {
@@ -1512,12 +1612,16 @@ async function syncApplyButtonsForOrigin() {
         if (applyTopBtn) {
             const on = !!entry.serif;
             applyTopBtn.classList.toggle('active', on);
-            applyTopBtn.textContent = on ? 'Applied' : 'Apply';
+            applyTopBtn.textContent = on ? '✓' : 'Apply';
+            const r = document.getElementById('reset-top');
+            if (r) r.style.display = on ? 'inline-flex' : 'none';
         }
         if (applyBottomBtn) {
             const on = !!entry.sans;
             applyBottomBtn.classList.toggle('active', on);
-            applyBottomBtn.textContent = on ? 'Applied' : 'Apply';
+            applyBottomBtn.textContent = on ? '✓' : 'Apply';
+            const r = document.getElementById('reset-bottom');
+            if (r) r.style.display = on ? 'inline-flex' : 'none';
         }
     } catch (_) {}
 }
@@ -1632,7 +1736,11 @@ function applyFont(position) {
     if (activeControls.has('font-size')) { textElement.style.fontSize = fontSize; } else { textElement.style.fontSize = ''; }
     if (activeControls.has('line-height')) { textElement.style.lineHeight = lineHeight; } else { textElement.style.lineHeight = ''; }
     textElement.style.color = fontColor;
-    textElement.style.fontFamily = `"${fontName}"`;
+    if (String(fontName).toLowerCase() === 'default' && currentViewMode === 'facade') {
+        textElement.style.fontFamily = '';
+    } else {
+        textElement.style.fontFamily = `"${fontName}"`;
+    }
     
     // Only apply font-weight if the weight control has been activated
     if (activeControls.has('weight')) {
@@ -1643,7 +1751,11 @@ function applyFont(position) {
     
     headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
     headingElement.style.color = fontColor;
-    headingElement.style.fontFamily = `"${fontName}"`;
+    if (String(fontName).toLowerCase() === 'default' && currentViewMode === 'facade') {
+        headingElement.style.fontFamily = '';
+    } else {
+        headingElement.style.fontFamily = `"${fontName}"`;
+    }
     
     // Only apply font-weight to heading if the weight control has been activated
     if (activeControls.has('weight')) {
@@ -1796,7 +1908,7 @@ function updateBasicControls(position) {
                         controlGroup.classList.remove('unset');
                     }
                     
-                    const value = Math.min(Math.max(parseFloat(this.value) || 1.2, 0.5), 5);
+                    const value = Math.min(Math.max(parseFloat(this.value) || 1.6, 0.5), 5);
                     this.value = value;
                     lineHeightControl.value = Math.min(Math.max(value, 1), 3); // Clamp to slider range for display
                     lineHeightValue.textContent = value;
@@ -1816,7 +1928,7 @@ function updateBasicControls(position) {
                     controlGroup.classList.remove('unset');
                 }
                 
-                const value = Math.min(Math.max(parseFloat(this.value) || 1.2, 0.5), 5);
+                const value = Math.min(Math.max(parseFloat(this.value) || 1.6, 0.5), 5);
                 this.value = value;
                 lineHeightControl.value = Math.min(Math.max(value, 1), 3); // Clamp to slider range for display
                 lineHeightValue.textContent = value;
@@ -1857,7 +1969,7 @@ function updateBasicControls(position) {
     if (fontWeightValue) fontWeightValue.textContent = fontWeightControl.value;
 }
 
-// Save Modal functionality
+    // Save Modal functionality
 // Helpers for resilient checks against arrays, Sets, or object maps
 function hasInCollection(coll, item) {
     if (!coll) return false;
@@ -1880,7 +1992,7 @@ function generateFontConfigName(position) {
     if (hasInCollection(config.activeControls, 'weight') && config.basicControls.fontWeight !== 400) {
         parts.push(`${config.basicControls.fontWeight}wt`);
     }
-    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.2) {
+    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.6) {
         parts.push(`${config.basicControls.lineHeight}lh`);
     }
     
@@ -1933,7 +2045,7 @@ function generateConfigPreview(position) {
     
     // Always show font size
     lines.push(`Size: ${config.basicControls.fontSize}px`);
-    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.2) {
+    if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.6) {
         lines.push(`Line Height: ${config.basicControls.lineHeight}`);
     }
     if (hasInCollection(config.activeControls, 'weight') && config.basicControls.fontWeight !== 400) {
@@ -2313,7 +2425,7 @@ function generateFavoritePreview(config) {
         lines.push(`Size: ${config.basicControls.fontSize}px`);
     }
     if (hasInCollection(config && config.activeControls, 'line-height') && 
-        config.basicControls?.lineHeight && config.basicControls.lineHeight !== 1.2) {
+        config.basicControls?.lineHeight && config.basicControls.lineHeight !== 1.6) {
         lines.push(`Line Height: ${config.basicControls.lineHeight}`);
     }
     if (hasInCollection(config && config.activeControls, 'weight') && 
@@ -2396,10 +2508,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch (_) {}
                 applyTopBtn.classList.add('active');
-                applyTopBtn.textContent = 'Applied';
+                applyTopBtn.textContent = '✓';
+                try { const r = document.getElementById('reset-top'); if (r) r.style.display = 'inline-flex'; } catch (_) {}
             } else {
                 applyTopBtn.classList.remove('active');
                 applyTopBtn.textContent = 'Apply';
+                try { const r = document.getElementById('reset-top'); if (r) r.style.display = 'none'; } catch (_) {}
             }
             applyTopBtn.classList.remove('loading');
         });
@@ -2421,10 +2535,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch (_) {}
                 applyBottomBtn.classList.add('active');
-                applyBottomBtn.textContent = 'Applied';
+                applyBottomBtn.textContent = '✓';
+                try { const r = document.getElementById('reset-bottom'); if (r) r.style.display = 'inline-flex'; } catch (_) {}
             } else {
                 applyBottomBtn.classList.remove('active');
                 applyBottomBtn.textContent = 'Apply';
+                try { const r = document.getElementById('reset-bottom'); if (r) r.style.display = 'none'; } catch (_) {}
             }
             applyBottomBtn.classList.remove('loading');
         });
@@ -2540,13 +2656,32 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     if (topSel && topDisp) topDisp.textContent = topSel.value || 'Roboto Flex';
     if (botSel && botDisp) botDisp.textContent = botSel.value || 'Rubik';
 
-    // Add event listeners for buttons
-    document.getElementById('reset-top-font').addEventListener('click', function() {
-        resetTopFont();
+    // Family reset handlers (Facade only)
+    function handleFamilyReset(position) {
+        if (currentViewMode !== 'facade') return;
+        const disp = document.getElementById(`${position}-font-display`);
+        const group = disp && disp.closest('.control-group');
+        if (disp) { disp.textContent = 'Default'; disp.classList.add('placeholder'); }
+        if (group) group.classList.add('unset');
+        const heading = document.getElementById(`${position}-font-name`);
+        if (heading) heading.textContent = 'Default';
+        try { refreshApplyButtonsDirtyState(); } catch (_) {}
+    }
+    const topFamReset = document.getElementById('top-family-reset');
+    if (topFamReset) topFamReset.addEventListener('click', () => handleFamilyReset('top'));
+    const botFamReset = document.getElementById('bottom-family-reset');
+    if (botFamReset) botFamReset.addEventListener('click', () => handleFamilyReset('bottom'));
+
+    // Add event listeners for footer Reset buttons
+    const resetTopBtn = document.getElementById('reset-top');
+    if (resetTopBtn) resetTopBtn.addEventListener('click', async function() {
+        if (currentViewMode === 'facade') { await resetFacadeFor('top'); }
+        else { await (async () => { try { resetTopFont(); setTimeout(() => saveExtensionState(), 50); } catch (_) {} })(); }
     });
-    
-    document.getElementById('reset-bottom-font').addEventListener('click', function() {
-        resetBottomFont();
+    const resetBottomBtn = document.getElementById('reset-bottom');
+    if (resetBottomBtn) resetBottomBtn.addEventListener('click', async function() {
+        if (currentViewMode === 'facade') { await resetFacadeFor('bottom'); }
+        else { await (async () => { try { resetBottomFont(); setTimeout(() => saveExtensionState(), 50); } catch (_) {} })(); }
     });
     
     // Custom alert OK button
@@ -2606,10 +2741,10 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             const lineHeightValue = document.getElementById(`${position}-line-height-value`);
             
             if (lineHeightControl && lineHeightValue) {
-                lineHeightControl.value = 1.2;
-                lineHeightValue.textContent = '1.2';
+                lineHeightControl.value = 1.6;
+                lineHeightValue.textContent = '1.6';
                 if (lineHeightTextInput) {
-                    lineHeightTextInput.value = 1.2;
+                    lineHeightTextInput.value = 1.6;
                 }
                 
                 // Remove from active controls and add unset class
@@ -2811,22 +2946,26 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         }
     }
     
-    // Grip click handlers
-    topFontGrip.addEventListener('click', function() {
-        if (topPanelOpen) {
-            hidePanel('top');
-        } else {
-            showPanel('top');
-        }
-    });
-    
-    bottomFontGrip.addEventListener('click', function() {
-        if (bottomPanelOpen) {
-            hidePanel('bottom');
-        } else {
-            showPanel('bottom');
-        }
-    });
+    // Grip handlers (throttled to avoid double-fire on touch/click)
+    function toggleTop() { if (topPanelOpen) hidePanel('top'); else showPanel('top'); }
+    function toggleBottom() { if (bottomPanelOpen) hidePanel('bottom'); else showPanel('bottom'); }
+    let lastToggleTs = 0;
+    function throttled(fn) {
+        return (e) => {
+            const now = Date.now();
+            if (now - lastToggleTs < 250) { try { e && e.preventDefault && e.preventDefault(); } catch(_){} return; }
+            lastToggleTs = now;
+            try { e && e.preventDefault && e.preventDefault(); } catch(_){}
+            fn();
+        };
+    }
+    // Click for desktop, pointerdown for touch-capable (no separate touchstart to avoid double fire)
+    topFontGrip.addEventListener('click', throttled(toggleTop));
+    bottomFontGrip.addEventListener('click', throttled(toggleBottom));
+    if (window && 'PointerEvent' in window) {
+        topFontGrip.addEventListener('pointerdown', throttled(toggleTop), { passive: false });
+        bottomFontGrip.addEventListener('pointerdown', throttled(toggleBottom), { passive: false });
+    }
     
     // Close panels when clicking overlay
     panelOverlay.addEventListener('click', hideAllPanels);
@@ -2841,6 +2980,26 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     // Reference to panel elements  
     const topFontControlsPanel = topFontControls;
     const bottomFontControlsPanel = bottomFontControls;
+    
+    // Dynamically align panel bottoms above the bottom strip (#panel-grips)
+    function adjustPanelBottomOffset() {
+        try {
+            const grips = document.getElementById('panel-grips');
+            const h = grips ? Math.ceil(grips.getBoundingClientRect().height || 0) : 100;
+            if (topFontControls) topFontControls.style.bottom = h + 'px';
+            if (bottomFontControls) bottomFontControls.style.bottom = h + 'px';
+        } catch (_) {}
+    }
+    adjustPanelBottomOffset();
+    // Recalculate on resize and when the bottom strip resizes (e.g., phone layout)
+    window.addEventListener('resize', adjustPanelBottomOffset);
+    try {
+        if ('ResizeObserver' in window) {
+            const ro = new ResizeObserver(adjustPanelBottomOffset);
+            const grips = document.getElementById('panel-grips');
+            if (grips) ro.observe(grips);
+        }
+    } catch (_) {}
     
     // Initialize favorites system
     loadFavoritesFromStorage();
@@ -2996,13 +3155,13 @@ function resetTopFont() {
     
     // Reset basic properties
     document.getElementById('top-font-size').value = 17;
-    document.getElementById('top-line-height').value = 1.2;
+    document.getElementById('top-line-height').value = 1.6;
     document.getElementById('top-font-weight').value = 400;
     document.getElementById('top-font-color').value = '#000000';
     
     // Reset display values
     (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('top-line-height-value').textContent = '1.2';
+    document.getElementById('top-line-height-value').textContent = '1.6';
     document.getElementById('top-font-weight-value').textContent = '400';
     
     // Reset weight control to unset/dimmed state
@@ -3048,7 +3207,7 @@ function resetBottomFont() {
     
     // Reset basic properties
     document.getElementById('bottom-font-size').value = 17;
-    document.getElementById('bottom-line-height').value = 1.2;
+    document.getElementById('bottom-line-height').value = 1.6;
     document.getElementById('bottom-font-weight').value = 400;
     document.getElementById('bottom-font-color').value = '#000000';
     
@@ -3056,11 +3215,11 @@ function resetBottomFont() {
     const bottomFontSizeTextInput = document.getElementById('bottom-font-size-text');
     const bottomLineHeightTextInput = document.getElementById('bottom-line-height-text');
     if (bottomFontSizeTextInput) bottomFontSizeTextInput.value = 17;
-    if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.2;
+    if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.6;
     
     // Reset display values
     (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('bottom-line-height-value').textContent = '1.2';
+    document.getElementById('bottom-line-height-value').textContent = '1.6';
     document.getElementById('bottom-font-weight-value').textContent = '400';
     
     // Reset weight control to unset/dimmed state
@@ -3107,7 +3266,7 @@ function resetBottomFont() {
 function buildConfigFromPayload(position, payload) {
     const base = getCurrentFontConfig(position) || {
         fontName: payload.fontName,
-        basicControls: { fontSize: 17, lineHeight: 1.2, fontWeight: 400, fontColor: '#000000' },
+        basicControls: { fontSize: 17, lineHeight: 1.6, fontWeight: 400, fontColor: '#000000' },
         activeControls: [],
         activeAxes: [],
         variableAxes: {}
@@ -3209,8 +3368,9 @@ function buildCurrentPayload(position) {
     const fontWeight = weightActive ? Number(cfg.basicControls && cfg.basicControls.fontWeight) : null;
     const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
     const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
+    const famUnset = String(cfg.fontName).toLowerCase() === 'default';
     return {
-        fontName: cfg.fontName,
+        fontName: famUnset ? null : cfg.fontName,
         generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
         varPairs,
         wdthVal,
@@ -3236,11 +3396,13 @@ async function refreshApplyButtonsDirtyState() {
             if (!saved) {
                 btnTop.classList.remove('active');
                 btnTop.textContent = 'Apply';
+                const r = document.getElementById('reset-top'); if (r) r.style.display = 'none';
             } else {
                 const current = buildCurrentPayload('top');
                 const same = payloadEquals(saved, current);
                 btnTop.classList.toggle('active', same);
-                btnTop.textContent = same ? 'Applied' : 'Apply';
+                btnTop.textContent = same ? '✓' : 'Apply';
+                const r = document.getElementById('reset-top'); if (r) r.style.display = same ? 'inline-flex' : 'none';
             }
         }
         if (btnBottom) {
@@ -3248,11 +3410,13 @@ async function refreshApplyButtonsDirtyState() {
             if (!saved) {
                 btnBottom.classList.remove('active');
                 btnBottom.textContent = 'Apply';
+                const r = document.getElementById('reset-bottom'); if (r) r.style.display = 'none';
             } else {
                 const current = buildCurrentPayload('bottom');
                 const same = payloadEquals(saved, current);
                 btnBottom.classList.toggle('active', same);
-                btnBottom.textContent = same ? 'Applied' : 'Apply';
+                btnBottom.textContent = same ? '✓' : 'Apply';
+                const r = document.getElementById('reset-bottom'); if (r) r.style.display = same ? 'inline-flex' : 'none';
             }
         }
     } catch (_) {}

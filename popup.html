@@ -100,12 +100,7 @@
             <div class="grip-handle">≡</div>
             <span class="grip-label">Top Font</span>
         </div>
-        <!-- Apply to page (Serif) -->
-        <div class="apply-cluster">
-            <button id="apply-top" class="apply-btn" title="Apply Serif to page">Apply</button>
-            <button id="top-load-favorite-bar" class="favorite-btn" title="Load Top favorite">📂</button>
-            <button id="top-save-favorite-bar" class="favorite-btn" title="Save Top favorite">💾</button>
-        </div>
+        <!-- Apply removed from bottom bar; controls moved into each panel footer -->
 
         <!-- Center section: Edit Favorites + View Toggle -->
         <div class="favorites-container">
@@ -117,12 +112,7 @@
             </div>
         </div>
 
-        <!-- Apply to page (Sans Serif) -->
-        <div class="apply-cluster">
-            <button id="bottom-load-favorite-bar" class="favorite-btn" title="Load Bottom favorite">📂</button>
-            <button id="bottom-save-favorite-bar" class="favorite-btn" title="Save Bottom favorite">💾</button>
-            <button id="apply-bottom" class="apply-btn" title="Apply Sans Serif to page">Apply</button>
-        </div>
+        <!-- Apply removed from bottom bar; controls moved into each panel footer -->
         <div class="grip-area" id="bottom-font-grip" data-panel="bottom">
             <div class="grip-handle">≡</div>
             <span class="grip-label">Bottom Font</span>
@@ -133,12 +123,14 @@
     <div id="top-font-controls" class="controls-panel">
         <h2>Top Font</h2>
 
+        <div class="panel-body">
         <!-- Font Selector -->
         <div class="control-section">
             <h3>Font Selection</h3>
             <div class="control-group">
                 <label for="top-font-display">Font Family:</label>
                 <div class="control-row input-row">
+                    <span id="top-family-reset" class="family-reset-btn" title="Use site default">↻</span>
                     <div id="top-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Roboto Flex</div>
                     <select id="top-font-select" class="hidden">
                     <option value="Roboto Flex" selected>Roboto Flex</option>
@@ -159,13 +151,7 @@
                     </select>
                 </div>
             </div>
-            <div class="control-group">
-                <label>Favorites:</label>
-                <div class="control-row">
-                    <button id="top-load-favorite" class="favorite-btn" title="Load a saved Top favorite">📂</button>
-                    <button id="top-save-favorite" class="favorite-btn" title="Save current Top configuration">💾</button>
-                </div>
-            </div>
+            <!-- Favorites controls moved to persistent footer -->
         </div>
 
         <!-- Basic Font Properties -->
@@ -185,10 +171,10 @@
                 <label for="top-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset to default">↻</span>
-                    <span id="top-line-height-value" class="axis-readonly-input" aria-live="polite">1.2</span>
+                    <span id="top-line-height-value" class="axis-readonly-input" aria-live="polite">1.6</span>
                 </div>
                 <div class="control-row slider-row">
-                    <input type="range" id="top-line-height" min="1" max="3" step="0.1" value="1.2">
+                    <input type="range" id="top-line-height" min="1" max="3" step="0.1" value="1.6">
                 </div>
             </div>
             <div class="control-group unset" data-control="weight">
@@ -288,20 +274,33 @@
                 <span id="roboto-YTFI-value">738</span>
             </div>
         </div>
+        </div>
 
-        <button class="reset-button" id="reset-top-font">Reset Font</button>
+        <!-- Panel footer: favorites + apply/reset -->
+        <div class="panel-footer">
+            <div class="footer-icons">
+                <button id="top-load-favorite" class="favorite-btn" title="Load a saved Top favorite">📂</button>
+                <button id="top-save-favorite" class="favorite-btn" title="Save current Top configuration">💾</button>
+            </div>
+            <div class="footer-actions">
+                <button id="apply-top" class="apply-btn" title="Apply Serif to page">Apply</button>
+                <button id="reset-top" class="reset-btn" title="Reset (clear saved + unset controls)">↻</button>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Font Control Panel -->
     <div id="bottom-font-controls" class="controls-panel">
         <h2>Bottom Font</h2>
 
+        <div class="panel-body">
         <!-- Font Selector -->
         <div class="control-section">
             <h3>Font Selection</h3>
             <div class="control-group">
                 <label for="bottom-font-display">Font Family:</label>
                 <div class="control-row input-row">
+                    <span id="bottom-family-reset" class="family-reset-btn" title="Use site default">↻</span>
                     <div id="bottom-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Rubik</div>
                     <select id="bottom-font-select" class="hidden">
                     <option value="Rubik" selected>Rubik</option>
@@ -323,13 +322,7 @@
                     </select>
                 </div>
             </div>
-            <div class="control-group">
-                <label>Favorites:</label>
-                <div class="control-row">
-                    <button id="bottom-load-favorite" class="favorite-btn" title="Load a saved Bottom favorite">📂</button>
-                    <button id="bottom-save-favorite" class="favorite-btn" title="Save current Bottom configuration">💾</button>
-                </div>
-            </div>
+            <!-- Favorites controls moved to persistent footer -->
         </div>
 
         <!-- Basic Font Properties -->
@@ -349,10 +342,10 @@
                 <label for="bottom-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset to default">↻</span>
-                    <span id="bottom-line-height-value" class="axis-readonly-input" aria-live="polite">1.2</span>
+                    <span id="bottom-line-height-value" class="axis-readonly-input" aria-live="polite">1.6</span>
                 </div>
                 <div class="control-row slider-row">
-                    <input type="range" id="bottom-line-height" min="1" max="3" step="0.1" value="1.2">
+                    <input type="range" id="bottom-line-height" min="1" max="3" step="0.1" value="1.6">
                 </div>
             </div>
             <div class="control-group unset" data-control="weight">
@@ -397,8 +390,18 @@
                 <span id="rubik-ital-value">0</span>
             </div>
         </div>
+        </div>
 
-        <button class="reset-button" id="reset-bottom-font">Reset Font</button>
+        <div class="panel-footer">
+            <div class="footer-icons">
+                <button id="bottom-load-favorite" class="favorite-btn" title="Load a saved Bottom favorite">📂</button>
+                <button id="bottom-save-favorite" class="favorite-btn" title="Save current Bottom configuration">💾</button>
+            </div>
+            <div class="footer-actions">
+                <button id="apply-bottom" class="apply-btn" title="Apply Sans Serif to page">Apply</button>
+                <button id="reset-bottom" class="reset-btn" title="Reset (clear saved + unset controls)">↻</button>
+            </div>
+        </div>
     </div>
 
     <!-- Font Comparison Area -->
