@@ -548,15 +548,16 @@ function getCurrentFontConfig(position) {
     const fontWeight = fontWeightControl.value;
     const fontColor = fontColorControl.value;
     
+    const activeControls = position === 'top' ? topActiveControls : bottomActiveControls;
     const config = {
         fontName,
         basicControls: {
             fontSize: parseFloat(fontSize),
-            lineHeight: parseFloat(lineHeight),
-            fontWeight: parseInt(fontWeight),
+            lineHeight: activeControls.has('line-height') ? parseFloat(lineHeight) : null,
+            fontWeight: activeControls.has('weight') ? parseInt(fontWeight) : null,
             fontColor
         },
-        activeControls: Array.from(position === 'top' ? topActiveControls : bottomActiveControls),
+        activeControls: Array.from(activeControls),
         activeAxes: Array.from(position === 'top' ? topActiveAxes : bottomActiveAxes),
         variableAxes: {}
     };
@@ -593,21 +594,21 @@ function applyFontConfig(position, config) {
     setTimeout(() => {
         // Set basic controls
         document.getElementById(`${position}-font-size`).value = config.basicControls.fontSize;
-        document.getElementById(`${position}-line-height`).value = config.basicControls.lineHeight;
-        document.getElementById(`${position}-font-weight`).value = config.basicControls.fontWeight;
+        document.getElementById(`${position}-line-height`).value = config.basicControls.lineHeight || 1.6;
+        document.getElementById(`${position}-font-weight`).value = config.basicControls.fontWeight || 400;
         document.getElementById(`${position}-font-color`).value = config.basicControls.fontColor;
         
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
         if (fontSizeTextInput) fontSizeTextInput.value = config.basicControls.fontSize;
-        if (lineHeightTextInput) lineHeightTextInput.value = config.basicControls.lineHeight;
+        if (lineHeightTextInput) lineHeightTextInput.value = config.basicControls.lineHeight || 1.6;
         
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
         if (fsVal) fsVal.textContent = config.basicControls.fontSize + 'px';
-        document.getElementById(`${position}-line-height-value`).textContent = config.basicControls.lineHeight;
-        document.getElementById(`${position}-font-weight-value`).textContent = config.basicControls.fontWeight;
+        document.getElementById(`${position}-line-height-value`).textContent = config.basicControls.lineHeight || 1.6;
+        document.getElementById(`${position}-font-weight-value`).textContent = config.basicControls.fontWeight || 400;
         
         // Restore active controls state
         const activeControls = position === 'top' ? topActiveControls : bottomActiveControls;
