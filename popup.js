@@ -1567,7 +1567,6 @@ async function toggleApplyToPage(position) {
             var axis = entry[0];
             var value = Number(entry[1]);
             if (!activeAxes.has(axis) || !isFinite(value)) return;
-            if (axis === 'wght') return; // preserve page's native weight per element
             if (axis === 'wdth') wdthVal = value;
             if (axis === 'slnt') slntVal = value;
             if (axis === 'ital') italVal = value;
@@ -1639,20 +1638,31 @@ async function toggleApplyToPage(position) {
                         "body" + guardNeg + " :not(#affo-guard):not(.affo-guard):not([data-affo-guard])" +
                         ":not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
-        // If user activated Weight, override only non-strong/b elements
+        // If user activated Weight, apply traditional font-weight (independent of variable axes)
+        // Bold elements already excluded by baseSel
         if (weightActive && isFinite(fontWeight)) {
-            const weightSel = baseSel + ':not(strong):not(b)';
-            // Also reinforce with wght axis in case the page sets font-variation-settings
-            const varPartsWeight = varParts.slice();
-            varPartsWeight.push('\"wght\" ' + fontWeight);
-            lines.push(weightSel + ' { font-weight: ' + fontWeight + ' !important; font-variation-settings: ' + varPartsWeight.join(', ') + ' !important; }');
-            // Explicitly reassert bold for strong/b and all descendants after our non-bold override
-            const varPartsBold = varParts.slice().filter(p => !/^"wght"\s/i.test(p));
-            varPartsBold.push('\"wght\" 700');
-            lines.push('strong:not(#affo-guard), strong:not(#affo-guard) *,' +
-                       ' b:not(#affo-guard), b:not(#affo-guard) * { ' +
-                       'font-weight: 700 !important; font-variation-settings: ' + varPartsBold.join(', ') + ' !important; }');
+            lines.push(baseSel + ' { font-weight: ' + fontWeight + ' !important; }');
         }
+        // Apply variable axes independently (including wght if set)
+        // Split into wght and non-wght axes to handle bold preservation
+        if (varParts.length) {
+            const wghtParts = varParts.filter(p => /^"wght"\s/.test(p));
+            const nonWghtParts = varParts.filter(p => !/^"wght"\s/.test(p));
+            
+            // Apply all non-wght axes to all elements
+            if (nonWghtParts.length) {
+                lines.push(baseSel + ' { font-variation-settings: ' + nonWghtParts.join(', ') + ' !important; }');
+            }
+            
+            // Apply wght axis - bold elements already excluded by baseSel
+            // Combine with non-wght axes if both exist
+            if (wghtParts.length) {
+                const allAxesForNonBold = nonWghtParts.concat(wghtParts);
+                lines.push(baseSel + ' { font-variation-settings: ' + allAxesForNonBold.join(', ') + ' !important; }');
+            }
+        }
+        // Override rule for bold elements with maximum specificity
+        lines.push('body strong, body b, html body strong, html body b { font-family: initial !important; font-weight: bold !important; font-variation-settings: initial !important; }');
         var cssCode = lines.join('\n');
         if (!fontFaceOnly && !inlineApply) {
             await browser.tabs.insertCSS({ code: cssCode });
@@ -3395,7 +3405,7 @@ function buildConfigFromPayload(position, payload) {
                 : base.basicControls.fontWeight,
             fontColor: base.basicControls.fontColor
         },
-        activeControls: Array.isArray(base.activeControls) ? base.activeControls.slice() : [],
+        activeControls: [],
         activeAxes: [],
         variableAxes: {}
     };
@@ -3414,11 +3424,7 @@ function buildConfigFromPayload(position, payload) {
     if (!hasLine && idxLine !== -1) config.activeControls.splice(idxLine, 1);
     const tags = new Set();
     (payload.varPairs || []).forEach(p => { if (p && p.tag) { tags.add(p.tag); config.variableAxes[p.tag] = Number(p.value); } });
-    // If a fontWeight was saved (user activated Weight), reflect it as an active wght axis in the UI
-    if (payload.fontWeight !== null && payload.fontWeight !== undefined) {
-        const w = Number(payload.fontWeight);
-        if (isFinite(w)) { tags.add('wght'); config.variableAxes.wght = w; }
-    }
+    // Don't convert between traditional weight and variable axis - they're independent
     if (payload.wdthVal !== null && payload.wdthVal !== undefined && !tags.has('wdth')) { tags.add('wdth'); config.variableAxes.wdth = Number(payload.wdthVal); }
     if (payload.slntVal !== null && payload.slntVal !== undefined && !tags.has('slnt')) { tags.add('slnt'); config.variableAxes.slnt = Number(payload.slntVal); }
     if (payload.italVal !== null && payload.italVal !== undefined && !tags.has('ital')) { tags.add('ital'); config.variableAxes.ital = Number(payload.italVal); }
