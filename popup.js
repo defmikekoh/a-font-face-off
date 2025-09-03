@@ -542,7 +542,8 @@ function getCurrentFontConfig(position) {
     }
     
     const heading = document.getElementById(`${position}-font-name`);
-    const fontName = (heading && heading.textContent) ? heading.textContent : fontSelect.value;
+    const rawFontName = (heading && heading.textContent) ? heading.textContent : fontSelect.value;
+    const fontName = (rawFontName && String(rawFontName).toLowerCase() !== 'default') ? rawFontName : null;
     const fontSize = fontSizeControl.value;
     const lineHeight = lineHeightControl.value;
     const fontWeight = fontWeightControl.value;
@@ -552,7 +553,7 @@ function getCurrentFontConfig(position) {
     const config = {
         fontName,
         basicControls: {
-            fontSize: parseFloat(fontSize),
+            fontSize: activeControls.has('font-size') ? parseFloat(fontSize) : null,
             lineHeight: activeControls.has('line-height') ? parseFloat(lineHeight) : null,
             fontWeight: activeControls.has('weight') ? parseInt(fontWeight) : null,
             fontColor
@@ -593,7 +594,7 @@ function applyFontConfig(position, config) {
     // Wait for font controls to be generated, then apply settings
     setTimeout(() => {
         // Set basic controls
-        document.getElementById(`${position}-font-size`).value = config.basicControls.fontSize;
+        document.getElementById(`${position}-font-size`).value = config.basicControls.fontSize || 17;
         document.getElementById(`${position}-line-height`).value = config.basicControls.lineHeight || 1.6;
         document.getElementById(`${position}-font-weight`).value = config.basicControls.fontWeight || 400;
         document.getElementById(`${position}-font-color`).value = config.basicControls.fontColor;
@@ -601,12 +602,12 @@ function applyFontConfig(position, config) {
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
-        if (fontSizeTextInput) fontSizeTextInput.value = config.basicControls.fontSize;
+        if (fontSizeTextInput) fontSizeTextInput.value = config.basicControls.fontSize || 17;
         if (lineHeightTextInput) lineHeightTextInput.value = config.basicControls.lineHeight || 1.6;
         
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
-        if (fsVal) fsVal.textContent = config.basicControls.fontSize + 'px';
+        if (fsVal) fsVal.textContent = (config.basicControls.fontSize || 17) + 'px';
         document.getElementById(`${position}-line-height-value`).textContent = config.basicControls.lineHeight || 1.6;
         document.getElementById(`${position}-font-weight-value`).textContent = config.basicControls.fontWeight || 400;
         
@@ -1010,7 +1011,12 @@ function selectFont(name) {
     const selectEl = document.getElementById(`${currentPosition}-font-select`);
     if (selectEl) selectEl.value = name;
     const displayEl = document.getElementById(`${currentPosition}-font-display`);
-    if (displayEl) displayEl.textContent = name;
+    if (displayEl) {
+        displayEl.textContent = name;
+        displayEl.classList.remove('placeholder');
+        const group = displayEl.closest('.control-group');
+        if (group) group.classList.remove('unset');
+    }
     loadFont(currentPosition, name);
     close();
     // Reflect Apply/Update state immediately after changing family
@@ -1109,7 +1115,12 @@ function loadFont(position, fontName, options = {}) {
     // Update font name display
     document.getElementById(`${position}-font-name`).textContent = fontName;
     const familyDisplay = document.getElementById(`${position}-font-display`);
-    if (familyDisplay) familyDisplay.textContent = fontName;
+    if (familyDisplay) {
+        familyDisplay.textContent = fontName;
+        familyDisplay.classList.remove('placeholder');
+        const group = familyDisplay.closest('.control-group');
+        if (group) group.classList.remove('unset');
+    }
     
     // Generate controls for this font
     generateFontControls(position, fontName);
@@ -1478,9 +1489,8 @@ async function toggleApplyToPage(position) {
             // else: saved exists but differs from current (Update) — fall through to apply updated payload
         }
         const cfg = getCurrentFontConfig(position);
-        if (!cfg || !cfg.fontName) return false;
-        const famUnset = String(cfg.fontName).toLowerCase() === 'default';
-        const fontName = famUnset ? null : cfg.fontName;
+        if (!cfg) return false;
+        const fontName = cfg.fontName;
         const isCustom = (!!fontName) && (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
         const css2Url = isCustom ? '' : await buildCss2Url(fontName);
         // Determine if this origin should be FontFace-only
@@ -1559,12 +1569,14 @@ async function toggleApplyToPage(position) {
         if (css2Url && !fontFaceOnly && !inlineApply) lines.push('@import url("' + css2Url + '");');
         var decl = [];
         if (fontName) decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
-        const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
-        const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
+        const fontSizeValue = cfg.basicControls && cfg.basicControls.fontSize;
+        const fontSizePx = fontSizeValue !== null ? Number(fontSizeValue) : null;
+        const lineHeightValue = cfg.basicControls && cfg.basicControls.lineHeight;
+        const lineHeight = lineHeightValue !== null ? Number(lineHeightValue) : null;
         const sizeActive = (cfg.activeControls || []).indexOf('font-size') !== -1;
         const lineActive = (cfg.activeControls || []).indexOf('line-height') !== -1;
-        if (sizeActive && !isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
-        if (lineActive && !isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
+        if (sizeActive && fontSizePx !== null && !isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
+        if (lineActive && lineHeight !== null && !isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
         if (wdthVal !== null) decl.push('font-stretch: ' + wdthVal + '% !important');
         if (italVal !== null && italVal >= 1) decl.push('font-style: italic !important');
         else if (slntVal !== null && slntVal !== 0) decl.push('font-style: oblique ' + slntVal + 'deg !important');
@@ -1745,6 +1757,10 @@ function restoreFontSettings(position, fontName) {
 }
 
 function applyFont(position) {
+    // Check if font is unset by looking for placeholder class
+    const fontDisplay = document.getElementById(`${position}-font-display`);
+    const isUnsetFont = fontDisplay && fontDisplay.classList.contains('placeholder');
+    
     // Prefer the last loaded name (heading text) to avoid races with select rebuilds
     const headingEl = document.getElementById(`${position}-font-name`);
     const fontName = (headingEl && headingEl.textContent) ? headingEl.textContent : document.getElementById(`${position}-font-select`).value;
@@ -1770,10 +1786,12 @@ function applyFont(position) {
     if (activeControls.has('font-size')) { textElement.style.fontSize = fontSize; } else { textElement.style.fontSize = ''; }
     if (activeControls.has('line-height')) { textElement.style.lineHeight = lineHeight; } else { textElement.style.lineHeight = ''; }
     textElement.style.color = fontColor;
-    if (String(fontName).toLowerCase() === 'default' && currentViewMode === 'facade') {
+    if (isUnsetFont && currentViewMode === 'facade') {
         textElement.style.fontFamily = '';
+        textElement.style.display = 'none'; // Hide Gettysburg Address when font is unset
     } else {
         textElement.style.fontFamily = `"${fontName}"`;
+        textElement.style.display = ''; // Show Gettysburg Address when font is set
     }
     
     // Only apply font-weight if the weight control has been activated
@@ -1785,10 +1803,12 @@ function applyFont(position) {
     
     headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
     headingElement.style.color = fontColor;
-    if (String(fontName).toLowerCase() === 'default' && currentViewMode === 'facade') {
-        headingElement.style.fontFamily = '';
+    if (isUnsetFont && currentViewMode === 'facade') {
+        headingElement.style.fontFamily = 'Roboto, sans-serif';
+        headingElement.textContent = 'Default';
     } else {
         headingElement.style.fontFamily = `"${fontName}"`;
+        headingElement.textContent = fontName;
     }
     
     // Only apply font-weight to heading if the weight control has been activated
@@ -2699,6 +2719,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         if (group) group.classList.add('unset');
         const heading = document.getElementById(`${position}-font-name`);
         if (heading) heading.textContent = 'Default';
+        applyFont(position); // Update preview to reflect unset state
         try { refreshApplyButtonsDirtyState(); } catch (_) {}
     }
     const topFamReset = document.getElementById('top-family-reset');
@@ -3360,11 +3381,11 @@ async function prepopulateFacadeFromSavedOrigin() {
         const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
         const entry = map[origin];
         if (!entry) return;
-        if (entry.serif && entry.serif.fontName) {
+        if (entry.serif) {
             const cfgTop = buildConfigFromPayload('top', entry.serif);
             applyFontConfig('top', cfgTop);
         }
-        if (entry.sans && entry.sans.fontName) {
+        if (entry.sans) {
             const cfgBottom = buildConfigFromPayload('bottom', entry.sans);
             applyFontConfig('bottom', cfgBottom);
         }
@@ -3399,7 +3420,7 @@ function payloadEquals(a, b) {
 function buildCurrentPayload(position) {
     const genericKey = (position === 'top') ? 'serif' : 'sans';
     const cfg = getCurrentFontConfig(position);
-    if (!cfg || !cfg.fontName) return null;
+    if (!cfg) return null;
     const activeAxes = new Set(cfg.activeAxes || []);
     const varPairs = [];
     let wdthVal = null, slntVal = null, italVal = null;
@@ -3413,11 +3434,12 @@ function buildCurrentPayload(position) {
     });
     const weightActive = (cfg.activeControls || []).indexOf('weight') !== -1;
     const fontWeight = weightActive ? Number(cfg.basicControls && cfg.basicControls.fontWeight) : null;
-    const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
-    const lineHeight = Number(cfg.basicControls && cfg.basicControls.lineHeight);
-    const famUnset = String(cfg.fontName).toLowerCase() === 'default';
+    const fontSizeActive = (cfg.activeControls || []).indexOf('font-size') !== -1;
+    const fontSizePx = fontSizeActive && cfg.basicControls && cfg.basicControls.fontSize !== null ? Number(cfg.basicControls.fontSize) : null;
+    const lineHeightActive = (cfg.activeControls || []).indexOf('line-height') !== -1;
+    const lineHeight = lineHeightActive && cfg.basicControls && cfg.basicControls.lineHeight !== null ? Number(cfg.basicControls.lineHeight) : null;
     return {
-        fontName: famUnset ? null : cfg.fontName,
+        fontName: cfg.fontName,
         generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
         varPairs,
         wdthVal,
