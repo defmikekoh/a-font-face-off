@@ -1636,7 +1636,7 @@ async function toggleApplyToPage(position) {
         const guardNeg = ":not(#affo-guard):not(.affo-guard):not([data-affo-guard])";
         const baseSel = "body" + guardNeg + ", " +
                         "body" + guardNeg + " :not(#affo-guard):not(.affo-guard):not([data-affo-guard])" +
-                        ":not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
+                        ":not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
         // If user activated Weight, apply traditional font-weight (independent of variable axes)
         // Bold elements already excluded by baseSel
@@ -2100,11 +2100,14 @@ function generateFontConfigName(position) {
     const config = getCurrentFontConfig(position);
     if (!config) return 'Font Configuration';
     
+    
     let name = config.fontName;
     const parts = [];
     
-    // Always include font size in name
-    parts.push(`${config.basicControls.fontSize}px`);
+    // Only include font size in name if it's set (not null)
+    if (config.basicControls.fontSize !== null && config.basicControls.fontSize !== undefined) {
+        parts.push(`${config.basicControls.fontSize}px`);
+    }
     if (hasInCollection(config.activeControls, 'weight') && config.basicControls.fontWeight !== 400) {
         parts.push(`${config.basicControls.fontWeight}wt`);
     }
@@ -2115,7 +2118,7 @@ function generateFontConfigName(position) {
     // Add variable axes that are active
     if (config.variableAxes && config.activeAxes) {
         Object.entries(config.variableAxes).forEach(([axis, value]) => {
-            const fontDef = fontDefinitions[config.fontName];
+            const fontDef = getEffectiveFontDefinition(config.fontName);
             if (fontDef && fontDef.defaults[axis] !== undefined && 
                 config.activeAxes.includes(axis) && 
                 parseFloat(value) !== fontDef.defaults[axis]) {
@@ -2156,11 +2159,14 @@ function generateConfigPreview(position) {
     const config = getCurrentFontConfig(position);
     if (!config) return 'No configuration available';
     
+    
     const lines = [];
     lines.push(`Font: ${config.fontName}`);
     
-    // Always show font size
-    lines.push(`Size: ${config.basicControls.fontSize}px`);
+    // Only show font size if it's set (not null)
+    if (config.basicControls.fontSize !== null && config.basicControls.fontSize !== undefined) {
+        lines.push(`Size: ${config.basicControls.fontSize}px`);
+    }
     if (hasInCollection(config.activeControls, 'line-height') && config.basicControls.lineHeight !== 1.6) {
         lines.push(`Line Height: ${config.basicControls.lineHeight}`);
     }
@@ -2172,7 +2178,7 @@ function generateConfigPreview(position) {
     if (config.variableAxes && config.activeAxes) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
-                const fontDef = fontDefinitions[config.fontName];
+                const fontDef = getEffectiveFontDefinition(config.fontName);
                 return hasInCollection(config.activeAxes, axis) && 
                        fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
