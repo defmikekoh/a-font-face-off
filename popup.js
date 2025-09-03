@@ -658,6 +658,16 @@ function applyFontConfig(position, config) {
             }
         }
         
+        // Handle font-size control state
+        const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
+        if (sizeControl) {
+            if (activeControls.has('font-size')) {
+                sizeControl.classList.remove('unset');
+            } else {
+                sizeControl.classList.add('unset');
+            }
+        }
+        
         // Handle line height control state
         const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
         if (lineHeightControl) {
@@ -1419,6 +1429,7 @@ async function toggleApplyToPage(position) {
     const genericKey = (position === 'top') ? 'serif' : 'sans';
     try {
         const origin = await getActiveOrigin();
+        const host = origin ? (new URL(origin)).hostname : '';
         // Determine saved state for this origin/role
         let savedEntry = null;
         if (origin) {
@@ -1471,6 +1482,21 @@ async function toggleApplyToPage(position) {
         const fontName = famUnset ? null : cfg.fontName;
         const isCustom = (!!fontName) && (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
         const css2Url = isCustom ? '' : await buildCss2Url(fontName);
+        // Determine if this origin should be FontFace-only
+        let fontFaceOnly = false;
+        try {
+            const dd = await browser.storage.local.get('affoFontFaceOnlyDomains');
+            const list = Array.isArray(dd.affoFontFaceOnlyDomains) ? dd.affoFontFaceOnlyDomains : ['x.com'];
+            const h = String(host || '').toLowerCase();
+            fontFaceOnly = !!list.find(d => { const dom = String(d||'').toLowerCase().trim(); return dom && (h === dom || h.endsWith('.' + dom)); });
+        } catch (_) {}
+        let inlineApply = false;
+        try {
+            const dd2 = await browser.storage.local.get('affoInlineApplyDomains');
+            const list2 = Array.isArray(dd2.affoInlineApplyDomains) ? dd2.affoInlineApplyDomains : ['x.com'];
+            const h2 = String(host || '').toLowerCase();
+            inlineApply = !!list2.find(d => { const dom = String(d||'').toLowerCase().trim(); return dom && (h2 === dom || h2.endsWith('.' + dom)); });
+        } catch (_) {}
         const activeAxes = new Set(cfg.activeAxes || []);
         var varParts = [];
         var wdthVal = null, slntVal = null, italVal = null;
@@ -1489,7 +1515,7 @@ async function toggleApplyToPage(position) {
         var fontWeight = weightActive ? Number(cfg.basicControls && cfg.basicControls.fontWeight) : null;
 
         // Ensure a css2 <link> is present to start font download quickly (matches reload path)
-        if (css2Url) {
+        if (css2Url && !fontFaceOnly && !inlineApply) {
             try {
                 const styleIdEnsure = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
                 const linkIdEnsure = styleIdEnsure + '-link';
@@ -1529,7 +1555,7 @@ async function toggleApplyToPage(position) {
         } catch (_) {}
 
         var lines = [];
-        if (css2Url) lines.push('@import url("' + css2Url + '");');
+        if (css2Url && !fontFaceOnly && !inlineApply) lines.push('@import url("' + css2Url + '");');
         var decl = [];
         if (fontName) decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
         const fontSizePx = Number(cfg.basicControls && cfg.basicControls.fontSize);
@@ -1563,14 +1589,21 @@ async function toggleApplyToPage(position) {
                        'font-weight: 700 !important; font-variation-settings: ' + varPartsBold.join(', ') + ' !important; }');
         }
         var cssCode = lines.join('\n');
-        await browser.tabs.insertCSS({ code: cssCode });
-        appliedCssActive[genericKey] = cssCode;
+        if (!fontFaceOnly && !inlineApply) {
+            await browser.tabs.insertCSS({ code: cssCode });
+            appliedCssActive[genericKey] = cssCode;
+        } else {
+            // Rely on content script injection (storage event) to attach a <style> we can keep last via observer
+            appliedCssActive[genericKey] = null;
+        }
         // Persist payload for this origin so content script can reapply on reload
         if (origin) {
             const payload = {
                 fontName,
                 generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
                 css2Url,
+                fontFaceOnly,
+                inlineApply,
                 varPairs: varParts.map(function(p){
                     var m = p.match(/"([A-Za-z]+)"\s+([\-0-9\.]+)/); return m ? { tag: m[1], value: Number(m[2]) } : null;
                 }).filter(Boolean),
@@ -3274,8 +3307,12 @@ function buildConfigFromPayload(position, payload) {
     const config = {
         fontName: payload.fontName,
         basicControls: {
-            fontSize: base.basicControls.fontSize,
-            lineHeight: base.basicControls.lineHeight,
+            fontSize: (payload.fontSizePx !== null && payload.fontSizePx !== undefined)
+                ? Number(payload.fontSizePx)
+                : base.basicControls.fontSize,
+            lineHeight: (payload.lineHeight !== null && payload.lineHeight !== undefined)
+                ? Number(payload.lineHeight)
+                : base.basicControls.lineHeight,
             fontWeight: (payload.fontWeight !== null && payload.fontWeight !== undefined)
                 ? Number(payload.fontWeight)
                 : base.basicControls.fontWeight,
@@ -3286,9 +3323,18 @@ function buildConfigFromPayload(position, payload) {
         variableAxes: {}
     };
     const hasWeight = (payload.fontWeight !== null && payload.fontWeight !== undefined);
+    const hasSize = (payload.fontSizePx !== null && payload.fontSizePx !== undefined);
+    const hasLine = (payload.lineHeight !== null && payload.lineHeight !== undefined);
     const idx = config.activeControls.indexOf('weight');
     if (hasWeight && idx === -1) config.activeControls.push('weight');
     if (!hasWeight && idx !== -1) config.activeControls.splice(idx, 1);
+    // Ensure font-size and line-height active flags reflect saved payload
+    const idxSize = config.activeControls.indexOf('font-size');
+    if (hasSize && idxSize === -1) config.activeControls.push('font-size');
+    if (!hasSize && idxSize !== -1) config.activeControls.splice(idxSize, 1);
+    const idxLine = config.activeControls.indexOf('line-height');
+    if (hasLine && idxLine === -1) config.activeControls.push('line-height');
+    if (!hasLine && idxLine !== -1) config.activeControls.splice(idxLine, 1);
     const tags = new Set();
     (payload.varPairs || []).forEach(p => { if (p && p.tag) { tags.add(p.tag); config.variableAxes[p.tag] = Number(p.value); } });
     // If a fontWeight was saved (user activated Weight), reflect it as an active wght axis in the UI

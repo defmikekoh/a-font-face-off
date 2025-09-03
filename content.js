@@ -2,6 +2,8 @@
 (function(){
   function inject(payload){
     try {
+      // Use original font family name (no aliasing needed)
+      var appliedFamily = (payload && payload.fontName) ? payload.fontName : '';
       // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
       try {
         if (!document.documentElement.hasAttribute('data-affo-base')) {
@@ -39,7 +41,7 @@
       // For Google Fonts payloads, ensure a css2 <link> is present to start font download quickly
       try {
         var linkId = payload.linkId || (payload.styleId + '-link');
-        if (linkId && payload.css2Url) {
+        if (linkId && payload.css2Url && !payload.fontFaceOnly) {
           var l = document.getElementById(linkId);
           if (!l) { l = document.createElement('link'); l.id = linkId; l.rel = 'stylesheet'; l.href = payload.css2Url; document.documentElement.appendChild(l); }
         }
@@ -83,8 +85,9 @@
                 var binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
                 if (binResp && binResp.ok && Array.isArray(binResp.data)){
                   var u8 = new Uint8Array(binResp.data);
+                  var src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
                   var desc = { weight: String(pair.w), style: pair.it ? 'italic' : 'normal' };
-                  var ff = new FontFace(payload.fontName, u8, desc);
+                  var ff = new FontFace(appliedFamily, src, desc);
                   await ff.load();
                   document.fonts.add(ff);
                   try { if (window.__affoBBCLoaded) window.__affoBBCLoaded[key] = true; } catch(_){}
@@ -130,9 +133,10 @@
               var bin = await browser.runtime.sendMessage({ type: 'affoFetch', url: best.url, binary: true });
               if (bin && bin.ok && Array.isArray(bin.data)){
                 var u8 = new Uint8Array(bin.data);
+                var src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
                 var desc = { weight: String(best.w), style: best.isItalic ? 'italic' : 'normal' };
                 try {
-                  var ff = new FontFace(payload.fontName, u8, desc);
+                  var ff = new FontFace(appliedFamily, src, desc);
                   await ff.load();
                   document.fonts.add(ff);
                   try { await document.fonts.ready; } catch(e){}
@@ -146,11 +150,11 @@
         // Target typical body text only; exclude headings, code/monospace, UI/nav, and form controls
         // Guard support: require body itself not be guarded for descendant matches
         var guardNeg = ':not(#affo-guard):not(.affo-guard):not([data-affo-guard])';
-        var sel = 'body' + guardNeg + ', ' +
-                  'body' + guardNeg + ' :not(#affo-guard):not(.affo-guard):not([data-affo-guard])' +
+        var sel = 'body' + guardNeg + ', ' + 
+                  'body' + guardNeg + ' :not(#affo-guard):not(.affo-guard):not([data-affo-guard])' + 
                   ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
         var decl = [];
-        decl.push('font-family:"'+payload.fontName+'", '+payload.generic+' !important');
+        decl.push('font-family:"'+appliedFamily+'", '+payload.generic+' !important');
         // Preserve site bold semantics; weight override is applied via a separate rule to non-strong/b only
         if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) decl.push('font-size:'+payload.fontSizePx+'px !important');
         if (payload.lineHeight !== null && payload.lineHeight !== undefined) decl.push('line-height:'+payload.lineHeight+' !important');
@@ -175,13 +179,77 @@
           var vpartsBold = (payload.varPairs || []).filter(function(a){ return a && String(a.tag) !== 'wght'; }).slice();
           vpartsBold.push({ tag: 'wght', value: 700 });
           var vstrBold = vpartsBold.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', ');
-          css += '\nstrong:not(#affo-guard), strong:not(#affo-guard) *,' +
+          css += '\nstrong:not(#affo-guard), strong:not(#affo-guard) *,' + 
                  ' b:not(#affo-guard), b:not(#affo-guard) * { font-weight:700 !important; font-variation-settings:'+vstrBold+' !important; }';
         }
         return css;
       }
+      function applyInline(){
+        var guardNeg = ':not(#affo-guard):not(.affo-guard):not([data-affo-guard])';
+        var baseSel = 'body' + guardNeg + ', ' + 
+                      'body' + guardNeg + ' :not(#affo-guard):not(.affo-guard):not([data-affo-guard])' + 
+                      ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
+        var nodes = document.querySelectorAll(baseSel);
+        var family = '"' + appliedFamily + '", ' + payload.generic;
+        var wdth = (payload.wdthVal !== null && payload.wdthVal !== undefined) ? String(payload.wdthVal) + '%' : null;
+        var ital = (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1);
+        var slnt = (!ital && payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) ? String(payload.slntVal) + 'deg' : null;
+        var vparts = (payload.varPairs || []).map(function(a){ return a && a.tag ? '"'+a.tag+'" '+a.value : null; }).filter(Boolean);
+        nodes.forEach(function(el){
+          try { el.setAttribute('data-affo-inline', (payload.generic === 'serif' ? 'serif' : 'sans-serif')); } catch(_){ }
+          try { el.style.setProperty('font-family', family, 'important'); } catch(_){ }
+          if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) { try { el.style.setProperty('font-size', String(payload.fontSizePx) + 'px', 'important'); } catch(_){ } }
+          if (payload.lineHeight !== null && payload.lineHeight !== undefined) { try { el.style.setProperty('line-height', String(payload.lineHeight), 'important'); } catch(_){ } }
+          if (wdth !== null) { try { el.style.setProperty('font-stretch', wdth, 'important'); } catch(_){ }
+          }
+          if (ital) { try { el.style.setProperty('font-style', 'italic', 'important'); } catch(_){ }
+          } else if (slnt !== null) { try { el.style.setProperty('font-style', 'oblique ' + slnt, 'important'); } catch(_){ }
+          }
+          if (vparts.length) { try { el.style.setProperty('font-variation-settings', vparts.join(', '), 'important'); } catch(_){ }
+          }
+        });
+        if (payload && payload.fontWeight !== null && payload.fontWeight !== undefined) {
+          var nonBold = document.querySelectorAll(baseSel + ':not(strong):not(b)');
+          var w = String(payload.fontWeight);
+          var vpartsW = (payload.varPairs || []).slice();
+          var seenW = false; for (var i=0;i<vpartsW.length;i++){ if (vpartsW[i] && String(vpartsW[i].tag) === 'wght') { vpartsW[i] = { tag:'wght', value: Number(payload.fontWeight) }; seenW=true; } } 
+          if (!seenW) vpartsW.push({ tag:'wght', value: Number(payload.fontWeight) });
+          var vstrW = vpartsW.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', ');
+          nonBold.forEach(function(el){ try { el.style.setProperty('font-weight', w, 'important'); } catch(_){ } try { el.style.setProperty('font-variation-settings', vstrW, 'important'); } catch(_){ } });
+          nodes.forEach(function(scope){ try { var strongs = scope.querySelectorAll('strong, b'); var vpartsBold = (payload.varPairs || []).filter(function(a){ return a && String(a.tag) !== 'wght'; }).slice(); vpartsBold.push({ tag:'wght', value: 700 }); var vstrBold = vpartsBold.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', '); strongs.forEach(function(se){ try { se.style.setProperty('font-weight', '700', 'important'); } catch(_){ } try { se.style.setProperty('font-variation-settings', vstrBold, 'important'); } catch(_){ } }); } catch(_){ } });
+        }
+        try {
+          var mo = new MutationObserver(function(muts){
+            muts.forEach(function(m){ (m.addedNodes||[]).forEach(function(n){ try{ if (n && n.nodeType === 1) { var list = []; try { if (n.matches && n.matches(baseSel)) list.push(n); } catch(_){ } try { list = list.concat(Array.from(n.querySelectorAll ? n.querySelectorAll(baseSel) : [])); } catch(_){ } list.forEach(function(el){ try { el.style.setProperty('font-family', family, 'important'); } catch(_){ } }); } }catch(_){ } }); });
+          });
+          mo.observe(document.documentElement || document, { childList:true, subtree:true });
+          // Extend resiliency window for inline domains
+          setTimeout(function(){ try{ mo.disconnect(); }catch(_){ } }, 600000);
+          // Reapply on SPA navigations
+          try {
+            var _ps2 = history.pushState;
+            history.pushState = function(){ var r = _ps2.apply(this, arguments); try{ applyInline(); }catch(_){ } return r; };
+          } catch(_){ }
+          try {
+            var _rs2 = history.replaceState;
+            history.replaceState = function(){ var r = _rs2.apply(this, arguments); try{ applyInline(); }catch(_){ } return r; };
+          } catch(_){ }
+          try { window.addEventListener('popstate', function(){ try{ applyInline(); }catch(_){ } }, true); } catch(_){ }
+        } catch(_){ }
+      }
       (async function(){
         try {
+          // Enforce per-domain policies from options (handles older saved payloads)
+          try {
+            var host = (location && location.hostname ? String(location.hostname).toLowerCase() : '');
+            var opt = await browser.storage.local.get(['affoFontFaceOnlyDomains','affoInlineApplyDomains']);
+            var ffList = Array.isArray(opt.affoFontFaceOnlyDomains) ? opt.affoFontFaceOnlyDomains : ['x.com'];
+            var inFF = !!ffList.find(function(d){ var dom=String(d||'').toLowerCase().trim(); return dom && (host===dom || host.endsWith('.'+dom)); });
+            var inlineList = Array.isArray(opt.affoInlineApplyDomains) ? opt.affoInlineApplyDomains : ['x.com'];
+            var inInline = !!inlineList.find(function(d){ var dom=String(d||'').toLowerCase().trim(); return dom && (host===dom || host.endsWith('.'+dom)); });
+            if (inFF) payload.fontFaceOnly = true;
+            if (inInline) payload.inlineApply = true;
+          } catch(_){ }
           // User-configured lists are for classification only now; no guarding here.
           // Heuristically guard “fake blockquote” callouts with inline left borders
           try {
@@ -208,9 +276,7 @@
             // Observe brief post-load mutations to catch late-rendered content
             try {
               var mo = new MutationObserver(function(muts){
-                muts.forEach(function(m){
-                  (m.addedNodes||[]).forEach(function(n){
-                    try {
+                muts.forEach(function(m){ (m.addedNodes||[]).forEach(function(n){ try{
                       if (n && n.nodeType === 1) scanGuards(n);
                     } catch(_){}
                   });
@@ -225,34 +291,76 @@
             const cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: payload.css2Url, binary: false });
             if (!cssResp || !cssResp.ok) throw new Error('css2 fetch failed');
             const cssText = String(cssResp.data || '');
-            // Choose the @font-face block that matches desired italic/normal
+            // Find @font-face blocks
             var blocks = cssText.split('@font-face').slice(1);
             var wantItalic = !!(payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1);
-            var chosen = null;
-            for (var i=0;i<blocks.length;i++){
-              var b = blocks[i];
-              var isItalic = /font-style:\s*italic/i.test(b);
-              var isNormal = /font-style:\s*normal/i.test(b);
-              if ((wantItalic && isItalic) || (!wantItalic && isNormal)) { chosen = b; break; }
-            }
-            if (!chosen) chosen = blocks[0] || '';
-            var m = chosen && chosen.match(/url\(([^)]+\.woff2[^)]*)\)/i);
-            if (m) {
-              let url = m[1].trim();
+            // On FontFace-only domains or when ital is desired, load both normal and italic (if present)
+            var stylesToLoad = (payload.fontFaceOnly || wantItalic) ? ['normal','italic'] : ['normal'];
+            try { window.__affoGFLoaded = window.__affoGFLoaded || {}; } catch(_){}
+            async function loadFromBlock(block, styleWanted){
+              if (!block) return false;
+              // Extract first woff2/woff URL
+              var m = block.match(/url\(([^)]+\.(?:woff2|woff)[^)]*)\)/i);
+              if (!m) return false;
+              var url = m[1].trim();
               if ((url[0]==='"' && url[url.length-1]==='"') || (url[0]==="'" && url[url.length-1]==="'")) url = url.slice(1,-1);
+              var key = payload.fontName + '|' + styleWanted + '|' + url;
+              try { if (window.__affoGFLoaded && window.__affoGFLoaded[key]) return true; } catch(_){ }
               const binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
-              if (!binResp || !binResp.ok || !Array.isArray(binResp.data)) throw new Error('woff2 fetch failed');
+              if (!binResp || !binResp.ok || !Array.isArray(binResp.data)) return false;
               const u8 = new Uint8Array(binResp.data);
-              const ff = new FontFace(payload.fontName, u8);
+              const src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+              // Derive descriptors from @font-face
+              var styleDesc = ((block.match(/font-style\s*:\s*(italic|normal)/i)||[])[1]||styleWanted||'normal').toLowerCase();
+              var wMatch = block.match(/font-weight\s*:\s*(\d{2,3})(?:\s+(\d{2,3}))?/i);
+              var weightDesc = '400';
+              if (wMatch) { weightDesc = wMatch[2] ? (wMatch[1] + ' ' + wMatch[2]) : wMatch[1]; }
+              var sMatch = block.match(/font-stretch\s*:\s*([0-9]+(?:\.[0-9]+)?%)(?:\s+([0-9]+(?:\.[0-9]+)?%))?/i);
+              var stretchDesc = null;
+              if (sMatch) { stretchDesc = sMatch[2] ? (sMatch[1] + ' ' + sMatch[2]) : sMatch[1]; }
+              var desc = { style: styleDesc, weight: weightDesc, display: 'swap' };
+              if (stretchDesc) desc.stretch = stretchDesc;
+              const ff = new FontFace(appliedFamily, src, desc);
               await ff.load();
               document.fonts.add(ff);
-              try { await document.fonts.ready; } catch(e) {}
-            } else {
-              // As a fallback, let the browser try to load via a link
+              try { if (window.__affoGFLoaded) window.__affoGFLoaded[key] = true; } catch(_){ }
+              return true;
+            }
+            for (var si = 0; si < stylesToLoad.length; si++){
+              var sw = stylesToLoad[si];
+              var matchingBlocks = [];
+              for (var i=0;i<blocks.length;i++){
+                var b = blocks[i];
+                var isItalic = /font-style:\s*italic/i.test(b);
+                var isNormal = /font-style:\s*normal/i.test(b);
+                if ((sw === 'italic' && isItalic) || (sw === 'normal' && isNormal)) {
+                  matchingBlocks.push(b);
+                }
+              }
+
+              if (matchingBlocks.length > 0) {
+                for (var j=0; j<matchingBlocks.length; j++) {
+                  try { await loadFromBlock(matchingBlocks[j], sw); } catch(_){ }
+                }
+              } else if (blocks.length > 0) {
+                try { await loadFromBlock(blocks[0], sw); } catch(_){ }
+              }
+            }
+            try { await document.fonts.ready; } catch(e) {}
+            // If nothing loaded and allowed, fall back to adding a css2 <link>
+            if (!payload.fontFaceOnly) {
               try {
-                var linkId = (payload.linkId || (payload.styleId+'-link'));
-                if (!document.getElementById(linkId)){
-                  var l = document.createElement('link'); l.id = linkId; l.rel='stylesheet'; l.href=payload.css2Url; document.documentElement.appendChild(l);
+                var anyKey = payload.fontName + '|';
+                var anyLoaded = false;
+                try {
+                  var map = window.__affoGFLoaded || {};
+                  anyLoaded = Object.keys(map).some(function(k){ return k.indexOf(anyKey) === 0; });
+                } catch(_){ }
+                if (!anyLoaded) {
+                  var linkId = (payload.linkId || (payload.styleId+'-link'));
+                  if (!document.getElementById(linkId)){
+                    var l = document.createElement('link'); l.id = linkId; l.rel='stylesheet'; l.href=payload.css2Url; document.documentElement.appendChild(l);
+                  }
                 }
               } catch(_){}
             }
@@ -264,7 +372,7 @@
           try {
             await loadCustomIfNeeded();
           } catch(_){ }
-          if (payload.css2Url) {
+          if (payload.css2Url && !payload.fontFaceOnly) {
             try {
               var linkId2 = (payload.linkId || (payload.styleId+'-link'));
               if (!document.getElementById(linkId2)){
@@ -273,9 +381,51 @@
             } catch(_){ }
           }
         }
+        if (payload.inlineApply) {
+          applyInline();
+          return;
+        }
         var existing = document.getElementById(payload.styleId);
         if (existing){ existing.textContent = buildCSS(); return; }
         var st = document.createElement('style'); st.id = payload.styleId; st.textContent = buildCSS(); document.documentElement.appendChild(st);
+        try {
+          // Keep our style last in the cascade to resist SPA hydration and route updates
+          var moving = false;
+          function moveLast(){
+            if (moving) return; moving = true;
+            try {
+              var n = document.getElementById(payload.styleId);
+              if (n && n.parentNode) { n.parentNode.appendChild(n); }
+            } catch(_){ }
+            setTimeout(function(){ moving = false; }, 50);
+          }
+          // Watch for new <style>/<link> insertions for longer window
+          var mo2 = new MutationObserver(function(muts){
+            for (var i=0;i<muts.length;i++){
+              var m = muts[i];
+              if (m.type === 'childList'){
+                var added = Array.from(m.addedNodes || []);
+                if (added.some(function(x){ return x && x.nodeType===1 && (x.nodeName==='STYLE' || x.nodeName==='LINK'); })){
+                  moveLast();
+                  break;
+                }
+              }
+            }
+          });
+          mo2.observe(document.documentElement || document, { childList: true, subtree: true });
+          // Extend window to 60s
+          setTimeout(function(){ try{ mo2.disconnect(); }catch(_){ } }, 60000);
+          // Re-append on SPA navigations (history API + back/forward)
+          try {
+            var _ps = history.pushState;
+            history.pushState = function(){ var r = _ps.apply(this, arguments); try{ moveLast(); }catch(_){ } return r; };
+          } catch(_){ }
+          try {
+            var _rs = history.replaceState;
+            history.replaceState = function(){ var r = _rs.apply(this, arguments); try{ moveLast(); }catch(_){ } return r; };
+          } catch(_){ }
+          try { window.addEventListener('popstate', function(){ try{ moveLast(); }catch(_){ } }, true); } catch(_){ }
+        } catch(_){ }
       })();
     } catch (e) {}
   }

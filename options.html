@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>A Font Face-off — Options</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 20px; color: #222; }
+    h1 { font-size: 18px; margin: 0 0 16px; }
+    .section { margin-bottom: 24px; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    textarea { width: 100%; min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    button { padding: 6px 10px; border: 1px solid #bbb; background: #f5f5f5; border-radius: 4px; cursor: pointer; }
+    button.primary { background: #2d7ef7; color: white; border-color: #2d7ef7; }
+    .hint { color: #666; font-size: 12px; margin-top: 4px; }
+    .status { font-size: 12px; color: #2d7ef7; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h1>A Font Face-off — Options</h1>
+
+  <div class="section">
+    <label for="known-serif">Known Serif Family Names (classification)</label>
+    <textarea id="known-serif" placeholder="One family per line, case-insensitive. Example:\nPT Serif"></textarea>
+    <div class="row">
+      <button id="save-serif" class="primary">Save Serif List</button>
+      <button id="reset-serif">Reset to Default</button>
+      <span id="status-serif" class="status"></span>
+    </div>
+    <div class="hint">Used to help classify a page’s base typeface as serif. Does not prevent Facade from changing fonts. Default includes PT Serif.</div>
+  </div>
+
+  <div class="section">
+    <label for="known-sans">Known Sans Family Names (classification)</label>
+    <textarea id="known-sans" placeholder="One family per line, case-insensitive."></textarea>
+    <div class="row">
+      <button id="save-sans" class="primary">Save Sans List</button>
+      <button id="reset-sans">Reset to Default</button>
+      <span id="status-sans" class="status"></span>
+    </div>
+    <div class="hint">Used to help classify a page’s base typeface as sans-serif. Does not prevent Facade from changing fonts.</div>
+  </div>
+
+  <div class="section">
+    <label for="ff-only-domains">FontFace-only Domains</label>
+    <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+    <div class="row">
+      <button id="save-ffonly" class="primary">Save Domains</button>
+      <button id="reset-ffonly">Reset to Default</button>
+      <span id="status-ffonly" class="status"></span>
+    </div>
+    <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
+  </div>
+
+  <div class="section">
+    <label for="inline-domains">Inline Apply Mode Domains</label>
+    <textarea id="inline-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+    <div class="row">
+      <button id="save-inline" class="primary">Save Domains</button>
+      <button id="reset-inline">Reset to Default</button>
+      <span id="status-inline" class="status"></span>
+    </div>
+    <div class="hint">On these domains, apply fonts via inline styles to resist SPA overrides. Default: x.com.</div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

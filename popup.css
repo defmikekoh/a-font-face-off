@@ -89,6 +89,14 @@
     box-sizing: border-box;
 }
 
+/* Responsive root sizing: use viewport on small screens, ensure roomy min on desktop popups */
+@media (max-width: 720px) {
+  html, body { min-width: 100vw; min-height: 100vh; }
+}
+@media (min-width: 721px) {
+  html, body { min-width: 720px; min-height: 600px; }
+}
+
 body {
     width: 100vw;
     height: 100vh;
@@ -96,6 +104,7 @@ body {
     background: #f5f5f5;
     position: relative;
     overflow: hidden;
+    overflow-x: hidden; /* avoid scrollbar-width adding to 100vw causing horizontal overflow */
 }
 
 /* Utility */
@@ -748,7 +757,7 @@ body {
     align-items: center;
     z-index: 900;
     border-top: 2px solid #34495e;
-    padding: 0 10px;
+    padding: 0 max(10px, env(safe-area-inset-right)) max( env(safe-area-inset-bottom), 0px ) max(10px, env(safe-area-inset-left));
     --grip-width: 160px;
 }
 
@@ -837,9 +846,9 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
         flex-wrap: nowrap;
         justify-content: space-between;
         height: 72px; /* more compact single row */
-        padding: 6px 10px;
+        padding: 6px max(10px, env(safe-area-inset-right)) max( env(safe-area-inset-bottom), 6px ) max(10px, env(safe-area-inset-left));
         column-gap: 8px;
-        --grip-width: 128px;
+        --grip-width: 120px;
     }
     .grip-area { flex: 0 0 var(--grip-width); width: var(--grip-width); padding: 6px 8px; }
     .favorites-container {
@@ -963,7 +972,8 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
         max-width: 170px;
     }
     #panel-grips {
-        height: 90px;
+        height: 84px;
+        --grip-width: 140px;
     }
 }
 
