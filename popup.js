@@ -52,6 +52,33 @@ function applyViewMode(forceView) {
             try { syncApplyButtonsForOrigin(); } catch (_) {}
         }
     } catch (_) {}
+    // Load settings for the current mode
+    loadModeSettings();
+}
+
+// Load settings for the current view mode
+function loadModeSettings() {
+    const modeState = extensionState[currentViewMode];
+    
+    // Load top font if exists
+    if (modeState.topFont && modeState.topFont.fontName) {
+        setTimeout(() => {
+            applyFontConfig('top', modeState.topFont);
+        }, 50);
+    } else {
+        // Use default font for this mode
+        loadFont('top', currentViewMode === 'facade' ? 'Roboto Flex' : 'Roboto Flex');
+    }
+    
+    // Load bottom font if exists  
+    if (modeState.bottomFont && modeState.bottomFont.fontName) {
+        setTimeout(() => {
+            applyFontConfig('bottom', modeState.bottomFont);
+        }, 50);
+    } else {
+        // Use default font for this mode
+        loadFont('bottom', currentViewMode === 'facade' ? 'Rubik' : 'Rubik');
+    }
 }
 
 // Helper: get current active tab's origin without requiring 'tabs' permission
@@ -455,10 +482,16 @@ let bottomFontMemory = {};
 let savedFavorites = {};
 let savedFavoritesOrder = [];
 
-// Extension state storage
+// Extension state storage - separate for each mode
 let extensionState = {
-    topFont: null,
-    bottomFont: null
+    facade: {
+        topFont: null,
+        bottomFont: null
+    },
+    faceoff: {
+        topFont: null,
+        bottomFont: null
+    }
 };
 
 // Load favorites from localStorage
@@ -504,10 +537,29 @@ function saveFavoritesToStorage() {
 function loadExtensionState() {
     try {
         const stored = localStorage.getItem('fontFaceoffState');
-        extensionState = stored ? JSON.parse(stored) : { topFont: null, bottomFont: null };
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            // Handle migration from old format
+            if (parsed.topFont && parsed.bottomFont && !parsed.facade && !parsed.faceoff) {
+                extensionState = {
+                    facade: { topFont: null, bottomFont: null },
+                    faceoff: { topFont: parsed.topFont, bottomFont: parsed.bottomFont }
+                };
+            } else {
+                extensionState = parsed;
+            }
+        } else {
+            extensionState = {
+                facade: { topFont: null, bottomFont: null },
+                faceoff: { topFont: null, bottomFont: null }
+            };
+        }
     } catch (error) {
         console.error('Error loading extension state:', error);
-        extensionState = { topFont: null, bottomFont: null };
+        extensionState = {
+            facade: { topFont: null, bottomFont: null },
+            faceoff: { topFont: null, bottomFont: null }
+        };
     }
 }
 
@@ -519,8 +571,8 @@ function saveExtensionState() {
         
         // Only save if we have valid configurations
         if (topConfig && bottomConfig) {
-            extensionState.topFont = topConfig;
-            extensionState.bottomFont = bottomConfig;
+            extensionState[currentViewMode].topFont = topConfig;
+            extensionState[currentViewMode].bottomFont = bottomConfig;
             localStorage.setItem('fontFaceoffState', JSON.stringify(extensionState));
         }
     } catch (error) {
@@ -2856,20 +2908,21 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     // Load saved state and initialize fonts
     loadExtensionState();
     
-    if (extensionState.topFont && extensionState.topFont.fontName) {
-        // Restore saved top font
+    const currentModeState = extensionState[currentViewMode];
+    if (currentModeState.topFont && currentModeState.topFont.fontName) {
+        // Restore saved top font for current mode
         setTimeout(() => {
-            applyFontConfig('top', extensionState.topFont);
+            applyFontConfig('top', currentModeState.topFont);
         }, 100);
     } else {
         // Use default top font
         loadFont('top', 'Roboto Flex');
     }
     
-    if (extensionState.bottomFont && extensionState.bottomFont.fontName) {
-        // Restore saved bottom font
+    if (currentModeState.bottomFont && currentModeState.bottomFont.fontName) {
+        // Restore saved bottom font for current mode
         setTimeout(() => {
-            applyFontConfig('bottom', extensionState.bottomFont);
+            applyFontConfig('bottom', currentModeState.bottomFont);
         }, 100);
     } else {
         // Use default bottom font
@@ -2888,13 +2941,15 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     // After state has been applied, populate the selects from metadata without clobbering selection
     // Small delay ensures applyFontConfig runs first so current values reflect saved state
     setTimeout(async () => {
-        const topDesired = (extensionState.topFont && extensionState.topFont.fontName) ? resolveFamilyCase(extensionState.topFont.fontName) : undefined;
-        const botDesired = (extensionState.bottomFont && extensionState.bottomFont.fontName) ? resolveFamilyCase(extensionState.bottomFont.fontName) : undefined;
+        const currentModeState = extensionState[currentViewMode];
+        const topDesired = (currentModeState.topFont && currentModeState.topFont.fontName) ? resolveFamilyCase(currentModeState.topFont.fontName) : undefined;
+        const botDesired = (currentModeState.bottomFont && currentModeState.bottomFont.fontName) ? resolveFamilyCase(currentModeState.bottomFont.fontName) : undefined;
         const ok = await initializeGoogleFontsSelects(topDesired, botDesired);
         // Re-apply saved state once more to guarantee selection sticks even if the list was rebuilt
         if (ok && extensionState) {
-            const topCfg = extensionState.topFont;
-            const botCfg = extensionState.bottomFont;
+            const currentModeState = extensionState[currentViewMode];
+            const topCfg = currentModeState.topFont;
+            const botCfg = currentModeState.bottomFont;
             if (topCfg && topCfg.fontName) {
                 const resolved = resolveFamilyCase(topCfg.fontName);
                 if (resolved !== topCfg.fontName) {
