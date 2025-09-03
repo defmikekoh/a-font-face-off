@@ -9,7 +9,7 @@
         if (!document.documentElement.hasAttribute('data-affo-base')) {
           var fam = '';
           try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch(_) {}
-          var parts = fam.replace(/["']/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+          var parts = fam.replace(/["']'/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
           var hasSansGen = parts.indexOf('sans-serif') !== -1;
           var hasSerifGen = parts.indexOf('serif') !== -1;
           // Prefer explicit generic if present; treat "Merriweather, sans-serif" as sans
@@ -33,7 +33,7 @@
                 var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
                 if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
                 else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
-              } catch(_){ }
+              } catch(_){ } 
             }).catch(function(){});
           } catch(_){ }
         }
@@ -184,71 +184,16 @@
         }
         return css;
       }
-      function applyInline(){
-        var guardNeg = ':not(#affo-guard):not(.affo-guard):not([data-affo-guard])';
-        var baseSel = 'body' + guardNeg + ', ' + 
-                      'body' + guardNeg + ' :not(#affo-guard):not(.affo-guard):not([data-affo-guard])' + 
-                      ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
-        var nodes = document.querySelectorAll(baseSel);
-        var family = '"' + appliedFamily + '", ' + payload.generic;
-        var wdth = (payload.wdthVal !== null && payload.wdthVal !== undefined) ? String(payload.wdthVal) + '%' : null;
-        var ital = (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1);
-        var slnt = (!ital && payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) ? String(payload.slntVal) + 'deg' : null;
-        var vparts = (payload.varPairs || []).map(function(a){ return a && a.tag ? '"'+a.tag+'" '+a.value : null; }).filter(Boolean);
-        nodes.forEach(function(el){
-          try { el.setAttribute('data-affo-inline', (payload.generic === 'serif' ? 'serif' : 'sans-serif')); } catch(_){ }
-          try { el.style.setProperty('font-family', family, 'important'); } catch(_){ }
-          if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) { try { el.style.setProperty('font-size', String(payload.fontSizePx) + 'px', 'important'); } catch(_){ } }
-          if (payload.lineHeight !== null && payload.lineHeight !== undefined) { try { el.style.setProperty('line-height', String(payload.lineHeight), 'important'); } catch(_){ } }
-          if (wdth !== null) { try { el.style.setProperty('font-stretch', wdth, 'important'); } catch(_){ }
-          }
-          if (ital) { try { el.style.setProperty('font-style', 'italic', 'important'); } catch(_){ }
-          } else if (slnt !== null) { try { el.style.setProperty('font-style', 'oblique ' + slnt, 'important'); } catch(_){ }
-          }
-          if (vparts.length) { try { el.style.setProperty('font-variation-settings', vparts.join(', '), 'important'); } catch(_){ }
-          }
-        });
-        if (payload && payload.fontWeight !== null && payload.fontWeight !== undefined) {
-          var nonBold = document.querySelectorAll(baseSel + ':not(strong):not(b)');
-          var w = String(payload.fontWeight);
-          var vpartsW = (payload.varPairs || []).slice();
-          var seenW = false; for (var i=0;i<vpartsW.length;i++){ if (vpartsW[i] && String(vpartsW[i].tag) === 'wght') { vpartsW[i] = { tag:'wght', value: Number(payload.fontWeight) }; seenW=true; } } 
-          if (!seenW) vpartsW.push({ tag:'wght', value: Number(payload.fontWeight) });
-          var vstrW = vpartsW.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', ');
-          nonBold.forEach(function(el){ try { el.style.setProperty('font-weight', w, 'important'); } catch(_){ } try { el.style.setProperty('font-variation-settings', vstrW, 'important'); } catch(_){ } });
-          nodes.forEach(function(scope){ try { var strongs = scope.querySelectorAll('strong, b'); var vpartsBold = (payload.varPairs || []).filter(function(a){ return a && String(a.tag) !== 'wght'; }).slice(); vpartsBold.push({ tag:'wght', value: 700 }); var vstrBold = vpartsBold.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', '); strongs.forEach(function(se){ try { se.style.setProperty('font-weight', '700', 'important'); } catch(_){ } try { se.style.setProperty('font-variation-settings', vstrBold, 'important'); } catch(_){ } }); } catch(_){ } });
-        }
-        try {
-          var mo = new MutationObserver(function(muts){
-            muts.forEach(function(m){ (m.addedNodes||[]).forEach(function(n){ try{ if (n && n.nodeType === 1) { var list = []; try { if (n.matches && n.matches(baseSel)) list.push(n); } catch(_){ } try { list = list.concat(Array.from(n.querySelectorAll ? n.querySelectorAll(baseSel) : [])); } catch(_){ } list.forEach(function(el){ try { el.style.setProperty('font-family', family, 'important'); } catch(_){ } }); } }catch(_){ } }); });
-          });
-          mo.observe(document.documentElement || document, { childList:true, subtree:true });
-          // Extend resiliency window for inline domains
-          setTimeout(function(){ try{ mo.disconnect(); }catch(_){ } }, 600000);
-          // Reapply on SPA navigations
-          try {
-            var _ps2 = history.pushState;
-            history.pushState = function(){ var r = _ps2.apply(this, arguments); try{ applyInline(); }catch(_){ } return r; };
-          } catch(_){ }
-          try {
-            var _rs2 = history.replaceState;
-            history.replaceState = function(){ var r = _rs2.apply(this, arguments); try{ applyInline(); }catch(_){ } return r; };
-          } catch(_){ }
-          try { window.addEventListener('popstate', function(){ try{ applyInline(); }catch(_){ } }, true); } catch(_){ }
-        } catch(_){ }
-      }
+      
       (async function(){
         try {
           // Enforce per-domain policies from options (handles older saved payloads)
           try {
             var host = (location && location.hostname ? String(location.hostname).toLowerCase() : '');
-            var opt = await browser.storage.local.get(['affoFontFaceOnlyDomains','affoInlineApplyDomains']);
+            var opt = await browser.storage.local.get(['affoFontFaceOnlyDomains']);
             var ffList = Array.isArray(opt.affoFontFaceOnlyDomains) ? opt.affoFontFaceOnlyDomains : ['x.com'];
             var inFF = !!ffList.find(function(d){ var dom=String(d||'').toLowerCase().trim(); return dom && (host===dom || host.endsWith('.'+dom)); });
-            var inlineList = Array.isArray(opt.affoInlineApplyDomains) ? opt.affoInlineApplyDomains : ['x.com'];
-            var inInline = !!inlineList.find(function(d){ var dom=String(d||'').toLowerCase().trim(); return dom && (host===dom || host.endsWith('.'+dom)); });
             if (inFF) payload.fontFaceOnly = true;
-            if (inInline) payload.inlineApply = true;
           } catch(_){ }
           // User-configured lists are for classification only now; no guarding here.
           // Heuristically guard “fake blockquote” callouts with inline left borders
@@ -277,7 +222,7 @@
             try {
               var mo = new MutationObserver(function(muts){
                 muts.forEach(function(m){ (m.addedNodes||[]).forEach(function(n){ try{
-                      if (n && n.nodeType === 1) scanGuards(n);
+                      if (n && n.nodeType === 1) scanGuards(n); 
                     } catch(_){}
                   });
                 });
@@ -381,10 +326,7 @@
             } catch(_){ }
           }
         }
-        if (payload.inlineApply) {
-          applyInline();
-          return;
-        }
+        
         var existing = document.getElementById(payload.styleId);
         if (existing){ existing.textContent = buildCSS(); return; }
         var st = document.createElement('style'); st.id = payload.styleId; st.textContent = buildCSS(); document.documentElement.appendChild(st);
