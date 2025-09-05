@@ -105,6 +105,7 @@ body {
     position: relative;
     overflow: hidden;
     overflow-x: hidden; /* avoid scrollbar-width adding to 100vw causing horizontal overflow */
+    padding-bottom: 90px; /* Add padding to prevent content overlap with bottom bar */
 }
 
 /* Utility */
@@ -126,6 +127,7 @@ body {
     position: relative;
 }
 .font-family-display.placeholder { color: #8a8f98; font-style: italic; }
+.font-family-display.default { color: #8a8f98; }
 /* Family reset icon: match size/shape of other reset icons */
 .family-reset-btn {
     display: none;
@@ -134,7 +136,7 @@ body {
     aspect-ratio: 1 / 1;
     align-items: center;
     justify-content: center;
-    background: #e74c3c;
+    background: #9E9E9E;
     color: #ffffff;
     border-radius: 50%;
     font-size: 14px;
@@ -148,9 +150,11 @@ body {
     line-height: 1;
     padding: 0;
 }
-.family-reset-btn:hover { background: #c0392b; transform: scale(1.05); }
+.family-reset-btn:hover { background: #757575; transform: scale(1.05); }
 body.view-facade .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
 body.view-faceoff .family-reset-btn { display: none; }
+body.view-body-contact .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
+body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
 .font-family-display:hover, .font-family-display:focus {
     outline: none;
     background: #fafafa;
@@ -179,6 +183,336 @@ body {
     position: relative;
 }
 
+/* Mode tabs */
+/* Hockey Rink Style Tabs */
+#mode-tabs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px; /* Increased height for hockey rink design */
+    background: white; /* Ice color */
+    display: flex;
+    z-index: 2000;
+    border-radius: 8px;
+    border: 2px solid #46b; /* Brighter NHL regulation blue */
+    margin: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Hockey rink blue lines between tabs - authentic NHL proportions */
+#mode-tabs::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 37.5%; /* Authentic NHL blue line position */
+    width: 4px;
+    height: 100%;
+    background: #46b; /* Brighter NHL regulation blue */
+    z-index: 1;
+}
+
+#mode-tabs::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 62.5%; /* Authentic NHL blue line position (37.5% + 25%) */
+    width: 4px;
+    height: 100%;
+    background: #46b; /* Brighter NHL regulation blue */
+    z-index: 1;
+}
+
+/* Center red line - dotted like in SVG */
+.center-line {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background: repeating-linear-gradient(
+        to bottom,
+        #c33 0px,
+        #c33 6px,
+        transparent 6px,
+        transparent 12px
+    ); /* Dotted red center line */
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+/* Authentic hockey goals based on official rink diagram */
+.goal-left, .goal-right {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 20px;
+    transform: translateY(-50%);
+    z-index: 3;
+}
+
+.goal-left {
+    left: 4px;
+}
+
+.goal-right {
+    right: 4px; /* Move container inward from edge */
+}
+
+
+
+
+/* Full-height goal lines like official rink diagram */
+.goal-line-left, .goal-line-right {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #c33; /* Brighter NHL regulation red */
+    z-index: 1;
+}
+
+.goal-line-left {
+    left: 18px; /* Position at goal post location */
+}
+
+.goal-line-right {
+    right: 18px; /* Position at goal post location */
+}
+
+/* Perfect half-circle goal creases - 25% smaller */
+.goal-crease-left, .goal-crease-right {
+    position: absolute;
+    top: 50%;
+    width: 15px;
+    height: 30px;
+    transform: translateY(-50%);
+    border: 2px solid #c33; /* Match goal line color and thickness */
+    background: transparent; /* No fill like in official diagram */
+    z-index: 2;
+}
+
+.goal-crease-left {
+    left: 18px; /* Align with goal line */
+    border-left: none; /* No border where it meets the goal line */
+    border-radius: 0 15px 15px 0; /* Perfect half circle - 25% smaller */
+}
+
+.goal-crease-right {
+    right: 18px; /* Align with goal line */
+    border-right: none; /* No border where it meets the goal line */
+    border-radius: 15px 0 0 15px; /* Perfect half circle - 25% smaller */
+}
+
+.mode-tab {
+    background: transparent;
+    border: none;
+    color: #2c3e50;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.mode-tab:hover {
+    background: rgba(0, 51, 160, 0.1); /* Light NHL blue */
+    color: #46b;
+}
+
+/* Authentic NHL zone widths */
+.mode-tab[data-mode="body-contact"] {
+    flex: 0 0 37.5%; /* Left zone - 75ft out of 200ft */
+}
+
+.mode-tab[data-mode="faceoff"] {
+    flex: 0 0 25%; /* Neutral zone - 50ft out of 200ft */
+}
+
+.mode-tab[data-mode="third-man-in"] {
+    flex: 0 0 37.5%; /* Right zone - 75ft out of 200ft */
+}
+
+.mode-tab.active {
+    background: rgba(0, 51, 160, 0.15);
+    color: #46b;
+    font-weight: 700;
+}
+
+/* Face-off circle for the Face-off tab */
+.mode-tab[data-mode="faceoff"] {
+    position: relative;
+}
+
+/* Face-off circle - smaller to avoid overlap with active bar */
+.mode-tab[data-mode="faceoff"]::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 34px;
+    height: 34px;
+    border: 3px solid #46b; /* NHL blue circle */
+    border-radius: 50%;
+    background: rgba(0, 51, 160, 0.1);
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+
+.mode-tab[data-mode="faceoff"].active::before {
+    background: rgba(0, 51, 160, 0.2);
+}
+
+/* Center dash in face-off circle using a span element instead of ::after */
+.mode-tab[data-mode="faceoff"] .center-dash {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #46b;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 2;
+    line-height: 1;
+    pointer-events: none;
+}
+
+/* Position FACE text to left of circle - vertical with F closer to circle (facing off) */
+.mode-tab[data-mode="faceoff"] .face-text {
+    position: absolute;
+    top: 50%;
+    left: calc(50% - 25px);
+    transform: translate(-50%, -50%) rotate(180deg);
+    z-index: 3;
+    font-size: 11px;
+    font-weight: 700;
+    writing-mode: vertical-lr;
+    letter-spacing: 0px;
+    color: #c33; /* Red like the hockey rink goal lines */
+}
+
+/* Position OFF text to right of circle - vertical with F closer to circle (facing off) */
+.mode-tab[data-mode="faceoff"] .off-text {
+    position: absolute;
+    top: 50%;
+    left: calc(50% + 25px);
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    font-size: 11px;
+    font-weight: 700;
+    writing-mode: vertical-rl;
+    letter-spacing: 0px;
+}
+
+.mode-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: 20px;
+    height: 3px;
+    background: #c33; /* NHL red accent */
+    transform: translateX(-50%);
+    border-radius: 1.5px;
+    z-index: 4; /* Above circle elements */
+}
+
+/* Mode content visibility - ensure only active mode shows */
+.mode-content {
+    display: none;
+}
+
+.mode-content.active {
+    display: flex;
+    align-items: center;
+}
+
+/* Panel grips positioning is handled by the main #panel-grips rule below */
+
+/* Body Contact mode specific styles */
+/* Hide all mode content by default */
+.mode-content {
+    display: none !important;
+}
+
+/* Show only the active mode content */
+.mode-content.active {
+    display: flex !important;
+    align-items: center;
+    width: 100%;
+}
+
+.body-contact-content {
+    display: flex;
+    justify-content: space-between; /* Equal spacing between left grip, center favorites, right grip */
+    align-items: center;
+    width: 100%;
+}
+
+.body-contact-content .favorites-container {
+    /* Center element - perfectly centered between the two grips */
+    display: flex;
+    justify-content: center;
+}
+
+.body-contact-content .favorites-section {
+    /* Override default column layout for Body Contact mode bottom bar */
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 80px;
+}
+
+#body-font-controls .favorites-section {
+    /* Override default column layout for Body panel footer */
+    flex-direction: row !important;
+    gap: 6px; /* Standard spacing between buttons */
+    justify-content: flex-start; /* Align buttons to the left */
+    align-items: center;
+    width: 100%;
+}
+
+/* Invisible "Out of Body" grip for perfect symmetry */
+/* This creates a phantom grip on the left that matches the real "Body" grip on the right,
+   ensuring the favorites icon is mathematically centered between them */
+.invisible-grip {
+    opacity: 0;
+    pointer-events: none; /* Can't be clicked */
+    user-select: none;
+}
+
+/* Third Man In mode specific styles */
+.third-man-in-content {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto; /* serif | mono | sans | edit-fav */
+    justify-items: center;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+}
+
+.third-man-in-content .grip-area:first-child {
+    justify-self: start; /* Serif on left */
+}
+
+.third-man-in-content .grip-area.centered-grip {
+    justify-self: center; /* Mono in center of its column */
+}
+
+.third-man-in-content .grip-area:nth-child(3) {
+    justify-self: end; /* Sans on right of center area */
+}
+
+.third-man-in-content .favorites-container {
+    justify-self: end; /* Edit favorites on far right */
+}
+
 .controls-panel {
     width: 33.333%;
     background: #2c3e50;
@@ -186,35 +520,109 @@ body {
     padding: 20px;
     box-sizing: border-box;
     overflow: hidden; /* scroll is on panel-body so footer doesn't overlap */
-    display: flex;
     flex-direction: column;
     flex-shrink: 0;
     position: fixed;
-    top: 0;
-    bottom: 100px; /* match bottom strip height so footer sits lower */
+    top: 60px; /* Account for mode tabs */
+    bottom: 90px; /* Account for bottom strip - updated to match new height */
     height: auto;
     transition: transform 0.3s ease-in-out;
-    z-index: 1000;
+    z-index: 999; /* Below bottom bar */
+    /* display: flex is added only when .visible class is present */
 }
 
 #top-font-controls {
     left: 0;
     transform: translateX(-100%);
     border-right: 2px solid #34495e;
+    display: none; /* Ensure completely hidden when not in use */
 }
 
 #top-font-controls.visible {
     transform: translateX(0);
+    display: flex; /* Show and position when visible */
 }
 
 #bottom-font-controls {
     right: 0;
     transform: translateX(100%);
     border-left: 2px solid #34495e;
+    display: none; /* Ensure completely hidden when not in use */
 }
 
 #bottom-font-controls.visible {
     transform: translateX(0);
+    display: flex; /* Show and position when visible */
+}
+
+/* Body Contact mode panel */
+#body-font-controls {
+    right: 0;
+    transform: translateX(100%);
+    border-left: 2px solid #34495e;
+    width: 33.333%; /* Default width */
+    display: none; /* Ensure completely hidden when not in use */
+}
+
+#body-font-controls.visible {
+    transform: translateX(0);
+    display: flex; /* Show and position when visible */
+}
+
+/* Body Contact responsive widths */
+@media (max-width: 599px) {
+    #body-font-controls {
+        width: 80%; /* Phone: 80% rolled in */
+    }
+}
+
+@media (min-width: 600px) {
+    #body-font-controls {
+        width: 33.333%; /* Tablet/Desktop: 1/3 of screen */
+    }
+    
+    #body-font-controls.visible {
+        width: 33.333%; /* Stay at 1/3 when visible on tablets/desktop */
+    }
+}
+
+/* Third Man In mode panels */
+#serif-font-controls {
+    left: 0;
+    transform: translateX(-100%);
+    border-right: 2px solid #34495e;
+    display: none; /* Ensure completely hidden when not in use */
+}
+
+#serif-font-controls.visible {
+    transform: translateX(0);
+    display: flex; /* Show and position when visible */
+}
+
+#mono-font-controls {
+    left: 33.333%;
+    transform: translateX(0); /* Center positioned, no slide animation */
+    border-right: 2px solid #34495e;
+    border-left: 2px solid #34495e;
+    display: none; /* Ensure completely hidden when not in use */
+    z-index: 1001; /* Above font previews but below bottom bar */
+}
+
+#mono-font-controls.visible {
+    transform: translateX(0); /* No transform change - just appears */
+    display: flex; /* Show and position when visible */
+}
+
+#sans-font-controls {
+    right: 0;
+    transform: translateX(100%);
+    border-left: 2px solid #34495e;
+    display: none; /* Ensure completely hidden when not in use */
+}
+
+#sans-font-controls.visible {
+    transform: translateX(0);
+    display: flex; /* Show and position when visible */
 }
 
 /* Scrollable panel content area */
@@ -224,37 +632,105 @@ body {
 
 #font-comparison {
     width: 100%;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 150px); /* Account for 60px tabs + 90px bottom bar */
     display: flex;
     flex-direction: column;
     position: relative;
     transition: all 0.3s ease-in-out;
 }
 
-#font-comparison.top-panel-open {
+/* Face-off mode panel states - only apply in face-off mode */
+body.view-faceoff #font-comparison.top-panel-open {
     margin-left: 33.333%;
     width: 66.667%;
 }
 
-#font-comparison.bottom-panel-open {
+body.view-faceoff #font-comparison.bottom-panel-open {
     margin-right: 33.333%;
     width: 66.667%;
 }
 
-#font-comparison.both-panels-open {
+body.view-faceoff #font-comparison.both-panels-open {
     margin-left: 33.333%;
     margin-right: 33.333%;
     width: 33.334%;
 }
 
+/* Body Contact mode panel states - only apply in body contact mode */
+body.view-body-contact #font-comparison.body-panel-open {
+    margin-right: 33.333%;
+    width: 66.667%;
+}
+
+/* Third Man In mode panel states - only apply in third man in mode */
+/* Single panel open states - use :not() to avoid conflicts with both-panel state */
+body.view-third-man-in #font-comparison.serif-panel-open:not(.sans-panel-open) {
+    margin-left: 33.333%;
+    width: 66.667%;
+}
+
+/* Mono panel overlays without affecting font preview layout - no CSS needed */
+
+body.view-third-man-in #font-comparison.sans-panel-open:not(.serif-panel-open) {
+    margin-right: 33.333%;
+    width: 66.667%;
+}
+/* When both serif and sans panels are open in Third Man In mode */
+body.view-third-man-in #font-comparison.serif-panel-open.sans-panel-open {
+    margin-left: 33.333%;
+    margin-right: 33.333%;
+    width: 33.334%;
+}
+
+/* Lower control panel positioning for Body Contact and Third Man In modes */
+body.view-body-contact .controls-panel {
+    top: 70px; /* 10px lower than default 60px */
+}
+
+body.view-third-man-in .controls-panel {
+    top: 70px; /* 10px lower than default 60px */
+}
+
 /* Small screens: single-panel overlay not full width */
 @media (max-width: 599px) {
     .controls-panel {
-        width: 90%; /* leave ~10% gutter so it doesn't cover edge-to-edge */
+        width: 80%; /* 80% width for all panels on mobile */
     }
-    #font-comparison.top-panel-open,
-    #font-comparison.bottom-panel-open,
-    #font-comparison.both-panels-open {
+    
+    /* Face-off mode: mobile panels at 80% width */
+    #top-font-controls,
+    #bottom-font-controls {
+        width: 80%; /* 80% width for top and bottom panels */
+    }
+    
+    /* Body Contact mode: mobile panel at 80% width */
+    #body-font-controls {
+        width: 80%; /* 80% width for body panel */
+    }
+    
+    /* Third Man In mode: mobile panels at 80% width */
+    #serif-font-controls,
+    #sans-font-controls {
+        width: 80%; /* 80% width for serif and sans panels */
+    }
+    
+    #mono-font-controls {
+        width: 80%; /* 80% width for mono panel */
+        left: 50%; /* Center position */
+        transform: translateX(-50%); /* Center alignment */
+    }
+    
+    #mono-font-controls.visible {
+        transform: translateX(-50%); /* Maintain center alignment when visible */
+    }
+    
+    /* Mobile: all panels overlay, no margin adjustments regardless of mode */
+    body.view-faceoff #font-comparison.top-panel-open,
+    body.view-faceoff #font-comparison.bottom-panel-open,
+    body.view-faceoff #font-comparison.both-panels-open,
+    body.view-body-contact #font-comparison.body-panel-open,
+    body.view-third-man-in #font-comparison.serif-panel-open,
+    body.view-third-man-in #font-comparison.sans-panel-open {
         margin-left: 0;
         margin-right: 0;
         width: 100%;
@@ -270,20 +746,52 @@ body {
 }
 
 .font-section h3 {
-    margin: 0 0 15px 0;
+    margin: 0 0 8px 0;
     font-size: 16px;
     color: #333;
     font-weight: bold;
     text-align: center;
-    padding-bottom: 10px;
+    padding-bottom: 6px;
     border-bottom: 1px solid #eee;
 }
 
-.font-section p {
+.font-section p, .font-section pre {
     font-size: 14px;
     line-height: 1.6;
     color: #333;
     text-align: left;
+    margin: 0;
+}
+
+/* Mode-specific font section visibility */
+#top-font-section,
+#bottom-font-section {
+    display: none;
+}
+
+body.view-faceoff #top-font-section,
+body.view-faceoff #bottom-font-section {
+    display: block;
+}
+
+#body-font-section {
+    display: none;
+}
+
+body.view-body-contact #body-font-section {
+    display: block;
+}
+
+#serif-font-section,
+#sans-font-section,
+#mono-font-section {
+    display: none;
+}
+
+body.view-third-man-in #serif-font-section,
+body.view-third-man-in #sans-font-section,
+body.view-third-man-in #mono-font-section {
+    display: block;
 }
 
 /* Font sections - dynamic styling applied via JavaScript */
@@ -301,6 +809,23 @@ body {
 
 #bottom-font-section h3 {
     color: #34495e;
+}
+
+#body-font-section {
+    background: #f8f9fa;
+    padding: 20px !important; /* Consistent 20px padding on all sides */
+}
+
+#body-font-section h3 {
+    color: #2c3e50;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0 0 2px 0 !important;
+    padding: 0 !important;
+}
+
+#body-font-section p {
+    margin-top: 0 !important;
 }
 
 /* Horizontal separator */
@@ -328,6 +853,47 @@ body {
 
 .font-section::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* Body Contact mode - single preview area */
+body.body-contact #top-font-section,
+body.body-contact #bottom-font-section,
+body.body-contact .separator {
+    display: none;
+}
+
+body.body-contact #body-font-section {
+    /* Show body preview in Body Contact mode */
+    display: block;
+    flex: 1;
+}
+
+body.body-contact #font-comparison {
+    /* Single section layout for Body Contact */
+    flex-direction: column;
+}
+
+/* Hide body font section by default (show only in Body Contact mode) */
+#body-font-section {
+    display: none;
+}
+
+/* Text input styling for font size and line height */
+.text-input {
+    width: 60px;
+    padding: 4px 6px;
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+    font-size: 12px;
+    text-align: center;
+    background: #ffffff;
+    color: #2c3e50;
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 /* Control Panel Styles */
@@ -750,12 +1316,12 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 100px;
+    height: 90px; /* Adjusted height for better visibility */
     background: linear-gradient(to top, rgba(44, 62, 80, 0.95), rgba(44, 62, 80, 0.8));
     display: flex;
     justify-content: space-between;
     align-items: center;
-    z-index: 900;
+    z-index: 1000; /* Increased z-index to ensure it's above font previews */
     border-top: 2px solid #34495e;
     padding: 0 max(10px, env(safe-area-inset-right)) max( env(safe-area-inset-bottom), 0px ) max(10px, env(safe-area-inset-left));
     --grip-width: 160px;
@@ -938,6 +1504,14 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
     flex: 1;
     max-width: 180px;
     min-width: 140px;
+}
+
+.favorites-row,
+.actions-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
 }
 
 .favorites-title {
@@ -2021,10 +2595,13 @@ body.view-facade .apply-btn { display: inline-flex; align-items: center; justify
     .font-section h3 {
         color: #495057;
         border-bottom-color: #dee2e6;
+        margin: 0 0 8px 0;
+        padding-bottom: 6px;
     }
 
     .font-section p {
         color: #212529;
+        margin: 0;
     }
 
     #top-font-section {

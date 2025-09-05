@@ -52,7 +52,14 @@
     <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
   </div>
 
-  
+  <div class="section">
+    <label>Reset All Local Settings</label>
+    <div class="row">
+      <button id="reset-all-settings" style="background: #d73a49; color: white; border-color: #d73a49;">Reset All Local Settings</button>
+      <span id="status-reset-all" class="status"></span>
+    </div>
+    <div class="hint">⚠️ This will clear all extension data including applied fonts, saved configurations, and custom settings. This action cannot be undone.</div>
+  </div>
 
   <script src="options.js"></script>
 </body>

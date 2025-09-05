@@ -376,7 +376,7 @@
       var entry = map[origin];
       // If nothing saved for this origin, remove any stale nodes and stop
       if (!entry) {
-        ['a-font-face-off-style-serif','a-font-face-off-style-sans'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
+        ['a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-body'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
         return;
       }
       if (entry.serif) {
@@ -389,6 +389,11 @@
       } else {
         try{ var s2=document.getElementById('a-font-face-off-style-sans'); if(s2) s2.remove(); }catch(e){}
       }
+      if (entry.body) {
+        inject(entry.body);
+      } else {
+        try{ var s3=document.getElementById('a-font-face-off-style-body'); if(s3) s3.remove(); }catch(e){}
+      }
     }).catch(function(){});
   } catch (e) {}
   try {
@@ -398,11 +403,41 @@
         var origin = location.origin;
         var newMap = changes.affoApplyMap.newValue || {};
         var entry = newMap[origin];
-        ['a-font-face-off-style-serif','a-font-face-off-style-sans'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
+        ['a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-body'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
         if (!entry) return;
         if (entry.serif) inject(entry.serif);
         if (entry.sans) inject(entry.sans);
+        if (entry.body) inject(entry.body);
       } catch (e) {}
+    });
+  } catch (e) {}
+  
+  // Listen for messages from popup to apply fonts
+  try {
+    browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+      if (message.type === 'applyFonts') {
+        try {
+          inject(message.config);
+          sendResponse({success: true});
+        } catch (error) {
+          console.error('Error applying fonts:', error);
+          sendResponse({success: false, error: error.message});
+        }
+      } else if (message.type === 'resetFonts') {
+        try {
+          // Remove the font style element for this panel
+          const styleId = 'a-font-face-off-style-' + message.panelId;
+          const styleElement = document.getElementById(styleId);
+          if (styleElement) {
+            styleElement.remove();
+            console.log('Removed font styling for panel:', message.panelId);
+          }
+          sendResponse({success: true});
+        } catch (error) {
+          console.error('Error resetting fonts:', error);
+          sendResponse({success: false, error: error.message});
+        }
+      }
     });
   } catch (e) {}
 })();

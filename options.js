@@ -81,6 +81,43 @@
     } catch (e) {}
   }
 
+  async function resetAllSettings(){
+    try {
+      // Show confirmation dialog
+      const confirmed = confirm(
+        'Are you sure you want to reset all local settings?\n\n' +
+        'This will clear:\n' +
+        '• All applied fonts from websites\n' +
+        '• All saved font configurations\n' +
+        '• Known serif/sans family lists\n' +
+        '• FontFace-only domains list\n' +
+        '• Extension state and preferences\n\n' +
+        'This action cannot be undone.'
+      );
+      
+      if (!confirmed) return;
+      
+      const statusEl = document.getElementById('status-reset-all');
+      statusEl.textContent = 'Clearing...';
+      
+      // Clear all extension storage
+      await browser.storage.local.clear();
+      
+      // Reset all form values to defaults
+      document.getElementById('known-serif').value = toTextarea(DEFAULT_SERIF);
+      document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
+      document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
+      
+      statusEl.textContent = 'All settings reset successfully';
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+      
+    } catch (e) {
+      const statusEl = document.getElementById('status-reset-all');
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     load();
     document.getElementById('save-serif').addEventListener('click', saveSerif);
@@ -89,5 +126,6 @@
     document.getElementById('reset-sans').addEventListener('click', resetSans);
     document.getElementById('save-ffonly').addEventListener('click', saveFFOnly);
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
+    document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
   });
 })();

@@ -94,28 +94,75 @@
         </div>
     </div>
 
+    <!-- Mode tabs -->
+    <div id="mode-tabs">
+        <div class="center-line"></div>
+        <div class="goal-line-left"></div>
+        <div class="goal-line-right"></div>
+        <div class="goal-crease-left"></div>
+        <div class="goal-crease-right"></div>
+        <div class="goal-left"></div>
+        <div class="goal-right"></div>
+        <button class="mode-tab active" data-mode="body-contact">Body Contact</button>
+        <button class="mode-tab" data-mode="faceoff"><span class="face-text">FACE</span><span class="center-dash">●</span><span class="off-text">OFF</span></button>
+        <button class="mode-tab" data-mode="third-man-in">Third Man In</button>
+    </div>
+
     <!-- Panel control grips and favorites at bottom -->
     <div id="panel-grips">
-        <div class="grip-area" id="top-font-grip" data-panel="top">
-            <div class="grip-handle">≡</div>
-            <span class="grip-label">Top Font</span>
-        </div>
-        <!-- Apply removed from bottom bar; controls moved into each panel footer -->
-
-        <!-- Center section: Edit Favorites + View Toggle -->
-        <div class="favorites-container">
-            <div class="favorites-edit-section">
-                <button id="edit-favorites" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
-                <button id="toggle-view" class="favorite-btn view-toggle-btn" title="Switch view">
-                    <img src="icon32.png" alt="Toggle view" width="24" height="24" />
-                </button>
+        <!-- Body Contact mode: single grip -->
+        <div class="mode-content body-contact-content active">
+            <div class="grip-area invisible-grip" id="out-of-body-grip">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Out of Body</span>
+            </div>
+            <div class="favorites-container">
+                <div class="favorites-edit-section">
+                    <button id="edit-favorites-body" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
+                </div>
+            </div>
+            <div class="grip-area" id="body-font-grip" data-panel="body">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Body</span>
             </div>
         </div>
 
-        <!-- Apply removed from bottom bar; controls moved into each panel footer -->
-        <div class="grip-area" id="bottom-font-grip" data-panel="bottom">
-            <div class="grip-handle">≡</div>
-            <span class="grip-label">Bottom Font</span>
+        <!-- Face-off mode: existing two grips -->
+        <div class="mode-content faceoff-content">
+            <div class="grip-area" id="top-font-grip" data-panel="top">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Top Font</span>
+            </div>
+            <div class="favorites-container">
+                <div class="favorites-edit-section">
+                    <button id="edit-favorites" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
+                </div>
+            </div>
+            <div class="grip-area" id="bottom-font-grip" data-panel="bottom">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Bottom Font</span>
+            </div>
+        </div>
+
+        <!-- Third Man In mode: serif, centered mono, sans, edit fav -->
+        <div class="mode-content third-man-in-content">
+            <div class="grip-area" id="serif-font-grip" data-panel="serif">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Serif</span>
+            </div>
+            <div class="grip-area centered-grip" id="mono-font-grip" data-panel="mono">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Mono</span>
+            </div>
+            <div class="grip-area" id="sans-font-grip" data-panel="sans">
+                <div class="grip-handle">≡</div>
+                <span class="grip-label">Sans</span>
+            </div>
+            <div class="favorites-container">
+                <div class="favorites-edit-section">
+                    <button id="edit-favorites-tmi" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -190,16 +237,11 @@
             <div class="control-group">
                 <label for="top-font-color">Color:</label>
                 <select id="top-font-color">
-                    <option value="#000000" selected>Black</option>
-                    <option value="#212121">Gray 900</option>
-                    <option value="#424242">Gray 800</option>
-                    <option value="#616161">Gray 700</option>
-                    <option value="#757575">Gray 600</option>
-                    <option value="#9E9E9E">Gray 500</option>
-                    <option value="#BDBDBD">Gray 400</option>
-                    <option value="#E0E0E0">Gray 300</option>
-                    <option value="#EEEEEE">Gray 200</option>
-                    <option value="#F5F5F5">Gray 100</option>
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
                 </select>
             </div>
         </div>
@@ -361,16 +403,11 @@
             <div class="control-group">
                 <label for="bottom-font-color">Color:</label>
                 <select id="bottom-font-color">
-                    <option value="#000000" selected>Black</option>
-                    <option value="#212121">Gray 900</option>
-                    <option value="#424242">Gray 800</option>
-                    <option value="#616161">Gray 700</option>
-                    <option value="#757575">Gray 600</option>
-                    <option value="#9E9E9E">Gray 500</option>
-                    <option value="#BDBDBD">Gray 400</option>
-                    <option value="#E0E0E0">Gray 300</option>
-                    <option value="#EEEEEE">Gray 200</option>
-                    <option value="#F5F5F5">Gray 100</option>
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
                 </select>
             </div>
         </div>
@@ -419,6 +456,409 @@
         <div class="font-section" id="bottom-font-section">
             <h3 id="bottom-font-name">Rubik</h3>
             <p id="bottom-font-text" style="font-family: 'Rubik', serif; font-weight: 700;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+
+        <!-- Body section (Body Contact mode) -->
+        <div class="font-section" id="body-font-section">
+            <h3 id="body-font-name">Default</h3>
+            <p id="body-font-text" style="font-family: 'Roboto Flex', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+
+        <!-- Serif section (Third Man In mode) -->
+        <div class="font-section" id="serif-font-section">
+            <h3 id="serif-font-name">Serif</h3>
+            <p id="serif-font-text" style="font-family: 'Times New Roman', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Sans section (Third Man In mode) -->
+        <div class="font-section" id="sans-font-section">
+            <h3 id="sans-font-name">Sans</h3>
+            <p id="sans-font-text" style="font-family: 'Arial', sans-serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Mono section (Third Man In mode) -->
+        <div class="font-section" id="mono-font-section">
+            <h3 id="mono-font-name">Mono</h3>
+            <pre id="mono-font-text" style="font-family: 'Courier New', monospace; font-weight: 400; background: #ffffff; color: #000000; padding: 16px; border-radius: 4px; margin: 0; white-space: pre; overflow-x: auto;"><span style="color: #008000; font-style: italic;"># Gettysburg Address Implementation</span>
+<span style="color: #0000ff;">class</span> <span style="color: #267f99;">Nation</span>:
+    <span style="color: #0000ff;">def</span> <span style="color: #795e26;">__init__</span>(<span style="color: #001080;">self</span>, <span style="color: #001080;">conceived_in</span>=<span style="color: #a31515;">"Liberty"</span>):
+        <span style="color: #001080;">self</span>.<span style="color: #001080;">founding_years</span> = <span style="color: #098658;">87</span>  <span style="color: #008000; font-style: italic;"># Four score and seven</span>
+        <span style="color: #001080;">self</span>.<span style="color: #001080;">conceived_in</span> = <span style="color: #001080;">conceived_in</span>
+        <span style="color: #001080;">self</span>.<span style="color: #001080;">dedicated_to</span> = <span style="color: #a31515;">"all men are created equal"</span>
+        <span style="color: #001080;">self</span>.<span style="color: #001080;">is_at_war</span> = <span style="color: #0000ff;">True</span>
+        <span style="color: #001080;">self</span>.<span style="color: #001080;">battlefield</span> = <span style="color: #a31515;">"Gettysburg"</span>
+        
+    <span style="color: #0000ff;">def</span> <span style="color: #795e26;">dedicate_ground</span>(<span style="color: #001080;">self</span>):
+        <span style="color: #a31515;">"""We cannot consecrate this ground"""</span>
+        <span style="color: #0000ff;">return</span> <span style="color: #a31515;">"Already consecrated by the brave"</span>
+    
+    <span style="color: #0000ff;">def</span> <span style="color: #795e26;">remember_sacrifice</span>(<span style="color: #001080;">self</span>):
+        <span style="color: #001080;">fallen_heroes</span> = [<span style="color: #a31515;">"living"</span>, <span style="color: #a31515;">"dead"</span>]
+        <span style="color: #0000ff;">for</span> <span style="color: #001080;">hero</span> <span style="color: #0000ff;">in</span> <span style="color: #001080;">fallen_heroes</span>:
+            <span style="color: #795e26;">print</span>(<span style="color: #a31515;">f"Honor the </span><span style="color: #0000ff;">{</span><span style="color: #001080;">hero</span><span style="color: #0000ff;">}</span><span style="color: #a31515;"> who struggled here"</span>)
+        <span style="color: #0000ff;">return</span> <span style="color: #a31515;">"consecrated far above our poor power"</span>
+    
+    <span style="color: #0000ff;">def</span> <span style="color: #795e26;">resolve_for_future</span>(<span style="color: #001080;">self</span>):
+        <span style="color: #001080;">unfinished_work</span> = [
+            <span style="color: #a31515;">"increased devotion to the cause"</span>,
+            <span style="color: #a31515;">"these dead shall not have died in vain"</span>,
+            <span style="color: #a31515;">"new birth of freedom"</span>
+        ]
+        
+        <span style="color: #001080;">government</span> = {
+            <span style="color: #a31515;">"of"</span>: <span style="color: #a31515;">"the people"</span>,
+            <span style="color: #a31515;">"by"</span>: <span style="color: #a31515;">"the people"</span>, 
+            <span style="color: #a31515;">"for"</span>: <span style="color: #a31515;">"the people"</span>
+        }
+        
+        <span style="color: #0000ff;">return</span> <span style="color: #a31515;">f"That </span><span style="color: #0000ff;">{</span><span style="color: #001080;">government</span><span style="color: #0000ff;">}</span><span style="color: #a31515;"> shall not perish"</span>
+
+<span style="color: #008000; font-style: italic;"># Initialize our nation's dedication</span>
+<span style="color: #001080;">america</span> = <span style="color: #267f99;">Nation</span>()
+<span style="color: #001080;">america</span>.<span style="color: #795e26;">remember_sacrifice</span>()
+<span style="color: #795e26;">print</span>(<span style="color: #001080;">america</span>.<span style="color: #795e26;">resolve_for_future</span>())</pre>
+        </div>
+    </div>
+
+    <!-- Body Font Control Panel (Body Contact mode) -->
+    <div id="body-font-controls" class="controls-panel">
+        <h2>Body</h2>
+
+        <div class="panel-body">
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="body-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <span id="body-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
+                    <div id="body-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
+                    <select id="body-font-select" class="hidden">
+                    <option value="Roboto Flex" selected>Roboto Flex</option>
+                    <option value="Inter">Inter</option>
+                    <option value="Open Sans">Open Sans</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group unset" data-control="font-size">
+                <label for="body-font-size">Font Size:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="body-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <span id="body-font-size-value" class="value-display">17px</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="body-font-size" min="10" max="72" step="0.01" value="17" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="body-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
+                    <input type="text" id="body-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <span id="body-line-height-value" class="value-display">1.6</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="body-line-height" min="0.8" max="2.5" step="0.01" value="1.6" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="body-font-weight">Font Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="body-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="body-font-weight" min="100" max="900" step="1" value="400" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group" data-control="color">
+                <label for="body-font-color">Color:</label>
+                <select id="body-font-color">
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Variable Axes (populated dynamically) -->
+        <div class="control-section" id="body-variable-axes">
+            <h3>Variable Axes</h3>
+            <div id="body-axes-container"></div>
+        </div>
+        </div>
+
+        <!-- Panel Footer with buttons -->
+        <div class="panel-footer">
+            <div class="panel-buttons">
+                <div class="favorites-section">
+                    <button id="body-load-favorite-bar" class="favorite-btn" title="Load a saved Body favorite">📂</button>
+                    <button id="body-save-favorite-bar" class="favorite-btn" title="Save current Body configuration">💾</button>
+                    <button id="apply-body" class="apply-btn" style="display: none;">Apply</button>
+                    <button id="reset-body" class="reset-btn" style="display: none;">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Serif Font Control Panel (Third Man In mode) -->
+    <div id="serif-font-controls" class="controls-panel">
+        <h2>Serif</h2>
+
+        <div class="panel-body">
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="serif-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <span id="serif-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
+                    <div id="serif-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
+                    <select id="serif-font-select" class="hidden">
+                    <option value="Times New Roman" selected>Times New Roman</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="serif">serif</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group unset" data-control="font-size">
+                <label for="serif-font-size">Font Size:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="serif-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <span id="serif-font-size-value" class="value-display">17px</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="serif-font-size" min="10" max="72" step="0.01" value="17" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="serif-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
+                    <input type="text" id="serif-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <span id="serif-line-height-value" class="value-display">1.6</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="serif-line-height" min="0.8" max="2.5" step="0.01" value="1.6" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="serif-font-weight">Font Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="serif-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="serif-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group" data-control="color">
+                <label for="serif-font-color">Color:</label>
+                <select id="serif-font-color">
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
+                </select>
+            </div>
+        </div>
+        </div>
+
+        <!-- Panel Footer with buttons -->
+        <div class="panel-footer">
+            <div class="footer-icons">
+                <button id="serif-load-favorite-bar" class="favorite-btn" title="Load a saved Serif favorite">📂</button>
+                <button id="serif-save-favorite-bar" class="favorite-btn" title="Save current Serif configuration">💾</button>
+            </div>
+            <div class="footer-actions">
+                <button id="apply-serif" class="apply-btn" style="display: none;">Apply All</button>
+                <button id="reset-serif" class="reset-btn" style="display: none;">Reset All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mono Font Control Panel (Third Man In mode) -->
+    <div id="mono-font-controls" class="controls-panel">
+        <h2>Mono</h2>
+
+        <div class="panel-body">
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="mono-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <span id="mono-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
+                    <div id="mono-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
+                    <select id="mono-font-select" class="hidden">
+                    <option value="Courier New" selected>Courier New</option>
+                    <option value="Monaco">Monaco</option>
+                    <option value="monospace">monospace</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group unset" data-control="font-size">
+                <label for="mono-font-size">Font Size:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="mono-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <span id="mono-font-size-value" class="value-display">17px</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="mono-font-size" min="10" max="72" step="0.01" value="17" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="mono-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
+                    <input type="text" id="mono-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <span id="mono-line-height-value" class="value-display">1.6</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="mono-line-height" min="0.8" max="2.5" step="0.01" value="1.6" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="mono-font-weight">Font Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="mono-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="mono-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group" data-control="color">
+                <label for="mono-font-color">Color:</label>
+                <select id="mono-font-color">
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
+                </select>
+            </div>
+        </div>
+        </div>
+
+        <!-- Panel Footer with buttons -->
+        <div class="panel-footer">
+            <div class="footer-icons">
+                <button id="mono-load-favorite-bar" class="favorite-btn" title="Load a saved Mono favorite">📂</button>
+                <button id="mono-save-favorite-bar" class="favorite-btn" title="Save current Mono configuration">💾</button>
+            </div>
+            <div class="footer-actions">
+                <button id="apply-mono" class="apply-btn" style="display: none;">Apply All</button>
+                <button id="reset-mono" class="reset-btn" style="display: none;">Reset All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sans Font Control Panel (Third Man In mode) -->
+    <div id="sans-font-controls" class="controls-panel">
+        <h2>Sans</h2>
+
+        <div class="panel-body">
+        <!-- Font Selector -->
+        <div class="control-section">
+            <h3>Font Selection</h3>
+            <div class="control-group">
+                <label for="sans-font-display">Font Family:</label>
+                <div class="control-row input-row">
+                    <span id="sans-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
+                    <div id="sans-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
+                    <select id="sans-font-select" class="hidden">
+                    <option value="Arial" selected>Arial</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="sans-serif">sans-serif</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Font Properties -->
+        <div class="control-section">
+            <h3>Basic Properties</h3>
+            <div class="control-group unset" data-control="font-size">
+                <label for="sans-font-size">Font Size:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
+                    <input type="text" id="sans-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <span id="sans-font-size-value" class="value-display">17px</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="sans-font-size" min="10" max="72" step="0.01" value="17" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="line-height">
+                <label for="sans-line-height">Line Height:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
+                    <input type="text" id="sans-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <span id="sans-line-height-value" class="value-display">1.6</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="sans-line-height" min="0.8" max="2.5" step="0.01" value="1.6" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group unset" data-control="weight">
+                <label for="sans-font-weight">Font Weight:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
+                    <span id="sans-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="sans-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
+                </div>
+            </div>
+            <div class="control-group" data-control="color">
+                <label for="sans-font-color">Color:</label>
+                <select id="sans-font-color">
+                    <option value="#000000" selected>100% Black</option>
+                    <option value="#1A1A1A">90% Gray</option>
+                    <option value="#333333">80% Gray</option>
+                    <option value="#4D4D4D">70% Gray</option>
+                    <option value="#666666">60% Gray</option>
+                </select>
+            </div>
+        </div>
+        </div>
+
+        <!-- Panel Footer with buttons -->
+        <div class="panel-footer">
+            <div class="footer-icons">
+                <button id="sans-load-favorite-bar" class="favorite-btn" title="Load a saved Sans favorite">📂</button>
+                <button id="sans-save-favorite-bar" class="favorite-btn" title="Save current Sans configuration">💾</button>
+            </div>
+            <div class="footer-actions">
+                <button id="apply-sans" class="apply-btn" style="display: none;">Apply All</button>
+                <button id="reset-sans" class="reset-btn" style="display: none;">Reset All</button>
+            </div>
         </div>
     </div>
 
