@@ -110,13 +110,35 @@ function loadModeSettings() {
                     }
                 }
                 
-                // Fallback: No domain-specific settings, use localStorage if available
-                if (modeState && modeState.bodyFont && (modeState.bodyFont.fontName || modeState.bodyFont.activeControls?.length > 0)) {
-                    console.log('LOCALSTORAGE FALLBACK: Loading from localStorage fallback:', modeState.bodyFont);
-                    applyFontConfig('body', modeState.bodyFont);
-                } else {
-                    console.log('No settings found - using defaults');
+                // No domain-specific settings found - start with clean state (no localStorage fallback)
+                console.log('DOMAIN ISOLATION: No applied settings for this domain - starting fresh');
+                
+                // Reset to completely unset state for this domain
+                const fontDisplay = document.getElementById('body-font-display');
+                const fontNameElement = document.getElementById('body-font-name');
+                if (fontDisplay) {
+                    fontDisplay.textContent = 'Default';
+                    fontDisplay.classList.add('placeholder');
                 }
+                if (fontNameElement) {
+                    fontNameElement.textContent = 'Default';
+                }
+                
+                // Ensure ALL controls are in unset state
+                const controlGroups = document.querySelectorAll('#body-font-controls .control-group');
+                controlGroups.forEach(group => {
+                    group.classList.add('unset');
+                });
+                
+                // Reset all form controls to default values
+                const fontSelect = document.getElementById('body-font-select');
+                const colorSelect = document.getElementById('body-font-color');
+                const sizeSlider = document.getElementById('body-font-size');
+                const lineSlider = document.getElementById('body-line-height');
+                if (fontSelect && fontSelect.options.length > 0) fontSelect.value = fontSelect.options[0].value;
+                if (colorSelect) colorSelect.value = 'default';
+                if (sizeSlider) sizeSlider.value = '16';
+                if (lineSlider) lineSlider.value = '1.5';
             } catch (error) {
                 console.warn('Error loading applied body state:', error);
                 
@@ -317,7 +339,7 @@ async function resetFaceoffFor(position) {
                 await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] });
                 appliedCssActive[genericKey] = null;
             }
-            const styleIdOff = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+            const styleIdOff = 'a-font-face-off-style-' + genericKey;
             const linkIdOff = styleIdOff + '-link';
             await browser.tabs.executeScript({ code: `
                 (function(){
@@ -333,7 +355,7 @@ async function resetFaceoffFor(position) {
                 const applyMap = (data && data.affoApplyMapV2) ? data.affoApplyMapV2 : {};
                 if (applyMap[origin]) {
                     delete applyMap[origin][genericKey];
-                    if (!applyMap[origin].serif && !applyMap[origin].sans) delete applyMap[origin];
+                    if (Object.keys(applyMap[origin]).length === 0) delete applyMap[origin];
                 }
                 await browser.storage.local.set({ affoApplyMapV2: applyMap });
             } catch (_) {}
@@ -2363,13 +2385,13 @@ async function toggleApplyToPage(position) {
                         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
                         if (applyMap[origin]) {
                             delete applyMap[origin][genericKey];
-                            if (!applyMap[origin].serif && !applyMap[origin].sans) delete applyMap[origin];
+                            if (Object.keys(applyMap[origin]).length === 0) delete applyMap[origin];
                         }
                         await browser.storage.local.set({ affoApplyMap: applyMap });
                     } catch (_) {}
                 }
                 // Remove any previously injected <style>/<link> nodes
-                const styleIdOff = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+                const styleIdOff = 'a-font-face-off-style-' + genericKey;
                 const linkIdOff = styleIdOff + '-link';
                 try {
                     await browser.tabs.executeScript({ code: `
@@ -2464,7 +2486,7 @@ async function toggleApplyToPage(position) {
         // Ensure a css2 <link> is present to start font download quickly (matches reload path)
         if (css2Url && !fontFaceOnly && !inlineApply) {
             try {
-                const styleIdEnsure = 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans');
+                const styleIdEnsure = 'a-font-face-off-style-' + genericKey;
                 const linkIdEnsure = styleIdEnsure + '-link';
                 const hrefEnsure = css2Url;
                 const code = `(
@@ -2481,30 +2503,12 @@ async function toggleApplyToPage(position) {
             } catch(e) {}
         }
 
-        // Heuristically guard inline left-border callouts ("fake blockquotes") so we don't restyle them
-        try {
-            const guardCode = `(() => {
-              try {
-                var nodes = document.querySelectorAll('[style*="border-left"]');
-                nodes.forEach(function(el){
-                  try {
-                    var s = String(el.getAttribute('style')||'').toLowerCase();
-                    if ((/border-left-style\s*:\s*solid/.test(s) || /border-left\s*:\s*\d/.test(s)) &&
-                        (/border-left-width\s*:\s*\d/.test(s) || /border-left\s*:\s*\d/.test(s))) {
-                      el.setAttribute('data-affo-guard', '1');
-                      try { el.querySelectorAll('*').forEach(function(n){ try{ n.setAttribute('data-affo-guard','1'); }catch(_){ } }); } catch(_){ }
-                    }
-                  } catch(_){ }
-                });
-              } catch(_){ }
-            })();`;
-            await browser.tabs.executeScript({ code: guardCode });
-        } catch (_) {}
+        // Guard code removed - not needed for body mode only
 
         var lines = [];
         if (css2Url && !fontFaceOnly && !inlineApply) lines.push('@import url("' + css2Url + '");');
         var decl = [];
-        if (fontName) decl.push('font-family: "' + fontName + '", ' + (genericKey === 'serif' ? 'serif' : 'sans-serif') + ' !important');
+        if (fontName) decl.push('font-family: "' + fontName + '", sans-serif !important');
         const fontSizeValue = cfg.basicControls && cfg.basicControls.fontSize;
         const fontSizePx = fontSizeValue !== null ? Number(fontSizeValue) : null;
         const lineHeightValue = cfg.basicControls && cfg.basicControls.lineHeight;
@@ -2524,12 +2528,18 @@ async function toggleApplyToPage(position) {
         if (italVal !== null && italVal >= 1) decl.push('font-style: italic !important');
         else if (slntVal !== null && slntVal !== 0) decl.push('font-style: oblique ' + slntVal + 'deg !important');
         if (varParts.length) decl.push('font-variation-settings: ' + varParts.join(', ') + ' !important');
-        // Body Contact mode uses efficient broad selectors but excludes Third Man In elements
-        const guardNeg = ":not(#affo-guard):not(.affo-guard):not([data-affo-guard]):not([data-affo-font-type])";
-        const baseSel = "body" + guardNeg + ", " +
-                        "body" + guardNeg + " :not(#affo-guard):not(.affo-guard):not([data-affo-guard]):not([data-affo-font-type])" +
-                        ":not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
+        // Body Contact mode uses efficient broad selectors
+        const baseSel = "body, " +
+                        "body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
+        
+        // Add high-specificity color rule to override website styles
+        if (colorActive && cfg.basicControls && cfg.basicControls.fontColor && cfg.basicControls.fontColor !== 'default') {
+            const colorOnlySelector = "html body, " +
+                                    "html body *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
+            console.log(`Adding high-specificity color rule: ${cfg.basicControls.fontColor}`);
+            lines.push(colorOnlySelector + ' { color: ' + cfg.basicControls.fontColor + ' !important; }');
+        }
         // If user activated Weight, apply traditional font-weight (independent of variable axes)
         // Bold elements already excluded by baseSel
         if (weightActive && isFinite(fontWeight)) {
@@ -2579,7 +2589,7 @@ async function toggleApplyToPage(position) {
         if (origin) {
             const payload = {
                 fontName,
-                generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
+                generic: 'sans-serif',
                 css2Url,
                 fontFaceOnly,
                 inlineApply,
@@ -2593,8 +2603,8 @@ async function toggleApplyToPage(position) {
                 fontSizePx: isNaN(fontSizePx) ? null : fontSizePx,
                 lineHeight: isNaN(lineHeight) ? null : lineHeight,
                 fontColor: (colorActive && cfg.basicControls && cfg.basicControls.fontColor !== 'default') ? cfg.basicControls.fontColor : null,
-                styleId: 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans'),
-                linkId: 'a-font-face-off-style-' + (genericKey === 'serif' ? 'serif' : 'sans') + '-link'
+                styleId: 'a-font-face-off-style-' + genericKey,
+                linkId: 'a-font-face-off-style-' + genericKey + '-link'
             };
             try {
                 const data = await browser.storage.local.get('affoApplyMap');
@@ -5071,12 +5081,10 @@ function buildCurrentPayload(position, providedConfig = null) {
         return null;
     }
     
-    // Determine generic font family based on position and font name
+    // Determine generic font family based on position
     let genericKey;
     if (position === 'body') {
-        // For body position, determine generic based on the actual font
-        const serifFonts = ['Merriweather', 'Lora', 'Roboto Slab', 'Playfair Display', 'Source Serif Pro', 'Crimson Text', 'Libre Baskerville', 'Cormorant Garamond', 'EB Garamond', 'Spectral'];
-        genericKey = (cfg.fontName && serifFonts.includes(cfg.fontName)) ? 'serif' : 'sans';
+        genericKey = 'body';
     } else {
         genericKey = (position === 'top') ? 'serif' : 'sans';
     }
@@ -5115,7 +5123,7 @@ function buildCurrentPayload(position, providedConfig = null) {
     
     return {
         fontName: cfg.fontName,
-        generic: (genericKey === 'serif' ? 'serif' : 'sans-serif'),
+        generic: (position === 'body' ? 'sans-serif' : (genericKey === 'serif' ? 'serif' : 'sans-serif')),
         varPairs,
         wdthVal,
         slntVal,

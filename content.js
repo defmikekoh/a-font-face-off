@@ -148,17 +148,15 @@
       }
       function buildCSS(){
         // Target typical body text only; exclude headings, code/monospace, UI/nav, and form controls
-        // Guard support: require body itself not be guarded for descendant matches
-        var guardNeg = ':not(#affo-guard):not(.affo-guard):not([data-affo-guard])';
-        var baseSel = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(time):not(span):not(a):not(strong):not(b):not(em):not(i):not(small):not(sup):not(sub):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not([role="button"]):not([role="link"]):not([role="heading"]):not([class*="nav"]):not([class*="menu"]):not([class*="header"]):not([class*="footer"]):not([class*="sidebar"]):not([class*="widget"]):not([class*="byline"]):not([class*="author"]):not([class*="date"]):not([class*="time"]):not([class*="meta"]):not([class*="tag"]):not([class*="category"]):not([class*="share"]):not([class*="social"]):not([class*="comment"]):not([class*="related"]):not([class*="recommend"]):not([class*="ad"]):not([class*="promo"]):not([class*="newsletter"]):not([class*="subscribe"]):not([class*="caption"]):not([class*="credit"]):not([class*="quote"]):not([class*="pull"]):not([class*="highlight"]):not([class*="callout"]):not([class*="alert"]):not([class*="banner"]):not([class*="sticky"]):not([class*="fixed"]):not([class*="overlay"]):not([class*="modal"]):not([class*="popup"]):not([class*="dropdown"]):not([class*="tooltip"]):not([class*="breadcrumb"]):not([class*="pagination"]):not([class*="toolbar"]):not([class*="controls"]):not([id*="nav"]):not([id*="menu"]):not([id*="header"]):not([id*="footer"]):not([id*="sidebar"]):not([id*="widget"]):not([id*="ad"]):not([id*="comment"]):not([id*="social"]):not([id*="share"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
-        var sel = 'body' + guardNeg + ' p' + baseSel + ', ' +
-                  'body' + guardNeg + ' li' + baseSel + ', ' +
-                  'body' + guardNeg + ' div' + guardNeg + baseSel;
+        // Use Body Contact CSS selector (broad selector targeting all body text)
+        var sel = 'body, ' +
+                  'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
         var decl = [];
         if (appliedFamily) decl.push('font-family:"'+appliedFamily+'", '+payload.generic+' !important');
         // Preserve site bold semantics; weight override is applied via a separate rule to non-strong/b only
         if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) decl.push('font-size:'+payload.fontSizePx+'px !important');
         if (payload.lineHeight !== null && payload.lineHeight !== undefined) decl.push('line-height:'+payload.lineHeight+' !important');
+        if (payload.fontColor !== null && payload.fontColor !== undefined && payload.fontColor !== 'default') decl.push('color:'+payload.fontColor+' !important');
         if (payload.wdthVal !== null && payload.wdthVal !== undefined) decl.push('font-stretch:'+payload.wdthVal+'% !important');
         if (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1) decl.push('font-style:italic !important');
         else if (payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) decl.push('font-style:oblique '+payload.slntVal+'deg !important');
@@ -193,40 +191,7 @@
           } catch(_){ }
           // User-configured lists are for classification only now; no guarding here.
           // Heuristically guard “fake blockquote” callouts with inline left borders
-          try {
-            function tagGuard(el){
-              try {
-                el.setAttribute('data-affo-guard','1');
-                try { el.querySelectorAll('*').forEach(function(n){ try{ n.setAttribute('data-affo-guard','1'); }catch(_){} }); } catch(_){ }
-              } catch(_){ }
-            }
-            function scanGuards(root){
-              var scope = root || document;
-              var guardCandidates = scope.querySelectorAll('[style*="border-left"]');
-              guardCandidates.forEach(function(el){
-                try {
-                  var s = String(el.getAttribute('style')||'').toLowerCase();
-                  if ((/border-left-style\s*:\s*solid/.test(s) || /border-left\s*:\s*\d/.test(s)) &&
-                      (/border-left-width\s*:\s*\d/.test(s) || /border-left\s*:\s*\d/.test(s))) {
-                    tagGuard(el);
-                  }
-                } catch(_){}
-              });
-            }
-            scanGuards(document);
-            // Observe brief post-load mutations to catch late-rendered content
-            try {
-              var mo = new MutationObserver(function(muts){
-                muts.forEach(function(m){ (m.addedNodes||[]).forEach(function(n){ try{
-                      if (n && n.nodeType === 1) scanGuards(n); 
-                    } catch(_){}
-                  });
-                });
-              });
-              mo.observe(document.documentElement || document.body, { childList: true, subtree: true });
-              setTimeout(function(){ try{ mo.disconnect(); }catch(_){} }, 8000);
-            } catch(_){ }
-          } catch(_){}
+          // Guard scanning removed - not needed for body mode only
           // If css2Url is present, use Google Fonts path; otherwise try custom loader
           if (payload.css2Url) {
             const cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: payload.css2Url, binary: false });
