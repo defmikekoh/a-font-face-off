@@ -402,6 +402,26 @@
           console.error('Error resetting fonts:', error);
           sendResponse({success: false, error: error.message});
         }
+      } else if (message.action === 'restoreOriginal') {
+        try {
+          // Remove all font-face-off elements to restore original page
+          const elementsToRemove = document.querySelectorAll('[id*="a-font-face-off"], [id*="affo-"]');
+          elementsToRemove.forEach(el => el.remove());
+          
+          // Also remove any data attributes we might have added
+          const markedElements = document.querySelectorAll('[data-affo-font-type], [data-affo-guard], [data-affo-base]');
+          markedElements.forEach(el => {
+            el.removeAttribute('data-affo-font-type');
+            el.removeAttribute('data-affo-guard');
+            // Keep data-affo-base as it's just classification info
+          });
+          
+          console.log('Restored original page appearance for:', message.origin);
+          sendResponse({success: true});
+        } catch (error) {
+          console.error('Error restoring original:', error);
+          sendResponse({success: false, error: error.message});
+        }
       }
     });
   } catch (e) {}

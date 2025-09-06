@@ -1512,15 +1512,35 @@ function hideCustomAlert() {
 }
 
 // Custom Confirm functions
-function showCustomConfirm(message, callback) {
-    const confirmModal = document.getElementById('custom-confirm');
-    const confirmMessage = document.getElementById('custom-confirm-message');
-    
-    confirmMessage.textContent = message;
-    confirmModal.classList.add('visible');
-    
-    // Store callback for when user clicks OK
-    confirmModal._callback = callback;
+function showCustomConfirm(message) {
+    return new Promise((resolve) => {
+        const confirmModal = document.getElementById('custom-confirm');
+        const confirmMessage = document.getElementById('custom-confirm-message');
+        const cancelBtn = document.getElementById('custom-confirm-cancel');
+        const okBtn = document.getElementById('custom-confirm-ok');
+        
+        confirmMessage.textContent = message;
+        confirmModal.classList.add('visible');
+        
+        const cleanup = () => {
+            confirmModal.classList.remove('visible');
+            cancelBtn.removeEventListener('click', handleCancel);
+            okBtn.removeEventListener('click', handleOk);
+        };
+        
+        const handleCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        
+        const handleOk = () => {
+            cleanup();
+            resolve(true);
+        };
+        
+        cancelBtn.addEventListener('click', handleCancel);
+        okBtn.addEventListener('click', handleOk);
+    });
 }
 
 function hideCustomConfirm() {
@@ -4076,6 +4096,22 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         });
     }
 
+    // Body Font Weight Control - copied from working font size pattern
+    const bodyFontWeightSlider = document.getElementById('body-font-weight');
+    const bodyWeightGroup = bodyFontWeightSlider ? bodyFontWeightSlider.closest('.control-group') : null;
+    
+    if (bodyFontWeightSlider) {
+        bodyFontWeightSlider.addEventListener('input', function() {
+            if (bodyWeightGroup) bodyWeightGroup.classList.remove('unset');
+            updateBodyButtons();
+            const bodyFontWeightValue = document.getElementById('body-font-weight-value');
+            if (bodyFontWeightValue) bodyFontWeightValue.textContent = this.value;
+            updateBodyPreview();
+            // Save state after weight change
+            setTimeout(() => saveExtensionState(), 100);
+        });
+    }
+
     // Font Picker wiring
     setupFontPicker();
 
@@ -5002,9 +5038,7 @@ function generateElementWalkerScript(fontType) {
                         style.includes('monospace') || style.includes('mono')) return 'mono';
                     
                     // Tag-based detection
-                    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) return 'serif';
                     if (['code', 'pre', 'kbd', 'samp', 'tt'].includes(tagName)) return 'mono';
-                    if (['p', 'div', 'span', 'nav', 'button', 'input', 'textarea', 'select', 'label', 'li', 'td', 'th', 'a'].includes(tagName)) return 'sans';
                     
                     // Check computed styles as fallback
                     const computed = window.getComputedStyle(element);
@@ -5256,24 +5290,34 @@ async function switchMode(newMode) {
         return;
     }
     
-    // Check if current mode or target mode has applied settings
-    const currentHasSettings = await modeHasAppliedSettings(currentViewMode);
-    const targetHasSettings = await modeHasAppliedSettings(newMode);
+    // Show confirmation modal when switching between body-contact and third-man-in modes,
+    // or when switching from faceoff to a mode that has saved settings
+    const showModal = (currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
+                     (currentViewMode === 'third-man-in' && newMode === 'body-contact') ||
+                     (currentViewMode === 'faceoff' && (newMode === 'body-contact' || newMode === 'third-man-in'));
     
-    if (currentHasSettings || targetHasSettings) {
-        // Show confirmation modal
-        const currentDisplayName = getModeDisplayName(currentViewMode);
-        const newDisplayName = getModeDisplayName(newMode);
+    if (showModal) {
+        // Check if current mode or target mode has applied settings
+        const currentHasSettings = await modeHasAppliedSettings(currentViewMode);
+        const targetHasSettings = await modeHasAppliedSettings(newMode);
         
-        const confirmed = await showCustomConfirm(
-            `Switching from\n${currentDisplayName} mode to ${newDisplayName} mode\nwill clear saved settings for the domain. Proceed?`
-        );
-        
-        if (!confirmed) {
-            return; // User cancelled, don't switch
+        if (currentHasSettings || targetHasSettings) {
+            // Show confirmation modal
+            const currentDisplayName = getModeDisplayName(currentViewMode);
+            const newDisplayName = getModeDisplayName(newMode);
+            
+            const confirmed = await showCustomConfirm(
+                `Switching from\n${currentDisplayName} mode to ${newDisplayName} mode\nwill clear saved settings for the domain. Proceed?`
+            );
+            
+            if (!confirmed) {
+                return; // User cancelled, don't switch
+            }
         }
-        
-        // Clear all domain settings
+    }
+    
+    // Clear all domain settings when switching between body-contact and third-man-in
+    if (showModal) {
         await clearAllDomainSettings();
     }
     

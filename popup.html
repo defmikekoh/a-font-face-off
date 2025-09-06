@@ -582,7 +582,7 @@
                     <span id="body-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
                 </div>
                 <div class="control-row slider-row">
-                    <input type="range" id="body-font-weight" min="100" max="900" step="1" value="400" class="slider-input">
+                    <input type="range" id="body-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
                 </div>
             </div>
             <div class="control-group unset" data-control="color">
@@ -893,6 +893,23 @@
             <div class="font-picker-body">
                 <div id="font-picker-list" class="font-picker-list" role="listbox" aria-label="Font list"></div>
                 <div id="font-picker-rail" class="font-picker-rail" aria-label="Alphabet navigation"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Switch Confirmation Modal -->
+    <div id="mode-switch-modal" class="save-modal">
+        <div class="save-modal-content">
+            <div class="save-modal-header">
+                <h3>Switch Mode</h3>
+                <button id="mode-switch-modal-close" class="save-modal-close">&times;</button>
+            </div>
+            <div class="save-modal-body">
+                <p id="mode-switch-message">Switching modes will reset your saved domain settings. Continue?</p>
+            </div>
+            <div class="save-modal-footer">
+                <button id="mode-switch-cancel" class="save-modal-btn cancel-btn">Cancel</button>
+                <button id="mode-switch-continue" class="save-modal-btn save-btn">Continue</button>
             </div>
         </div>
     </div>
