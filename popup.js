@@ -16,6 +16,52 @@ function getPanelLabel(position) {
     return position === 'top' ? 'Top Font' : 'Bottom Font';
 }
 
+async function determineGenericFontFamily(fontName) {
+    if (!fontName) return 'sans-serif'; // Default fallback
+    
+    const name = fontName.toLowerCase();
+    
+    // Load user-configured known fonts
+    let knownSerif = [];
+    let knownSans = [];
+    try {
+        const data = await queuedStorage.get(['affoKnownSerif', 'affoKnownSans']);
+        knownSerif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif.map(s => String(s || '').toLowerCase().trim()) : [];
+        knownSans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans.map(s => String(s || '').toLowerCase().trim()) : [];
+    } catch (e) {
+        // Fallback to defaults if storage fails
+        knownSerif = ['pt serif'];
+        knownSans = [];
+    }
+    
+    // Check user-configured known fonts first
+    if (knownSerif.some(serif => name.includes(serif))) {
+        return 'serif';
+    }
+    if (knownSans.some(sans => name.includes(sans))) {
+        return 'sans-serif';
+    }
+    
+    // Monospace patterns
+    if (name.includes('mono') || name.includes('code') || name.includes('courier') || 
+        name.includes('consolas') || name.includes('dejavu sans mono') || 
+        name.includes('fira code') || name.includes('source code')) {
+        return 'monospace';
+    }
+    
+    // Built-in serif patterns
+    if (name.includes('serif') || name.includes('times') || name.includes('georgia') ||
+        name.includes('book') || name.includes('antiqua') || name.includes('roman') ||
+        name.includes('baskerville') || name.includes('caslon') || name.includes('garamond') ||
+        name.includes('minion') || name.includes('palatino') || name.includes('trajan') ||
+        name.includes('reith serif') || name.includes('noto serif') || name.includes('pt serif')) {
+        return 'serif';
+    }
+    
+    // Default to sans-serif for everything else
+    return 'sans-serif';
+}
+
 async function applyViewMode(forceView) {
     if (forceView) currentViewMode = forceView;
     try { await queuedStorage.set({ affoCurrentView: currentViewMode }); } catch (_) {}
@@ -2866,6 +2912,14 @@ async function toggleApplyToPage(position, forceApply = false) {
             // Only store fontName if it exists
             if (fontName) {
                 payload.fontName = fontName;
+            }
+
+            // Set generic font family for body mode
+            if (genericKey === 'body') {
+                payload.generic = await determineGenericFontFamily(fontName);
+            } else {
+                // For face-off mode, use the existing mapping
+                payload.generic = (genericKey === 'serif') ? 'serif' : 'sans-serif';
             }
 
             // Only include properties that have actual values (no null properties)
@@ -6101,11 +6155,11 @@ async function applyAllThirdManInFonts() {
                              config.fontName === defaultFontNames[type];
 
         if (!isDefaultFont) {
-            console.log(`applyAllThirdManInFonts: ${type} has non-default font: ${config.fontName}`);
+            console.log(`applyAllThirdManInFonts: ${type} has non-default font: ${config?.fontName || 'undefined'}`);
             hasAnyNonDefaultSettings = true;
             break;
         } else {
-            console.log(`applyAllThirdManInFonts: ${type} has default font: ${config.fontName}`);
+            console.log(`applyAllThirdManInFonts: ${type} has default font: ${config?.fontName || 'undefined'}`);
         }
     }
 
@@ -6129,12 +6183,12 @@ async function applyAllThirdManInFonts() {
                                  config.fontName === defaultFontNames[type];
 
             if (!isDefaultFont) {
-                console.log(`applyAllThirdManInFonts: Applying ${type} with font ${config.fontName}`);
+                console.log(`applyAllThirdManInFonts: Applying ${type} with font ${config?.fontName || 'undefined'}`);
                 console.log(`applyAllThirdManInFonts: About to call applyPanelConfiguration for ${type}`);
                 const result = await applyPanelConfiguration(type, config);
                 console.log(`applyAllThirdManInFonts: applyPanelConfiguration for ${type} returned:`, result);
             } else {
-                console.log(`applyAllThirdManInFonts: Skipping ${type} - has default font: ${config.fontName}`);
+                console.log(`applyAllThirdManInFonts: Skipping ${type} - has default font: ${config?.fontName || 'undefined'}`);
             }
         }
     } else {
