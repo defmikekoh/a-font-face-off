@@ -150,18 +150,16 @@
                 <div class="grip-handle">≡</div>
                 <span class="grip-label">Serif</span>
             </div>
-            <div class="grip-area centered-grip" id="mono-font-grip" data-panel="mono">
-                <div class="grip-handle">≡</div>
-                <span class="grip-label">Mono</span>
+            <div class="third-man-in-center-stack">
+                <button id="edit-favorites-tmi" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
+                <div class="grip-area centered-grip" id="mono-font-grip" data-panel="mono">
+                    <div class="grip-handle">≡</div>
+                    <span class="grip-label">Mono</span>
+                </div>
             </div>
             <div class="grip-area" id="sans-font-grip" data-panel="sans">
                 <div class="grip-handle">≡</div>
                 <span class="grip-label">Sans</span>
-            </div>
-            <div class="favorites-container">
-                <div class="favorites-edit-section">
-                    <button id="edit-favorites-tmi" class="favorite-btn edit-btn" title="Edit favorites">✏️</button>
-                </div>
             </div>
         </div>
     </div>
@@ -542,7 +540,8 @@
                     <span id="body-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
                     <div id="body-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
                     <select id="body-font-select" class="hidden">
-                    <option value="Roboto Flex" selected>Roboto Flex</option>
+                    <option value="default" selected>Default</option>
+                    <option value="Roboto Flex">Roboto Flex</option>
                     <option value="Inter">Inter</option>
                     <option value="Open Sans">Open Sans</option>
                     </select>
@@ -680,18 +679,28 @@
                     <input type="range" id="serif-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
                 </div>
             </div>
-            <div class="control-group" data-control="color">
+            <div class="control-group unset" data-control="color">
                 <label for="serif-font-color">Color:</label>
-                <select id="serif-font-color">
-                    <option value="#000000" selected>100% Black</option>
-                    <option value="#1A1A1A">90% Gray</option>
-                    <option value="#333333">80% Gray</option>
-                    <option value="#4D4D4D">70% Gray</option>
-                    <option value="#666666">60% Gray</option>
-                    <option value="#CCCCCC">20% Gray</option>
-                    <option value="#FF0000">Bright Red</option>
-                </select>
+                <div class="control-row input-row">
+                    <span id="serif-color-reset" class="axis-reset-btn" title="Reset color to Default">↻</span>
+                    <select id="serif-font-color">
+                        <option value="default" selected>Default</option>
+                        <option value="#000000">100% Black</option>
+                        <option value="#1A1A1A">90% Gray</option>
+                        <option value="#333333">80% Gray</option>
+                        <option value="#4D4D4D">70% Gray</option>
+                        <option value="#666666">60% Gray</option>
+                        <option value="#CCCCCC">20% Gray</option>
+                        <option value="#FF0000">Bright Red</option>
+                    </select>
+                </div>
             </div>
+        </div>
+
+        <!-- Variable Axes (populated dynamically) -->
+        <div class="control-section" id="serif-variable-axes">
+            <h3>Variable Axes</h3>
+            <div id="serif-axes-container"></div>
         </div>
         </div>
 
@@ -765,18 +774,28 @@
                     <input type="range" id="mono-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
                 </div>
             </div>
-            <div class="control-group" data-control="color">
+            <div class="control-group unset" data-control="color">
                 <label for="mono-font-color">Color:</label>
-                <select id="mono-font-color">
-                    <option value="#000000" selected>100% Black</option>
-                    <option value="#1A1A1A">90% Gray</option>
-                    <option value="#333333">80% Gray</option>
-                    <option value="#4D4D4D">70% Gray</option>
-                    <option value="#666666">60% Gray</option>
-                    <option value="#CCCCCC">20% Gray</option>
-                    <option value="#FF0000">Bright Red</option>
-                </select>
+                <div class="control-row input-row">
+                    <span id="mono-color-reset" class="axis-reset-btn" title="Reset color to Default">↻</span>
+                    <select id="mono-font-color">
+                        <option value="default" selected>Default</option>
+                        <option value="#000000">100% Black</option>
+                        <option value="#1A1A1A">90% Gray</option>
+                        <option value="#333333">80% Gray</option>
+                        <option value="#4D4D4D">70% Gray</option>
+                        <option value="#666666">60% Gray</option>
+                        <option value="#CCCCCC">20% Gray</option>
+                        <option value="#FF0000">Bright Red</option>
+                    </select>
+                </div>
             </div>
+        </div>
+
+        <!-- Variable Axes (populated dynamically) -->
+        <div class="control-section" id="mono-variable-axes">
+            <h3>Variable Axes</h3>
+            <div id="mono-axes-container"></div>
         </div>
         </div>
 
@@ -850,18 +869,28 @@
                     <input type="range" id="sans-font-weight" min="100" max="900" step="100" value="400" class="slider-input">
                 </div>
             </div>
-            <div class="control-group" data-control="color">
+            <div class="control-group unset" data-control="color">
                 <label for="sans-font-color">Color:</label>
-                <select id="sans-font-color">
-                    <option value="#000000" selected>100% Black</option>
-                    <option value="#1A1A1A">90% Gray</option>
-                    <option value="#333333">80% Gray</option>
-                    <option value="#4D4D4D">70% Gray</option>
-                    <option value="#666666">60% Gray</option>
-                    <option value="#CCCCCC">20% Gray</option>
-                    <option value="#FF0000">Bright Red</option>
-                </select>
+                <div class="control-row input-row">
+                    <span id="sans-color-reset" class="axis-reset-btn" title="Reset color to Default">↻</span>
+                    <select id="sans-font-color">
+                        <option value="default" selected>Default</option>
+                        <option value="#000000">100% Black</option>
+                        <option value="#1A1A1A">90% Gray</option>
+                        <option value="#333333">80% Gray</option>
+                        <option value="#4D4D4D">70% Gray</option>
+                        <option value="#666666">60% Gray</option>
+                        <option value="#CCCCCC">20% Gray</option>
+                        <option value="#FF0000">Bright Red</option>
+                    </select>
+                </div>
             </div>
+        </div>
+
+        <!-- Variable Axes (populated dynamically) -->
+        <div class="control-section" id="sans-variable-axes">
+            <h3>Variable Axes</h3>
+            <div id="sans-axes-container"></div>
         </div>
         </div>
 

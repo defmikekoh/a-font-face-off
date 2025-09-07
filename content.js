@@ -160,18 +160,16 @@
         if (payload.wdthVal !== null && payload.wdthVal !== undefined) decl.push('font-stretch:'+payload.wdthVal+'% !important');
         if (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1) decl.push('font-style:italic !important');
         else if (payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) decl.push('font-style:oblique '+payload.slntVal+'deg !important');
-        if (payload.varPairs && payload.varPairs.length){
-          var v = payload.varPairs.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', ');
+        if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0){
+          var v = Object.entries(payload.variableAxes).map(function(pair){ return '"'+pair[0]+'" '+pair[1]; }).join(', ');
           decl.push('font-variation-settings:'+v+' !important');
         }
         var css = sel+'{'+decl.join('; ')+';}';
         if (payload && payload.fontWeight !== null && payload.fontWeight !== undefined) {
           // Build var settings including wght along with any other per-axis values
-          var vparts = (payload.varPairs || []).slice();
-          var seenW = false;
-          for (var i=0;i<vparts.length;i++){ if (vparts[i] && String(vparts[i].tag) === 'wght') { seenW = true; vparts[i] = { tag: 'wght', value: Number(payload.fontWeight) }; } }
-          if (!seenW) vparts.push({ tag: 'wght', value: Number(payload.fontWeight) });
-          var vstr = vparts.map(function(a){ return '"'+a.tag+'" '+a.value; }).join(', ');
+          var axes = Object.assign({}, payload.variableAxes || {});
+          axes.wght = Number(payload.fontWeight);
+          var vstr = Object.entries(axes).map(function(pair){ return '"'+pair[0]+'" '+pair[1]; }).join(', ');
           css += '\n' + sel + '{font-weight:'+payload.fontWeight+' !important; font-variation-settings:'+vstr+' !important;}';
         }
         // Override rule for bold elements with maximum specificity

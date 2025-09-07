@@ -125,6 +125,9 @@ body {
     display: flex;
     align-items: center;
     position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .font-family-display.placeholder { color: #8a8f98; font-style: italic; }
 .font-family-display.default { color: #8a8f98; }
@@ -151,7 +154,6 @@ body {
     padding: 0;
 }
 .family-reset-btn:hover { background: #757575; transform: scale(1.05); }
-body.view-facade .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
 body.view-faceoff .family-reset-btn { display: none; }
 body.view-body-contact .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
 body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
@@ -488,29 +490,47 @@ body {
 }
 
 /* Third Man In mode specific styles */
-.third-man-in-content {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr auto; /* serif | mono | sans | edit-fav */
-    justify-items: center;
-    align-items: center;
-    width: 100%;
-    gap: 10px;
+body.view-third-man-in .third-man-in-content {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 20px !important;
 }
 
-.third-man-in-content .grip-area:first-child {
-    justify-self: start; /* Serif on left */
+/* All grips same size */
+body.view-third-man-in .grip-area {
+    flex: 0 0 auto !important;
+    width: 120px !important;
+    height: auto !important;
 }
 
-.third-man-in-content .grip-area.centered-grip {
-    justify-self: center; /* Mono in center of its column */
+/* Mono grip positioned in center */
+body.view-third-man-in #mono-font-grip {
+    position: relative !important;
 }
 
-.third-man-in-content .grip-area:nth-child(3) {
-    justify-self: end; /* Sans on right of center area */
+/* Edit pencil overlays center of mono grip */
+body.view-third-man-in .third-man-in-center-stack {
+    position: relative !important;
+    display: inline-block !important;
 }
 
-.third-man-in-content .favorites-container {
-    justify-self: end; /* Edit favorites on far right */
+body.view-third-man-in .third-man-in-center-stack .favorite-btn {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 10 !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 50% !important;
+    font-size: 14px !important;
 }
 
 .controls-panel {
@@ -822,6 +842,9 @@ body.view-third-man-in #mono-font-section {
     font-weight: bold;
     margin: 0 0 2px 0 !important;
     padding: 0 !important;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 #body-font-section p {
@@ -1329,7 +1352,7 @@ body.body-contact #font-comparison {
 
 /* Apply buttons near grips (visible in Facade view) */
 .apply-btn {
-    display: none; /* hidden by default, shown in facade mode */
+    display: none; /* hidden by default - facade mode removed */
     padding: 6px 10px;
     background: #16a085;
     color: white;
@@ -1343,8 +1366,7 @@ body.body-contact #font-comparison {
 .apply-btn:hover { background: #13866f; }
 .apply-btn.active { background: #1abc9c; border-color: #149b84; }
 
-/* Apply buttons shown in Facade mode */
-body.view-facade .apply-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* Apply buttons removed - no longer used */
 
 /* Loading state for Apply buttons */
 .apply-btn.loading {
