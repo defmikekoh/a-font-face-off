@@ -25,7 +25,7 @@
           var styleBits = [];
           if (p.fontSizePx !== null && p.fontSizePx !== undefined) styleBits.push('size: '+p.fontSizePx+'px');
           if (p.lineHeight !== null && p.lineHeight !== undefined) styleBits.push('line-height: '+p.lineHeight);
-          if (p.fontColor && p.fontColor !== 'default') styleBits.push('color: '+p.fontColor);
+          if (p.fontColor) styleBits.push('color: '+p.fontColor);
 
           var src = p.css2Url ? 'Google Fonts css2' : 'custom/inline';
           var mode = p.fontFaceOnly ? 'font-face only' : 'css + font-face';
@@ -221,7 +221,7 @@
         // Preserve site bold semantics; weight override is applied via a separate rule to non-strong/b only
         if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) decl.push('font-size:'+payload.fontSizePx+'px !important');
         if (payload.lineHeight !== null && payload.lineHeight !== undefined) decl.push('line-height:'+payload.lineHeight+' !important');
-        if (payload.fontColor !== null && payload.fontColor !== undefined && payload.fontColor !== 'default') decl.push('color:'+payload.fontColor+' !important');
+        if (payload.fontColor) decl.push('color:'+payload.fontColor+' !important');
         if (payload.wdthVal !== null && payload.wdthVal !== undefined) decl.push('font-stretch:'+payload.wdthVal+'% !important');
         if (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1) decl.push('font-style:italic !important');
         else if (payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) decl.push('font-style:oblique '+payload.slntVal+'deg !important');

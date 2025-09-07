@@ -1103,9 +1103,24 @@ function updateBodyPreview() {
         textElement.style.color = '';
     }
 
+    // Handle variable axes for both elements
+    const bodyConfig = getCurrentUIConfig('body');
+    if (bodyConfig && bodyConfig.variableAxes && Object.keys(bodyConfig.variableAxes).length > 0) {
+        const varSettings = Object.entries(bodyConfig.variableAxes)
+            .map(([axis, value]) => `"${axis}" ${value}`)
+            .join(', ');
+        if (varSettings) {
+            textElement.style.fontVariationSettings = varSettings;
+            headingElement.style.fontVariationSettings = varSettings;
+        }
+    } else {
+        textElement.style.fontVariationSettings = '';
+        headingElement.style.fontVariationSettings = '';
+    }
+
     // Update heading element
     headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
-    if (fontColor !== 'default') {
+    if (fontColor && activeControls.has('color')) {
         headingElement.style.color = fontColor;
     } else {
         headingElement.style.color = '';
@@ -1280,7 +1295,7 @@ function getActiveControlsFromConfig(config) {
     if (config && config.fontSize !== null && config.fontSize !== undefined) active.add('font-size');
     if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
     if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
-    if (config && config.fontColor !== null && config.fontColor !== undefined && config.fontColor !== 'default') active.add('color');
+    if (config && config.fontColor) active.add('color');
     return active;
 }
 
@@ -1344,7 +1359,7 @@ function getActiveControlsFromLegacyConfig(config) {
     if (config.fontSizePx !== null && config.fontSizePx !== undefined) active.add('font-size');
     if (config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
     if (config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
-    if (config.fontColor !== null && config.fontColor !== undefined && config.fontColor !== 'default') active.add('color');
+    if (config.fontColor) active.add('color');
     return active;
 }
 
@@ -1417,7 +1432,7 @@ function getCurrentUIConfig(position) {
     const fontSize = fontSizeControl.value;
     const lineHeight = lineHeightControl.value;
     const fontWeight = fontWeightControl.value;
-    const fontColor = hasColorControl ? fontColorControl.value : '#000000';
+    const fontColor = hasColorControl ? fontColorControl.value : null;
 
     // Get control groups to determine what's currently active (not unset)
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
@@ -1551,7 +1566,10 @@ async function applyFontConfig(position, config) {
         document.getElementById(`${position}-font-size`).value = config.fontSize || 17;
         document.getElementById(`${position}-line-height`).value = config.lineHeight || 1.6;
         document.getElementById(`${position}-font-weight`).value = config.fontWeight || 400;
-        document.getElementById(`${position}-font-color`).value = config.fontColor || '#000000';
+        if (config.fontColor) {
+            document.getElementById(`${position}-font-color`).value = config.fontColor;
+        }
+        // When no color is saved, leave the input at its default - it will be marked as unset anyway
 
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
@@ -1653,6 +1671,8 @@ async function applyFontConfig(position, config) {
         // Update preview to reflect restored settings
         if (position === 'body') {
             updateBodyPreview();
+        } else if (['serif', 'sans', 'mono'].includes(position)) {
+            updateThirdManInPreview(position);
         }
 
         // Resolve the promise to indicate completion
@@ -2766,7 +2786,7 @@ async function toggleApplyToPage(position, forceApply = false) {
         const colorActive = cfg.fontColor !== null && cfg.fontColor !== undefined;
         if (sizeActive && fontSizePx !== null && !isNaN(fontSizePx)) decl.push('font-size: ' + fontSizePx + 'px !important');
         if (lineActive && lineHeight !== null && !isNaN(lineHeight)) decl.push('line-height: ' + lineHeight + ' !important');
-        if (colorActive && cfg.fontColor && cfg.fontColor !== 'default') {
+        if (colorActive && cfg.fontColor) {
             console.log(`Adding color CSS: color: ${cfg.fontColor} !important`);
             decl.push('color: ' + cfg.fontColor + ' !important');
         } else {
@@ -2782,7 +2802,7 @@ async function toggleApplyToPage(position, forceApply = false) {
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
 
         // Add high-specificity color rule to override website styles
-        if (colorActive && cfg.fontColor && cfg.fontColor !== 'default') {
+        if (colorActive && cfg.fontColor) {
             const colorOnlySelector = "html body, " +
                                     "html body *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
             console.log(`Adding high-specificity color rule: ${cfg.fontColor}`);
@@ -2858,7 +2878,7 @@ async function toggleApplyToPage(position, forceApply = false) {
             if (fontWeight !== null && fontWeight !== undefined) payload.fontWeight = fontWeight;
             if (!isNaN(fontSizePx) && fontSizePx !== null) payload.fontSizePx = fontSizePx;
             if (!isNaN(lineHeight) && lineHeight !== null) payload.lineHeight = lineHeight;
-            if (colorActive && cfg.fontColor && cfg.fontColor !== 'default') {
+            if (colorActive && cfg.fontColor) {
                 payload.fontColor = cfg.fontColor;
             }
             try {
@@ -3180,6 +3200,7 @@ function updateThirdManInPreview(fontType) {
     if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
     if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
+    if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
 
     // Add variable font settings if available
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
@@ -3408,7 +3429,7 @@ function applyFont(position) {
         if (activeControls.has('line-height')) { textElement.style.lineHeight = lineHeight; } else { textElement.style.lineHeight = ''; }
 
         // Handle color: only apply if not "default", otherwise clear the color
-        if (fontColor !== 'default') {
+        if (fontColor) {
             textElement.style.color = fontColor;
         } else {
             textElement.style.color = '';
@@ -3441,7 +3462,7 @@ function applyFont(position) {
     if (headingElement) {
         headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
         // Handle color: only apply if not "default", otherwise clear the color
-        if (fontColor !== 'default') {
+        if (fontColor) {
             headingElement.style.color = fontColor;
         } else {
             headingElement.style.color = '';
@@ -3560,13 +3581,15 @@ function generateFontConfigName(position) {
     if (config.lineHeight && config.lineHeight !== 1.6) {
         parts.push(`${config.lineHeight}lh`);
     }
+    if (config.fontColor) {
+        parts.push('colored');
+    }
 
     // Add variable axes that are active
-    if (config.variableAxes && config.activeAxes) {
+    if (config.variableAxes && Object.keys(config.variableAxes).length > 0) {
         Object.entries(config.variableAxes).forEach(([axis, value]) => {
             const fontDef = getEffectiveFontDefinition(config.fontName);
             if (fontDef && fontDef.defaults[axis] !== undefined &&
-                config.activeAxes.includes(axis) &&
                 parseFloat(value) !== fontDef.defaults[axis]) {
                 // Abbreviate common axes
                 let axisName = axis;
@@ -3619,14 +3642,16 @@ function generateConfigPreview(position) {
     if (config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
     }
+    if (config.fontColor) {
+        lines.push(`Color: ${config.fontColor}`);
+    }
 
     // Only show active variable axes
-    if (config.variableAxes && config.activeAxes) {
+    if (config.variableAxes && Object.keys(config.variableAxes).length > 0) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
                 const fontDef = getEffectiveFontDefinition(config.fontName);
-                return hasInCollection(config.activeAxes, axis) &&
-                       fontDef && fontDef.defaults[axis] !== undefined &&
+                return fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
             });
 
@@ -3977,6 +4002,13 @@ function generateFavoritePreview(config) {
     }
     if (config.fontWeight && config.fontWeight !== 400) {
         parts.push(`${config.fontWeight}wt`);
+    }
+    if (config.fontColor) {
+        parts.push(config.fontColor);
+    }
+    if (config.variableAxes && Object.keys(config.variableAxes).length > 0) {
+        const axesCount = Object.keys(config.variableAxes).length;
+        parts.push(`${axesCount} axes`);
     }
 
     return parts.join(' • ');
@@ -5056,7 +5088,7 @@ function resetTopFont() {
     document.getElementById('top-font-size').value = 17;
     document.getElementById('top-line-height').value = 1.6;
     document.getElementById('top-font-weight').value = 400;
-    document.getElementById('top-font-color').value = '#000000';
+    // Color left unset - will be marked as unset in UI state
 
     // Reset display values
     (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
@@ -5106,7 +5138,7 @@ function resetBottomFont() {
     document.getElementById('bottom-font-size').value = 17;
     document.getElementById('bottom-line-height').value = 1.6;
     document.getElementById('bottom-font-weight').value = 400;
-    document.getElementById('bottom-font-color').value = '#000000';
+    // Color left unset - will be marked as unset in UI state
 
     // Reset text input values
     const bottomFontSizeTextInput = document.getElementById('bottom-font-size-text');
@@ -6620,7 +6652,7 @@ async function getAppliedConfigForDomain(origin, panelId) {
                 fontSize: payload.fontSizePx,
                 lineHeight: payload.lineHeight,
                 fontWeight: payload.fontWeight,
-                fontColor: payload.fontColor || '#000000'
+                fontColor: payload.fontColor || null
             },
             variableAxes,
             activeAxes,
