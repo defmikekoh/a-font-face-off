@@ -4,6 +4,43 @@
     try {
       // Use original font family name (no aliasing needed)
       var appliedFamily = (payload && payload.fontName) ? payload.fontName : '';
+      // Build a concise, human‑readable description of what will be injected
+      function describeInjection(){
+        try {
+          var p = payload || {};
+          var sid = String(p.styleId || 'a-font-face-off-style-body');
+          var panel = (sid.indexOf('-serif') !== -1) ? 'serif' : (sid.indexOf('-sans') !== -1 ? 'sans' : (sid.indexOf('-body') !== -1 ? 'body' : 'unknown'));
+          var generic = p.generic ? String(p.generic) : '';
+
+          var axisBits = [];
+          try {
+            var axes = Object.assign({}, p.variableAxes || {});
+            if (p.fontWeight !== null && p.fontWeight !== undefined) axes.wght = Number(p.fontWeight);
+            Object.keys(axes).forEach(function(k){ axisBits.push(k+': '+axes[k]); });
+          } catch(_){ }
+          if (p.wdthVal !== null && p.wdthVal !== undefined) axisBits.push('wdth%: '+p.wdthVal);
+          if (p.italVal !== null && p.italVal !== undefined && p.italVal >= 1) axisBits.push('style: italic');
+          if (p.slntVal !== null && p.slntVal !== undefined && p.slntVal !== 0) axisBits.push('slnt: '+p.slntVal+'deg');
+
+          var styleBits = [];
+          if (p.fontSizePx !== null && p.fontSizePx !== undefined) styleBits.push('size: '+p.fontSizePx+'px');
+          if (p.lineHeight !== null && p.lineHeight !== undefined) styleBits.push('line-height: '+p.lineHeight);
+          if (p.fontColor && p.fontColor !== 'default') styleBits.push('color: '+p.fontColor);
+
+          var src = p.css2Url ? 'Google Fonts css2' : 'custom/inline';
+          var mode = p.fontFaceOnly ? 'font-face only' : 'css + font-face';
+
+          var parts = [];
+          parts.push('panel: '+panel);
+          parts.push('family: '+(appliedFamily||'(none)')+(generic?(' ('+generic+')') : ''));
+          if (axisBits.length) parts.push('axes: '+axisBits.join(', '));
+          if (styleBits.length) parts.push('styles: '+styleBits.join(', '));
+          parts.push('source: '+src);
+          parts.push('mode: '+mode);
+          return parts.join(' | ');
+        } catch(_){ return 'unavailable'; }
+      }
+      var humanReadable = describeInjection();
       // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
       try {
         if (!document.documentElement.hasAttribute('data-affo-base')) {
@@ -33,7 +70,7 @@
                 var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
                 if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
                 else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
-              } catch(_){ } 
+              } catch(_){ }
             }).catch(function(){});
           } catch(_){ }
         }
@@ -96,9 +133,10 @@
             }
           } else if (payload && (/ABC\s+Ginto\s+Normal\s+Unlicensed\s+Trial/i.test(payload.fontName) || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(payload.fontName))) {
             // Load from CDNFonts CSS by parsing @font-face blocks and picking best match
-            var cssUrl = (/Normal/i.test(payload.fontName))
-              ? 'https://fonts.cdnfonts.com/css/abc-ginto-normal-unlicensed-trial'
-              : 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
+            // var cssUrl = (/Normal/i.test(payload.fontName))
+            //   ? 'https://fonts.cdnfonts.com/css/abc-ginto-normal-unlicensed-trial'
+            //   : 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
+            var cssUrl = 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
             var cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: cssUrl, binary: false });
             if (!cssResp || !cssResp.ok) return;
             var cssText = String(cssResp.data || '');
@@ -143,6 +181,33 @@
                 } catch(_){ }
               }
             }
+          } else if (payload && payload.fontName === 'FK Roman Standard Trial') {
+            // Load FK Roman Standard Trial faces directly (400/700 normal + italic)
+            try { window.__affoFKLoaded = window.__affoFKLoaded || {}; } catch(_){}
+            var fkFaces = [
+              { w: 400, it: false, url: 'https://db.onlinewebfonts.com/t/a2a38c80cf0357178a43afdc8e95e869.woff2' },
+              { w: 500, it: false, url: 'https://db.onlinewebfonts.com/t/beb784012d429b8921e66081b20406b8.woff2' },
+              { w: 700, it: false, url: 'https://db.onlinewebfonts.com/t/5b2e01844093ec2a8881f8caec25ea5e.woff2' },
+              { w: 400, it: true,  url: 'https://db.onlinewebfonts.com/t/b4a6d90ef7316c4bf2f7f0c2ff8ff26e.woff2' },
+              { w: 700, it: true,  url: 'https://db.onlinewebfonts.com/t/834183e3bc6e87253115df38c19ca08a.woff2' }
+            ];
+            for (var k=0;k<fkFaces.length;k++){
+              var f = fkFaces[k];
+              var cacheKey = 'FKRoman:' + f.w + ':' + (f.it ? 'italic' : 'normal');
+              try { if (window.__affoFKLoaded && window.__affoFKLoaded[cacheKey]) continue; } catch(_){ }
+              try {
+                var r = await browser.runtime.sendMessage({ type: 'affoFetch', url: f.url, binary: true });
+                if (r && r.ok && Array.isArray(r.data)){
+                  var u8f = new Uint8Array(r.data);
+                  var srcf = u8f.buffer.slice(u8f.byteOffset, u8f.byteOffset + u8f.byteLength);
+                  var descf = { weight: String(f.w), style: f.it ? 'italic' : 'normal' };
+                  var ffk = new FontFace(appliedFamily, srcf, descf);
+                  await ffk.load();
+                  document.fonts.add(ffk);
+                  try { if (window.__affoFKLoaded) window.__affoFKLoaded[cacheKey] = true; } catch(_){ }
+                }
+              } catch(_){ }
+            }
           }
         } catch (_) {}
       }
@@ -176,7 +241,7 @@
         css += '\nbody strong, body b, html body strong, html body b { font-family: initial !important; font-weight: bold !important; font-variation-settings: initial !important; }';
         return css;
       }
-      
+
       (async function(){
         try {
           // Enforce per-domain policies from options (handles older saved payloads)
@@ -285,10 +350,11 @@
             } catch(_){ }
           }
         }
-        
+
         var existing = document.getElementById(payload.styleId);
-        if (existing){ existing.textContent = buildCSS(); return; }
-        var st = document.createElement('style'); st.id = payload.styleId; st.textContent = buildCSS(); document.documentElement.appendChild(st);
+        if (existing){ existing.textContent = buildCSS(); try{ existing.setAttribute('data-affo-desc', humanReadable); }catch(_){ } return; }
+        var st = document.createElement('style'); st.id = payload.styleId; st.textContent = buildCSS(); try{ st.setAttribute('data-affo-desc', humanReadable); }catch(_){ } document.documentElement.appendChild(st);
+        try { if (humanReadable) console.log('[AFFO] Inject:', humanReadable); } catch(_){ }
         try {
           // Keep our style last in the cascade to resist SPA hydration and route updates
           var moving = false;
@@ -374,7 +440,7 @@
       } catch (e) {}
     });
   } catch (e) {}
-  
+
   // Listen for messages from popup to apply fonts
   try {
     browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
@@ -405,7 +471,7 @@
           // Remove all font-face-off elements to restore original page
           const elementsToRemove = document.querySelectorAll('[id*="a-font-face-off"], [id*="affo-"]');
           elementsToRemove.forEach(el => el.remove());
-          
+
           // Also remove any data attributes we might have added
           const markedElements = document.querySelectorAll('[data-affo-font-type], [data-affo-guard], [data-affo-base]');
           markedElements.forEach(el => {
@@ -413,7 +479,7 @@
             el.removeAttribute('data-affo-guard');
             // Keep data-affo-base as it's just classification info
           });
-          
+
           console.log('Restored original page appearance for:', message.origin);
           sendResponse({success: true});
         } catch (error) {

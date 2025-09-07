@@ -82,6 +82,42 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "FK Roman Standard Trial";
+  src: url("https://db.onlinewebfonts.com/t/a2a38c80cf0357178a43afdc8e95e869.woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FK Roman Standard Trial";
+  src: url("https://db.onlinewebfonts.com/t/beb784012d429b8921e66081b20406b8.woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FK Roman Standard Trial";
+  src: url("https://db.onlinewebfonts.com/t/5b2e01844093ec2a8881f8caec25ea5e.woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FK Roman Standard Trial";
+  src: url("https://db.onlinewebfonts.com/t/b4a6d90ef7316c4bf2f7f0c2ff8ff26e.woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FK Roman Standard Trial";
+  src: url("https://db.onlinewebfonts.com/t/834183e3bc6e87253115df38c19ca08a.woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* Reset and base styles */
 * {
     margin: 0;
@@ -600,7 +636,7 @@ body.view-third-man-in .third-man-in-center-stack .favorite-btn {
     #body-font-controls {
         width: 33.333%; /* Tablet/Desktop: 1/3 of screen */
     }
-    
+
     #body-font-controls.visible {
         width: 33.333%; /* Stay at 1/3 when visible on tablets/desktop */
     }
@@ -716,34 +752,34 @@ body.view-third-man-in .controls-panel {
     .controls-panel {
         width: 80%; /* 80% width for all panels on mobile */
     }
-    
+
     /* Face-off mode: mobile panels at 80% width */
     #top-font-controls,
     #bottom-font-controls {
         width: 80%; /* 80% width for top and bottom panels */
     }
-    
+
     /* Body Contact mode: mobile panel at 80% width */
     #body-font-controls {
         width: 80%; /* 80% width for body panel */
     }
-    
+
     /* Third Man In mode: mobile panels at 80% width */
     #serif-font-controls,
     #sans-font-controls {
         width: 80%; /* 80% width for serif and sans panels */
     }
-    
+
     #mono-font-controls {
         width: 80%; /* 80% width for mono panel */
         left: 50%; /* Center position */
         transform: translateX(-50%); /* Center alignment */
     }
-    
+
     #mono-font-controls.visible {
         transform: translateX(-50%); /* Maintain center alignment when visible */
     }
-    
+
     /* Mobile: all panels overlay, no margin adjustments regardless of mode */
     body.view-faceoff #font-comparison.top-panel-open,
     body.view-faceoff #font-comparison.bottom-panel-open,

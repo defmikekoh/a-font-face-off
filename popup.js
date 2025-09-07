@@ -77,21 +77,21 @@ function loadModeSettings() {
     console.log('extensionState:', extensionState);
     const modeState = extensionState ? extensionState[currentViewMode] : null;
     console.log('modeState:', modeState);
-    
+
     // Debug: Check if we're actually in Third Man In mode based on UI
     const isThirdManInUI = document.body.classList.contains('view-third-man-in');
     console.log('loadModeSettings: UI shows third-man-in mode:', isThirdManInUI);
     if (isThirdManInUI && currentViewMode !== 'third-man-in') {
         console.error('loadModeSettings: MODE MISMATCH! UI is third-man-in but currentViewMode is', currentViewMode);
     }
-    
+
     // Safety check - ensure modeState exists
     if (!modeState) {
         console.error('modeState is undefined for currentViewMode:', currentViewMode);
         console.log('Available modes in extensionState:', extensionState ? Object.keys(extensionState) : 'extensionState is null');
         return;
     }
-    
+
     if (currentViewMode === 'body-contact') {
         console.log('In body-contact mode, modeState.bodyFont:', modeState?.bodyFont);
         // Body Contact mode - CHECK DOMAIN FIRST, then UI state fallback
@@ -108,7 +108,7 @@ function loadModeSettings() {
                         const config = buildConfigFromPayload('body', entry.body);
                         console.log('Built config:', config);
                         await applyFontConfig('body', config);
-                        
+
                         // Update button state to reflect that font matches applied state
                         console.log('About to update button after loading applied body state');
                         await updateBodyButtons();
@@ -117,10 +117,10 @@ function loadModeSettings() {
                         console.log('DOMAIN-FIRST: No applied body state found for origin:', origin, 'entry:', entry);
                     }
                 }
-                
+
                 // No domain-specific settings found - start with clean state (no UI state fallback)
                 console.log('DOMAIN ISOLATION: No applied settings for this domain - starting fresh');
-                
+
                 // Reset to completely unset state for this domain
                 const fontDisplay = document.getElementById('body-font-display');
                 const fontNameElement = document.getElementById('body-font-name');
@@ -131,13 +131,13 @@ function loadModeSettings() {
                 if (fontNameElement) {
                     fontNameElement.textContent = 'Default';
                 }
-                
+
                 // Ensure ALL controls are in unset state
                 const controlGroups = document.querySelectorAll('#body-font-controls .control-group');
                 controlGroups.forEach(group => {
                     group.classList.add('unset');
                 });
-                
+
                 // Reset all form controls to default values
                 const fontSelect = document.getElementById('body-font-select');
                 const colorSelect = document.getElementById('body-font-color');
@@ -149,7 +149,7 @@ function loadModeSettings() {
                 if (lineSlider) lineSlider.value = '1.5';
             } catch (error) {
                 console.warn('Error loading applied body state:', error);
-                
+
                 // Default unset state - no font loaded, all controls inactive
                 const fontDisplay = document.getElementById('body-font-display');
                 const fontNameElement = document.getElementById('body-font-name');
@@ -160,13 +160,13 @@ function loadModeSettings() {
                 if (fontNameElement) {
                     fontNameElement.textContent = 'Default';
                 }
-                
+
                 // Ensure ALL controls are in unset state
                 const controlGroups = document.querySelectorAll('#body-font-controls .control-group');
                 controlGroups.forEach(group => {
                     group.classList.add('unset');
                 });
-                
+
                 // Update buttons after setting default state
                 updateBodyButtons();
             }
@@ -176,22 +176,22 @@ function loadModeSettings() {
         setTimeout(async () => {
             try {
                 console.log('Third Man In mode: Loading applied fonts for domain');
-                
+
                 const origin = await getActiveOrigin();
                 if (origin) {
                     // Check what's actually applied to this domain
                     const thirdManData = await getApplyMapForOrigin(origin, 'third-man-in');
                     console.log('Third Man In loadModeSettings: Full thirdManData:', thirdManData);
-                    
+
                     // Load applied fonts (if any exist) and re-apply CSS
                     if (thirdManData && thirdManData.serif) {
                         console.log('loadModeSettings: Loading applied serif font:', thirdManData.serif);
-                        
+
                         // Directly load the font and update UI elements
                         if (thirdManData.serif.fontName) {
                             console.log('loadModeSettings: Loading serif font directly:', thirdManData.serif.fontName);
                             loadFont('serif', thirdManData.serif.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
-                            
+
                             // Also directly update the font display elements to ensure they show correctly
                             const updateSerifUI = () => {
                                 console.log('loadModeSettings: Updating serif UI elements with:', thirdManData.serif.fontName);
@@ -199,7 +199,7 @@ function loadModeSettings() {
                                 const fontNameElement = document.getElementById('serif-font-name');
                                 const fontSelect = document.getElementById('serif-font-select');
                                 console.log('loadModeSettings: Found serif elements - fontDisplay:', !!fontDisplay, 'fontNameElement:', !!fontNameElement, 'fontSelect:', !!fontSelect);
-                                
+
                                 if (fontDisplay) {
                                     console.log('loadModeSettings: Setting serif fontDisplay.textContent to:', thirdManData.serif.fontName);
                                     fontDisplay.textContent = thirdManData.serif.fontName;
@@ -217,23 +217,23 @@ function loadModeSettings() {
                                     console.log('loadModeSettings: After setting - serif fontSelect.value:', fontSelect.value);
                                 }
                             };
-                            
+
                             // Try immediate update first, then fallback with timeout
                             updateSerifUI();
                             setTimeout(updateSerifUI, 100);
                         }
-                        
+
                         // Re-apply CSS with font loading detection
                         setTimeout(() => reapplyThirdManInCSS('serif', thirdManData.serif), 500);
                     }
                     if (thirdManData && thirdManData.sans) {
                         console.log('loadModeSettings: Loading applied sans font:', thirdManData.sans);
-                        
+
                         // Directly load the font and update UI elements
                         if (thirdManData.sans.fontName) {
                             console.log('loadModeSettings: Loading sans font directly:', thirdManData.sans.fontName);
                             loadFont('sans', thirdManData.sans.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
-                            
+
                             // Also directly update the font display elements to ensure they show correctly
                             const updateSansUI = () => {
                                 console.log('loadModeSettings: Updating sans font display elements with:', thirdManData.sans.fontName);
@@ -241,7 +241,7 @@ function loadModeSettings() {
                                 const fontNameElement = document.getElementById('sans-font-name');
                                 const fontSelect = document.getElementById('sans-font-select');
                                 console.log('loadModeSettings: Found sans elements - fontDisplay:', !!fontDisplay, 'fontNameElement:', !!fontNameElement, 'fontSelect:', !!fontSelect);
-                                
+
                                 if (fontDisplay) {
                                     console.log('loadModeSettings: Setting sans fontDisplay.textContent to:', thirdManData.sans.fontName);
                                     fontDisplay.textContent = thirdManData.sans.fontName;
@@ -259,23 +259,23 @@ function loadModeSettings() {
                                     console.log('loadModeSettings: After setting - sans fontSelect.value:', fontSelect.value);
                                 }
                             };
-                            
+
                             // Try immediate update first, then fallback with timeout
                             updateSansUI();
                             setTimeout(updateSansUI, 100);
                         }
-                        
+
                         // Re-apply CSS with font loading detection
                         setTimeout(() => reapplyThirdManInCSS('sans', thirdManData.sans), 500);
                     }
                     if (thirdManData && thirdManData.mono) {
                         console.log('loadModeSettings: Loading applied mono font:', thirdManData.mono);
-                        
+
                         // Directly load the font and update UI elements
                         if (thirdManData.mono.fontName) {
                             console.log('loadModeSettings: Loading mono font directly:', thirdManData.mono.fontName);
                             loadFont('mono', thirdManData.mono.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
-                            
+
                             // Also directly update the font display elements to ensure they show correctly
                             const updateMonoUI = () => {
                                 console.log('loadModeSettings: Updating mono font display elements with:', thirdManData.mono.fontName);
@@ -283,7 +283,7 @@ function loadModeSettings() {
                                 const fontNameElement = document.getElementById('mono-font-name');
                                 const fontSelect = document.getElementById('mono-font-select');
                                 console.log('loadModeSettings: Found mono elements - fontDisplay:', !!fontDisplay, 'fontNameElement:', !!fontNameElement, 'fontSelect:', !!fontSelect);
-                                
+
                                 if (fontDisplay) {
                                     console.log('loadModeSettings: Setting mono fontDisplay.textContent to:', thirdManData.mono.fontName);
                                     fontDisplay.textContent = thirdManData.mono.fontName;
@@ -301,21 +301,21 @@ function loadModeSettings() {
                                     console.log('loadModeSettings: After setting - mono fontSelect.value:', fontSelect.value);
                                 }
                             };
-                            
+
                             // Try immediate update first, then fallback with timeout
                             updateMonoUI();
                             setTimeout(updateMonoUI, 100);
                         }
-                        
+
                         // Re-apply CSS with font loading detection
                         setTimeout(() => reapplyThirdManInCSS('mono', thirdManData.mono), 500);
                     }
                 }
-                
+
                 // Update Apply/Reset button states after loading
                 setTimeout(async () => {
                     await updateThirdManInButtons('serif');
-                    await updateThirdManInButtons('sans');  
+                    await updateThirdManInButtons('sans');
                     await updateThirdManInButtons('mono');
                 }, 100);
             } catch (e) {
@@ -351,7 +351,7 @@ function loadModeSettings() {
             // Use default font for this mode
             loadFont('top', 'ABeeZee');
         }
-        
+
         // Load bottom font - face-off mode always needs a font family
         if (modeState.bottomFont && modeState.bottomFont.fontName) {
             setTimeout(() => {
@@ -436,7 +436,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
     try {
         console.log(`reapplyThirdManInCSS: Re-applying ${fontType} font`, fontConfig);
         console.trace(`reapplyThirdManInCSS: Call stack for ${fontType}`);
-        
+
         // Wait for font to be loaded if it's a Google Font
         if (fontConfig.fontName && fontConfig.fontName !== 'Default') {
             console.log(`reapplyThirdManInCSS: Waiting for font ${fontConfig.fontName} to load`);
@@ -448,16 +448,16 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                         const testSize = '72px';
                         const fallbackFont = 'monospace';
                         const targetFont = '${fontConfig.fontName}';
-                        
+
                         const canvas = document.createElement('canvas');
                         const context = canvas.getContext('2d');
-                        
+
                         context.font = testSize + ' ' + fallbackFont;
                         const fallbackWidth = context.measureText(testText).width;
-                        
+
                         context.font = testSize + ' ' + targetFont + ', ' + fallbackFont;
                         const targetWidth = context.measureText(testText).width;
-                        
+
                         const loaded = Math.abs(targetWidth - fallbackWidth) > 1;
                         console.log('Font check:', targetFont, 'loaded:', loaded, 'fallback:', fallbackWidth, 'target:', targetWidth);
                         return loaded;
@@ -467,7 +467,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                     }
                 })();
             `;
-            
+
             // Try up to 5 times with 200ms intervals
             let fontLoaded = false;
             for (let i = 0; i < 5 && !fontLoaded; i++) {
@@ -485,7 +485,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                 }
             }
         }
-        
+
         // First, run DOM walker to re-mark elements
         try {
             const walkerScript = generateElementWalkerScript(fontType);
@@ -494,14 +494,14 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         } catch (e) {
             console.warn(`reapplyThirdManInCSS: Walker script failed for ${fontType}:`, e);
         }
-        
+
         // Then generate and apply CSS
         const cssCode = generateThirdManInCSS(fontType, fontConfig);
         if (cssCode) {
             console.log(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
             await browser.tabs.insertCSS({ code: cssCode });
             appliedCssActive[fontType] = cssCode;
-            
+
             // Verify the CSS was applied with comprehensive debugging
             setTimeout(() => {
                 try {
@@ -509,7 +509,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                         code: `
                             console.log('=== CSS VERIFICATION START ===');
                             console.log('CSS verification: Elements with ${fontType} marker:', document.querySelectorAll('[data-affo-font-type="${fontType}"]').length);
-                            
+
                             const elements = document.querySelectorAll('[data-affo-font-type="${fontType}"]');
                             if (elements.length > 0) {
                                 const firstEl = elements[0];
@@ -517,7 +517,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                                 console.log('CSS verification: First element tag:', firstEl.tagName);
                                 console.log('CSS verification: First element font-family:', style.fontFamily);
                                 console.log('CSS verification: First element text content (first 50 chars):', firstEl.textContent.slice(0, 50));
-                                
+
                                 // Check if there are any CSS rules targeting this element
                                 const matchedRules = [];
                                 for (let sheet of document.styleSheets) {
@@ -532,7 +532,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                                     }
                                 }
                                 console.log('CSS verification: Found font-type rules:', matchedRules.length, matchedRules);
-                                
+
                                 // Check if the font is actually loaded
                                 if (document.fonts && document.fonts.check) {
                                     const fontName = '${fontConfig.fontName}';
@@ -687,7 +687,8 @@ const AXIS_DEFAULTS = {
 // Custom fonts not in Google Fonts that we support
 const CUSTOM_FONTS = [
     'BBC Reith Serif',
-    'ABC Ginto Normal Unlicensed Trial'
+    'ABC Ginto Normal Unlicensed Trial',
+    'FK Roman Standard Trial',
 ];
 
 // Attempt to build a font definition for any Google Font at runtime
@@ -809,7 +810,7 @@ const axisInfo = {
         description: "Adjust the style from lighter to bolder in typographic color, by varying stroke weights, spacing and kerning, and other aspects of the type. This typically changes overall width, and so may be used in conjunction with Width and Grade axes."
     },
     wdth: {
-        name: "Width", 
+        name: "Width",
         description: "Adjust the style from narrower to wider, by varying the proportions of counters, strokes, spacing and kerning, and other aspects of the type. This typically changes the typographic color in a subtle way, and so may be used in conjunction with Weight and Grade axes."
     },
     opsz: {
@@ -837,7 +838,7 @@ const axisInfo = {
         description: "A parametric axis for varying thick stroke weights, such as stems. Controls the thickness of the main vertical strokes in letters."
     },
     YOPQ: {
-        name: "Thin Stroke", 
+        name: "Thin Stroke",
         description: "A parametric axis for varying thin stroke weights, such as bars and hairlines. Controls the thickness of horizontal strokes and thin details."
     },
     YTLC: {
@@ -922,7 +923,7 @@ async function updateBodyButtonsImmediate() {
     console.log('updateBodyButtons called');
     const applyBtn = document.getElementById('apply-body');
     const resetBtn = document.getElementById('reset-body');
-    
+
     try {
         const origin = await getActiveOrigin();
         if (!origin) {
@@ -931,11 +932,11 @@ async function updateBodyButtonsImmediate() {
             if (resetBtn) resetBtn.style.display = 'none';
             return;
         }
-        
+
         // Get current control values
         const currentConfig = getPanelFontConfig('body');
         console.log('Current config:', currentConfig);
-        
+
         // Get applied state from domain storage
         const data = await queuedStorage.get('affoApplyMap');
         const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
@@ -944,18 +945,18 @@ async function updateBodyButtonsImmediate() {
         console.log('Applied config:', appliedConfig);
         console.log('DEBUG: Full storage data:', data);
         console.log('DEBUG: Map for origin:', origin, 'entry:', entry);
-        
+
         // Compare current vs applied state
         const hasChanges = !configsEqual(currentConfig, appliedConfig);
         const hasAppliedState = !!appliedConfig;
-        
+
         console.log('DEBUG updateBodyButtons:', {
             hasChanges,
             hasAppliedState,
             currentConfig,
             appliedConfig
         });
-        
+
         if (hasChanges) {
             // Current values differ from applied - show Apply button
             if (applyBtn) {
@@ -965,7 +966,7 @@ async function updateBodyButtonsImmediate() {
             }
             if (resetBtn) resetBtn.style.display = 'none';
         } else if (hasAppliedState) {
-            // No changes but has applied state - show Reset button  
+            // No changes but has applied state - show Reset button
             if (applyBtn) applyBtn.style.display = 'none';
             if (resetBtn) {
                 resetBtn.style.display = 'block';
@@ -990,60 +991,60 @@ function configsEqual(config1, config2) {
     if (!config1 && !config2) return true;
     // One is null/undefined and the other isn't - they're different
     if (!config1 || !config2) return false;
-    
+
     // Compare font name (null and undefined are treated as equal)
     const font1 = config1.fontName || null;
     const font2 = config2.fontName || null;
     if (font1 !== font2) return false;
-    
+
     // Handle different config formats:
     // - config1: current flattened format
     // - config2: applied format with direct properties (fontWeight, fontSizePx, lineHeight)
-    
+
     // Compare active controls first - if they differ, configs are different
     const activeControls1 = getActiveControlsFromConfig(config1);
     const activeControls2 = getActiveControlsFromLegacyConfig(config2);
-    
+
     // Check if active control sets are equal
     if (activeControls1.size !== activeControls2.size) return false;
     for (const control of activeControls1) {
         if (!activeControls2.has(control)) return false;
     }
-    
+
     // Only compare values for active controls
     if (activeControls1.has('font-size')) {
         const fontSize1 = Number(config1.fontSize);
         const fontSize2 = Number(config2.fontSizePx || config2.fontSize);
         if (fontSize1 !== fontSize2) return false;
     }
-    
+
     if (activeControls1.has('line-height')) {
         const lineHeight1 = Number(config1.lineHeight);
         const lineHeight2 = Number(config2.lineHeight);
         if (lineHeight1 !== lineHeight2) return false;
     }
-    
+
     if (activeControls1.has('weight')) {
         const fontWeight1 = Number(config1.fontWeight);
         const fontWeight2 = Number(config2.fontWeight);
         if (fontWeight1 !== fontWeight2) return false;
     }
-    
+
     if (activeControls1.has('color')) {
         const fontColor1 = config1.fontColor;
         const fontColor2 = config2.fontColor;
         if (fontColor1 !== fontColor2) return false;
     }
-    
+
     // Compare variable axes
     const currentAxes = config1.variableAxes || {};
     const currentActiveAxes = getActiveAxesFromVariableAxes(currentAxes);
-    
+
     // Compare variable axes (using variableAxes format only)
     const appliedAxes = config2.variableAxes || {};
     const appliedActiveAxes = getActiveAxesFromVariableAxes(appliedAxes);
-    
-    
+
+
     // Check if active axes sets are equal
     if (currentActiveAxes.size !== appliedActiveAxes.size) {
         return false;
@@ -1051,14 +1052,14 @@ function configsEqual(config1, config2) {
     for (const axis of currentActiveAxes) {
         if (!appliedActiveAxes.has(axis)) return false;
     }
-    
+
     // Compare values for active axes
     for (const axis of currentActiveAxes) {
         const currentValue = Number(currentAxes[axis]);
         const appliedValue = Number(appliedAxes[axis]);
         if (currentValue !== appliedValue) return false;
     }
-    
+
     return true;
 }
 
@@ -1066,26 +1067,26 @@ function configsEqual(config1, config2) {
 function updateBodyPreview() {
     const textElement = document.getElementById('body-font-text');
     const headingElement = document.getElementById('body-font-name');
-    
+
     if (!textElement || !headingElement) return;
-    
+
     // Get current control values
     const fontSizeControl = document.getElementById('body-font-size');
     const lineHeightControl = document.getElementById('body-line-height');
     const fontWeightControl = document.getElementById('body-font-weight');
     const fontColorControl = document.getElementById('body-font-color');
-    
+
     if (!fontSizeControl || !lineHeightControl || !fontWeightControl || !fontColorControl) return;
-    
+
     // Apply styles to preview elements
     const fontSize = fontSizeControl.value + 'px';
     const lineHeight = lineHeightControl.value;
     const fontWeight = fontWeightControl.value;
     const fontColor = fontColorControl.value;
-    
+
     // Get active controls for body
     const activeControls = getActiveControls('body');
-    
+
     // Update text element
     if (activeControls.has('font-size')) {
         textElement.style.fontSize = fontSize;
@@ -1101,7 +1102,7 @@ function updateBodyPreview() {
     } else {
         textElement.style.color = '';
     }
-    
+
     // Update heading element
     headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
     if (fontColor !== 'default') {
@@ -1155,7 +1156,7 @@ async function saveFavoritesToStorage() {
         // Keep order aligned to existing keys
         const cleaned = savedFavoritesOrder.filter(name => savedFavorites[name] !== undefined);
         savedFavoritesOrder = cleaned;
-        await queuedStorage.set({ 
+        await queuedStorage.set({
             affoFavorites: savedFavorites,
             affoFavoritesOrder: cleaned
         });
@@ -1169,7 +1170,7 @@ async function loadExtensionState() {
     try {
         const result = await queuedStorage.get('affoUIState');
         console.log('Loading extension state from browser.storage.local:', result.affoUIState);
-        
+
         if (result.affoUIState) {
             const parsed = result.affoUIState;
             console.log('Parsed state:', parsed);
@@ -1233,7 +1234,7 @@ async function saveExtensionStateImmediate() {
             const serifConfig = getCurrentUIConfig('serif');
             const sansConfig = getCurrentUIConfig('sans');
             const monoConfig = getCurrentUIConfig('mono');
-            
+
             if (serifConfig) {
                 extensionState[currentViewMode].serifFont = serifConfig;
             } else {
@@ -1253,7 +1254,7 @@ async function saveExtensionStateImmediate() {
             // Face-off mode
             const topConfig = getCurrentUIConfig('top');
             const bottomConfig = getCurrentUIConfig('bottom');
-            
+
             if (topConfig) {
                 extensionState[currentViewMode].topFont = topConfig;
             } else {
@@ -1265,7 +1266,7 @@ async function saveExtensionStateImmediate() {
                 delete extensionState[currentViewMode].bottomFont;
             }
         }
-        
+
         // Always save after updating state
         await queuedStorage.set({ affoUIState: extensionState });
     } catch (error) {
@@ -1293,12 +1294,12 @@ function getActiveControlsFromUI(position) {
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-    
+
     if (sizeGroup && !sizeGroup.classList.contains('unset')) activeControls.add('font-size');
     if (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) activeControls.add('line-height');
     if (weightGroup && !weightGroup.classList.contains('unset')) activeControls.add('weight');
     if (colorGroup && !colorGroup.classList.contains('unset')) activeControls.add('color');
-    
+
     return activeControls;
 }
 
@@ -1306,20 +1307,20 @@ function getCurrentFontName(position) {
     const fontSelect = document.getElementById(`${position}-font-select`);
     const heading = document.getElementById(`${position}-font-name`);
     const rawFontName = (heading && heading.textContent) ? heading.textContent : (fontSelect ? fontSelect.value : '');
-    
+
     // For Third Man In mode, check for default states
     if (rawFontName) {
         const normalizedName = String(rawFontName).toLowerCase();
-        const isDefaultState = normalizedName === 'default' || 
-                              normalizedName === 'serif' || 
-                              normalizedName === 'sans' || 
+        const isDefaultState = normalizedName === 'default' ||
+                              normalizedName === 'serif' ||
+                              normalizedName === 'sans' ||
                               normalizedName === 'mono';
-        
+
         if (!isDefaultState) {
             return rawFontName;
         }
     }
-    
+
     return '';
 }
 
@@ -1355,97 +1356,97 @@ function getCurrentUIConfig(position) {
     const lineHeightControl = document.getElementById(`${position}-line-height`);
     const fontWeightControl = document.getElementById(`${position}-font-weight`);
     const fontColorControl = document.getElementById(`${position}-font-color`);
-    
+
     if (!fontSelect || !fontSizeControl || !lineHeightControl || !fontWeightControl) {
         return null;
     }
-    
+
     // Font color is optional for Third Man In mode positions
     const hasColorControl = !!fontColorControl;
-    
+
     const heading = document.getElementById(`${position}-font-name`);
     const rawFontName = (heading && heading.textContent) ? heading.textContent : fontSelect.value;
-    
+
     console.log(`getCurrentUIConfig(${position}): rawFontName="${rawFontName}", heading.textContent="${heading?.textContent}", fontSelect.value="${fontSelect?.value}"`);
-    
+
     // For Third Man In mode, check for default states
     let fontName = null;
     if (rawFontName) {
         const normalizedName = String(rawFontName).toLowerCase();
-        const isDefaultState = normalizedName === 'default' || 
-                              normalizedName === 'serif' || 
-                              normalizedName === 'sans' || 
+        const isDefaultState = normalizedName === 'default' ||
+                              normalizedName === 'serif' ||
+                              normalizedName === 'sans' ||
                               normalizedName === 'mono';
-        
+
         console.log(`getCurrentUIConfig(${position}): normalizedName="${normalizedName}", isDefaultState=${isDefaultState}`);
-        
+
         if (!isDefaultState) {
             fontName = rawFontName;
         }
     }
-    
+
     console.log(`getCurrentUIConfig(${position}): Final fontName="${fontName}"`);
-    
+
     // If no specific font is selected, we can still have control settings applied to default font
     // Only return undefined if there are absolutely no active controls
     if (!fontName) {
         console.log(`getCurrentUIConfig(${position}): No specific font selected, checking for active controls`);
-        
+
         // Check if any controls are active even without a specific font
         const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
         const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
         const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
         const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-        
+
         const hasActiveControls = (sizeGroup && !sizeGroup.classList.contains('unset')) ||
                                  (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) ||
                                  (weightGroup && !weightGroup.classList.contains('unset')) ||
                                  (colorGroup && !colorGroup.classList.contains('unset'));
-        
+
         if (!hasActiveControls) {
             console.log(`getCurrentUIConfig(${position}): No font and no active controls, returning undefined`);
             return undefined;
         }
-        
+
         // Allow fontName to remain null - we'll apply controls without changing font family
         fontName = null;
-                  
+
         console.log(`getCurrentUIConfig(${position}): Using default font "${fontName}" with active controls`);
     }
-    
+
     const fontSize = fontSizeControl.value;
     const lineHeight = lineHeightControl.value;
     const fontWeight = fontWeightControl.value;
     const fontColor = hasColorControl ? fontColorControl.value : '#000000';
-    
+
     // Get control groups to determine what's currently active (not unset)
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-    
+
     // Determine which controls are currently active (user has explicitly interacted with them)
     const activeFontSize = sizeGroup && !sizeGroup.classList.contains('unset');
     const activeLineHeight = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
     const activeWeight = weightGroup && !weightGroup.classList.contains('unset');
     const activeColor = colorGroup && !colorGroup.classList.contains('unset');
-    
-    
+
+
     // Return UI config with only currently active controls (flattened structure)
     const config = {
         fontName: fontName,
         variableAxes: {}
     };
-    
+
     // Only include active basic controls directly on config (no null values)
     if (activeFontSize) config.fontSize = parseFloat(fontSize);
     if (activeLineHeight) config.lineHeight = parseFloat(lineHeight);
     if (activeWeight) config.fontWeight = parseInt(fontWeight);
     if (activeColor) config.fontColor = fontColor;
-    
+
     // Get variable axis values (only for active/modified axes)
     const activeAxes = getActiveAxes(position);
-    
+
     const fontDef = getEffectiveFontDefinition(fontName);
     if (fontDef && fontDef.axes.length > 0) {
         fontDef.axes.forEach(axis => {
@@ -1455,25 +1456,25 @@ function getCurrentUIConfig(position) {
             }
         });
     }
-    
+
     return config;
 }
 
 // Convert savedEntry (storage format) to config format
 function savedEntryToConfig(savedEntry) {
     if (!savedEntry) return null;
-    
+
     const config = {
         fontName: savedEntry.fontName || null,
         variableAxes: savedEntry.variableAxes || {}
     };
-    
+
     // Only include properties that have values (no key approach)
     if (savedEntry.fontSizePx !== null && savedEntry.fontSizePx !== undefined) config.fontSize = savedEntry.fontSizePx;
     if (savedEntry.lineHeight !== null && savedEntry.lineHeight !== undefined) config.lineHeight = savedEntry.lineHeight;
     if (savedEntry.fontWeight !== null && savedEntry.fontWeight !== undefined) config.fontWeight = savedEntry.fontWeight;
     if (savedEntry.fontColor !== null && savedEntry.fontColor !== undefined) config.fontColor = savedEntry.fontColor;
-    
+
     return config;
 }
 
@@ -1483,36 +1484,36 @@ function mergeConfigsForApply(uiConfig, appliedConfig) {
     if (!uiConfig && !appliedConfig) {
         return null;
     }
-    
+
     // If only UI changes, use them directly
     if (!appliedConfig) {
         return uiConfig;
     }
-    
+
     // If no UI changes but have applied config, can't apply (nothing new)
     const activeControls = getActiveControlsFromConfig(uiConfig);
     if (!uiConfig || activeControls.size === 0) {
         return null;
     }
-    
+
     // Merge: Start with applied config, override with active UI controls (flattened structure)
     const merged = {
         fontName: uiConfig.fontName || appliedConfig.fontName,
         variableAxes: { ...appliedConfig.variableAxes }
     };
-    
+
     // Copy applied config font properties
     if (appliedConfig.fontSize) merged.fontSize = appliedConfig.fontSize;
     if (appliedConfig.lineHeight) merged.lineHeight = appliedConfig.lineHeight;
     if (appliedConfig.fontWeight) merged.fontWeight = appliedConfig.fontWeight;
     if (appliedConfig.fontColor) merged.fontColor = appliedConfig.fontColor;
-    
+
     // Override with active UI controls (UI config already only has active properties)
     if (uiConfig.fontSize !== undefined) merged.fontSize = uiConfig.fontSize;
     if (uiConfig.lineHeight !== undefined) merged.lineHeight = uiConfig.lineHeight;
     if (uiConfig.fontWeight !== undefined) merged.fontWeight = uiConfig.fontWeight;
     if (uiConfig.fontColor !== undefined) merged.fontColor = uiConfig.fontColor;
-    
+
     return merged;
 }
 
@@ -1542,7 +1543,7 @@ async function applyFontConfig(position, config) {
         // Suppress immediate apply/save during restore; we'll apply after values are set
         loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
     }
-    
+
     // Wait for font controls to be generated, then apply settings
     await new Promise(resolve => {
         setTimeout(() => {
@@ -1551,32 +1552,32 @@ async function applyFontConfig(position, config) {
         document.getElementById(`${position}-line-height`).value = config.lineHeight || 1.6;
         document.getElementById(`${position}-font-weight`).value = config.fontWeight || 400;
         document.getElementById(`${position}-font-color`).value = config.fontColor || '#000000';
-        
+
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
         if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
         if (lineHeightTextInput) lineHeightTextInput.value = config.lineHeight || 1.6;
-        
+
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
         if (fsVal) fsVal.textContent = (config.fontSize || 17) + 'px';
         document.getElementById(`${position}-line-height-value`).textContent = config.lineHeight || 1.6;
         document.getElementById(`${position}-font-weight-value`).textContent = config.fontWeight || 400;
-        
+
         // Restore active controls state from flattened config
         const activeControlsFromConfig = getActiveControlsFromConfig(config);
         console.log(`applyFontConfig: Restoring active controls for ${position}:`, Array.from(activeControlsFromConfig));
-        
+
         // Update UI state based on active controls
         activeControlsFromConfig.forEach(control => {
-                
+
                 // Remove "unset" class from control groups for active controls
-                const controlName = control === 'font-size' ? 'font-size' : 
+                const controlName = control === 'font-size' ? 'font-size' :
                                    control === 'line-height' ? 'line-height' :
-                                   control === 'weight' ? 'weight' : 
+                                   control === 'weight' ? 'weight' :
                                    control === 'color' ? 'color' : null;
-                                   
+
                 if (controlName) {
                     const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="${controlName}"]`);
                     console.log(`applyFontConfig: Control group for ${controlName}:`, controlGroup, 'had unset:', controlGroup?.classList.contains('unset'));
@@ -1586,7 +1587,7 @@ async function applyFontConfig(position, config) {
                     }
                 }
         });
-        
+
         // Also ensure all non-active controls are marked as unset
         ['font-size', 'line-height', 'weight', 'color'].forEach(control => {
             if (!activeControlsFromConfig.has(control)) {
@@ -1596,18 +1597,18 @@ async function applyFontConfig(position, config) {
                 }
             }
         });
-        
+
         // Apply variable axis values and states
         if (config.variableAxes) {
             Object.entries(config.variableAxes).forEach(([axis, value]) => {
                 const control = document.getElementById(`${position}-${axis}`);
                 const textInput = document.getElementById(`${position}-${axis}-text`);
                 const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
-                
+
                 if (control) {
                     control.value = value;
                     if (textInput) textInput.value = value;
-                    
+
                     // Since the axis is in variableAxes, it's active - remove unset
                     if (controlGroup) {
                         controlGroup.classList.remove('unset');
@@ -1615,7 +1616,7 @@ async function applyFontConfig(position, config) {
                 }
             });
         }
-        
+
         // Handle weight control state
         const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
         if (weightControl) {
@@ -1625,7 +1626,7 @@ async function applyFontConfig(position, config) {
                 weightControl.classList.add('unset');
             }
         }
-        
+
         // Handle font-size control state
         const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
         if (sizeControl) {
@@ -1635,7 +1636,7 @@ async function applyFontConfig(position, config) {
                 sizeControl.classList.add('unset');
             }
         }
-        
+
         // Handle line height control state
         const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
         if (lineHeightControl) {
@@ -1645,15 +1646,15 @@ async function applyFontConfig(position, config) {
                 lineHeightControl.classList.add('unset');
             }
         }
-        
+
         // Apply the font
         applyFont(position);
-        
+
         // Update preview to reflect restored settings
         if (position === 'body') {
             updateBodyPreview();
         }
-        
+
         // Resolve the promise to indicate completion
         resolve();
     }, 100);
@@ -1664,7 +1665,7 @@ async function applyFontConfig(position, config) {
 function showCustomAlert(message) {
     const alertModal = document.getElementById('custom-alert');
     const alertMessage = document.getElementById('custom-alert-message');
-    
+
     alertMessage.textContent = message;
     alertModal.classList.add('visible');
 }
@@ -1681,26 +1682,26 @@ function showCustomConfirm(message) {
         const confirmMessage = document.getElementById('custom-confirm-message');
         const cancelBtn = document.getElementById('custom-confirm-cancel');
         const okBtn = document.getElementById('custom-confirm-ok');
-        
+
         confirmMessage.textContent = message;
         confirmModal.classList.add('visible');
-        
+
         const cleanup = () => {
             confirmModal.classList.remove('visible');
             cancelBtn.removeEventListener('click', handleCancel);
             okBtn.removeEventListener('click', handleOk);
         };
-        
+
         const handleCancel = () => {
             cleanup();
             resolve(false);
         };
-        
+
         const handleOk = () => {
             cleanup();
             resolve(true);
         };
-        
+
         cancelBtn.addEventListener('click', handleCancel);
         okBtn.addEventListener('click', handleOk);
     });
@@ -1717,22 +1718,22 @@ let currentTooltip = null;
 
 function showTooltip(e) {
     hideTooltip(); // Hide any existing tooltip
-    
+
     const description = this.getAttribute('data-tooltip');
     if (!description) return;
-    
+
     const tooltip = document.createElement('div');
     tooltip.className = 'axis-tooltip';
     tooltip.textContent = description;
     document.body.appendChild(tooltip);
-    
+
     // Position tooltip
     const rect = this.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    
+
     let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
     let top = rect.bottom + 5;
-    
+
     // Keep tooltip on screen
     if (left < 5) left = 5;
     if (left + tooltipRect.width > window.innerWidth - 5) {
@@ -1741,11 +1742,11 @@ function showTooltip(e) {
     if (top + tooltipRect.height > window.innerHeight - 5) {
         top = rect.top - tooltipRect.height - 5;
     }
-    
+
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
     tooltip.style.display = 'block';
-    
+
     currentTooltip = tooltip;
 }
 
@@ -1820,7 +1821,7 @@ async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
                     opt.textContent = desired;
                     sel.insertBefore(opt, sel.firstChild);
                     sel.value = desired;
-                } 
+                }
             }
         });
         return true;
@@ -1858,7 +1859,8 @@ function setupFontPicker() {
 
     const customPinned = [
         'BBC Reith Serif',
-        'ABC Ginto Normal Unlicensed Trial'
+        'ABC Ginto Normal Unlicensed Trial',
+        'FK Roman Standard Trial'
     ];
 
     let currentPosition = 'top';
@@ -2016,13 +2018,13 @@ function selectFont(name) {
         const group = displayEl.closest('.control-group');
         if (group) group.classList.remove('unset');
     }
-    
-    
+
+
     // For body mode, update buttons after font selection
     if (currentPosition === 'body') {
         updateBodyButtons();
     }
-    
+
     // For Third Man In mode, update the preview instead of calling applyFont
     if (['serif', 'sans', 'mono'].includes(currentPosition)) {
         // Ensure font name heading is updated for Third Man In mode BEFORE loadFont
@@ -2031,10 +2033,10 @@ function selectFont(name) {
             console.log(`selectFont: Updating ${currentPosition}-font-name from "${fontNameDisplayElement.textContent}" to "${name}"`);
             fontNameDisplayElement.textContent = name;
         }
-        
+
         // Load the font CSS first, then update preview
         loadFont(currentPosition, name, { suppressImmediateApply: true, suppressImmediateSave: false });
-        
+
         updateThirdManInPreview(currentPosition);
         // Update buttons to show Apply All when font changes
         // Add some delay and check if font selection triggered button update
@@ -2121,16 +2123,15 @@ function loadFont(position, fontName, options = {}) {
     if (currentFontName && currentFontName !== fontName) {
         saveFontSettings(position, currentFontName);
     }
-    
+
     // Active axes will be cleared when font controls are reset to unset state
-    
+
     // Load font CSS (Google Fonts or custom fonts)
     if (fontName === 'ABC Ginto Normal Unlicensed Trial' || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(fontName)) {
         // Ensure Ginto CSS is present (choose Normal or Nord stylesheet)
         const id = 'ginto-css-link';
-        const href = (fontName === 'ABC Ginto Normal Unlicensed Trial')
-            ? 'https://fonts.cdnfonts.com/css/abc-ginto-normal-unlicensed-trial'
-            : 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
+        // Some distributions host the Normal family within the Nord URL; prefer the Nord CSS for coverage
+        const href = 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
         if (!document.getElementById(id)) {
             const link = document.createElement('link');
             link.id = id;
@@ -2153,7 +2154,7 @@ function loadFont(position, fontName, options = {}) {
                 }).catch(() => {});
             }
         }
-    } else if (fontName !== 'BBC Reith Serif') {
+    } else if (fontName !== 'BBC Reith Serif' && fontName !== 'FK Roman Standard Trial') {
         // Also kick off dynamic axis discovery in background for Google families
         loadGoogleFont(fontName);
         getOrCreateFontDefinition(fontName).then(() => {
@@ -2166,7 +2167,7 @@ function loadFont(position, fontName, options = {}) {
         }).catch(err => console.warn('Dynamic axis discovery failed', err));
     }
     // Custom fonts are already loaded via CSS @font-face declarations
-    
+
     // Update font name display
     const fontNameDisplayElement = document.getElementById(`${position}-font-name`);
     if (fontNameDisplayElement) {
@@ -2176,31 +2177,31 @@ function loadFont(position, fontName, options = {}) {
     if (familyDisplay) {
         familyDisplay.textContent = fontName;
         familyDisplay.classList.remove('placeholder');
-        
+
         // Update default styling based on content
         if (fontName === 'Default') {
             familyDisplay.classList.add('default');
         } else {
             familyDisplay.classList.remove('default');
         }
-        
+
         const group = familyDisplay.closest('.control-group');
         if (group) group.classList.remove('unset');
     }
-    
+
     // Generate controls for this font
     generateFontControls(position, fontName);
-    
+
     // Restore saved settings for this font (if any)
     restoreFontSettings(position, fontName);
-    
+
     // Apply font to text (unless suppressed to allow a restore to set values first)
     if (!suppressImmediateApply) {
         applyFont(position);
     }
-    
+
     // Basic controls are set up via DOMContentLoaded event listeners
-    
+
     // Save current state unless explicitly suppressed (restores will save after values are applied)
     if (!suppressImmediateSave) {
         setTimeout(() => saveExtensionState(), 100);
@@ -2215,7 +2216,7 @@ function loadFont(position, fontName, options = {}) {
 function ensurePreconnect(origin, crossorigin = false) {
     const selector = `link[rel="preconnect"][href="${origin}"]`;
     if (document.head.querySelector(selector)) return;
-    
+
     const link = document.createElement('link');
     link.rel = 'preconnect';
     link.href = origin;
@@ -2234,14 +2235,14 @@ async function loadGoogleFont(fontName) {
     if (!fontName || String(fontName).trim() === '' || String(fontName).toLowerCase() === 'default') {
         return;
     }
-    
+
     // Check if font is already loaded
     const existingLink = document.querySelector(`link[data-font="${fontName}"]`);
     if (existingLink) return;
-    
+
     // Prefer axis-tag form to guarantee variable family + axes are served
     const fontUrl = await buildCss2Url(fontName);
-    
+
     // Skip if no URL was generated (should already be handled by buildCss2Url, but double-check)
     if (!fontUrl) return;
 
@@ -2260,9 +2261,9 @@ async function loadGoogleFont(fontName) {
     link.media = 'print'; // Load in background
     link.crossOrigin = 'anonymous';
     link.setAttribute('data-font', fontName);
-    link.onload = () => { 
+    link.onload = () => {
         link.media = 'all'; // Switch to active
-        try { console.log(`[Fonts] css2 loaded for ${fontName}`); } catch (_) {} 
+        try { console.log(`[Fonts] css2 loaded for ${fontName}`); } catch (_) {}
     };
     link.onerror = () => { try { console.warn(`[Fonts] css2 failed for ${fontName}: ${fontUrl}`); } catch (_) {} };
     document.head.appendChild(link);
@@ -2274,7 +2275,7 @@ async function buildCss2Url(fontName) {
     if (!fontName || String(fontName).trim() === '' || String(fontName).toLowerCase() === 'default') {
         return '';
     }
-    
+
     const familyParam = familyToQuery(fontName);
     // Prefer curated axis-tag ranges from local data file (no probe)
     try { await ensureCss2AxisRanges(); } catch (_) {}
@@ -2367,14 +2368,14 @@ function buildCss2AxisRangesFromMetadata(md) {
 }
 
 function generateFontControls(position, fontName) {
-    const axesSection = document.getElementById(`${position}-axes-section`) || 
+    const axesSection = document.getElementById(`${position}-axes-section`) ||
                         document.getElementById(`${position}-variable-axes`);
     // Pull dynamic defs when available
     const fontDef = dynamicFontDefinitions[fontName] || fontDefinitions[fontName];
-    
+
     // Clear existing axes controls
     if (!axesSection) return; // Safety check
-    
+
     if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
         // Body and Third Man In panels have container structure: clear the container, not the whole section
         const axesContainer = document.getElementById(`${position}-axes-container`);
@@ -2385,7 +2386,7 @@ function generateFontControls(position, fontName) {
         // Top/bottom positions: clear the whole section
         axesSection.innerHTML = '<h3>Variable Axes</h3>';
     }
-    
+
     if (!fontDef || fontDef.axes.length === 0) {
         const noAxesMsg = '<p class="no-axes">This font has no variable axes.</p>';
         if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
@@ -2398,32 +2399,32 @@ function generateFontControls(position, fontName) {
         }
         return;
     }
-    
+
     // Create controls for each axis
     fontDef.axes.forEach(axis => {
         const range = fontDef.ranges[axis];
         const step = fontDef.steps[axis];
         const defaultValue = fontDef.defaults[axis];
         const axisData = axisInfo[axis] || { name: axis, description: `${axis} axis` };
-        
+
         const controlGroup = document.createElement('div');
         controlGroup.className = 'control-group unset'; // Start as unset/dimmed
         controlGroup.setAttribute('data-axis', axis);
-        
+
         // Row 1: Label with help icon
         const labelRow = document.createElement('div');
         labelRow.className = 'control-row label-row';
-        
+
         const label = document.createElement('label');
         label.setAttribute('for', `${position}-${axis}`);
         // Build label content so the info button sits right after the axis name
         label.textContent = `${axisData.name}: `;
-        
+
         const infoButton = document.createElement('span');
         infoButton.className = 'axis-info-btn';
         infoButton.innerHTML = '?';
         infoButton.setAttribute('data-tooltip', axisData.description);
-        
+
         // Add custom tooltip functionality
         infoButton.addEventListener('mouseenter', showTooltip);
         infoButton.addEventListener('mouseleave', hideTooltip);
@@ -2433,7 +2434,7 @@ function generateFontControls(position, fontName) {
             showTooltip.call(this, e);
             setTimeout(() => hideTooltip.call(this), 3000);
         });
-        
+
         // Place the info button directly after the axis name
         label.appendChild(infoButton);
         // Add the axis tag after the info button
@@ -2442,17 +2443,17 @@ function generateFontControls(position, fontName) {
         axisTag.textContent = `(${axis})`;
         label.appendChild(axisTag);
         labelRow.appendChild(label);
-        
+
         // Row 2: Reset button, text input
         const inputRow = document.createElement('div');
         inputRow.className = 'control-row input-row';
-        
+
         const resetButton = document.createElement('span');
         resetButton.className = 'axis-reset-btn';
         resetButton.innerHTML = '↻';
         resetButton.title = 'Reset to default';
         resetButton.setAttribute('data-axis', axis);
-        
+
         const textInput = document.createElement('input');
         textInput.type = 'number';
         textInput.id = `${position}-${axis}-text`;
@@ -2461,14 +2462,14 @@ function generateFontControls(position, fontName) {
         textInput.max = range[1];
         textInput.step = step;
         textInput.value = defaultValue;
-        
+
         inputRow.appendChild(resetButton);
         inputRow.appendChild(textInput);
-        
+
         // Row 3: Slider
         const sliderRow = document.createElement('div');
         sliderRow.className = 'control-row slider-row';
-        
+
         const input = document.createElement('input');
         input.type = 'range';
         input.id = `${position}-${axis}`;
@@ -2476,14 +2477,14 @@ function generateFontControls(position, fontName) {
         input.max = range[1];
         input.step = step;
         input.value = defaultValue;
-        
+
         sliderRow.appendChild(input);
-        
+
         // Assemble the control group
         controlGroup.appendChild(labelRow);
         controlGroup.appendChild(inputRow);
         controlGroup.appendChild(sliderRow);
-        
+
         // Append to the correct container based on position
         if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
             const axesContainer = document.getElementById(`${position}-axes-container`);
@@ -2493,13 +2494,13 @@ function generateFontControls(position, fontName) {
         } else {
             axesSection.appendChild(controlGroup);
         }
-        
+
         // Add event listeners for both slider and text input
         function activateAxis() {
             console.log(`activateAxis called for ${position}-${axis}`, controlGroup);
             // Remove 'unset' class to mark axis as active
             controlGroup.classList.remove('unset');
-            
+
             // Always update button states when axis is activated (even if already active)
             if (position === 'body') {
                 updateBodyButtons();
@@ -2508,12 +2509,12 @@ function generateFontControls(position, fontName) {
                 setTimeout(async () => await updateThirdManInButtons(position), 50);
             }
         }
-        
+
         function updateValues(newValue) {
             input.value = newValue;
             textInput.value = newValue;
             applyFont(position);
-            
+
             // Update button states after changing axis value
             if (position === 'body') {
                 updateBodyButtons();
@@ -2522,12 +2523,12 @@ function generateFontControls(position, fontName) {
                 setTimeout(async () => await updateThirdManInButtons(position), 50);
             }
         }
-        
+
         input.addEventListener('input', function() {
             activateAxis();
             updateValues(this.value);
         });
-        
+
         textInput.addEventListener('keydown', function(e) {
             console.log(`keydown event on ${position}-${axis}-text, key:`, e.key);
             if (e.key === 'Enter') {
@@ -2538,14 +2539,14 @@ function generateFontControls(position, fontName) {
                 this.blur();
             }
         });
-        
+
         textInput.addEventListener('blur', function() {
             // Clamp value to valid range on blur
             const value = Math.min(Math.max(parseFloat(this.value) || defaultValue, range[0]), range[1]);
             activateAxis();
             updateValues(value);
         });
-        
+
         resetButton.addEventListener('click', function() {
             // Reset to default and make unset/dimmed again
             updateValues(defaultValue);
@@ -2555,7 +2556,7 @@ function generateFontControls(position, fontName) {
             applyFont(position);
         });
     });
-    
+
     // Store controls reference (only for top/bottom positions - body mode doesn't use this)
     if (position === 'top') {
         topFontControlsVars = {};
@@ -2595,7 +2596,7 @@ function formatAxisValue(axis, value) {
 
 async function toggleApplyToPage(position, forceApply = false) {
     console.log(`toggleApplyToPage called for position: ${position}, forceApply: ${forceApply}`);
-    const genericKey = (position === 'top') ? 'serif' : 
+    const genericKey = (position === 'top') ? 'serif' :
                       (position === 'body') ? 'body' : 'sans';
     try {
         const origin = await getActiveOrigin();
@@ -2611,18 +2612,18 @@ async function toggleApplyToPage(position, forceApply = false) {
                 console.log(`toggleApplyToPage: savedEntry =`, savedEntry);
             } catch (_) { savedEntry = null; }
         }
-        
+
         // If there is a saved entry and current UI matches it, treat this click as Unapply (unless forceApply is true)
         console.log(`toggleApplyToPage: Checking if savedEntry exists:`, !!savedEntry);
         if (savedEntry && !forceApply) {
             console.log(`toggleApplyToPage: savedEntry details:`, savedEntry);
             const currentPayload = getCurrentUIConfig(position);
             console.log(`toggleApplyToPage: currentPayload:`, currentPayload);
-            
+
             // Only unapply if current UI config matches saved config exactly
             const configsMatch = currentPayload && configsEqual(savedEntry, currentPayload);
             console.log(`toggleApplyToPage: configsMatch:`, configsMatch);
-            
+
             if (configsMatch) {
                 // Remove immediate CSS if present
                 if (appliedCssActive[genericKey]) {
@@ -2660,47 +2661,47 @@ async function toggleApplyToPage(position, forceApply = false) {
         const cfg = getCurrentUIConfig(position);
         console.log(`toggleApplyToPage: getCurrentUIConfig returned:`, cfg);
         if (!cfg) return false;
-        
+
         // If updating existing config, preserve previously applied settings
         if (savedEntry) {
             console.log(`toggleApplyToPage: Merging with savedEntry to preserve settings`);
-            
+
             // Only preserve previously applied controls that aren't explicitly unset in UI
             // Use position-specific selectors to avoid unnecessary DOM queries
-            const controlsPanel = position === 'body' ? '#body-font-controls' : 
+            const controlsPanel = position === 'body' ? '#body-font-controls' :
                                 position === 'top' ? '#top-font-controls' : '#bottom-font-controls';
             const sizeGroup = document.querySelector(`${controlsPanel} .control-group[data-control="font-size"]`);
             const lineHeightGroup = document.querySelector(`${controlsPanel} .control-group[data-control="line-height"]`);
             const weightGroup = document.querySelector(`${controlsPanel} .control-group[data-control="weight"]`);
             const colorGroup = document.querySelector(`${controlsPanel} .control-group[data-control="color"]`);
-            
+
             // Only preserve if control is NOT explicitly unset (user hasn't reset it)
             if (!cfg.fontSize && (!sizeGroup || !sizeGroup.classList.contains('unset')) && savedEntry.fontSizePx !== null && savedEntry.fontSizePx !== undefined) {
                 cfg.fontSize = savedEntry.fontSizePx;
                 console.log(`toggleApplyToPage: Preserved fontSizePx: ${savedEntry.fontSizePx}`);
             }
-            
+
             if (!cfg.lineHeight && (!lineHeightGroup || !lineHeightGroup.classList.contains('unset')) && savedEntry.lineHeight !== null && savedEntry.lineHeight !== undefined) {
                 cfg.lineHeight = savedEntry.lineHeight;
                 console.log(`toggleApplyToPage: Preserved lineHeight: ${savedEntry.lineHeight}`);
             }
-            
+
             if (!cfg.fontWeight && (!weightGroup || !weightGroup.classList.contains('unset')) && savedEntry.fontWeight !== null && savedEntry.fontWeight !== undefined) {
                 cfg.fontWeight = savedEntry.fontWeight;
                 console.log(`toggleApplyToPage: Preserved fontWeight: ${savedEntry.fontWeight}`);
             }
-            
+
             if (!cfg.fontColor && (!colorGroup || !colorGroup.classList.contains('unset')) && savedEntry.fontColor !== null && savedEntry.fontColor !== undefined) {
                 cfg.fontColor = savedEntry.fontColor;
                 console.log(`toggleApplyToPage: Preserved fontColor: ${savedEntry.fontColor}`);
             } else if (colorGroup && colorGroup.classList.contains('unset')) {
                 console.log(`toggleApplyToPage: Color is explicitly unset - NOT preserving color`);
             }
-            
+
             console.log(`toggleApplyToPage: Final merged config:`, cfg);
         }
         const fontName = cfg.fontName;
-        const isCustom = (!!fontName) && (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial');
+        const isCustom = (!!fontName) && (fontName === 'BBC Reith Serif' || fontName === 'ABC Ginto Normal Unlicensed Trial' || fontName === 'FK Roman Standard Trial');
         const css2Url = isCustom ? '' : await buildCss2Url(fontName);
         // Determine if this origin should be FontFace-only
         let fontFaceOnly = false;
@@ -2779,7 +2780,7 @@ async function toggleApplyToPage(position, forceApply = false) {
         const baseSel = "body, " +
                         "body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role=\\\"navigation\\\"]):not([role=\\\"banner\\\"]):not([role=\\\"contentinfo\\\"]):not([role=\\\"complementary\\\"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^=\\\"language-\\\"]):not([class*=\\\" language-\\\"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)";
         lines.push(baseSel + ' { ' + decl.join('; ') + '; }');
-        
+
         // Add high-specificity color rule to override website styles
         if (colorActive && cfg.fontColor && cfg.fontColor !== 'default') {
             const colorOnlySelector = "html body, " +
@@ -2797,12 +2798,12 @@ async function toggleApplyToPage(position, forceApply = false) {
         if (varParts.length) {
             const wghtParts = varParts.filter(p => /^"wght"\s/.test(p));
             const nonWghtParts = varParts.filter(p => !/^"wght"\s/.test(p));
-            
+
             // Apply all non-wght axes to all elements
             if (nonWghtParts.length) {
                 lines.push(baseSel + ' { font-variation-settings: ' + nonWghtParts.join(', ') + ' !important; }');
             }
-            
+
             // Apply wght axis - bold elements already excluded by baseSel
             // Combine with non-wght axes if both exist
             if (wghtParts.length) {
@@ -2825,7 +2826,7 @@ async function toggleApplyToPage(position, forceApply = false) {
                 console.warn('Failed to execute Body Contact cleanup:', e);
             }
             */
-            
+
             await browser.tabs.insertCSS({ code: cssCode });
             appliedCssActive[genericKey] = cssCode;
         } else {
@@ -2841,12 +2842,12 @@ async function toggleApplyToPage(position, forceApply = false) {
                 styleId: 'a-font-face-off-style-' + genericKey,
                 linkId: 'a-font-face-off-style-' + genericKey + '-link'
             };
-            
+
             // Only store fontName if it exists
             if (fontName) {
                 payload.fontName = fontName;
             }
-            
+
             // Only include properties that have actual values (no null properties)
             if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
                 payload.variableAxes = cfg.variableAxes;
@@ -2885,17 +2886,17 @@ async function toggleThirdManInFont(fontType) {
             console.log('toggleThirdManInFont: No origin, returning false');
             return false;
         }
-        
+
         const mode = 'third-man-in';
         const position = fontType; // serif, sans, mono
         const modeData = await getApplyMapForOrigin(origin, mode);
         const savedEntry = modeData ? modeData[fontType] : null;
-        
+
         // Build current payload
         const currentPayload = buildThirdManInPayload(fontType);
         console.log(`toggleThirdManInFont: savedEntry:`, savedEntry);
         console.log(`toggleThirdManInFont: currentPayload:`, currentPayload);
-        
+
         // If saved entry exists and matches current, treat as unapply
         if (savedEntry && currentPayload && payloadEquals(savedEntry, currentPayload)) {
             console.log(`toggleThirdManInFont: Payloads match, treating as unapply`);
@@ -2904,10 +2905,10 @@ async function toggleThirdManInFont(fontType) {
                 try { await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }); } catch (_) {}
                 appliedCssActive[fontType] = null;
             }
-            
+
             // Clear from storage - only this specific font type
             await clearApplyMapForOrigin(origin, mode, fontType);
-            
+
             // Remove injected style elements and clean up data attributes
             const styleId = `a-font-face-off-${fontType}-style`;
             const linkId = `${styleId}-link`;
@@ -2925,10 +2926,10 @@ async function toggleThirdManInFont(fontType) {
                     })();
                 `});
             } catch (_) {}
-            
+
             return false; // Unapplied
         }
-        
+
         // Apply new font configuration
         console.log(`toggleThirdManInFont: About to apply new font configuration`);
         if (currentPayload) {
@@ -2937,7 +2938,7 @@ async function toggleThirdManInFont(fontType) {
             if (appliedCssActive[fontType]) {
                 try { await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }); } catch (_) {}
             }
-            
+
             // First, run DOM walker to identify and mark elements
             console.log(`toggleThirdManInFont: About to run walker script for ${fontType}`);
             try {
@@ -2948,7 +2949,31 @@ async function toggleThirdManInFont(fontType) {
             } catch (e) {
                 console.error(`toggleThirdManInFont: Failed to execute element walker for ${fontType}:`, e);
             }
-            
+
+            // Ensure custom fonts are available in the page before applying CSS
+            try {
+                const fn = currentPayload.fontName || '';
+                const linkId = `a-font-face-off-${fontType}-style-link`;
+                let ensureCode = '';
+                if (/ABC\s+Ginto\s+Normal\s+Unlicensed\s+Trial/i.test(fn) || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(fn)) {
+                    // Prefer Nord CSS which often includes both Normal and Nord families
+                    const href = 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
+                    ensureCode = `(() => { try { var id = ${JSON.stringify(linkId)}; var href=${JSON.stringify(href)}; var l=document.getElementById(id); if(!l){ l=document.createElement('link'); l.id=id; l.rel='stylesheet'; l.href=href; document.documentElement.appendChild(l);} if(document.fonts&&document.fonts.load){ document.fonts.load('400 1em "${fn.replace(/`/g, '\\`')}"').catch(()=>{}); document.fonts.load('700 1em "${fn.replace(/`/g, '\\`')}"').catch(()=>{}); document.fonts.load('italic 400 1em "${fn.replace(/`/g, '\\`')}"').catch(()=>{});} } catch(e){} })();`;
+                } else if (fn === 'BBC Reith Serif') {
+                    const css = `@font-face{font-family:"BBC Reith Serif";src:url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");font-weight:400;font-style:normal;font-display:swap;}\n@font-face{font-family:"BBC Reith Serif";src:url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Bd.woff2");font-weight:700;font-style:normal;font-display:swap;}\n@font-face{font-family:"BBC Reith Serif";src:url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_It.woff2");font-weight:400;font-style:italic;font-display:swap;}\n@font-face{font-family:"BBC Reith Serif";src:url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_BdIt.woff2");font-weight:700;font-style:italic;font-display:swap;}`;
+                    ensureCode = `(() => { try { var id=${JSON.stringify(linkId)}; var st=document.getElementById(id); if(!st){ st=document.createElement('style'); st.id=id; st.textContent=${JSON.stringify(css)}; document.head.appendChild(st);} if(document.fonts&&document.fonts.load){ document.fonts.load('400 1em "${fn}"').catch(()=>{}); document.fonts.load('700 1em "${fn}"').catch(()=>{}); document.fonts.load('italic 400 1em "${fn}"').catch(()=>{});} } catch(e){} })();`;
+                } else if (fn === 'FK Roman Standard Trial') {
+                    const css = `@font-face{font-family:"FK Roman Standard Trial";src:url("https://db.onlinewebfonts.com/t/a2a38c80cf0357178a43afdc8e95e869.woff2");font-weight:400;font-style:normal;font-display:swap;}\n@font-face{font-family:"FK Roman Standard Trial";src:url("https://db.onlinewebfonts.com/t/beb784012d429b8921e66081b20406b8.woff2");font-weight:500;font-style:normal;font-display:swap;}\n@font-face{font-family:"FK Roman Standard Trial";src:url("https://db.onlinewebfonts.com/t/5b2e01844093ec2a8881f8caec25ea5e.woff2");font-weight:700;font-style:normal;font-display:swap;}\n@font-face{font-family:"FK Roman Standard Trial";src:url("https://db.onlinewebfonts.com/t/b4a6d90ef7316c4bf2f7f0c2ff8ff26e.woff2");font-weight:400;font-style:italic;font-display:swap;}\n@font-face{font-family:"FK Roman Standard Trial";src:url("https://db.onlinewebfonts.com/t/834183e3bc6e87253115df38c19ca08a.woff2");font-weight:700;font-style:italic;font-display:swap;}`;
+                    ensureCode = `(() => { try { var id=${JSON.stringify(linkId)}; var st=document.getElementById(id); if(!st){ st=document.createElement('style'); st.id=id; st.textContent=${JSON.stringify(css)}; document.head.appendChild(st);} if(document.fonts&&document.fonts.load){ document.fonts.load('400 1em "${fn}"').catch(()=>{}); document.fonts.load('500 1em "${fn}"').catch(()=>{}); document.fonts.load('700 1em "${fn}"').catch(()=>{}); document.fonts.load('italic 400 1em "${fn}"').catch(()=>{});} } catch(e){} })();`;
+                }
+                if (ensureCode) {
+                    const injResult = await browser.tabs.executeScript({ code: ensureCode });
+                    console.log('toggleThirdManInFont: Ensured custom font availability:', injResult);
+                }
+            } catch (e) {
+                console.warn('toggleThirdManInFont: Custom font ensure failed:', e);
+            }
+
             // Generate and apply CSS
             const cssCode = generateThirdManInCSS(fontType, currentPayload);
             console.log(`toggleThirdManInFont: Generated CSS length: ${cssCode ? cssCode.length : 'null'}`);
@@ -2959,29 +2984,29 @@ async function toggleThirdManInFont(fontType) {
                     // Try both methods: browser.tabs.insertCSS and direct <style> injection
                     await browser.tabs.insertCSS({ code: cssCode });
                     console.log(`toggleThirdManInFont: CSS injection successful`);
-                    
+
                     // Also inject via <style> element for better persistence
                     const styleInjectionScript = `
                         (function() {
                             // Remove any existing style
                             const existingStyle = document.getElementById('affo-third-man-${fontType}');
                             if (existingStyle) existingStyle.remove();
-                            
+
                             // Inject new style
                             const style = document.createElement('style');
                             style.id = 'affo-third-man-${fontType}';
                             style.textContent = \`${cssCode}\`;
                             document.head.appendChild(style);
-                            
+
                             console.log('STYLE INJECTION: Added style element for ${fontType}:', style.textContent);
                             return 'style-injected';
                         })();
                     `;
                     const styleResult = await browser.tabs.executeScript({ code: styleInjectionScript });
                     console.log(`toggleThirdManInFont: Style element injection result:`, styleResult);
-                    
+
                     appliedCssActive[fontType] = cssCode;
-                    
+
                     // Check if font is actually loaded in browser
                     setTimeout(async () => {
                         try {
@@ -3004,7 +3029,7 @@ async function toggleThirdManInFont(fontType) {
                             console.error(`toggleThirdManInFont: Font check failed:`, e);
                         }
                     }, 2000);
-                    
+
                     // Test basic script execution
                     try {
                         const testResult = await browser.tabs.executeScript({ code: 'console.log("SCRIPT TEST: Extension can execute scripts on this page"); "test-success"' });
@@ -3015,7 +3040,7 @@ async function toggleThirdManInFont(fontType) {
                 } catch (error) {
                     console.error(`toggleThirdManInFont: CSS injection failed:`, error);
                 }
-                
+
                 // Immediate verification of CSS application
                 setTimeout(async () => {
                     try {
@@ -3037,14 +3062,14 @@ async function toggleThirdManInFont(fontType) {
                         console.error(`toggleThirdManInFont: Immediate verification failed:`, e);
                     }
                 }, 100);
-                
+
                 // Verify CSS application on page
                 try {
                     const verifyScript = `
                         (function() {
                             const markedElements = document.querySelectorAll('[data-affo-font-type="${fontType}"]');
                             console.log('Verification: Found ' + markedElements.length + ' elements marked as ${fontType}');
-                            
+
                             if (markedElements.length > 0) {
                                 const firstElement = markedElements[0];
                                 const computedStyle = window.getComputedStyle(firstElement);
@@ -3059,7 +3084,7 @@ async function toggleThirdManInFont(fontType) {
                 } catch (e) {
                     console.warn('Failed to run verification script:', e);
                 }
-                
+
                 // Save to storage
                 const configToSave = {};
                 configToSave[fontType] = currentPayload;
@@ -3068,21 +3093,21 @@ async function toggleThirdManInFont(fontType) {
                 try {
                     await saveApplyMapForOrigin(origin, mode, configToSave);
                     console.log(`toggleThirdManInFont: Successfully saved to domain storage`);
-                    
+
                     // Verify it was saved
                     const verifyData = await getApplyMapForOrigin(origin, mode);
                     console.log(`toggleThirdManInFont: Verification - saved data:`, verifyData);
                 } catch (e) {
                     console.error(`toggleThirdManInFont: Failed to save to domain storage:`, e);
                 }
-                
+
                 console.log(`toggleThirdManInFont: Successfully applied ${fontType} font`);
                 return true; // Applied
             } else {
                 console.log(`toggleThirdManInFont: No CSS generated, failing`);
             }
         }
-        
+
         return false;
     } catch (e) {
         try { console.warn('toggleThirdManInFont failed', e); } catch (_) {}
@@ -3093,7 +3118,7 @@ async function toggleThirdManInFont(fontType) {
 function buildThirdManInPayload(fontType) {
     const cfg = getCurrentUIConfig(fontType);
     if (!cfg) return null;
-    
+
     // Determine generic based on font type
     let generic;
     switch(fontType) {
@@ -3102,19 +3127,19 @@ function buildThirdManInPayload(fontType) {
         case 'mono': generic = 'monospace'; break;
         default: return null;
     }
-    
-    
+
+
     const weightActive = cfg.fontWeight !== null && cfg.fontWeight !== undefined;
     const fontWeight = weightActive ? Number(cfg.fontWeight) : null;
     const fontSizeActive = cfg.fontSize !== null && cfg.fontSize !== undefined;
     const fontSize = fontSizeActive ? Number(cfg.fontSize) : null;
     const lineHeightActive = cfg.lineHeight !== null && cfg.lineHeight !== undefined;
     const lineHeight = lineHeightActive ? Number(cfg.lineHeight) : null;
-    
+
     const payload = {
         fontName: cfg.fontName
     };
-    
+
     // Only include properties that have actual values (no null properties)
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
         payload.variableAxes = cfg.variableAxes;
@@ -3124,7 +3149,7 @@ function buildThirdManInPayload(fontType) {
     if (fontWeight !== null && fontWeight !== undefined) payload.fontWeight = fontWeight;
     if (cfg.css2Url) payload.css2Url = cfg.css2Url;
     if (cfg.fontFaceRule) payload.fontFaceRule = cfg.fontFaceRule;
-    
+
     return payload;
 }
 
@@ -3132,15 +3157,15 @@ function buildThirdManInPayload(fontType) {
 function updateThirdManInPreview(fontType) {
     const textElement = document.getElementById(`${fontType}-font-text`);
     const nameElement = document.getElementById(`${fontType}-font-name`);
-    
+
     if (!textElement || !nameElement) return;
-    
+
     const cfg = getCurrentUIConfig(fontType);
     if (!cfg) return;
-    
+
     // Update font name display
     nameElement.textContent = cfg.fontName || fontType.charAt(0).toUpperCase() + fontType.slice(1);
-    
+
     // Build font-family CSS
     let fontFamily = cfg.fontName || '';
     switch(fontType) {
@@ -3148,25 +3173,25 @@ function updateThirdManInPreview(fontType) {
         case 'sans': fontFamily += ', sans-serif'; break;
         case 'mono': fontFamily += ', monospace'; break;
     }
-    
+
     // Apply styles to preview text
     let style = `font-family: ${fontFamily};`;
-    
+
     if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
     if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
-    
+
     // Add variable font settings if available
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
         const varSettings = Object.entries(cfg.variableAxes)
             .map(([axis, value]) => `"${axis}" ${value}`)
             .join(', ');
-        
+
         if (varSettings) {
             style += ` font-variation-settings: ${varSettings};`;
         }
     }
-    
+
     textElement.style.cssText = style;
 }
 
@@ -3203,20 +3228,20 @@ async function syncThirdManInButtons() {
     try {
         const origin = await getActiveOrigin();
         if (!origin) return;
-        
+
         const modeData = await getApplyMapForOrigin(origin, 'third-man-in');
         const fontTypes = ['serif', 'sans', 'mono'];
-        
+
         fontTypes.forEach(fontType => {
             const applyBtn = document.getElementById(`apply-${fontType}`);
             const resetBtn = document.getElementById(`reset-${fontType}`);
-            
+
             if (applyBtn) {
                 const on = !!(modeData && modeData[fontType]);
                 applyBtn.classList.toggle('active', on);
                 applyBtn.textContent = on ? '✓' : 'Apply';
                 applyBtn.style.display = on ? 'inline-flex' : 'none';
-                
+
                 if (resetBtn) {
                     resetBtn.style.display = on ? 'inline-flex' : 'none';
                 }
@@ -3237,12 +3262,12 @@ function saveFontSettings(position, fontName) {
     const activeAxes = getActiveAxes(position);
     const activeControls = getActiveControls(position);
     const fontDef = getEffectiveFontDefinition(fontName);
-    
+
     const fontSizeEl = document.getElementById(`${position}-font-size`);
     const lineHeightEl = document.getElementById(`${position}-line-height`);
     const fontWeightEl = document.getElementById(`${position}-font-weight`);
     const fontColorEl = document.getElementById(`${position}-font-color`);
-    
+
     const settings = {
         fontSize: fontSizeEl ? fontSizeEl.value : null,
         lineHeight: lineHeightEl ? lineHeightEl.value : null,
@@ -3250,7 +3275,7 @@ function saveFontSettings(position, fontName) {
         fontColor: fontColorEl ? fontColorEl.value : null,
         variableAxes: {}
     };
-    
+
     // Save variable axis values
     if (fontDef && fontDef.axes) {
         fontDef.axes.forEach(axis => {
@@ -3260,7 +3285,7 @@ function saveFontSettings(position, fontName) {
             }
         });
     }
-    
+
     memory[fontName] = settings;
 }
 
@@ -3274,15 +3299,15 @@ function restoreFontSettings(position, fontName) {
     else if (position === 'mono') memory = monoFontMemory;
     else return; // unsupported position
     const saved = memory[fontName];
-    
+
     if (!saved) return; // No saved settings for this font
-    
+
     // Restore basic controls
     document.getElementById(`${position}-font-size`).value = saved.fontSize;
     document.getElementById(`${position}-line-height`).value = saved.lineHeight;
     document.getElementById(`${position}-font-weight`).value = saved.fontWeight;
     document.getElementById(`${position}-font-color`).value = saved.fontColor;
-    
+
     // Restore variable axis values
     const fontDef = getEffectiveFontDefinition(fontName);
     if (fontDef && fontDef.axes && saved.variableAxes) {
@@ -3291,12 +3316,12 @@ function restoreFontSettings(position, fontName) {
                 const control = document.getElementById(`${position}-${axis}`);
                 const textControl = document.getElementById(`${position}-${axis}-text`);
                 const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
-                
+
                 if (control && textControl) {
                     const value = saved.variableAxes[axis];
                     control.value = value;
                     textControl.value = value;
-                    
+
                     // Activate the axis since it has a value
                     if (controlGroup) {
                         controlGroup.classList.remove('unset');
@@ -3305,7 +3330,7 @@ function restoreFontSettings(position, fontName) {
             }
         });
     }
-    
+
     // Restore basic control activation states based on saved values
     if (saved.fontWeight) {
         const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
@@ -3337,11 +3362,11 @@ function applyFont(position) {
     // Check if font is unset by looking for placeholder class
     const fontDisplay = document.getElementById(`${position}-font-display`);
     const isUnsetFont = fontDisplay && fontDisplay.classList.contains('placeholder');
-    
+
     // Get font name from most reliable source - prioritize display element over heading
     const selectEl = document.getElementById(`${position}-font-select`);
     const headingEl = document.getElementById(`${position}-font-name`);
-    
+
     let fontName = null;
     // Try display element first (most reliable after font selection)
     if (fontDisplay && !fontDisplay.classList.contains('placeholder')) {
@@ -3355,40 +3380,40 @@ function applyFont(position) {
     else if (headingEl && headingEl.textContent && headingEl.textContent !== 'Default') {
         fontName = headingEl.textContent;
     }
-    
+
     if (!fontName) return; // No font selected yet
-    
+
     const fontDef = getEffectiveFontDefinition(fontName);
     const textElement = document.getElementById(`${position}-font-text`);
     const headingElement = document.getElementById(`${position}-font-name`);
-    
+
     // Get control elements
     const fontSizeControl = document.getElementById(`${position}-font-size`);
     const lineHeightControl = document.getElementById(`${position}-line-height`);
     const fontWeightControl = document.getElementById(`${position}-font-weight`);
     const fontColorControl = document.getElementById(`${position}-font-color`);
-    
+
     if (!fontSizeControl) return; // Controls not ready yet
-    
+
     // Apply basic properties
     const fontSize = fontSizeControl.value + 'px';
     const lineHeight = lineHeightControl.value;
     const fontWeight = fontWeightControl.value;
     const fontColor = fontColorControl.value;
     const activeControls = getActiveControls(position);
-    
+
     // Apply styles to text element if it exists
     if (textElement) {
         if (activeControls.has('font-size')) { textElement.style.fontSize = fontSize; } else { textElement.style.fontSize = ''; }
         if (activeControls.has('line-height')) { textElement.style.lineHeight = lineHeight; } else { textElement.style.lineHeight = ''; }
-        
+
         // Handle color: only apply if not "default", otherwise clear the color
         if (fontColor !== 'default') {
             textElement.style.color = fontColor;
         } else {
             textElement.style.color = '';
         }
-        
+
         if (isUnsetFont) {
             textElement.style.fontFamily = '';
             // For body mode, always show the text even if font is "Default"
@@ -3402,7 +3427,7 @@ function applyFont(position) {
             textElement.style.display = ''; // Show Gettysburg Address when font is set
         }
     }
-    
+
     // Only apply font-weight if the weight control has been activated
     if (textElement) {
         if (activeControls.has('weight')) {
@@ -3411,7 +3436,7 @@ function applyFont(position) {
             textElement.style.fontWeight = ''; // Let font's default weight show
         }
     }
-    
+
     // Apply styles to heading element if it exists
     if (headingElement) {
         headingElement.style.fontSize = Math.max(16, parseFloat(fontSize) + 2) + 'px';
@@ -3428,7 +3453,7 @@ function applyFont(position) {
             headingElement.style.fontFamily = `"${fontName}"`;
             headingElement.textContent = fontName;
         }
-        
+
         // Only apply font-weight to heading if the weight control has been activated
         if (activeControls.has('weight')) {
             headingElement.style.fontWeight = fontWeight;
@@ -3436,7 +3461,7 @@ function applyFont(position) {
             headingElement.style.fontWeight = ''; // Let font's default weight show
         }
     }
-    
+
     // Apply variable axes if available - only active ones
     if (fontDef && fontDef.axes && fontDef.axes.length > 0) {
         const activeAxes = getActiveAxes(position);
@@ -3455,7 +3480,7 @@ function applyFont(position) {
             // Only include axis if it's been activated (touched)
             return (isActive) ? `"${axis}" ${control.value}` : null;
         }).filter(Boolean).join(', ');
-        
+
         if (variations) {
             console.log(`Font variation settings for ${position} (${fontName}):`, variations);
             if (textElement) textElement.style.fontVariationSettings = variations;
@@ -3499,7 +3524,7 @@ function applyFont(position) {
             headingElement.style.fontStyle = '';
         }
     }
-    
+
     // Save state after applying font changes
     setTimeout(() => saveExtensionState(), 50);
 }
@@ -3520,11 +3545,11 @@ function hasInCollection(coll, item) {
 function generateFontConfigName(position) {
     const config = getCurrentUIConfig(position);
     if (!config) return 'Font Configuration';
-    
-    
+
+
     let name = config.fontName;
     const parts = [];
-    
+
     // Only include font size in name if it's set (not null)
     if (config.fontSize !== null && config.fontSize !== undefined) {
         parts.push(`${config.fontSize}px`);
@@ -3535,13 +3560,13 @@ function generateFontConfigName(position) {
     if (config.lineHeight && config.lineHeight !== 1.6) {
         parts.push(`${config.lineHeight}lh`);
     }
-    
+
     // Add variable axes that are active
     if (config.variableAxes && config.activeAxes) {
         Object.entries(config.variableAxes).forEach(([axis, value]) => {
             const fontDef = getEffectiveFontDefinition(config.fontName);
-            if (fontDef && fontDef.defaults[axis] !== undefined && 
-                config.activeAxes.includes(axis) && 
+            if (fontDef && fontDef.defaults[axis] !== undefined &&
+                config.activeAxes.includes(axis) &&
                 parseFloat(value) !== fontDef.defaults[axis]) {
                 // Abbreviate common axes
                 let axisName = axis;
@@ -3562,28 +3587,28 @@ function generateFontConfigName(position) {
             }
         });
     }
-    
+
     // Combine parts with main name
     if (parts.length > 0) {
         name += ` (${parts.join(', ')})`;
     }
-    
+
     // Truncate if too long
     if (name.length > 50) {
         name = name.substring(0, 47) + '...';
     }
-    
+
     return name;
 }
 
 function generateConfigPreview(position) {
     const config = getCurrentUIConfig(position);
     if (!config) return 'No configuration available';
-    
-    
+
+
     const lines = [];
     lines.push(`Font: ${config.fontName}`);
-    
+
     // Only show font size if it's set (not null)
     if (config.fontSize !== null && config.fontSize !== undefined) {
         lines.push(`Size: ${config.fontSize}px`);
@@ -3594,17 +3619,17 @@ function generateConfigPreview(position) {
     if (config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
     }
-    
+
     // Only show active variable axes
     if (config.variableAxes && config.activeAxes) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
                 const fontDef = getEffectiveFontDefinition(config.fontName);
-                return hasInCollection(config.activeAxes, axis) && 
+                return hasInCollection(config.activeAxes, axis) &&
                        fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
             });
-            
+
         if (activeAxesEntries.length > 0) {
             const axes = activeAxesEntries
                 .map(([axis, value]) => `${axis}: ${value}`)
@@ -3612,7 +3637,7 @@ function generateConfigPreview(position) {
             lines.push(`Axes: ${axes}`);
         }
     }
-    
+
     return lines.join('<br>');
 }
 
@@ -3620,17 +3645,17 @@ function showSaveModal(position) {
     const modal = document.getElementById('save-modal');
     const nameInput = document.getElementById('save-modal-name');
     const configPreview = document.getElementById('save-modal-config');
-    
+
     // Generate suggested name and preview
     const suggestedName = generateFontConfigName(position);
     const preview = generateConfigPreview(position);
-    
+
     nameInput.value = suggestedName;
     configPreview.innerHTML = preview;
-    
+
     // Store the position for when save is clicked
     modal.setAttribute('data-position', position);
-    
+
     // Show modal
     modal.classList.add('visible');
     nameInput.focus();
@@ -3647,10 +3672,10 @@ function showFavoritesPopup(position) {
     const popup = document.getElementById('favorites-popup');
     const listContainer = document.getElementById('favorites-popup-list');
     const noFavorites = document.getElementById('no-favorites');
-    
+
     // Clear existing content
     listContainer.innerHTML = '';
-    
+
     // Check if there are any favorites
     const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
         ? savedFavoritesOrder.filter(n => savedFavorites[n])
@@ -3661,7 +3686,7 @@ function showFavoritesPopup(position) {
     } else {
         noFavorites.style.display = 'none';
         listContainer.style.display = 'flex';
-        
+
         // Populate favorites in saved order
         names.forEach(name => {
             const config = savedFavorites[name];
@@ -3669,38 +3694,38 @@ function showFavoritesPopup(position) {
             item.className = 'favorite-item';
             item.setAttribute('data-position', position);
             item.setAttribute('data-favorite-name', name);
-            
+
             const info = document.createElement('div');
             info.className = 'favorite-item-info';
-            
+
             const nameDiv = document.createElement('div');
             nameDiv.className = 'favorite-item-name';
             nameDiv.textContent = name;
-            
+
             const previewDiv = document.createElement('div');
             previewDiv.className = 'favorite-item-preview';
             previewDiv.textContent = generateFavoritePreview(config);
-            
+
             info.appendChild(nameDiv);
             info.appendChild(previewDiv);
             item.appendChild(info);
-            
+
             // Click to load
             item.addEventListener('click', function() {
                 const position = this.getAttribute('data-position');
                 const favoriteName = this.getAttribute('data-favorite-name');
                 const config = savedFavorites[favoriteName];
-                
+
                 if (config) {
                     applyFontConfig(position, config);
                     hideFavoritesPopup();
                 }
             });
-            
+
             listContainer.appendChild(item);
         });
     }
-    
+
     popup.classList.add('visible');
 }
 
@@ -3714,10 +3739,10 @@ function showEditFavoritesModal() {
     const modal = document.getElementById('edit-favorites-modal');
     const listContainer = document.getElementById('edit-favorites-list');
     const noFavorites = document.getElementById('no-edit-favorites');
-    
+
     // Clear existing content
     listContainer.innerHTML = '';
-    
+
     // Check if there are any favorites
     const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
         ? savedFavoritesOrder.filter(n => savedFavorites[n])
@@ -3728,14 +3753,14 @@ function showEditFavoritesModal() {
     } else {
         noFavorites.style.display = 'none';
         listContainer.style.display = 'flex';
-        
+
         // Populate editable favorites in saved order
         names.forEach(name => {
             const config = savedFavorites[name];
             const item = document.createElement('div');
             item.className = 'edit-favorite-item';
             item.setAttribute('data-name', name);
-            
+
             // Drag handle
             const drag = document.createElement('div');
             drag.className = 'drag-handle';
@@ -3750,22 +3775,22 @@ function showEditFavoritesModal() {
 
             const info = document.createElement('div');
             info.className = 'edit-favorite-info';
-            
+
             const nameDiv = document.createElement('div');
             nameDiv.className = 'edit-favorite-name';
             nameDiv.textContent = name;
-            
+
             const previewDiv = document.createElement('div');
             previewDiv.className = 'edit-favorite-preview';
             previewDiv.innerHTML = generateDetailedFavoritePreview(config);
-            
+
             item.appendChild(drag);
             info.appendChild(nameDiv);
             info.appendChild(previewDiv);
-            
+
             const actions = document.createElement('div');
             actions.className = 'edit-favorite-actions';
-            
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-favorite-btn';
             deleteBtn.innerHTML = '🗑️';
@@ -3781,9 +3806,9 @@ function showEditFavoritesModal() {
                     showEditFavoritesModal(); // Refresh the modal
                 });
             });
-            
+
             actions.appendChild(deleteBtn);
-            
+
             item.appendChild(info);
             item.appendChild(actions);
             listContainer.appendChild(item);
@@ -3791,7 +3816,7 @@ function showEditFavoritesModal() {
         // Enable drag-and-drop reordering
         enableFavoritesReorder(listContainer);
     }
-    
+
     modal.classList.add('visible');
 }
 
@@ -3945,7 +3970,7 @@ function persistFavoritesOrder(container) {
 function generateFavoritePreview(config) {
     if (!config) return '';
     const parts = [];
-    
+
     if (config.fontName) parts.push(config.fontName);
     if (config.fontSize) {
         parts.push(`${config.fontSize}px`);
@@ -3953,39 +3978,39 @@ function generateFavoritePreview(config) {
     if (config.fontWeight && config.fontWeight !== 400) {
         parts.push(`${config.fontWeight}wt`);
     }
-    
+
     return parts.join(' • ');
 }
 
     function generateDetailedFavoritePreview(config) {
     if (!config) return 'No configuration';
-    
+
     const lines = [];
     if (config.fontName) lines.push(`Font: ${config.fontName}`);
-    
+
     // Always show font size
     if (config.basicControls?.fontSize) {
         lines.push(`Size: ${config.fontSize}px`);
     }
-    if (hasInCollection(config && config.activeControls, 'line-height') && 
+    if (hasInCollection(config && config.activeControls, 'line-height') &&
         config.lineHeight && config.lineHeight !== 1.6) {
         lines.push(`Line Height: ${config.lineHeight}`);
     }
-    if (hasInCollection(config && config.activeControls, 'weight') && 
+    if (hasInCollection(config && config.activeControls, 'weight') &&
         config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
     }
-    
+
     // Only show active variable axes
     if (config.variableAxes && config.activeAxes) {
         const activeAxesEntries = Object.entries(config.variableAxes)
             .filter(([axis, value]) => {
                 const fontDef = getEffectiveFontDefinition(config.fontName);
-                return hasInCollection(config && config.activeAxes, axis) && 
+                return hasInCollection(config && config.activeAxes, axis) &&
                        fontDef && fontDef.defaults[axis] !== undefined &&
                        parseFloat(value) !== fontDef.defaults[axis];
             });
-            
+
         if (activeAxesEntries.length > 0) {
             const axes = activeAxesEntries
                 .map(([axis, value]) => `${axis}:${value}`)
@@ -3993,30 +4018,30 @@ function generateFavoritePreview(config) {
             lines.push(`Axes: ${axes}`);
         }
     }
-    
+
     return lines.join('<br>');
 }
 
 // Font control functionality
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
-    
+
     // Initialize preconnect links for faster font loading
     initializeFontPreconnects();
-    
+
     // URGENT FIX: Font selector persistence for Third Man In mode
     setTimeout(() => {
         console.log('URGENT FIX: Syncing font selectors with headings');
         ['serif', 'sans', 'mono'].forEach(type => {
             const heading = document.getElementById(`${type}-font-name`);
-            const display = document.getElementById(`${type}-font-display`);  
+            const display = document.getElementById(`${type}-font-display`);
             const selector = document.getElementById(`${type}-font-select`);
-            
+
             if (heading || display) {
-                const fontName = (heading && heading.textContent && !['Serif', 'Sans', 'Mono'].includes(heading.textContent)) 
-                    ? heading.textContent 
+                const fontName = (heading && heading.textContent && !['Serif', 'Sans', 'Mono'].includes(heading.textContent))
+                    ? heading.textContent
                     : (display && display.textContent !== 'Default') ? display.textContent : null;
-                
+
                 if (fontName && selector && !selector.value) {
                     console.log(`URGENT FIX: ${type} heading="${fontName}" but selector empty, fixing`);
                     selector.value = fontName;
@@ -4032,13 +4057,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Get font selectors
     const topFontSelect = document.getElementById('top-font-select');
     const bottomFontSelect = document.getElementById('bottom-font-select');
-    
+
     // Get text elements
     const topFontText = document.getElementById('top-font-text');
     const topFontSection = document.getElementById('top-font-section');
     const bottomFontText = document.getElementById('bottom-font-text');
     const bottomFontSection = document.getElementById('bottom-font-section');
-    
+
     // Get control panels and UI elements
     const topFontControls = document.getElementById('top-font-controls');
     const bottomFontControls = document.getElementById('bottom-font-controls');
@@ -4046,11 +4071,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const topFontGrip = document.getElementById('top-font-grip');
     const bottomFontGrip = document.getElementById('bottom-font-grip');
     const fontComparison = document.getElementById('font-comparison');
-    
+
     // Load saved state first
     console.log('Loading extension state before initialization');
     await loadExtensionState();
-    
+
     // Initialize the new 3-mode interface
     console.log('About to call initializeModeInterface');
     console.log('currentViewMode before initializeModeInterface:', currentViewMode);
@@ -4143,7 +4168,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             saveExtensionState();
         });
     }
-    
+
     // Body color reset button
     const bodyColorResetBtn = document.getElementById('body-color-reset');
     if (bodyColorResetBtn) {
@@ -4302,7 +4327,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     const bodyLineHeightSlider = document.getElementById('body-line-height');
     const bodyLineHeightText = document.getElementById('body-line-height-text');
     const bodyLineHeightGroup = bodyLineHeightSlider ? bodyLineHeightSlider.closest('.control-group') : null;
-    
+
     if (bodyLineHeightSlider) {
         bodyLineHeightSlider.addEventListener('input', function() {
             if (bodyLineHeightGroup) bodyLineHeightGroup.classList.remove('unset');
@@ -4316,7 +4341,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             setTimeout(() => saveExtensionState(), 100);
         });
     }
-    
+
     if (bodyLineHeightText) {
         bodyLineHeightText.addEventListener('keydown', function(e){
             if (e.key === 'Enter') {
@@ -4356,7 +4381,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     // Body Font Color Control - copied from working font size pattern
     const bodyFontColorSelect = document.getElementById('body-font-color');
     const bodyColorGroup = bodyFontColorSelect ? bodyFontColorSelect.closest('.control-group') : null;
-    
+
     if (bodyFontColorSelect) {
         bodyFontColorSelect.addEventListener('change', function() {
             if (bodyColorGroup) bodyColorGroup.classList.remove('unset');
@@ -4370,7 +4395,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     // Body Font Weight Control - copied from working font size pattern
     const bodyFontWeightSlider = document.getElementById('body-font-weight');
     const bodyWeightGroup = bodyFontWeightSlider ? bodyFontWeightSlider.closest('.control-group') : null;
-    
+
     if (bodyFontWeightSlider) {
         bodyFontWeightSlider.addEventListener('input', function() {
             if (bodyWeightGroup) bodyWeightGroup.classList.remove('unset');
@@ -4393,7 +4418,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     const botDisp = document.getElementById('bottom-font-display');
     if (topSel && topDisp) topDisp.textContent = topSel.value || 'Roboto Flex';
     if (botSel && botDisp) botDisp.textContent = botSel.value || 'Rubik';
-    
+
     // Initialize Third Man In mode font family displays to "Default"
     const serifSel = document.getElementById('serif-font-select');
     const sansSel = document.getElementById('sans-font-select');
@@ -4401,12 +4426,12 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     const serifDisp = document.getElementById('serif-font-display');
     const sansDisp = document.getElementById('sans-font-display');
     const monoDisp = document.getElementById('mono-font-display');
-    
+
     // Set Third Man In displays to Default first
     if (serifDisp) serifDisp.textContent = 'Default';
-    if (sansDisp) sansDisp.textContent = 'Default';  
+    if (sansDisp) sansDisp.textContent = 'Default';
     if (monoDisp) monoDisp.textContent = 'Default';
-    
+
     // Then apply styling to all displays that show "Default"
     const defaultDisplays = ['body-font-display', 'serif-font-display', 'sans-font-display', 'mono-font-display'];
     defaultDisplays.forEach(id => {
@@ -4415,7 +4440,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             element.classList.add('default');
         }
     });
-    
+
     // Helper function to update font display styling based on content
     function updateFontDisplayStyling(element) {
         if (element) {
@@ -4442,17 +4467,17 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     if (resetBodyBtn) resetBodyBtn.addEventListener('click', async function() {
         try { await resetPanelSettings('body'); } catch (_) {}
     });
-    
+
     // Custom alert OK button
     document.getElementById('custom-alert-ok').addEventListener('click', function() {
         hideCustomAlert();
     });
-    
+
     // Custom alert keyboard support
     document.addEventListener('keydown', function(e) {
         const alertModal = document.getElementById('custom-alert');
         const confirmModal = document.getElementById('custom-confirm');
-        
+
         if (alertModal.classList.contains('visible')) {
             if (e.key === 'Enter' || e.key === 'Escape') {
                 hideCustomAlert();
@@ -4473,7 +4498,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         }
     });
-    
+
     // Custom confirm buttons
     document.getElementById('custom-confirm-ok').addEventListener('click', function() {
         const confirmModal = document.getElementById('custom-confirm');
@@ -4482,11 +4507,11 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         }
         hideCustomConfirm();
     });
-    
+
     document.getElementById('custom-confirm-cancel').addEventListener('click', function() {
         hideCustomConfirm();
     });
-    
+
     // Add delegated event listener for basic control reset buttons
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'line-height') {
@@ -4496,33 +4521,33 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
             else return; // unsupported panel
-            
+
             const activeControls = getActiveControls(position);
             const controlGroup = e.target.closest('.control-group');
-            
+
             // Reset to default line height and make unset
             const lineHeightControl = document.getElementById(`${position}-line-height`);
             const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
             const lineHeightValue = document.getElementById(`${position}-line-height-value`);
-            
+
             if (lineHeightControl && lineHeightValue) {
                 lineHeightControl.value = 1.6;
                 lineHeightValue.textContent = '1.6';
                 if (lineHeightTextInput) {
                     lineHeightTextInput.value = 1.6;
                 }
-                
+
                 // Remove from active controls and add unset class
                 activeControls.delete('line-height');
                 if (controlGroup) {
                     controlGroup.classList.add('unset');
                 }
-                
+
                 applyFont(position);
                 setTimeout(() => saveExtensionState(), 50);
             }
         }
-        
+
         if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'weight') {
             const panel = e.target.closest('.controls-panel');
             let position;
@@ -4530,13 +4555,13 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
             else return; // unsupported panel
-            
+
             const activeControls = getActiveControls(position);
             const controlGroup = e.target.closest('.control-group');
-            
+
             const weightControl = document.getElementById(`${position}-font-weight`);
             const weightValue = document.getElementById(`${position}-font-weight-value`);
-            
+
             if (weightControl && weightValue) {
                 // Reset to default weight and unset control
                 weightControl.value = 400;
@@ -4557,7 +4582,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
             else return; // unsupported panel
-            
+
             const activeControls = getActiveControls(position);
             const group = e.target.closest('.control-group');
             const slider = document.getElementById(`${position}-font-size`);
@@ -4573,12 +4598,12 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 setTimeout(() => saveExtensionState(), 50);
             }
         }
-        
+
         // Family reset button handler
         if (e.target.classList.contains('family-reset-btn')) {
             const panelId = e.target.closest('.controls-panel').id;
             let position;
-            
+
             // Clean direct mapping from panel IDs to positions
             if (panelId === 'top-font-controls') position = 'top';
             else if (panelId === 'bottom-font-controls') position = 'bottom';
@@ -4586,20 +4611,20 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             else if (panelId === 'serif-font-controls') position = 'serif';
             else if (panelId === 'sans-font-controls') position = 'sans';
             else if (panelId === 'mono-font-controls') position = 'mono';
-            
+
             if (position) {
                 const fontDisplay = document.getElementById(`${position}-font-display`);
                 const fontSelect = document.getElementById(`${position}-font-select`);
-                
+
                 if (fontDisplay && fontSelect) {
                     // Reset to default font (first option)
                     const defaultOption = fontSelect.options[0];
                     fontDisplay.textContent = 'Default';
                     fontSelect.value = defaultOption.value;
-                    
+
                     // Trigger change event to update preview
                     fontSelect.dispatchEvent(new Event('change'));
-                    
+
                     // Apply the change based on mode
                     if (['top', 'bottom'].includes(position)) {
                         applyFont(position);
@@ -4607,18 +4632,18 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                         // For Third Man In mode, update the preview text
                         updateThirdManInPreview(position);
                     }
-                    
+
                     setTimeout(() => saveExtensionState(), 50);
                 }
             }
         }
     });
-    
+
     // Load saved state and initialize fonts
     // (loadExtensionState already called earlier)
-    
+
     const currentModeState = extensionState ? extensionState[currentViewMode] : null;
-    
+
     if (currentViewMode === 'third-man-in') {
         // Restore Third Man In mode fonts
         if (currentModeState && currentModeState.serifFont && currentModeState.serifFont.fontName) {
@@ -4626,13 +4651,13 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 applyFontConfig('serif', currentModeState.serifFont);
             }, 100);
         }
-        
+
         if (currentModeState && currentModeState.sansFont && currentModeState.sansFont.fontName) {
             setTimeout(() => {
                 applyFontConfig('sans', currentModeState.sansFont);
             }, 100);
         }
-        
+
         if (currentModeState && currentModeState.monoFont && currentModeState.monoFont.fontName) {
             setTimeout(() => {
                 applyFontConfig('mono', currentModeState.monoFont);
@@ -4649,7 +4674,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             // Use default top font
             loadFont('top', 'ABeeZee');
         }
-        
+
         if (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) {
             // Restore saved bottom font for current mode
             setTimeout(() => {
@@ -4660,12 +4685,12 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             loadFont('bottom', 'Zilla Slab Highlight');
         }
     }
-    
+
     // Add event listeners for font selectors
     topFontSelect.addEventListener('change', function() {
         loadFont('top', this.value);
     });
-    
+
     bottomFontSelect.addEventListener('change', function() {
         loadFont('bottom', this.value);
     });
@@ -4706,7 +4731,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         const botDisp2 = document.getElementById('bottom-font-display');
         if (topSel2 && topDisp2) topDisp2.textContent = topSel2.value;
         if (botSel2 && botDisp2) botDisp2.textContent = botSel2.value;
-        
+
         // Sync Third Man In mode displays
         const serifSel2 = document.getElementById('serif-font-select');
         const sansSel2 = document.getElementById('sans-font-select');
@@ -4714,7 +4739,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         const serifDisp2 = document.getElementById('serif-font-display');
         const sansDisp2 = document.getElementById('sans-font-display');
         const monoDisp2 = document.getElementById('mono-font-display');
-        
+
         // Keep Third Man In displays as "Default" instead of syncing from select values
         if (serifSel2 && serifDisp2 && serifDisp2.textContent !== 'Default') serifDisp2.textContent = serifSel2.value;
         if (sansSel2 && sansDisp2 && sansDisp2.textContent !== 'Default') sansDisp2.textContent = sansSel2.value;
@@ -4722,12 +4747,12 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         // Persist any canonicalized names
         saveExtensionState();
     }, 250);
-    
+
     // Panel state
     let topPanelOpen = false;
     let bottomPanelOpen = false;
-    
-    
+
+
     function showPanel(panel) {
         // On narrow screens, enforce single-panel mode
         const isNarrow = window.innerWidth <= 599;
@@ -4754,7 +4779,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         }
         updateFontComparisonLayout();
     }
-    
+
     function hidePanel(panel) {
         if (panel === 'top') {
             topFontControlsPanel.classList.remove('visible');
@@ -4767,14 +4792,14 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             bottomFontGrip.classList.remove('active');
             bottomFontGrip.setAttribute('aria-pressed', 'false');
         }
-        
+
         // Hide overlay only if no panels are open
         if (!topPanelOpen && !bottomPanelOpen) {
             panelOverlay.classList.remove('visible');
         }
         updateFontComparisonLayout();
     }
-    
+
     function hideAllPanels() {
         topFontControlsPanel.classList.remove('visible');
         bottomFontControlsPanel.classList.remove('visible');
@@ -4787,11 +4812,11 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         bottomFontGrip.setAttribute('aria-pressed', 'false');
         updateFontComparisonLayout();
     }
-    
+
     function updateFontComparisonLayout() {
         // Remove all layout classes
         fontComparison.classList.remove('top-panel-open', 'bottom-panel-open', 'both-panels-open');
-        
+
         // Add appropriate class based on which panels are open
         if (topPanelOpen && bottomPanelOpen) {
             fontComparison.classList.add('both-panels-open');
@@ -4801,7 +4826,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             fontComparison.classList.add('bottom-panel-open');
         }
     }
-    
+
     // Grip handlers (throttled to avoid double-fire on touch/click)
     function toggleTop() { if (topPanelOpen) hidePanel('top'); else showPanel('top'); }
     function toggleBottom() { if (bottomPanelOpen) hidePanel('bottom'); else showPanel('bottom'); }
@@ -4822,7 +4847,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         topFontGrip.addEventListener('pointerdown', throttled(toggleTop), { passive: false });
         bottomFontGrip.addEventListener('pointerdown', throttled(toggleBottom), { passive: false });
     }
-    
+
     // Close panels when clicking overlay
     panelOverlay.addEventListener('click', hideAllPanels);
 
@@ -4832,11 +4857,11 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             hidePanel('bottom');
         }
     });
-    
-    // Reference to panel elements  
+
+    // Reference to panel elements
     const topFontControlsPanel = topFontControls;
     const bottomFontControlsPanel = bottomFontControls;
-    
+
     // Dynamically align panel bottoms above the bottom strip (#panel-grips)
     function adjustPanelBottomOffset() {
         try {
@@ -4856,10 +4881,10 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (grips) ro.observe(grips);
         }
     } catch (_) {}
-    
+
     // Initialize favorites system
     loadFavoritesFromStorage();
-    
+
     // Save favorite functionality
     function setupSaveFavorite(position) {
         const ids = [
@@ -4874,7 +4899,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         });
     }
-    
+
     // Load favorite functionality - now opens popup
     function setupLoadFavorite(position) {
         const ids = [
@@ -4889,66 +4914,66 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         });
     }
-    
+
     // Setup save modal event handlers
     const saveModal = document.getElementById('save-modal');
     const saveModalClose = document.getElementById('save-modal-close');
     const saveModalCancel = document.getElementById('save-modal-cancel');
     const saveModalSave = document.getElementById('save-modal-save');
     const saveModalName = document.getElementById('save-modal-name');
-    
+
     // Close modal handlers
     saveModalClose.addEventListener('click', hideSaveModal);
     saveModalCancel.addEventListener('click', hideSaveModal);
-    
+
     // Close on background click
     saveModal.addEventListener('click', function(e) {
         if (e.target === saveModal) {
             hideSaveModal();
         }
     });
-    
+
     // Close on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && saveModal.classList.contains('visible')) {
             hideSaveModal();
         }
     });
-    
+
     // Save button handler
     saveModalSave.addEventListener('click', function() {
         const name = saveModalName.value.trim();
         const position = saveModal.getAttribute('data-position');
-        
+
         if (!name) {
             showCustomAlert('Please enter a name for this favorite');
             return;
         }
-        
+
         const config = getCurrentUIConfig(position);
         savedFavorites[name] = config;
         if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
         if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
         saveFavoritesToStorage();
-        
+
         hideSaveModal();
         showCustomAlert(`Saved "${name}" to favorites!`);
     });
-    
+
     // Save on Enter key in name input
     saveModalName.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             saveModalSave.click();
         }
     });
-    
+
     // Setup new favorites popup and edit modal event handlers
     const favoritesPopup = document.getElementById('favorites-popup');
     const favoritesPopupClose = document.getElementById('favorites-popup-close');
     const editFavoritesModal = document.getElementById('edit-favorites-modal');
     const editModalClose = document.getElementById('edit-modal-close');
     const editFavoritesBtn = document.getElementById('edit-favorites');
-    
+
     // Favorites popup handlers
     if (favoritesPopupClose) {
         favoritesPopupClose.addEventListener('click', hideFavoritesPopup);
@@ -4960,7 +4985,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         });
     }
-    
+
     // Edit favorites modal handlers
     if (editModalClose) {
         editModalClose.addEventListener('click', hideEditFavoritesModal);
@@ -4972,22 +4997,22 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         });
     }
-    
+
     // Edit favorites buttons for all modes
     if (editFavoritesBtn) {
         editFavoritesBtn.addEventListener('click', showEditFavoritesModal);
     }
-    
+
     const editFavoritesBodyBtn = document.getElementById('edit-favorites-body');
     if (editFavoritesBodyBtn) {
         editFavoritesBodyBtn.addEventListener('click', showEditFavoritesModal);
     }
-    
+
     const editFavoritesTmiBtn = document.getElementById('edit-favorites-tmi');
     if (editFavoritesTmiBtn) {
         editFavoritesTmiBtn.addEventListener('click', showEditFavoritesModal);
     }
-    
+
     // Close popups/modals on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -5002,7 +5027,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             }
         }
     });
-    
+
     // Setup favorites for all panels
     setupSaveFavorite('top');
     setupLoadFavorite('top');
@@ -5010,7 +5035,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
     setupLoadFavorite('bottom');
     setupSaveFavorite('body');
     setupLoadFavorite('body');
-    
+
     // Third Man In mode favorites
     setupSaveFavorite('serif');
     setupLoadFavorite('serif');
@@ -5024,39 +5049,39 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
 function resetTopFont() {
     const fontName = document.getElementById('top-font-select').value;
     const fontDef = getEffectiveFontDefinition(fontName);
-    
+
     // Controls will be marked as unset via UI state below
-    
+
     // Reset basic properties
     document.getElementById('top-font-size').value = 17;
     document.getElementById('top-line-height').value = 1.6;
     document.getElementById('top-font-weight').value = 400;
     document.getElementById('top-font-color').value = '#000000';
-    
+
     // Reset display values
     (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
     document.getElementById('top-line-height-value').textContent = '1.6';
     document.getElementById('top-font-weight-value').textContent = '400';
-    
+
     // Reset weight control to unset/dimmed state
     const weightControl = document.querySelector('#top-font-controls .control-group[data-control="weight"]');
     if (weightControl) {
         weightControl.classList.add('unset');
     }
-    
-    // Reset line height control to unset/dimmed state  
+
+    // Reset line height control to unset/dimmed state
     const lineHeightControl = document.querySelector('#top-font-controls .control-group[data-control="line-height"]');
     if (lineHeightControl) {
         lineHeightControl.classList.add('unset');
     }
-    
+
     // Reset variable axes and make them unset/dimmed
     if (fontDef && fontDef.axes.length > 0) {
         fontDef.axes.forEach(axis => {
             const control = document.getElementById(`top-${axis}`);
             const textInput = document.getElementById(`top-${axis}-text`);
             const controlGroup = document.querySelector(`#top-font-controls .control-group[data-axis="${axis}"]`);
-            
+
             if (control) {
                 control.value = fontDef.defaults[axis];
                 if (textInput) textInput.value = fontDef.defaults[axis];
@@ -5066,7 +5091,7 @@ function resetTopFont() {
             }
         });
     }
-    
+
     // Apply the reset state
     applyFont('top');
 }
@@ -5074,38 +5099,38 @@ function resetTopFont() {
 function resetBottomFont() {
     const fontName = document.getElementById('bottom-font-select').value;
     const fontDef = getEffectiveFontDefinition(fontName);
-    
+
     // Controls will be marked as unset via UI state below
-    
+
     // Reset basic properties
     document.getElementById('bottom-font-size').value = 17;
     document.getElementById('bottom-line-height').value = 1.6;
     document.getElementById('bottom-font-weight').value = 400;
     document.getElementById('bottom-font-color').value = '#000000';
-    
+
     // Reset text input values
     const bottomFontSizeTextInput = document.getElementById('bottom-font-size-text');
     const bottomLineHeightTextInput = document.getElementById('bottom-line-height-text');
     if (bottomFontSizeTextInput) bottomFontSizeTextInput.value = 17;
     if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.6;
-    
+
     // Reset display values
     (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
     document.getElementById('bottom-line-height-value').textContent = '1.6';
     document.getElementById('bottom-font-weight-value').textContent = '400';
-    
+
     // Reset weight control to unset/dimmed state
     const weightControl = document.querySelector('#bottom-font-controls .control-group[data-control="weight"]');
     if (weightControl) {
         weightControl.classList.add('unset');
     }
-    
-    // Reset line height control to unset/dimmed state  
+
+    // Reset line height control to unset/dimmed state
     const lineHeightControl = document.querySelector('#bottom-font-controls .control-group[data-control="line-height"]');
     if (lineHeightControl) {
         lineHeightControl.classList.add('unset');
     }
-    
+
     // Reset variable axes and make them unset/dimmed
     if (fontDef && fontDef.axes.length > 0) {
         fontDef.axes.forEach(axis => {
@@ -5113,7 +5138,7 @@ function resetBottomFont() {
             const textInput = document.getElementById(`bottom-${axis}-text`);
             const controlGroup = document.querySelector(`#bottom-font-controls .control-group[data-axis="${axis}"]`);
             const valueSpan = document.getElementById(`bottom-${axis}-value`);
-            
+
             if (control) {
                 control.value = fontDef.defaults[axis];
                 if (textInput) textInput.value = fontDef.defaults[axis];
@@ -5126,7 +5151,7 @@ function resetBottomFont() {
             }
         });
     }
-    
+
     // Apply the reset state
     applyFont('bottom');
 }
@@ -5140,7 +5165,7 @@ function buildConfigFromPayload(position, payload) {
         fontName: payload.fontName,
         variableAxes: {}
     };
-    
+
     // Only include properties with actual values (no null properties)
     if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) {
         config.fontSize = Number(payload.fontSizePx);
@@ -5154,15 +5179,15 @@ function buildConfigFromPayload(position, payload) {
     if (payload.fontColor !== null && payload.fontColor !== undefined) {
         config.fontColor = payload.fontColor;
     }
-    
+
     // Handle variable axes (new object format)
     if (payload.variableAxes && typeof payload.variableAxes === 'object') {
         Object.entries(payload.variableAxes).forEach(([axis, value]) => {
             config.variableAxes[axis] = Number(value);
         });
     }
-    
-    
+
+
     // Handle legacy axes properties
     if (payload.wdthVal !== null && payload.wdthVal !== undefined && !config.variableAxes.wdth) {
         config.variableAxes.wdth = Number(payload.wdthVal);
@@ -5259,19 +5284,19 @@ async function clearAllThirdManInFonts(origin) {
 // Element type detection for Third Man In mode - uses DOM walking instead of static selectors
 function generateThirdManInCSS(fontType, payload) {
     if (!payload) return '';
-    
+
     const lines = [];
-    
+
     // Font face definition if needed
     if (payload.fontFaceRule) {
         lines.push(payload.fontFaceRule);
     }
-    
+
     // Generate CSS that targets elements marked with data-affo-font-type attribute
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
     const fontFamily = payload.fontName ? `"${payload.fontName}", ${generic}` : generic;
     let styleRule = `[data-affo-font-type="${fontType}"] { font-family: ${fontFamily} !important;`;
-    
+
     if (payload.fontSize && isFinite(payload.fontSize)) {
         styleRule += ` font-size: ${payload.fontSize}px !important;`;
     }
@@ -5287,10 +5312,10 @@ function generateThirdManInCSS(fontType, payload) {
             .join(', ');
         styleRule += ` font-variation-settings: ${variationSettings} !important;`;
     }
-    
+
     styleRule += ' }';
     lines.push(styleRule);
-    
+
     return lines.join('\n');
 }
 
@@ -5300,38 +5325,38 @@ function generateElementWalkerScript(fontType) {
         (function() {
             try {
                 console.log('Third Man In walker script starting for fontType: ${fontType}');
-                
+
                 // Clear ALL existing Third Man In markers when applying any font type
                 const existingMarked = document.querySelectorAll('[data-affo-font-type]');
                 console.log('Clearing ' + existingMarked.length + ' existing font-type markers');
                 existingMarked.forEach(el => {
                     el.removeAttribute('data-affo-font-type');
                 });
-                
+
                 // Element type detection logic
                 function getElementFontType(element) {
                     const tagName = element.tagName.toLowerCase();
                     const className = element.className || '';
                     const style = element.style.fontFamily || '';
-                    
+
                     // Explicit class/style overrides
                     if (className.includes('serif') || style.includes('serif')) return 'serif';
                     if (className.includes('sans') || style.includes('sans')) return 'sans';
-                    if (className.includes('mono') || className.includes('code') || className.includes('monospace') || 
+                    if (className.includes('mono') || className.includes('code') || className.includes('monospace') ||
                         style.includes('monospace') || style.includes('mono')) return 'mono';
-                    
+
                     // Tag-based detection
                     if (['code', 'pre', 'kbd', 'samp', 'tt'].includes(tagName)) return 'mono';
-                    
+
                     // Check computed styles as fallback
                     const computed = window.getComputedStyle(element);
                     const computedFamily = computed.fontFamily.toLowerCase();
                     if (computedFamily.includes('serif') && !computedFamily.includes('sans')) return 'serif';
                     if (computedFamily.includes('mono')) return 'mono';
-                    
+
                     return 'sans'; // Default fallback
                 }
-                
+
                 // Walk all text-containing elements
                 const walker = document.createTreeWalker(
                     document.body,
@@ -5341,20 +5366,20 @@ function generateElementWalkerScript(fontType) {
                             // Skip elements that are hidden or have no text content
                             if (node.offsetParent === null && node.tagName !== 'BODY') return NodeFilter.FILTER_SKIP;
                             if (!node.textContent.trim()) return NodeFilter.FILTER_SKIP;
-                            
+
                             // Skip already processed elements and guard elements
-                            if (node.hasAttribute('data-affo-guard') || 
+                            if (node.hasAttribute('data-affo-guard') ||
                                 node.hasAttribute('data-affo-font-type')) return NodeFilter.FILTER_SKIP;
-                            
+
                             return NodeFilter.FILTER_ACCEPT;
                         }
                     }
                 );
-                
+
                 let element;
                 let totalElements = 0;
                 let markedElements = 0;
-                
+
                 while (element = walker.nextNode()) {
                     totalElements++;
                     const detectedType = getElementFontType(element);
@@ -5363,7 +5388,7 @@ function generateElementWalkerScript(fontType) {
                         markedElements++;
                     }
                 }
-                
+
                 console.log('Third Man In walker completed: processed ' + totalElements + ' elements, marked ' + markedElements + ' as ${fontType}');
             } catch (e) {
                 console.error('A Font Face-off: Element walker failed for ${fontType}:', e);
@@ -5377,7 +5402,7 @@ function generateBodyContactCleanupScript() {
     return `
         (function() {
             try {
-                // Clear Third Man In markers (modes reset each other)  
+                // Clear Third Man In markers (modes reset each other)
                 document.querySelectorAll('[data-affo-font-type]').forEach(el => {
                     el.removeAttribute('data-affo-font-type');
                 });
@@ -5397,7 +5422,7 @@ function buildCurrentPayload(position, providedConfig = null) {
         console.log(`buildCurrentPayload: No config found, returning null`);
         return null;
     }
-    
+
     // Determine generic font family based on position
     let genericKey;
     if (position === 'body') {
@@ -5419,23 +5444,23 @@ function buildCurrentPayload(position, providedConfig = null) {
     const weightActive = weightGroup && !weightGroup.classList.contains('unset');
     const fontWeight = weightActive ? Number(cfg.fontWeight) : null;
     console.log(`buildCurrentPayload: Weight - group:`, weightGroup, 'active:', weightActive, 'value:', fontWeight);
-    
+
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
     const fontSizeActive = sizeGroup && !sizeGroup.classList.contains('unset');
     const fontSizePx = fontSizeActive ? Number(cfg.fontSize) : null;
     console.log(`buildCurrentPayload: Font size - group:`, sizeGroup, 'active:', fontSizeActive, 'value:', fontSizePx);
-    
+
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const lineHeightActive = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
     const lineHeight = lineHeightActive ? Number(cfg.lineHeight) : null;
     console.log(`buildCurrentPayload: Line height - group:`, lineHeightGroup, 'active:', lineHeightActive, 'value:', lineHeight);
-    
+
     // Check if color is active (not "unset")
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
     const colorActive = colorGroup && !colorGroup.classList.contains('unset');
     const fontColor = colorActive ? cfg.fontColor : null;
     console.log(`buildCurrentPayload: Color - group:`, colorGroup, 'active:', colorActive, 'value:', fontColor);
-    
+
     return {
         fontName: cfg.fontName,
         variableAxes: cfg.variableAxes || {},
@@ -5495,7 +5520,7 @@ async function modeHasAppliedSettings(mode) {
     try {
         const origin = await getActiveOrigin();
         if (!origin) return false;
-        
+
         if (mode === 'body-contact') {
             const data = await queuedStorage.get('affoApplyMap');
             const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
@@ -5532,7 +5557,7 @@ async function clearAllDomainSettings() {
     try {
         const origin = await getActiveOrigin();
         if (!origin) return;
-        
+
         // Clear body mode settings
         const bodyData = await queuedStorage.get('affoApplyMap');
         const bodyMap = (bodyData && bodyData.affoApplyMap) ? bodyData.affoApplyMap : {};
@@ -5540,7 +5565,7 @@ async function clearAllDomainSettings() {
             delete bodyMap[origin];
             await queuedStorage.set({ affoApplyMap: bodyMap });
         }
-        
+
         // Clear third-man-in and faceoff settings
         const thirdData = await queuedStorage.get('affoApplyMapV2');
         const thirdMap = (thirdData && thirdData.affoApplyMapV2) ? thirdData.affoApplyMapV2 : {};
@@ -5548,11 +5573,11 @@ async function clearAllDomainSettings() {
             delete thirdMap[origin];
             await queuedStorage.set({ affoApplyMapV2: thirdMap });
         }
-        
+
         // Send message to content script to restore original page
         browser.tabs.query({ active: true, currentWindow: true }, tabs => {
             if (tabs[0]) {
-                browser.tabs.sendMessage(tabs[0].id, { 
+                browser.tabs.sendMessage(tabs[0].id, {
                     action: 'restoreOriginal',
                     origin: origin
                 });
@@ -5569,38 +5594,38 @@ async function switchMode(newMode) {
         console.log('switchMode: Already in target mode, skipping switch');
         return;
     }
-    
+
     // Show confirmation modal when switching between body-contact and third-man-in modes,
     // or when switching from faceoff to a mode that has saved settings
     const showModal = (currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
                      (currentViewMode === 'third-man-in' && newMode === 'body-contact') ||
                      (currentViewMode === 'faceoff' && (newMode === 'body-contact' || newMode === 'third-man-in'));
-    
+
     if (showModal) {
         // Check if current mode or target mode has applied settings
         const currentHasSettings = await modeHasAppliedSettings(currentViewMode);
         const targetHasSettings = await modeHasAppliedSettings(newMode);
-        
+
         if (currentHasSettings || targetHasSettings) {
             // Show confirmation modal
             const currentDisplayName = getModeDisplayName(currentViewMode);
             const newDisplayName = getModeDisplayName(newMode);
-            
+
             const confirmed = await showCustomConfirm(
                 `Switching from\n${currentDisplayName} mode to ${newDisplayName} mode\nwill clear saved settings for the domain. Proceed?`
             );
-            
+
             if (!confirmed) {
                 return; // User cancelled, don't switch
             }
         }
     }
-    
+
     // Clear all domain settings when switching between body-contact and third-man-in
     if (showModal) {
         await clearAllDomainSettings();
     }
-    
+
     // Save current mode panel states before switching
     if (currentViewMode === 'faceoff') {
         panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
@@ -5612,46 +5637,46 @@ async function switchMode(newMode) {
         panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
         panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
     }
-    
+
     // Hide current mode content
     document.querySelectorAll('.mode-content').forEach(content => {
         content.classList.remove('active');
     });
-    
+
     document.querySelectorAll('.mode-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    
+
     // Hide all panels
     document.querySelectorAll('.controls-panel').forEach(panel => {
         panel.classList.remove('visible');
     });
-    
+
     // Show new mode content
     const newModeContent = document.querySelector(`.${newMode}-content`);
     if (newModeContent) {
         newModeContent.classList.add('active');
     }
-    
+
     // Activate new mode tab
     const newModeTab = document.querySelector(`.mode-tab[data-mode="${newMode}"]`);
     if (newModeTab) {
         newModeTab.classList.add('active');
     }
-    
+
     currentViewMode = newMode;
-    
+
     // Update body class for CSS styling
     document.body.className = `view-${currentViewMode}`;
-    
+
     // Store the current mode
     try {
         await queuedStorage.set({ affoCurrentMode: currentViewMode });
     } catch (_) {}
-    
+
     // Load settings for the new mode
     loadModeSettings();
-    
+
     // Restore panel states for the new mode
     if (newMode === 'faceoff') {
         if (panelStates.faceoff.top) {
@@ -5691,7 +5716,7 @@ async function switchMode(newMode) {
         }
         updateFontComparisonLayoutForThirdManIn();
     }
-    
+
     // Initialize Apply/Reset button states for new modes
     if (['body-contact', 'third-man-in'].includes(newMode)) {
         setTimeout(async () => {
@@ -5699,7 +5724,7 @@ async function switchMode(newMode) {
                 await updateBodyButtons();
             } else if (newMode === 'third-man-in') {
                 await updateThirdManInButtons('serif');
-                await updateThirdManInButtons('sans');  
+                await updateThirdManInButtons('sans');
                 await updateThirdManInButtons('mono');
             }
         }, 100);
@@ -5723,7 +5748,7 @@ async function initializeModeInterface() {
         }
         console.log('Final currentViewMode after loading:', currentViewMode);
     } catch (_) {}
-    
+
     // Set up mode tab event listeners
     document.querySelectorAll('.mode-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -5732,17 +5757,17 @@ async function initializeModeInterface() {
             switchMode(mode);
         });
     });
-    
+
     // Initialize the current mode (use saved mode if available)
     const result = await queuedStorage.get('affoCurrentMode');
     const targetMode = (result.affoCurrentMode === 'third-man-in') ? 'third-man-in' : currentViewMode;
     console.log('About to call switchMode with:', targetMode);
     switchMode(targetMode);
-    
+
     // Force load settings on initial popup open (switchMode may skip if mode is already set)
     console.log('Force calling loadModeSettings for initial load');
     loadModeSettings();
-    
+
     // Backup: If UI is in Third Man In mode but font restoration didn't run, force it
     setTimeout(async () => {
         if (document.body.classList.contains('view-third-man-in')) {
@@ -5784,20 +5809,20 @@ async function initializeModeInterface() {
             }
         }
     }, 200);
-    
+
     // Simple font selector sync - if heading shows a font but selector is empty, fix it
     setTimeout(() => {
         console.log('Simple sync: Checking font selectors vs headings');
         ['serif', 'sans', 'mono'].forEach(type => {
             const heading = document.getElementById(`${type}-font-name`);
-            const display = document.getElementById(`${type}-font-display`);  
+            const display = document.getElementById(`${type}-font-display`);
             const selector = document.getElementById(`${type}-font-select`);
-            
+
             if (heading || display) {
-                const fontName = (heading && heading.textContent !== 'Serif' && heading.textContent !== 'Sans' && heading.textContent !== 'Mono') 
-                    ? heading.textContent 
+                const fontName = (heading && heading.textContent !== 'Serif' && heading.textContent !== 'Sans' && heading.textContent !== 'Mono')
+                    ? heading.textContent
                     : (display && display.textContent !== 'Default') ? display.textContent : null;
-                
+
                 if (fontName && selector && !selector.value) {
                     console.log(`Simple sync: ${type} heading shows "${fontName}" but selector is empty, fixing`);
                     selector.value = fontName;
@@ -5805,21 +5830,21 @@ async function initializeModeInterface() {
             }
         });
     }, 300);
-    
+
     // Ensure body class is set on initial load
     document.body.className = `view-${currentViewMode}`;
-    
+
     // Set up grip event listeners for all modes
     setupGripEventListeners();
-    
+
     // Set up Apply/Reset button event listeners for new modes
     setupApplyResetEventListeners();
-    
+
     // Set up control change listeners for button state updates (mode-specific)
     if (currentViewMode === 'body-contact') {
         setupControlChangeListeners('body');
     } else if (currentViewMode === 'third-man-in') {
-        setupControlChangeListeners('serif');  
+        setupControlChangeListeners('serif');
         setupControlChangeListeners('mono');
         setupControlChangeListeners('sans');
     }
@@ -5832,18 +5857,18 @@ function setupGripEventListeners() {
     if (bodyGrip) {
         bodyGrip.addEventListener('click', () => togglePanel('body'));
     }
-    
+
     // Third Man In mode
     const serifGrip = document.getElementById('serif-font-grip');
     if (serifGrip) {
         serifGrip.addEventListener('click', () => togglePanel('serif'));
     }
-    
+
     const monoGrip = document.getElementById('mono-font-grip');
     if (monoGrip) {
         monoGrip.addEventListener('click', () => togglePanel('mono'));
     }
-    
+
     const sansGrip = document.getElementById('sans-font-grip');
     if (sansGrip) {
         sansGrip.addEventListener('click', () => togglePanel('sans'));
@@ -5853,7 +5878,7 @@ function setupGripEventListeners() {
 function setupApplyResetEventListeners() {
     // Body Contact mode
     setupPanelButtons('body');
-    
+
     // Third Man In mode
     setupPanelButtons('serif');
     setupPanelButtons('mono');
@@ -5863,8 +5888,8 @@ function setupApplyResetEventListeners() {
 function setupPanelButtons(panelId) {
     const applyBtn = document.getElementById(`apply-${panelId}`);
     const resetBtn = document.getElementById(`reset-${panelId}`);
-    
-    
+
+
     if (applyBtn && !applyBtn._affoApplyHandlerAttached) {
         applyBtn._affoApplyHandlerAttached = true;
         applyBtn.addEventListener('click', async (event) => {
@@ -5872,13 +5897,13 @@ function setupPanelButtons(panelId) {
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            
-            
+
+
             // Skip if button is already disabled (processing)
             if (applyBtn.disabled) {
                 return;
             }
-            
+
             // Disable button immediately to prevent double clicks
             applyBtn.disabled = true;
             try {
@@ -5891,14 +5916,14 @@ function setupPanelButtons(panelId) {
             }
         });
     }
-    
+
     if (resetBtn && !resetBtn._affoResetHandlerAttached) {
         resetBtn._affoResetHandlerAttached = true;
         resetBtn.addEventListener('click', async (event) => {
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            
+
             resetBtn.disabled = true;
             try {
                 await resetPanelSettings(panelId);
@@ -5927,7 +5952,7 @@ class StorageQueue {
 
     async processQueue() {
         if (this.processing || this.queue.length === 0) return;
-        
+
         this.processing = true;
         while (this.queue.length > 0) {
             const { operation, resolve, reject } = this.queue.shift();
@@ -5983,14 +6008,14 @@ async function handleApply(panelId) {
     try {
         // Show loading state
         showApplyLoading(panelId);
-        
+
         if (currentViewMode === 'third-man-in') {
             // Third Man In mode: Apply All strategy
             await applyAllThirdManInFonts();
-            
+
             // Small delay to allow storage operations to complete
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             // Update button states for all Third Man In panels
             await updateThirdManInButtons('serif');
             await updateThirdManInButtons('sans');
@@ -5999,7 +6024,7 @@ async function handleApply(panelId) {
             // Body Contact and Face-off modes: single panel apply
             const config = getPanelFontConfig(panelId);
             await applyPanelConfiguration(panelId, config);
-            
+
             // Handle body mode specially - update buttons after successful apply
             if (panelId === 'body') {
                 console.log('Body apply completed - updating buttons');
@@ -6009,7 +6034,7 @@ async function handleApply(panelId) {
                 await updateThirdManInButtons(panelId);
             }
         }
-        
+
     } catch (error) {
         console.error('Error applying configuration:', error);
     } finally {
@@ -6024,25 +6049,25 @@ async function handleApply(panelId) {
 async function applyAllThirdManInFonts() {
     const types = ['serif', 'sans', 'mono'];
     let hasAnyNonDefaultSettings = false;
-    
+
     console.log('applyAllThirdManInFonts: Starting Apply All process');
-    
+
     // Check if any type has non-default settings
     for (const type of types) {
         const config = getPanelFontConfig(type);
         console.log(`applyAllThirdManInFonts: ${type} config:`, config);
-        
+
         // Default font names for each type
         const defaultFontNames = {
             'serif': 'Serif',
-            'sans': 'Sans', 
+            'sans': 'Sans',
             'mono': 'Mono'
         };
-        
-        const isDefaultFont = !config || !config.fontName || 
-                             config.fontName === 'Default' || 
+
+        const isDefaultFont = !config || !config.fontName ||
+                             config.fontName === 'Default' ||
                              config.fontName === defaultFontNames[type];
-        
+
         if (!isDefaultFont) {
             console.log(`applyAllThirdManInFonts: ${type} has non-default font: ${config.fontName}`);
             hasAnyNonDefaultSettings = true;
@@ -6051,26 +6076,26 @@ async function applyAllThirdManInFonts() {
             console.log(`applyAllThirdManInFonts: ${type} has default font: ${config.fontName}`);
         }
     }
-    
+
     console.log('applyAllThirdManInFonts: hasAnyNonDefaultSettings =', hasAnyNonDefaultSettings);
-    
+
     if (hasAnyNonDefaultSettings) {
         // Apply each non-default font type
         console.log('applyAllThirdManInFonts: Applying non-default fonts');
         for (const type of types) {
             const config = getPanelFontConfig(type);
-            
+
             // Default font names for each type
             const defaultFontNames = {
                 'serif': 'Serif',
-                'sans': 'Sans', 
+                'sans': 'Sans',
                 'mono': 'Mono'
             };
-            
-            const isDefaultFont = !config || !config.fontName || 
-                                 config.fontName === 'Default' || 
+
+            const isDefaultFont = !config || !config.fontName ||
+                                 config.fontName === 'Default' ||
                                  config.fontName === defaultFontNames[type];
-            
+
             if (!isDefaultFont) {
                 console.log(`applyAllThirdManInFonts: Applying ${type} with font ${config.fontName}`);
                 console.log(`applyAllThirdManInFonts: About to call applyPanelConfiguration for ${type}`);
@@ -6085,25 +6110,25 @@ async function applyAllThirdManInFonts() {
         console.log('applyAllThirdManInFonts: All defaults - clearing all fonts from domain');
         await clearAllFontsFromDomain();
     }
-    
+
     // Update UI state to match what was just applied/cleared
     // This prevents UI from reverting when loadModeSettings() is called
     setTimeout(() => saveExtensionState(), 50);
-    
+
     console.log('applyAllThirdManInFonts: Apply All process completed');
 }
 
 // Clear all fonts from domain (everything unset state)
 async function clearAllFontsFromDomain() {
     const types = ['serif', 'sans', 'mono', 'body'];
-    
+
     console.log('clearAllFontsFromDomain: Starting to clear all fonts from domain');
-    
+
     for (const type of types) {
         console.log(`clearAllFontsFromDomain: Clearing ${type}`);
         await applyUnsetSettings(type);
     }
-    
+
     console.log('clearAllFontsFromDomain: All fonts cleared from domain');
 }
 
@@ -6112,58 +6137,58 @@ async function countThirdManInDifferences() {
     console.log('countThirdManInDifferences: Starting count');
     const types = ['serif', 'sans', 'mono'];
     let changeCount = 0;
-    
+
     try {
         // Get what's currently applied to the domain
         const origin = await getActiveOrigin();
         console.log('countThirdManInDifferences: Origin:', origin);
-        
-        // Check each type individually in Third Man In mode  
+
+        // Check each type individually in Third Man In mode
         // Use the same storage system that Third Man In mode writes to
         const thirdManData = await getApplyMapForOrigin(origin, 'third-man-in');
         const appliedSerif = thirdManData ? thirdManData.serif : null;
         const appliedSans = thirdManData ? thirdManData.sans : null;
         const appliedMono = thirdManData ? thirdManData.mono : null;
-        
+
         console.log('countThirdManInDifferences: Applied configs:', {
             serif: appliedSerif,
-            sans: appliedSans, 
+            sans: appliedSans,
             mono: appliedMono
         });
-        
+
         // Also check if Body mode has applied fonts (which affects all types)
         const appliedBody = await getAppliedConfigForDomain(origin, 'body');
         console.log('countThirdManInDifferences: Applied body:', appliedBody);
-        
+
         // Check if domain has any applied fonts (from either mode)
         const domainHasAppliedFonts = appliedSerif || appliedSans || appliedMono || appliedBody;
         console.log('countThirdManInDifferences: domainHasAppliedFonts:', domainHasAppliedFonts);
-        
+
         // Check if current settings have any non-defaults
         let currentHasNonDefaults = false;
-        
+
         // Default font names for each type
         const defaultFontNames = {
             'serif': 'Serif',
-            'sans': 'Sans', 
+            'sans': 'Sans',
             'mono': 'Mono'
         };
-        
+
         for (const type of types) {
             const current = getPanelFontConfig(type);
             const applied = thirdManData ? thirdManData[type] : null;
-            
-            const isDefaultFont = !current || !current.fontName || 
-                                 current.fontName === 'Default' || 
+
+            const isDefaultFont = !current || !current.fontName ||
+                                 current.fontName === 'Default' ||
                                  current.fontName === defaultFontNames[type];
-            
+
             console.log(`countThirdManInDifferences: ${type} current:`, current);
             console.log(`countThirdManInDifferences: ${type} applied:`, applied);
             console.log(`countThirdManInDifferences: ${type} isDefaultFont:`, isDefaultFont);
-            
+
             // Check if current state differs from applied state
             let isDifferent = false;
-            
+
             if (isDefaultFont) {
                 // Current is default - difference only if something is applied
                 isDifferent = !!applied;
@@ -6178,20 +6203,20 @@ async function countThirdManInDifferences() {
                         activeControls: [],
                         basicControls: {
                             fontSize: applied.fontSize || null,
-                            lineHeight: applied.lineHeight || null, 
+                            lineHeight: applied.lineHeight || null,
                             fontWeight: applied.fontWeight || null,
                             fontColor: applied.fontColor || null
                         },
                         variableAxes: {},
                         activeAxes: applied.variableAxes ? Object.keys(applied.variableAxes) : []
                     } : null;
-                    
+
                     // Use same comparison logic as body mode
                     isDifferent = !configsEqual(current, appliedConfig);
                 }
                 currentHasNonDefaults = true;
             }
-            
+
             if (isDifferent) {
                 changeCount++;
                 console.log(`countThirdManInDifferences: ${type} differs - current: ${current?.fontName}, applied: ${applied?.fontName}, changeCount now:`, changeCount);
@@ -6199,17 +6224,17 @@ async function countThirdManInDifferences() {
                 console.log(`countThirdManInDifferences: ${type} matches - no change needed`);
             }
         }
-        
+
         console.log('countThirdManInDifferences: currentHasNonDefaults:', currentHasNonDefaults);
         console.log('countThirdManInDifferences: changeCount before special case:', changeCount);
-        
+
         // Special case: if domain has applied fonts but current is all defaults,
         // that's one change (clearing all fonts)
         if (domainHasAppliedFonts && !currentHasNonDefaults) {
             console.log('countThirdManInDifferences: Special case - domain has fonts but current is all defaults');
             changeCount = 1;
         }
-        
+
         console.log('countThirdManInDifferences: Final changeCount:', changeCount);
         return changeCount;
     } catch (error) {
@@ -6217,17 +6242,17 @@ async function countThirdManInDifferences() {
         // Fallback to simple logic
         const defaultFontNames = {
             'serif': 'Serif',
-            'sans': 'Sans', 
+            'sans': 'Sans',
             'mono': 'Mono'
         };
-        
+
         for (const type of types) {
             const current = getPanelFontConfig(type);
-            
-            const isDefaultFont = !current || !current.fontName || 
-                                 current.fontName === 'Default' || 
+
+            const isDefaultFont = !current || !current.fontName ||
+                                 current.fontName === 'Default' ||
                                  current.fontName === defaultFontNames[type];
-            
+
             if (!isDefaultFont) {
                 changeCount++;
             }
@@ -6242,7 +6267,7 @@ async function applyPanelConfiguration(panelId) {
     console.trace('applyPanelConfiguration call stack:');
     try {
         const currentMode = currentViewMode;
-        
+
         if (currentMode === 'third-man-in') {
             // Use Third Man In specific application
             if (['serif', 'sans', 'mono'].includes(panelId)) {
@@ -6265,7 +6290,7 @@ async function applyPanelConfiguration(panelId) {
                 return applied;
             }
         }
-        
+
         return false;
     } catch (e) {
         console.warn('applyPanelConfiguration failed', e);
@@ -6287,14 +6312,14 @@ function onPanelControlChange(panelId) {
 function setupControlChangeListeners(panelId) {
     const panelElement = document.getElementById(`${panelId}-font-controls`);
     if (!panelElement) return;
-    
+
     // Listen for changes on all inputs within the panel
     const inputs = panelElement.querySelectorAll('input, select');
     inputs.forEach(input => {
         input.addEventListener('input', () => onPanelControlChange(panelId));
         input.addEventListener('change', () => onPanelControlChange(panelId));
     });
-    
+
     // Listen for font family changes
     const fontDisplay = document.getElementById(`${panelId}-font-display`);
     if (fontDisplay) {
@@ -6308,15 +6333,15 @@ function setupControlChangeListeners(panelId) {
 function togglePanel(panelId) {
     const panel = document.getElementById(`${panelId}-font-controls`);
     if (!panel) return;
-    
+
     const isVisible = panel.classList.contains('visible');
-    
+
     if (isVisible) {
         panel.classList.remove('visible');
     } else {
         panel.classList.add('visible');
     }
-    
+
     // Update font comparison layout
     if (panelId === 'body') {
         updateFontComparisonLayoutForBody();
@@ -6328,12 +6353,12 @@ function togglePanel(panelId) {
 function updateFontComparisonLayoutForBody() {
     const fontComparison = document.getElementById('font-comparison');
     const bodyPanel = document.getElementById('body-font-controls');
-    
+
     if (!fontComparison || !bodyPanel) return;
-    
+
     // Remove existing body panel class
     fontComparison.classList.remove('body-panel-open');
-    
+
     // Add class if body panel is visible
     if (bodyPanel.classList.contains('visible')) {
         fontComparison.classList.add('body-panel-open');
@@ -6343,13 +6368,13 @@ function updateFontComparisonLayoutForBody() {
 function updateFontComparisonLayoutForThirdManIn() {
     const fontComparison = document.getElementById('font-comparison');
     if (!fontComparison) return;
-    
+
     const serifPanel = document.getElementById('serif-font-controls');
     const sansPanel = document.getElementById('sans-font-controls');
-    
+
     // Remove all Third Man In panel layout classes (mono doesn't affect layout)
     fontComparison.classList.remove('serif-panel-open', 'sans-panel-open');
-    
+
     // Add appropriate classes for panels that affect font preview layout
     if (serifPanel && serifPanel.classList.contains('visible')) {
         fontComparison.classList.add('serif-panel-open');
@@ -6369,17 +6394,17 @@ async function updateThirdManInButtons(panelId) {
         console.warn('updateThirdManInButtons called with body panelId - this should use updateBodyButtons instead');
         return;
     }
-    
+
     const applyBtn = document.getElementById(`apply-${panelId}`);
     const resetBtn = document.getElementById(`reset-${panelId}`);
     console.log('Found buttons - apply:', !!applyBtn, 'reset:', !!resetBtn);
-    
+
     if (!applyBtn || !resetBtn) return;
-    
+
     // Third Man In mode: Apply All/Reset All logic
     if (currentViewMode === 'third-man-in') {
         const changeCount = await countThirdManInDifferences();
-        
+
         if (changeCount > 0) {
             applyBtn.style.display = 'block';
             applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
@@ -6389,7 +6414,7 @@ async function updateThirdManInButtons(panelId) {
             const origin = await getActiveOrigin();
             const thirdManData = await getApplyMapForOrigin(origin, 'third-man-in');
             const domainHasFonts = thirdManData && (thirdManData.serif || thirdManData.sans || thirdManData.mono);
-            
+
             if (domainHasFonts) {
                 // Domain has fonts - show Reset All
                 applyBtn.style.display = 'none';
@@ -6403,29 +6428,29 @@ async function updateThirdManInButtons(panelId) {
         }
         return;
     }
-    
+
     try {
         // Get current panel configuration
         const currentConfig = getPanelFontConfig(panelId);
         console.log('Current config:', currentConfig);
-        
+
         // Get applied configuration for this domain
         const origin = await getActiveOrigin();
-        
+
         // Debug: let's see what's actually in storage
         const debugData = await queuedStorage.get('affoApplyMap');
         const debugMap = (debugData && debugData.affoApplyMap) ? debugData.affoApplyMap : {};
         console.log('Full storage map:', debugMap);
         console.log('Entry for origin:', origin, ':', debugMap[origin]);
-        
+
         const appliedConfig = await getAppliedConfigForDomain(origin, panelId);
         console.log('Applied config for origin:', origin, appliedConfig);
-        
+
         // Check if current panel has any settings
         const panelHasSettings = configHasAnySettings(currentConfig);
         const domainHasSettings = configHasAnySettings(appliedConfig);
         console.log('Panel has settings:', panelHasSettings, 'Domain has settings:', domainHasSettings);
-        
+
         // State 1: No button visible - both panel and domain are completely unset
         if (!panelHasSettings && !domainHasSettings) {
             console.log('State 1: No button visible - both unset');
@@ -6433,12 +6458,12 @@ async function updateThirdManInButtons(panelId) {
             resetBtn.style.display = 'none';
             return;
         }
-        
+
         // Check if configurations match
         const configsEqual = configsMatch(currentConfig, appliedConfig);
         console.log('Configs match:', configsEqual);
-        
-        // State 2: Reset button - panel matches domain AND domain has settings  
+
+        // State 2: Reset button - panel matches domain AND domain has settings
         if (domainHasSettings && configsEqual) {
             console.log('State 2: Reset button - configs match and domain has settings');
             console.log('Showing RESET button for panelId:', panelId);
@@ -6447,13 +6472,13 @@ async function updateThirdManInButtons(panelId) {
             resetBtn.textContent = 'Reset';
             return;
         }
-        
+
         // State 3: Apply button - panel doesn't match domain
         console.log('State 3: Apply button - configs do not match');
         applyBtn.style.display = 'inline-flex';
         resetBtn.style.display = 'none';
         applyBtn.textContent = 'Apply';
-        
+
     } catch (error) {
         console.error('Error updating apply/reset button:', error);
         // Fallback to showing Apply button
@@ -6466,43 +6491,43 @@ async function updateThirdManInButtons(panelId) {
 // Helper function to check if a config has any settings
 function configHasAnySettings(config) {
     if (!config) return false;
-    
+
     // Check if font family is set (not null/undefined/default)
     if (config.fontName && config.fontName.toLowerCase() !== 'default') return true;
-    
+
     // Check basic controls
     if (config.basicControls) {
         if (config.fontSize !== null && config.fontSize !== undefined) return true;
         if (config.lineHeight !== null && config.lineHeight !== undefined) return true;
         if (config.fontWeight !== null && config.fontWeight !== undefined) return true;
     }
-    
+
     // Check variable axes
     if (config.variableAxes && config.activeAxes && config.activeAxes.length > 0) return true;
-    
+
     return false;
 }
 
 // Helper function to check if two configs match
 function configsMatch(config1, config2) {
     console.log('Comparing configs:', {config1, config2});
-    
+
     if (!config1 && !config2) return true;
     if (!config1 || !config2) {
         console.log('One config is null/undefined');
         return false;
     }
-    
+
     // Compare font names
     if (config1.fontName !== config2.fontName) {
         console.log('Font names differ:', config1.fontName, 'vs', config2.fontName);
         return false;
     }
-    
+
     // Compare basic controls
     const basic1 = config1.basicControls || {};
     const basic2 = config2.basicControls || {};
-    
+
     if (basic1.fontSize !== basic2.fontSize) {
         console.log('Font sizes differ:', basic1.fontSize, 'vs', basic2.fontSize);
         return false;
@@ -6519,34 +6544,34 @@ function configsMatch(config1, config2) {
         console.log('Font colors differ:', basic1.fontColor, 'vs', basic2.fontColor);
         return false;
     }
-    
+
     // Compare variable axes - only compare axes that were actually modified from defaults
     const activeAxes1 = new Set(config1.activeAxes || []);
     const activeAxes2 = new Set(config2.activeAxes || []);
     const axes1 = config1.variableAxes || {};
     const axes2 = config2.variableAxes || {};
     console.log('Variable axes comparison:', {axes1, axes2, activeAxes1: [...activeAxes1], activeAxes2: [...activeAxes2]});
-    
+
     // Only compare axes that are active in either config
     const allActiveAxes = new Set([...activeAxes1, ...activeAxes2]);
     for (const axis of allActiveAxes) {
         const value1 = activeAxes1.has(axis) ? axes1[axis] : undefined;
         const value2 = activeAxes2.has(axis) ? axes2[axis] : undefined;
         console.log(`Comparing axis ${axis}: ${value1} vs ${value2} (active1: ${activeAxes1.has(axis)}, active2: ${activeAxes2.has(axis)})`);
-        
+
         // If only one side has the axis active, they don't match
         if (activeAxes1.has(axis) !== activeAxes2.has(axis)) {
             console.log(`Active state differs for axis ${axis}`);
             return false;
         }
-        
+
         // If both have it active, values must match
         if (activeAxes1.has(axis) && activeAxes2.has(axis) && value1 !== value2) {
             console.log(`Values differ for active axis ${axis}: ${value1} vs ${value2}`);
             return false;
         }
     }
-    
+
     console.log('Configs match!');
     return true;
 }
@@ -6555,7 +6580,7 @@ function configsMatch(config1, config2) {
 async function getAppliedConfigForDomain(origin, panelId) {
     try {
         if (!origin || !panelId) return null;
-        
+
         // Use correct storage based on panel type
         let payload = null;
         if (panelId === 'body') {
@@ -6569,9 +6594,9 @@ async function getAppliedConfigForDomain(origin, panelId) {
             const thirdManData = await getApplyMapForOrigin(origin, 'third-man-in');
             payload = thirdManData ? thirdManData[panelId] : null;
         }
-        
+
         if (!payload) return null;
-        
+
         // Convert payload back to config format
         // Reconstruct active controls based on what was set in the payload
         const activeControls = [];
@@ -6584,11 +6609,11 @@ async function getAppliedConfigForDomain(origin, panelId) {
         if (payload.fontWeight !== null && payload.fontWeight !== undefined) {
             activeControls.push('weight');
         }
-        
+
         // Use variableAxes directly
         const variableAxes = payload.variableAxes || {};
         const activeAxes = Object.keys(variableAxes);
-        
+
         return {
             fontName: payload.fontName,
             basicControls: {
@@ -6634,11 +6659,11 @@ async function hideApplyLoading(panelId) {
 async function resetPanelSettings(panelId) {
     try {
         console.log('resetPanelSettings called for panelId:', panelId);
-        
+
         if (currentViewMode === 'third-man-in') {
             // Third Man In mode: Reset All strategy
             await resetAllThirdManInFonts();
-            
+
             // Update button states for all Third Man In panels
             await updateThirdManInButtons('serif');
             await updateThirdManInButtons('sans');
@@ -6650,15 +6675,15 @@ async function resetPanelSettings(panelId) {
                 resetBtn.textContent = 'Resetting...';
                 resetBtn.disabled = true;
             }
-            
+
             // Unset all panel settings
             console.log('Calling unsetAllPanelControls');
             unsetAllPanelControls(panelId);
-            
+
             // Apply the unset settings to the domain (removes all font styling)
             console.log('Calling applyUnsetSettings');
             await applyUnsetSettings(panelId);
-            
+
             // Update button state
             if (panelId === 'body') {
                 console.log('Calling updateBodyButtons');
@@ -6668,7 +6693,7 @@ async function resetPanelSettings(panelId) {
                 await updateThirdManInButtons(panelId);
             }
         }
-        
+
     } catch (error) {
         console.error('Error in resetPanelSettings:', error);
     } finally {
@@ -6688,7 +6713,7 @@ async function resetPanelSettings(panelId) {
 // Reset All fonts for Third Man In mode
 async function resetAllThirdManInFonts() {
     const types = ['serif', 'sans', 'mono'];
-    
+
     for (const type of types) {
         unsetAllPanelControls(type);
         await applyUnsetSettings(type);
@@ -6698,14 +6723,14 @@ async function resetAllThirdManInFonts() {
 // Helper to unset all controls for a panel
 function unsetAllPanelControls(panelId) {
     console.log('unsetAllPanelControls called for:', panelId);
-    
+
     // Unset font family (set to default)
     const fontDisplay = document.getElementById(`${panelId}-font-display`);
     if (fontDisplay) {
         fontDisplay.textContent = 'Default';
         fontDisplay.classList.add('placeholder');
     }
-    
+
     // Update font preview elements
     const fontNameElement = document.getElementById(`${panelId}-font-name`);
     const fontTextElement = document.getElementById(`${panelId}-font-text`);
@@ -6720,14 +6745,14 @@ function unsetAllPanelControls(panelId) {
         fontTextElement.style.lineHeight = '';
         fontTextElement.style.color = '';
     }
-    
+
     // Clear extension state for this panel
     if (panelId === 'body') {
         delete extensionState[currentViewMode].bodyFont;
         // Active axes will be derived from UI state
         // Save the cleared state to UI storage
         saveExtensionState();
-        
+
         // Reset body control values to defaults
         const bodyFontSizeSlider = document.getElementById('body-font-size');
         const bodyFontSizeText = document.getElementById('body-font-size-text');
@@ -6737,7 +6762,7 @@ function unsetAllPanelControls(panelId) {
         const bodyLineHeightValue = document.getElementById('body-line-height-value');
         const bodyFontWeightSlider = document.getElementById('body-font-weight');
         const bodyFontWeightValue = document.getElementById('body-font-weight-value');
-        
+
         if (bodyFontSizeSlider) bodyFontSizeSlider.value = 17;
         if (bodyFontSizeText) bodyFontSizeText.value = 17;
         if (bodyFontSizeValue) bodyFontSizeValue.textContent = '17px';
@@ -6747,13 +6772,13 @@ function unsetAllPanelControls(panelId) {
         if (bodyFontWeightSlider) bodyFontWeightSlider.value = 400;
         if (bodyFontWeightValue) bodyFontWeightValue.textContent = '400';
     }
-    
+
     // Unset all control groups
     const controlGroups = document.querySelectorAll(`#${panelId}-font-controls .control-group`);
     controlGroups.forEach(group => {
         group.classList.add('unset');
     });
-    
+
     console.log('Extension state after reset:', extensionState[currentViewMode]);
 }
 
@@ -6761,20 +6786,20 @@ function unsetAllPanelControls(panelId) {
 async function applyUnsetSettings(panelId) {
     try {
         console.log(`applyUnsetSettings: Starting for panelId: ${panelId}`);
-        
+
         // Get current origin for storage
         const origin = await getActiveOrigin();
         console.log(`applyUnsetSettings: Origin: ${origin}`);
-        
+
         if (origin) {
             // Remove the applied configuration from storage
             const data = await queuedStorage.get('affoApplyMap');
             const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
             const entry = map[origin] || {};
-            
+
             console.log(`applyUnsetSettings: Before deletion, entry for ${origin}:`, entry);
             console.log(`applyUnsetSettings: About to delete key: ${panelId}`);
-            
+
             // Remove the specific panel's settings
             if (panelId === 'body') {
                 delete entry.body;
@@ -6785,9 +6810,9 @@ async function applyUnsetSettings(panelId) {
             } else if (panelId === 'mono') {
                 delete entry.mono;
             }
-            
+
             console.log(`applyUnsetSettings: After deletion, entry for ${origin}:`, entry);
-            
+
             // Update storage
             if (Object.keys(entry).length === 0) {
                 console.log(`applyUnsetSettings: Entry is empty, deleting entire origin entry`);
@@ -6796,11 +6821,11 @@ async function applyUnsetSettings(panelId) {
                 console.log(`applyUnsetSettings: Updating origin entry with remaining keys:`, Object.keys(entry));
                 map[origin] = entry;
             }
-            
+
             console.log(`applyUnsetSettings: About to save updated map:`, map);
             await queuedStorage.set({ affoApplyMap: map });
             console.log(`applyUnsetSettings: Storage updated successfully`);
-            
+
             // Send message to content script to remove fonts from page
             try {
                 const tabs = await browser.tabs.query({active: true, currentWindow: true});
