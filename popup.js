@@ -939,17 +939,52 @@ function getAxesForFamilyFromMetadata(fontName) {
 function ensureGfMetadata() {
     if (gfMetadata) return Promise.resolve(gfMetadata);
 
-    return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
-        if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-        return resLocal.text();
-    }).then(textLocal => {
-        const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
-        gfMetadata = JSON.parse(jsonLocal);
-        return gfMetadata;
-    }).catch(e2 => {
-        console.warn('Local metadata load failed; proceeding with empty metadata', e2);
-        gfMetadata = { familyMetadataList: [] };
-        return gfMetadata;
+    // Check for cached metadata with 24-hour expiration
+    return browser.storage.local.get(['gfMetadataCache', 'gfMetadataTimestamp']).then(data => {
+        const now = Date.now();
+        const cacheAge = now - (data.gfMetadataTimestamp || 0);
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        
+        if (data.gfMetadataCache && cacheAge < twentyFourHours) {
+            gfMetadata = data.gfMetadataCache;
+            return gfMetadata;
+        }
+        
+        // Cache expired or missing, fetch fresh data
+        return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
+            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+            return resLocal.text();
+        }).then(textLocal => {
+            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
+            gfMetadata = JSON.parse(jsonLocal);
+            
+            // Cache the metadata with timestamp
+            browser.storage.local.set({
+                gfMetadataCache: gfMetadata,
+                gfMetadataTimestamp: now
+            }).catch(e => console.warn('Failed to cache GF metadata:', e));
+            
+            return gfMetadata;
+        }).catch(e2 => {
+            console.warn('Local metadata load failed; proceeding with empty metadata', e2);
+            gfMetadata = { familyMetadataList: [] };
+            return gfMetadata;
+        });
+    }).catch(e => {
+        console.warn('Storage access failed, loading fresh metadata:', e);
+        // Fallback to original behavior if storage fails
+        return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
+            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+            return resLocal.text();
+        }).then(textLocal => {
+            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
+            gfMetadata = JSON.parse(jsonLocal);
+            return gfMetadata;
+        }).catch(e2 => {
+            console.warn('Local metadata load failed; proceeding with empty metadata', e2);
+            gfMetadata = { familyMetadataList: [] };
+            return gfMetadata;
+        });
     });
 }
 
