@@ -807,7 +807,7 @@ const fontDefinitions = {
   font-weight: 700;
   font-style: normal;
   font-display: swap;
-}}`
+}`
     }
 };
 
@@ -3671,7 +3671,7 @@ function showFavoritesPopup(position) {
                 if (config) {
                     applyFontConfig(position, config);
                     hideFavoritesPopup();
-                    
+
                     // Update Apply button visibility after loading favorite
                     if (position === 'body') {
                         updateBodyButtons();
@@ -5572,7 +5572,7 @@ function generateBodyContactCSS(payload) {
     // Generate CSS that targets body elements (Body Contact mode)
     const selector = `body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)`;
     let styleRule = `${selector} {`;
-    
+
     // Only set font-family if a specific font is chosen
     if (payload.fontName) {
         styleRule += ` font-family: "${payload.fontName}" !important;`;
