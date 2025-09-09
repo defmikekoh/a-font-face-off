@@ -240,10 +240,12 @@ body {
 
 .goal-box-left {
     left: 10px; /* Start at goal line position, overlap it */
+    border-radius: 6px 0 0 6px; /* round outer-edge corners */
 }
 
 .goal-box-right {
     right: 10px; /* Start at goal line position, overlap it */
+    border-radius: 0 6px 6px 0; /* round outer-edge corners */
 }
 
 
