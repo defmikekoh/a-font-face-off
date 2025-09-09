@@ -1,4 +1,4 @@
-/* Custom font @font-face rules are now dynamically injected from JavaScript (popup.js) 
+/* Custom font @font-face rules are now dynamically injected from JavaScript (popup.js)
    to eliminate duplication and ensure consistency between popup preview and webpage injection. */
 
 /* Reset and base styles */
@@ -230,8 +230,8 @@ body {
 .goal-box-left, .goal-box-right {
     position: absolute;
     top: 50%;
-    width: 8px; /* Adjusted x-dimension to match SVG proportions */
-    height: 16px; /* Larger y-dimension to match SVG proportions */
+    width: 10px; /* Adjusted x-dimension to match SVG proportions */
+    height: 20px; /* Larger y-dimension to match SVG proportions */
     transform: translateY(-50%);
     border: 2px solid #c33; /* Same thickness as goal line */
     background: transparent;
@@ -239,11 +239,11 @@ body {
 }
 
 .goal-box-left {
-    left: 18px; /* Start at goal line position, overlap it */
+    left: 10px; /* Start at goal line position, overlap it */
 }
 
 .goal-box-right {
-    right: 18px; /* Start at goal line position, overlap it */
+    right: 10px; /* Start at goal line position, overlap it */
 }
 
 
