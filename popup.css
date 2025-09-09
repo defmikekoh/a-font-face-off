@@ -1383,21 +1383,107 @@ body.body-contact #font-comparison {
         flex-wrap: nowrap;
         justify-content: space-between;
         height: 72px; /* more compact single row */
-        padding: 6px max(10px, env(safe-area-inset-right)) max( env(safe-area-inset-bottom), 6px ) max(10px, env(safe-area-inset-left));
+        padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px; /* Symmetric left/right padding */
         column-gap: 8px;
         --grip-width: 120px;
     }
+
+    /* Third Man In mode: use same approach as Face-off with identical padding */
+    body.view-third-man-in #panel-grips {
+        justify-content: space-between !important;
+        gap: 0 !important;
+        padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px !important; /* Same padding as Face-off */
+    }
+
+    /* Third Man In outer grips: ensure exact same width for perfect centering - override desktop rules */
+    @media (max-width: 599px) {
+        body.view-third-man-in .grip-area {
+            flex: 0 0 var(--grip-width) !important; /* Fixed width, no grow/shrink */
+            width: var(--grip-width) !important;
+            box-sizing: border-box !important; /* Include padding/border in width */
+            padding: 6px 8px !important; /* Same padding as Face-off mode */
+        }
+    }
+
+    /* Third Man In center stack: match Face-off favorites-container behavior exactly - mobile-specific */
+    @media (max-width: 599px) {
+        body.view-third-man-in .third-man-in-center-stack {
+            flex: 1 1 auto !important; /* Same as favorites-container */
+            display: flex !important;
+            flex-direction: column !important; /* Same as favorites-edit-section */
+            align-items: center !important; /* Same as favorites-edit-section */
+            justify-content: center !important; /* Same as favorites-edit-section */
+            margin: 0 5px !important; /* Same margin as Face-off favorites container */
+            gap: 6px !important; /* Same gap as favorites-edit-section - override desktop 4px */
+            min-width: 0 !important; /* Same as favorites-container */
+            flex-basis: 0 !important; /* Same as favorites-container */
+            /* No max-width constraint - let it take same space as Face-off favorites */
+        }
+    }
+
+    /* DEBUG: Show all elements in both modes to find phantom spacing */
+    body.view-faceoff #panel-grips * {
+        outline: 2px solid blue !important;
+        background: rgba(0,0,255,0.1) !important;
+    }
+    body.view-third-man-in #panel-grips * {
+        outline: 2px solid red !important;
+        background: rgba(255,0,0,0.1) !important;
+    }
+
+    /* Make mono grip within center stack even narrower */
+    body.view-third-man-in .third-man-in-center-stack .grip-area {
+        flex: none !important;
+        width: 60px !important;
+        padding: 4px 2px !important;
+    }
+
+    /* Hide any phantom elements that might be causing issues */
+    body.view-third-man-in .favorites-container,
+    body.view-third-man-in .invisible-grip {
+        display: none !important;
+    }
     .grip-area { flex: 0 0 var(--grip-width); width: var(--grip-width); padding: 6px 8px; }
-    .favorites-container {
-        flex: 1 1 auto;
-        order: 0;
-        width: auto;
-        max-width: none;
-        justify-content: center;
-        gap: 10px;
-        overflow: visible;
-        -webkit-overflow-scrolling: auto;
-        padding-bottom: 0;
+
+    /* Body Contact and Face-off modes: favorites container - mobile-specific override */
+    @media (max-width: 599px) {
+        body.view-body-contact .favorites-container,
+        body.view-faceoff .favorites-container {
+            flex: 1 1 auto !important;
+            order: 0;
+            width: auto;
+            max-width: none !important; /* Override desktop max-width */
+            justify-content: center;
+            gap: 6px !important; /* Same gap as Third Man In */
+            overflow: visible;
+            -webkit-overflow-scrolling: auto;
+            padding-bottom: 0;
+            margin: 0 5px !important; /* Same margin as Third Man In */
+            min-width: 0 !important; /* Allow shrinking to match Third Man In */
+            flex-basis: 0 !important; /* Same flex-basis as Third Man In */
+        }
+    }
+
+    /* Face-off mode: ensure outer grips have exact same width for perfect centering */
+    body.view-faceoff .grip-area {
+        flex: 0 0 var(--grip-width) !important;
+        width: var(--grip-width) !important;
+        box-sizing: border-box !important;
+        padding: 6px 8px !important; /* Same padding as base rule */
+    }
+
+    /* Third Man In mode: center stack - DISABLED, handled above with debug colors */
+    /*
+    body.view-third-man-in .third-man-in-center-stack {
+        flex: 0 0 auto;
+        width: var(--grip-width);
+    }
+    */
+
+    /* Force Third Man In mode to ignore any phantom favorites container styles */
+    body.view-third-man-in .favorites-container {
+        display: none !important;
+        flex: none !important;
     }
     /* Tighten footer spacing on phones to prevent overflow */
     .panel-footer { padding: 8px 8px; gap: 8px; }
@@ -1458,7 +1544,9 @@ body.body-contact #font-comparison {
 }
 
 /* Separate favorites container */
-.favorites-container {
+/* Only apply favorites container styling to modes that actually have one */
+body.view-body-contact .favorites-container,
+body.view-faceoff .favorites-container {
     display: flex;
     gap: 15px;
     flex: 1;
