@@ -1106,12 +1106,12 @@ function updateBodyButtonsImmediate() {
             console.log('DEBUG: Map for origin:', origin, 'entry:', entry);
 
             // Compare current vs applied state
-            const hasChanges = !configsEqual(currentConfig, appliedConfig);
-            const hasAppliedState = !!appliedConfig;
+            const changeCount = !configsEqual(currentConfig, appliedConfig) ? 1 : 0;
+            const domainHasAppliedState = !!appliedConfig;
 
             console.log('DEBUG updateBodyButtons:', {
-                hasChanges,
-                hasAppliedState,
+                changeCount,
+                domainHasAppliedState,
                 currentConfig,
                 appliedConfig,
                 configsEqualResult: configsEqual(currentConfig, appliedConfig),
@@ -1119,26 +1119,42 @@ function updateBodyButtonsImmediate() {
                 appliedConfigType: typeof appliedConfig
             });
 
-            if (hasChanges) {
-                // Current values differ from applied - show Apply button
-                if (applyBtn) {
-                    applyBtn.style.display = 'block';
-                    applyBtn.textContent = 'Apply';
-                    applyBtn.disabled = false;
-                }
-                if (resetBtn) resetBtn.style.display = 'none';
-            } else if (hasAppliedState) {
-                // No changes but has applied state - show Reset button
-                if (applyBtn) applyBtn.style.display = 'none';
-                if (resetBtn) {
-                    resetBtn.style.display = 'block';
-                    resetBtn.textContent = 'Reset';
-                    resetBtn.disabled = false;
+            if (changeCount > 0) {
+                // Check if all UI changes are actually defaults (Reset case)
+                const allDefaults = !currentConfig; // currentConfig is undefined when UI shows "Default"
+                
+                if (allDefaults) {
+                    // Special case: changeCount > 0 but UI is default - show Reset
+                    if (applyBtn) applyBtn.style.display = 'none';
+                    if (resetBtn) {
+                        resetBtn.style.display = 'block';
+                        resetBtn.textContent = 'Reset';
+                        resetBtn.disabled = false;
+                    }
+                } else {
+                    // Normal case: UI differs from applied - show Apply button
+                    if (applyBtn) {
+                        applyBtn.style.display = 'block';
+                        applyBtn.textContent = 'Apply';
+                        applyBtn.disabled = false;
+                    }
+                    if (resetBtn) resetBtn.style.display = 'none';
                 }
             } else {
-                // No changes and no applied state - hide both buttons
-                if (applyBtn) applyBtn.style.display = 'none';
-                if (resetBtn) resetBtn.style.display = 'none';
+                // changeCount === 0 - check if domain has applied state
+                if (domainHasAppliedState) {
+                    // No changes but domain has applied state - show Reset button
+                    if (applyBtn) applyBtn.style.display = 'none';
+                    if (resetBtn) {
+                        resetBtn.style.display = 'block';
+                        resetBtn.textContent = 'Reset';
+                        resetBtn.disabled = false;
+                    }
+                } else {
+                    // No changes and no applied state - hide both buttons
+                    if (applyBtn) applyBtn.style.display = 'none';
+                    if (resetBtn) resetBtn.style.display = 'none';
+                }
             }
         });
     }).catch(e => {
@@ -2168,9 +2184,16 @@ function selectFont(name) {
         const selectElAfter = document.getElementById(`${currentPosition}-font-select`);
         console.log(`selectFont: After setting display text, ${currentPosition}-font-select.value = "${selectElAfter ? selectElAfter.value : 'null'}"`);
 
-        displayEl.classList.remove('placeholder');
-        const group = displayEl.closest('.control-group');
-        if (group) group.classList.remove('unset');
+        // Handle Default vs specific font styling
+        if (name === 'Default') {
+            displayEl.classList.add('placeholder');
+            const group = displayEl.closest('.control-group');
+            if (group) group.classList.add('unset');
+        } else {
+            displayEl.classList.remove('placeholder');
+            const group = displayEl.closest('.control-group');
+            if (group) group.classList.remove('unset');
+        }
         console.log(`selectFont: Updated ${currentPosition}-font-display to "${name}"`);
     }
 
@@ -2208,7 +2231,12 @@ function selectFont(name) {
         const fontNameDisplayElement = document.getElementById(`${currentPosition}-font-name`);
         if (fontNameDisplayElement) {
             console.log(`selectFont: Updating ${currentPosition}-font-name from "${fontNameDisplayElement.textContent}" to "${name}"`);
-            fontNameDisplayElement.textContent = name;
+            // For Default, show the position name (Serif, Sans, Mono) instead of "Default"
+            if (name === 'Default') {
+                fontNameDisplayElement.textContent = currentPosition.charAt(0).toUpperCase() + currentPosition.slice(1);
+            } else {
+                fontNameDisplayElement.textContent = name;
+            }
             console.log(`selectFont: After update, ${currentPosition}-font-name.textContent = "${fontNameDisplayElement.textContent}"`);
         } else {
             console.error(`selectFont: Could not find ${currentPosition}-font-name element!`);
@@ -2310,7 +2338,8 @@ function loadFont(position, fontName, options = {}) {
     // Active axes will be cleared when font controls are reset to unset state
 
     // Load font CSS (Google Fonts only - custom fonts handled via fontFaceRule)
-    if (!CUSTOM_FONTS.includes(fontName)) {
+    // Skip font loading for Default (no actual font to load)
+    if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName)) {
         // Also kick off dynamic axis discovery in background for Google families
         loadGoogleFont(fontName);
         getOrCreateFontDefinition(fontName).then(() => {
@@ -3104,39 +3133,60 @@ function updateThirdManInPreview(fontType) {
     if (!textElement || !nameElement) return;
 
     const cfg = getCurrentUIConfig(fontType);
-    if (!cfg) return;
+    
+    // Handle both configured fonts and "Default" (no config)
+    if (cfg) {
+        // Update font name display for specific font
+        nameElement.textContent = cfg.fontName || fontType.charAt(0).toUpperCase() + fontType.slice(1);
 
-    // Update font name display
-    nameElement.textContent = cfg.fontName || fontType.charAt(0).toUpperCase() + fontType.slice(1);
-
-    // Build font-family CSS
-    let fontFamily = cfg.fontName || '';
-    switch(fontType) {
-        case 'serif': fontFamily += ', serif'; break;
-        case 'sans': fontFamily += ', sans-serif'; break;
-        case 'mono': fontFamily += ', monospace'; break;
-    }
-
-    // Apply styles to preview text
-    let style = `font-family: ${fontFamily};`;
-
-    if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
-    if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
-    if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
-    if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
-
-    // Add variable font settings if available
-    if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
-        const varSettings = Object.entries(cfg.variableAxes)
-            .map(([axis, value]) => `"${axis}" ${value}`)
-            .join(', ');
-
-        if (varSettings) {
-            style += ` font-variation-settings: ${varSettings};`;
+        // Build font-family CSS with specific font
+        let fontFamily = cfg.fontName || '';
+        switch(fontType) {
+            case 'serif': fontFamily += ', serif'; break;
+            case 'sans': fontFamily += ', sans-serif'; break;
+            case 'mono': fontFamily += ', monospace'; break;
         }
-    }
 
-    textElement.style.cssText = style;
+        // Apply styles to preview text
+        let style = `font-family: ${fontFamily};`;
+
+        if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
+        if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
+        if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
+        if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
+
+        // Add variable font settings if available
+        if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
+            const varSettings = Object.entries(cfg.variableAxes)
+                .map(([axis, value]) => `"${axis}" ${value}`)
+                .join(', ');
+
+            if (varSettings) {
+                style += ` font-variation-settings: ${varSettings};`;
+            }
+        }
+
+        textElement.style.cssText = style;
+    } else {
+        // Handle "Default" case (no config)
+        const headingText = fontType.charAt(0).toUpperCase() + fontType.slice(1);
+        console.log(`updateThirdManInPreview: Setting ${fontType} heading to "${headingText}"`);
+        nameElement.textContent = headingText;
+        
+        // Reset the heading font to default (same as other unset headings)
+        nameElement.style.cssText = '';
+        console.log(`updateThirdManInPreview: After reset, ${fontType} heading shows: "${nameElement.textContent}"`);
+        
+        // Reset preview text to generic font family
+        let genericFamily;
+        switch(fontType) {
+            case 'serif': genericFamily = 'serif'; break;
+            case 'sans': genericFamily = 'sans-serif'; break;
+            case 'mono': genericFamily = 'monospace'; break;
+        }
+        
+        textElement.style.cssText = `font-family: ${genericFamily};`;
+    }
 }
 
 // Pre-highlight Apply buttons based on saved per-origin settings
@@ -4702,7 +4752,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
 
         // Family reset button handler
         if (e.target.classList.contains('family-reset-btn')) {
+            console.log('Family reset button clicked', e.target);
             const panelId = e.target.closest('.controls-panel').id;
+            console.log('Panel ID:', panelId);
             let position;
 
             // Clean direct mapping from panel IDs to positions
@@ -4714,24 +4766,34 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             else if (panelId === 'mono-font-controls') position = 'mono';
 
             if (position) {
+                console.log('Position determined:', position);
                 const fontDisplay = document.getElementById(`${position}-font-display`);
                 const fontSelect = document.getElementById(`${position}-font-select`);
+                console.log('Font elements found:', { fontDisplay, fontSelect });
 
-                if (fontDisplay && fontSelect) {
-                    // Reset to default font (first option)
-                    const defaultOption = fontSelect.options[0];
-                    fontDisplay.textContent = 'Default';
-                    fontSelect.value = defaultOption.value;
-
-                    // Trigger change event to update preview
-                    fontSelect.dispatchEvent(new Event('change'));
-
-                    // Apply the change based on mode
-                    if (['top', 'bottom'].includes(position)) {
-                        applyFont(position);
-                    } else if (['serif', 'sans', 'mono'].includes(position)) {
-                        // For Third Man In mode, update the preview text
+                if (fontDisplay) {
+                    // Handle Third Man In mode and Face-off mode differently
+                    if (['serif', 'sans', 'mono'].includes(position)) {
+                        // Third Man In mode: Reset like body mode
+                        console.log('Third Man In reset for position:', position);
+                        const fontGroup = fontDisplay.closest('.control-group');
+                        fontDisplay.textContent = 'Default';
+                        fontDisplay.classList.add('placeholder');
+                        if (fontGroup) {
+                            fontGroup.classList.add('unset');
+                        }
+                        // updateThirdManInPreview will set the correct heading text
                         updateThirdManInPreview(position);
+                        
+                        // Update buttons after reset to show Reset All if needed
+                        updateAllThirdManInButtons();
+                    } else if (['top', 'bottom'].includes(position) && fontSelect) {
+                        // Face-off mode: Use selectFont and reset select element
+                        console.log('Face-off reset for position:', position);
+                        selectFont('Default', position);
+                        const defaultOption = fontSelect.options[0];
+                        fontSelect.value = defaultOption.value;
+                        applyFont(position);
                     }
 
                     setTimeout(() => saveExtensionState(), 50);
@@ -5655,8 +5717,12 @@ function generateThirdManInCSS(fontType, payload) {
 
     // Generate CSS that targets elements marked with data-affo-font-type attribute
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-    const fontFamily = payload.fontName ? `"${payload.fontName}", ${generic}` : generic;
-    let styleRule = `[data-affo-font-type="${fontType}"] { font-family: ${fontFamily} !important;`;
+    let styleRule = `[data-affo-font-type="${fontType}"] {`;
+    
+    // Only set font-family if a specific font is chosen
+    if (payload.fontName) {
+        styleRule += ` font-family: "${payload.fontName}" !important;`;
+    }
 
     if (payload.fontSize && isFinite(payload.fontSize)) {
         styleRule += ` font-size: ${payload.fontSize}px !important;`;
@@ -6863,10 +6929,23 @@ function updateAllThirdManInButtons(triggeringPanel = null) {
         // Show buttons in the last changed panel based on state
         return countThirdManInDifferences().then(changeCount => {
             if (changeCount > 0) {
-                // UI differs from storage - show Apply All
-                applyBtn.style.display = 'block';
-                applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
-                resetBtn.style.display = 'none';
+                // Check if all UI changes are actually defaults (Reset All case)
+                const serifConfig = getCurrentUIConfig('serif');
+                const sansConfig = getCurrentUIConfig('sans');
+                const monoConfig = getCurrentUIConfig('mono');
+                const allDefaults = !serifConfig && !sansConfig && !monoConfig;
+                
+                if (allDefaults) {
+                    // Special case: changeCount > 0 but all UI is defaults - show Reset All
+                    applyBtn.style.display = 'none';
+                    resetBtn.style.display = 'block';
+                    resetBtn.textContent = 'Reset All';
+                } else {
+                    // Normal case: UI differs from storage - show Apply All
+                    applyBtn.style.display = 'block';
+                    applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
+                    resetBtn.style.display = 'none';
+                }
             } else {
                 // UI matches storage - check if domain has any applied fonts
                 return getActiveOrigin().then(origin => {
@@ -6910,9 +6989,23 @@ function updateThirdManInButtons(panelId) {
     if (currentViewMode === 'third-man-in') {
         return countThirdManInDifferences().then(changeCount => {
             if (changeCount > 0) {
-                applyBtn.style.display = 'block';
-                applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
-                resetBtn.style.display = 'none';
+                // Check if all UI changes are actually defaults (Reset All case)
+                const serifConfig = getCurrentUIConfig('serif');
+                const sansConfig = getCurrentUIConfig('sans');
+                const monoConfig = getCurrentUIConfig('mono');
+                const allDefaults = !serifConfig && !sansConfig && !monoConfig;
+                
+                if (allDefaults) {
+                    // Special case: changeCount > 0 but all UI is defaults - show Reset All
+                    applyBtn.style.display = 'none';
+                    resetBtn.style.display = 'block';
+                    resetBtn.textContent = 'Reset All';
+                } else {
+                    // Normal case: UI differs from storage - show Apply All
+                    applyBtn.style.display = 'block';
+                    applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
+                    resetBtn.style.display = 'none';
+                }
             } else {
                 // No differences - check if domain has any applied fonts
                 return getActiveOrigin().then(origin => {
@@ -7255,7 +7348,8 @@ function unsetAllPanelControls(panelId) {
     const fontNameElement = document.getElementById(`${panelId}-font-name`);
     const fontTextElement = document.getElementById(`${panelId}-font-text`);
     if (fontNameElement) {
-        fontNameElement.textContent = 'Default';
+        // Set heading to position name (Serif, Sans, Mono) instead of "Default"
+        fontNameElement.textContent = panelId.charAt(0).toUpperCase() + panelId.slice(1);
         fontNameElement.style.fontFamily = '';
     }
     if (fontTextElement) {
