@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Font Test Page</title>
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 20px;
@@ -35,9 +36,15 @@
 
         .monospace-text {
             font-family: monospace;
-            background-color: #f5f5f5;
+            /* background-color: #f5f5f5; */
             padding: 10px;
             border-radius: 4px;
+        }
+
+        .dela-gothic-one-text {
+            font-family: "Dela Gothic One", sans-serif;
+            font-weight: 400;
+            font-style: normal;
         }
 
         .mixed-content {
@@ -61,6 +68,13 @@
 <body>
     <h1>Font Test Page</h1>
     <p>This text has no style.</p>
+
+    <div class="font-section">
+        <div class="dela-gothic-one-text">
+            <p>This text should display in Dela Gothic One when not overriden.</p>
+            <blockquote>"I wanna be a Goth." - Steve Jobs</blockquote>
+        </div>
+    </div>
 
     <div class="font-section">
         <div class="serif-text">

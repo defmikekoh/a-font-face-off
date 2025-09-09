@@ -71,8 +71,8 @@
         document.head.appendChild(fontFaceStyle);
       }
     }
-    // If not FontFace-only domain, load Google Fonts CSS link
-    else if (!shouldUseFontFaceOnly()) {
+    // If Google font (no fontFaceRule) and not FontFace-only domain, load Google Fonts CSS link
+    else if (!fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
       loadGoogleFontCSS(fontName);
     }
     
