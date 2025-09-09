@@ -343,6 +343,27 @@ body {
     border-radius: 15px 0 0 15px; /* Perfect half circle - 25% smaller */
 }
 
+/* Goal box rectangles (overlap goal line, same thickness) */
+.goal-box-left, .goal-box-right {
+    position: absolute;
+    top: 50%;
+    width: 8px; /* Adjusted x-dimension to match SVG proportions */
+    height: 16px; /* Larger y-dimension to match SVG proportions */
+    transform: translateY(-50%);
+    border: 2px solid #c33; /* Same thickness as goal line */
+    background: transparent;
+    z-index: 2; /* Above goal line to show overlap */
+}
+
+.goal-box-left {
+    left: 18px; /* Start at goal line position, overlap it */
+}
+
+.goal-box-right {
+    right: 18px; /* Start at goal line position, overlap it */
+}
+
+
 .mode-tab {
     background: transparent;
     border: none;
@@ -547,26 +568,33 @@ body.view-third-man-in #mono-font-grip {
     position: relative !important;
 }
 
-/* Edit pencil overlays center of mono grip */
+/* Edit pencil and mono grip stacked vertically */
 body.view-third-man-in .third-man-in-center-stack {
-    position: relative !important;
-    display: inline-block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
 }
 
 body.view-third-man-in .third-man-in-center-stack .favorite-btn {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    z-index: 10 !important;
-    width: 32px !important;
-    height: 32px !important;
+    width: 24px !important;
+    height: 24px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background: rgba(255, 255, 255, 0.9) !important;
-    border-radius: 50% !important;
-    font-size: 14px !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    flex-shrink: 0 !important;
+}
+
+body.view-third-man-in .third-man-in-center-stack .centered-grip {
+    height: 30px !important;
+    min-height: 30px !important;
+    flex-shrink: 0 !important;
+}
+
+body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
+    margin-bottom: -4px !important;
 }
 
 .controls-panel {

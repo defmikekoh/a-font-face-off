@@ -101,9 +101,11 @@
         <div class="goal-line-right"></div>
         <div class="goal-crease-left"></div>
         <div class="goal-crease-right"></div>
+        <div class="goal-box-left"></div>
+        <div class="goal-box-right"></div>
         <div class="goal-left"></div>
         <div class="goal-right"></div>
-        <button class="mode-tab active" data-mode="body-contact">Body Contact</button>
+        <button class="mode-tab" data-mode="body-contact">Body Contact</button>
         <button class="mode-tab" data-mode="faceoff"><span class="face-text">FACE</span><span class="center-dash">●</span><span class="off-text">OFF</span></button>
         <button class="mode-tab" data-mode="third-man-in">Third Man In</button>
     </div>
@@ -111,7 +113,7 @@
     <!-- Panel control grips and favorites at bottom -->
     <div id="panel-grips">
         <!-- Body Contact mode: single grip -->
-        <div class="mode-content body-contact-content active">
+        <div class="mode-content body-contact-content">
             <div class="grip-area invisible-grip" id="out-of-body-grip">
                 <div class="grip-handle">≡</div>
                 <span class="grip-label">Out of Body</span>
@@ -176,24 +178,7 @@
                 <label for="top-font-display">Font Family:</label>
                 <div class="control-row input-row">
                     <span id="top-family-reset" class="family-reset-btn" title="Use site default">↻</span>
-                    <div id="top-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Roboto Flex</div>
-                    <select id="top-font-select" class="hidden">
-                    <option value="Roboto Flex" selected>Roboto Flex</option>
-                    <option value="Inter">Inter</option>
-                    <option value="Open Sans">Open Sans</option>
-                    <option value="Recursive">Recursive</option>
-                    <option value="Fraunces">Fraunces</option>
-                    <option value="DM Sans">DM Sans</option>
-                    <option value="Outfit">Outfit</option>
-                    <option value="Nunito Sans">Nunito Sans</option>
-                    <option value="Source Sans 3">Source Sans 3</option>
-                    <option value="Crimson Pro">Crimson Pro</option>
-                    <option value="Merriweather">Merriweather</option>
-                    <option value="Lora">Lora</option>
-                    <option value="Roboto Slab">Roboto Slab</option>
-                    <option value="BBC Reith Serif">BBC Reith Serif</option>
-                    <option value="ABC Ginto Normal Unlicensed Trial">ABC Ginto Normal</option>
-                    </select>
+                    <div id="top-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">ABeeZee</div>
                 </div>
             </div>
             <!-- Favorites controls moved to persistent footer -->
@@ -343,25 +328,7 @@
                 <label for="bottom-font-display">Font Family:</label>
                 <div class="control-row input-row">
                     <span id="bottom-family-reset" class="family-reset-btn" title="Use site default">↻</span>
-                    <div id="bottom-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Rubik</div>
-                    <select id="bottom-font-select" class="hidden">
-                    <option value="Rubik" selected>Rubik</option>
-                    <option value="Inter">Inter</option>
-                    <option value="Open Sans">Open Sans</option>
-                    <option value="Recursive">Recursive</option>
-                    <option value="Fraunces">Fraunces</option>
-                    <option value="DM Sans">DM Sans</option>
-                    <option value="Outfit">Outfit</option>
-                    <option value="Nunito Sans">Nunito Sans</option>
-                    <option value="Source Sans 3">Source Sans 3</option>
-                    <option value="Crimson Pro">Crimson Pro</option>
-                    <option value="Merriweather">Merriweather</option>
-                    <option value="Lora">Lora</option>
-                    <option value="Roboto Slab">Roboto Slab</option>
-                    <option value="BBC Reith Serif">BBC Reith Serif</option>
-                    <option value="ABC Ginto Normal Unlicensed Trial">ABC Ginto Normal</option>
-                    <option value="Roboto Flex">Roboto Flex</option>
-                    </select>
+                    <div id="bottom-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Zilla Slab Highlight</div>
                 </div>
             </div>
             <!-- Favorites controls moved to persistent footer -->
@@ -468,7 +435,7 @@
 
         <!-- Serif section (Third Man In mode) -->
         <div class="font-section" id="serif-font-section">
-            <h3 id="serif-font-name">Serif</h3>
+            <h3 id="serif-font-name"></h3>
             <p id="serif-font-text" style="font-family: 'Times New Roman', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
         </div>
 
@@ -476,7 +443,7 @@
 
         <!-- Sans section (Third Man In mode) -->
         <div class="font-section" id="sans-font-section">
-            <h3 id="sans-font-name">Sans</h3>
+            <h3 id="sans-font-name"></h3>
             <p id="sans-font-text" style="font-family: 'Arial', sans-serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
         </div>
 
@@ -484,7 +451,7 @@
 
         <!-- Mono section (Third Man In mode) -->
         <div class="font-section" id="mono-font-section">
-            <h3 id="mono-font-name">Mono</h3>
+            <h3 id="mono-font-name"></h3>
             <pre id="mono-font-text" style="font-family: 'Courier New', monospace; font-weight: 400; background: #ffffff; color: #000000; padding: 16px; border-radius: 4px; margin: 0; white-space: pre; overflow-x: auto;"><span style="color: #008000; font-style: italic;"># Gettysburg Address Implementation</span>
 <span style="color: #0000ff;">class</span> <span style="color: #267f99;">Nation</span>:
     <span style="color: #0000ff;">def</span> <span style="color: #795e26;">__init__</span>(<span style="color: #001080;">self</span>, <span style="color: #001080;">conceived_in</span>=<span style="color: #a31515;">"Liberty"</span>):
@@ -539,12 +506,6 @@
                 <div class="control-row input-row">
                     <span id="body-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
                     <div id="body-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
-                    <select id="body-font-select" class="hidden">
-                    <option value="default" selected>Default</option>
-                    <option value="Roboto Flex">Roboto Flex</option>
-                    <option value="Inter">Inter</option>
-                    <option value="Open Sans">Open Sans</option>
-                    </select>
                 </div>
             </div>
         </div>
@@ -635,11 +596,6 @@
                 <div class="control-row input-row">
                     <span id="serif-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
                     <div id="serif-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
-                    <select id="serif-font-select" class="hidden">
-                    <option value="Times New Roman" selected>Times New Roman</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="serif">serif</option>
-                    </select>
                 </div>
             </div>
         </div>
@@ -730,11 +686,6 @@
                 <div class="control-row input-row">
                     <span id="mono-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
                     <div id="mono-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
-                    <select id="mono-font-select" class="hidden">
-                    <option value="Courier New" selected>Courier New</option>
-                    <option value="Monaco">Monaco</option>
-                    <option value="monospace">monospace</option>
-                    </select>
                 </div>
             </div>
         </div>
@@ -825,11 +776,6 @@
                 <div class="control-row input-row">
                     <span id="sans-family-reset" class="family-reset-btn" title="Set family to Default">↻</span>
                     <div id="sans-font-display" class="font-family-display" tabindex="0" role="combobox" aria-haspopup="listbox" aria-controls="font-picker-list" aria-expanded="false">Default</div>
-                    <select id="sans-font-select" class="hidden">
-                    <option value="Arial" selected>Arial</option>
-                    <option value="Helvetica">Helvetica</option>
-                    <option value="sans-serif">sans-serif</option>
-                    </select>
                 </div>
             </div>
         </div>

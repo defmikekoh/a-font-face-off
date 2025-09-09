@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font Test Page</title>
+    <style>
+        body {
+            margin: 20px;
+            line-height: 1.6;
+            max-width: 1200px;
+        }
+
+        .font-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .font-section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .serif-text {
+            font-family: serif;
+        }
+
+        .sans-serif-text {
+            font-family: sans-serif;
+        }
+
+        .monospace-text {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .mixed-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .mixed-content {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            body {
+                margin: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Font Test Page</h1>
+    <p>This text has no style.</p>
+
+    <div class="font-section">
+        <div class="serif-text">
+            <p>This text should display in serif.</p>
+            <blockquote>"Design is not just what it looks like — design is how it works." - Steve Jobs</blockquote>
+        </div>
+    </div>
+
+    <div class="font-section">
+        <div class="sans-serif-text">
+            <p>This text should display in sans-serif fonts.</p>
+            <ul>
+                <li>Clean and modern appearance</li>
+                <li>Great for user interfaces</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="font-section">
+        <div class="monospace-text">
+            <p>This text should display in monospace.</p>
+            <pre>function example() {
+    return "Perfect for code!";
+}</pre>
+        </div>
+    </div>
+
+    <div class="font-section">
+        <h2>Mixed Content</h2>
+        <div class="mixed-content">
+            <div>
+                <h3>Article Title (Serif)</h3>
+                <p class="serif-text">This paragraph uses serif fonts and should change when you apply serif fonts in Third Man In mode.</p>
+
+                <h4>Navigation (Sans)</h4>
+                <nav class="sans-serif-text">
+                    <a href="#">Home</a> |
+                    <a href="#">About</a> |
+                    <a href="#">Contact</a>
+                </nav>
+            </div>
+
+            <div>
+                <h3>Code Example (Mono)</h3>
+                <code class="monospace-text">
+                    const test = "Hello World";<br>
+                    console.log(test);
+                </code>
+
+                <h4>Regular Text</h4>
+                <p>This paragraph doesn't specify a font family, so it uses the browser default and may be affected by font changes.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

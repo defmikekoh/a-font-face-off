@@ -1,457 +1,384 @@
-// Content script: re-apply saved fonts on page load for this origin
+// Content script: cleanup and storage monitoring only
+// All font injection is now handled by popup.js using insertCSS
 (function(){
-  function inject(payload){
+  // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
+  try {
+    if (!document.documentElement.hasAttribute('data-affo-base')) {
+      var fam = '';
+      try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch(_) {}
+      var parts = fam.replace(/["']'/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+      var hasSansGen = parts.indexOf('sans-serif') !== -1;
+      var hasSerifGen = parts.indexOf('serif') !== -1;
+      // Prefer explicit generic if present; treat "Merriweather, sans-serif" as sans
+      var base;
+      if (hasSansGen) base = 'sans';
+      else if (hasSerifGen) base = 'serif';
+      else {
+        // Fall back to name hints
+        var serifNames = ['pt serif','georgia','times','times new roman','merriweather','garamond','charter','spectral','lora','abril'];
+        var isSerifName = parts.some(function(p){ return serifNames.indexOf(p) !== -1; });
+        base = isSerifName ? 'serif' : 'sans';
+      }
+      document.documentElement.setAttribute('data-affo-base', base);
+      // Asynchronously refine using user-provided lists
+      try {
+        browser.storage.local.get(['affoKnownSerif','affoKnownSans']).then(function(opt){
+          try {
+            var ks = Array.isArray(opt.affoKnownSerif) ? opt.affoKnownSerif.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
+            var kn = Array.isArray(opt.affoKnownSans) ? opt.affoKnownSans.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
+            var nameHitSerif = parts.some(function(p){ return ks.indexOf(p) !== -1; });
+            var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
+            if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
+            else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
+          } catch(_){ }
+        }).catch(function(){});
+      } catch(_){ }
+    }
+  } catch(_){}
+
+  // Helper functions for font loading
+  var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
+  var currentOrigin = location.hostname;
+  
+  // Load FontFace-only domains from storage
+  try {
+    browser.storage.local.get('affoFontFaceOnlyDomains').then(function(data) {
+      if (Array.isArray(data.affoFontFaceOnlyDomains)) {
+        fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
+        console.log(`[AFFO Content] FontFace-only domains:`, fontFaceOnlyDomains);
+      }
+    }).catch(function() {});
+  } catch (e) {}
+  
+  function shouldUseFontFaceOnly() {
+    return fontFaceOnlyDomains.includes(currentOrigin);
+  }
+  
+  function loadFont(fontConfig, fontType) {
+    var fontName = fontConfig.fontName;
+    if (!fontName) return;
+    
+    console.log(`[AFFO Content] Loading font ${fontName} for ${fontType}, FontFace-only:`, shouldUseFontFaceOnly());
+    
+    // If font has custom @font-face rule (non-Google font), inject it
+    if (fontConfig.fontFaceRule) {
+      console.log(`[AFFO Content] Injecting custom @font-face for ${fontName}`);
+      var fontFaceStyleId = 'affo-fontface-' + fontName.replace(/\s+/g, '-').toLowerCase();
+      if (!document.getElementById(fontFaceStyleId)) {
+        var fontFaceStyle = document.createElement('style');
+        fontFaceStyle.id = fontFaceStyleId;
+        fontFaceStyle.textContent = fontConfig.fontFaceRule;
+        document.head.appendChild(fontFaceStyle);
+      }
+    }
+    // If not FontFace-only domain, load Google Fonts CSS link
+    else if (!shouldUseFontFaceOnly()) {
+      loadGoogleFontCSS(fontName);
+    }
+    
+    // Only use FontFace API for Google Fonts, not custom fonts
+    if (window.FontFace && document.fonts && !fontConfig.fontFaceRule) {
+      try {
+        var fontFace = new FontFace(fontName, `url(https://fonts.gstatic.com/s/${fontName.toLowerCase().replace(/\s+/g, '')}/v1/font.woff2)`);
+        document.fonts.add(fontFace);
+        fontFace.load().then(function() {
+          console.log(`[AFFO Content] FontFace loaded: ${fontName}`);
+        }).catch(function(e) {
+          console.log(`[AFFO Content] FontFace failed for ${fontName}, falling back to CSS:`, e);
+        });
+      } catch (e) {
+        console.log(`[AFFO Content] FontFace not supported or failed:`, e);
+      }
+    }
+  }
+  
+  function loadGoogleFontCSS(fontName) {
     try {
-      // Use original font family name (no aliasing needed)
-      var appliedFamily = (payload && payload.fontName) ? payload.fontName : '';
-      // Build a concise, human‑readable description of what will be injected
-      function describeInjection(){
-        try {
-          var p = payload || {};
-          var sid = String(p.styleId || 'a-font-face-off-style-body');
-          var panel = (sid.indexOf('-serif') !== -1) ? 'serif' : (sid.indexOf('-sans') !== -1 ? 'sans' : (sid.indexOf('-body') !== -1 ? 'body' : 'unknown'));
-          var generic = p.generic ? String(p.generic) : '';
-
-          var axisBits = [];
-          try {
-            var axes = Object.assign({}, p.variableAxes || {});
-            if (p.fontWeight !== null && p.fontWeight !== undefined) axes.wght = Number(p.fontWeight);
-            Object.keys(axes).forEach(function(k){ axisBits.push(k+': '+axes[k]); });
-          } catch(_){ }
-          if (p.wdthVal !== null && p.wdthVal !== undefined) axisBits.push('wdth%: '+p.wdthVal);
-          if (p.italVal !== null && p.italVal !== undefined && p.italVal >= 1) axisBits.push('style: italic');
-          if (p.slntVal !== null && p.slntVal !== undefined && p.slntVal !== 0) axisBits.push('slnt: '+p.slntVal+'deg');
-
-          var styleBits = [];
-          if (p.fontSizePx !== null && p.fontSizePx !== undefined) styleBits.push('size: '+p.fontSizePx+'px');
-          if (p.lineHeight !== null && p.lineHeight !== undefined) styleBits.push('line-height: '+p.lineHeight);
-          if (p.fontColor) styleBits.push('color: '+p.fontColor);
-
-          var src = p.css2Url ? 'Google Fonts css2' : 'custom/inline';
-          var mode = p.fontFaceOnly ? 'font-face only' : 'css + font-face';
-
-          var parts = [];
-          parts.push('panel: '+panel);
-          parts.push('family: '+(appliedFamily||'(none)')+(generic?(' ('+generic+')') : ''));
-          if (axisBits.length) parts.push('axes: '+axisBits.join(', '));
-          if (styleBits.length) parts.push('styles: '+styleBits.join(', '));
-          parts.push('source: '+src);
-          parts.push('mode: '+mode);
-          return parts.join(' | ');
-        } catch(_){ return 'unavailable'; }
-      }
-      var humanReadable = describeInjection();
-      // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
-      try {
-        if (!document.documentElement.hasAttribute('data-affo-base')) {
-          var fam = '';
-          try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch(_) {}
-          var parts = fam.replace(/["']'/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
-          var hasSansGen = parts.indexOf('sans-serif') !== -1;
-          var hasSerifGen = parts.indexOf('serif') !== -1;
-          // Prefer explicit generic if present; treat "Merriweather, sans-serif" as sans
-          var base;
-          if (hasSansGen) base = 'sans';
-          else if (hasSerifGen) base = 'serif';
-          else {
-            // Fall back to name hints
-            var serifNames = ['pt serif','georgia','times','times new roman','merriweather','garamond','charter','spectral','lora','abril'];
-            var isSerifName = parts.some(function(p){ return serifNames.indexOf(p) !== -1; });
-            base = isSerifName ? 'serif' : 'sans';
-          }
-          document.documentElement.setAttribute('data-affo-base', base);
-          // Asynchronously refine using user-provided lists
-          try {
-            browser.storage.local.get(['affoKnownSerif','affoKnownSans']).then(function(opt){
-              try {
-                var ks = Array.isArray(opt.affoKnownSerif) ? opt.affoKnownSerif.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
-                var kn = Array.isArray(opt.affoKnownSans) ? opt.affoKnownSans.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
-                var nameHitSerif = parts.some(function(p){ return ks.indexOf(p) !== -1; });
-                var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
-                if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
-                else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
-              } catch(_){ }
-            }).catch(function(){});
-          } catch(_){ }
-        }
-      } catch(_){}
-      // For Google Fonts payloads, ensure a css2 <link> is present to start font download quickly
-      try {
-        var linkId = payload.linkId || (payload.styleId + '-link');
-        if (linkId && payload.css2Url && !payload.fontFaceOnly) {
-          var l = document.getElementById(linkId);
-          if (!l) { l = document.createElement('link'); l.id = linkId; l.rel = 'stylesheet'; l.href = payload.css2Url; document.documentElement.appendChild(l); }
-        }
-      } catch (_) {}
-      async function loadCustomIfNeeded(){
-        try {
-          if (payload && payload.fontName === 'BBC Reith Serif'){
-            // Load a minimal real-face set so bold/italic render properly on pages
-            // Always preload 400/700 in both normal and italic. Cache by session to avoid duplicates.
-            var base = 'https://static.files.bbci.co.uk/fonts/reith/2.512/';
-            function urlFor(w, it){
-              if (it){
-                if (w<=300) return base + 'BBCReithSerif_W_LtIt.woff2';
-                if (w<=400) return base + 'BBCReithSerif_W_It.woff2';
-                if (w<=500) return base + 'BBCReithSerif_W_MdIt.woff2';
-                if (w<=700) return base + 'BBCReithSerif_W_BdIt.woff2';
-                return base + 'BBCReithSerif_W_ExBdIt.woff2';
-              } else {
-                if (w<=300) return base + 'BBCReithSerif_W_Lt.woff2';
-                if (w<=400) return base + 'BBCReithSerif_W_Rg.woff2';
-                if (w<=500) return base + 'BBCReithSerif_W_Md.woff2';
-                if (w<=700) return base + 'BBCReithSerif_W_Bd.woff2';
-                return base + 'BBCReithSerif_W_ExBd.woff2';
-              }
-            }
-            var toLoad = [
-              { w: 400, it: false },
-              { w: 700, it: false },
-              { w: 400, it: true  },
-              { w: 700, it: true  }
-            ];
-            try { window.__affoBBCLoaded = window.__affoBBCLoaded || {}; } catch(_) { /* ignore */ }
-            for (var i = 0; i < toLoad.length; i++){
-              var pair = toLoad[i];
-              var key = 'BBCReithSerif:' + pair.w + ':' + (pair.it ? 'italic' : 'normal');
-              try {
-                if (window.__affoBBCLoaded && window.__affoBBCLoaded[key]) continue;
-              } catch(_){}
-              var url = urlFor(pair.w, pair.it);
-              try {
-                var binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
-                if (binResp && binResp.ok && Array.isArray(binResp.data)){
-                  var u8 = new Uint8Array(binResp.data);
-                  var src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-                  var desc = { weight: String(pair.w), style: pair.it ? 'italic' : 'normal' };
-                  var ff = new FontFace(appliedFamily, src, desc);
-                  await ff.load();
-                  document.fonts.add(ff);
-                  try { if (window.__affoBBCLoaded) window.__affoBBCLoaded[key] = true; } catch(_){}
-                }
-              } catch(_){}
-            }
-          } else if (payload && (/ABC\s+Ginto\s+Normal\s+Unlicensed\s+Trial/i.test(payload.fontName) || /ABC\s+Ginto\s+Nord\s+Unlicensed\s+Trial/i.test(payload.fontName))) {
-            // Load from CDNFonts CSS by parsing @font-face blocks and picking best match
-            // var cssUrl = (/Normal/i.test(payload.fontName))
-            //   ? 'https://fonts.cdnfonts.com/css/abc-ginto-normal-unlicensed-trial'
-            //   : 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
-            var cssUrl = 'https://fonts.cdnfonts.com/css/abc-ginto-nord-unlicensed-trial';
-            var cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: cssUrl, binary: false });
-            if (!cssResp || !cssResp.ok) return;
-            var cssText = String(cssResp.data || '');
-            var blocks = cssText.split('@font-face').slice(1);
-            var italWanted = !!(payload.italVal !== null && payload.italVal !== undefined && Number(payload.italVal) >= 1);
-            // Default unset weight to 400 to prevent unintended 300 selection
-            var target = (payload.fontWeight === null || payload.fontWeight === undefined)
-              ? 400
-              : Number(payload.fontWeight);
-            if (!isFinite(target) || target <= 0) target = 400;
-            var best = null;
-            function getUrl(b){
-              // Prefer woff2, then woff, then ttf
-              var m2 = b && b.match(/url\(([^)]+\.(?:woff2|woff|ttf)[^)]*)\)/i);
-              if (!m2) return null;
-              var u = m2[1].trim();
-              if ((u[0]==='"'&&u[u.length-1]==='"')||(u[0]==="'"&&u[u.length-1]==="'")) u=u.slice(1,-1);
-              return u;
-            }
-            blocks.forEach(function(b){
-              // Only consider the exact requested Ginto family (Normal or Nord)
-              var famm = ((b.match(/font-family\s*:\s*([^;]+);/i)||[])[1]||'').replace(/['"]/g,'').trim();
-              var wantFam = (/Normal/i.test(payload.fontName)) ? 'ABC Ginto Normal Unlicensed Trial' : 'ABC Ginto Nord Unlicensed Trial';
-              if (famm !== wantFam) return;
-              var isItalic = /font-style\s*:\s*italic/i.test(b);
-              var wm = b.match(/font-weight\s*:\s*(\d+)/i); var w = wm ? Number(wm[1]) : 400;
-              var url = getUrl(b); if (!url) return;
-              var penalty = Math.abs(w - target) + (isItalic === italWanted ? 0 : 1000);
-              if (!best || penalty < best.penalty) best = { url, w, isItalic, penalty };
-            });
-            if (best) {
-              var bin = await browser.runtime.sendMessage({ type: 'affoFetch', url: best.url, binary: true });
-              if (bin && bin.ok && Array.isArray(bin.data)){
-                var u8 = new Uint8Array(bin.data);
-                var src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-                var desc = { weight: String(best.w), style: best.isItalic ? 'italic' : 'normal' };
-                try {
-                  var ff = new FontFace(appliedFamily, src, desc);
-                  await ff.load();
-                  document.fonts.add(ff);
-                  try { await document.fonts.ready; } catch(e){}
-                } catch(_){ }
-              }
-            }
-          } else if (payload && payload.fontName === 'FK Roman Standard Trial') {
-            // Load FK Roman Standard Trial faces directly (400/700 normal + italic)
-            try { window.__affoFKLoaded = window.__affoFKLoaded || {}; } catch(_){}
-            var fkFaces = [
-              { w: 400, it: false, url: 'https://db.onlinewebfonts.com/t/a2a38c80cf0357178a43afdc8e95e869.woff2' },
-              { w: 500, it: false, url: 'https://db.onlinewebfonts.com/t/beb784012d429b8921e66081b20406b8.woff2' },
-              { w: 700, it: false, url: 'https://db.onlinewebfonts.com/t/5b2e01844093ec2a8881f8caec25ea5e.woff2' },
-              { w: 400, it: true,  url: 'https://db.onlinewebfonts.com/t/b4a6d90ef7316c4bf2f7f0c2ff8ff26e.woff2' },
-              { w: 700, it: true,  url: 'https://db.onlinewebfonts.com/t/834183e3bc6e87253115df38c19ca08a.woff2' }
-            ];
-            for (var k=0;k<fkFaces.length;k++){
-              var f = fkFaces[k];
-              var cacheKey = 'FKRoman:' + f.w + ':' + (f.it ? 'italic' : 'normal');
-              try { if (window.__affoFKLoaded && window.__affoFKLoaded[cacheKey]) continue; } catch(_){ }
-              try {
-                var r = await browser.runtime.sendMessage({ type: 'affoFetch', url: f.url, binary: true });
-                if (r && r.ok && Array.isArray(r.data)){
-                  var u8f = new Uint8Array(r.data);
-                  var srcf = u8f.buffer.slice(u8f.byteOffset, u8f.byteOffset + u8f.byteLength);
-                  var descf = { weight: String(f.w), style: f.it ? 'italic' : 'normal' };
-                  var ffk = new FontFace(appliedFamily, srcf, descf);
-                  await ffk.load();
-                  document.fonts.add(ffk);
-                  try { if (window.__affoFKLoaded) window.__affoFKLoaded[cacheKey] = true; } catch(_){ }
-                }
-              } catch(_){ }
-            }
-          }
-        } catch (_) {}
-      }
-      function buildCSS(){
-        // Target typical body text only; exclude headings, code/monospace, UI/nav, and form controls
-        // Use Body Contact CSS selector (broad selector targeting all body text)
-        var sel = 'body, ' +
-                  'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
-        var decl = [];
-        if (appliedFamily) decl.push('font-family:"'+appliedFamily+'", '+payload.generic+' !important');
-        // Preserve site bold semantics; weight override is applied via a separate rule to non-strong/b only
-        if (payload.fontSizePx !== null && payload.fontSizePx !== undefined) decl.push('font-size:'+payload.fontSizePx+'px !important');
-        if (payload.lineHeight !== null && payload.lineHeight !== undefined) decl.push('line-height:'+payload.lineHeight+' !important');
-        if (payload.fontColor) decl.push('color:'+payload.fontColor+' !important');
-        if (payload.wdthVal !== null && payload.wdthVal !== undefined) decl.push('font-stretch:'+payload.wdthVal+'% !important');
-        if (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1) decl.push('font-style:italic !important');
-        else if (payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) decl.push('font-style:oblique '+payload.slntVal+'deg !important');
-        if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0){
-          var v = Object.entries(payload.variableAxes).map(function(pair){ return '"'+pair[0]+'" '+pair[1]; }).join(', ');
-          decl.push('font-variation-settings:'+v+' !important');
-        }
-        var css = sel+'{'+decl.join('; ')+';}';
-        if (payload && payload.fontWeight !== null && payload.fontWeight !== undefined) {
-          // Build var settings including wght along with any other per-axis values
-          var axes = Object.assign({}, payload.variableAxes || {});
-          axes.wght = Number(payload.fontWeight);
-          var vstr = Object.entries(axes).map(function(pair){ return '"'+pair[0]+'" '+pair[1]; }).join(', ');
-          css += '\n' + sel + '{font-weight:'+payload.fontWeight+' !important; font-variation-settings:'+vstr+' !important;}';
-        }
-        // Override rule for bold elements with maximum specificity
-        css += '\nbody strong, body b, html body strong, html body b { font-family: initial !important; font-weight: bold !important; font-variation-settings: initial !important; }';
-        return css;
-      }
-
-      (async function(){
-        try {
-          // Enforce per-domain policies from options (handles older saved payloads)
-          try {
-            var host = (location && location.hostname ? String(location.hostname).toLowerCase() : '');
-            var opt = await browser.storage.local.get(['affoFontFaceOnlyDomains']);
-            var ffList = Array.isArray(opt.affoFontFaceOnlyDomains) ? opt.affoFontFaceOnlyDomains : ['x.com'];
-            var inFF = !!ffList.find(function(d){ var dom=String(d||'').toLowerCase().trim(); return dom && (host===dom || host.endsWith('.'+dom)); });
-            if (inFF) payload.fontFaceOnly = true;
-          } catch(_){ }
-          // User-configured lists are for classification only now; no guarding here.
-          // Heuristically guard “fake blockquote” callouts with inline left borders
-          // Guard scanning removed - not needed for body mode only
-          // If css2Url is present, use Google Fonts path; otherwise try custom loader
-          if (payload.css2Url) {
-            const cssResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: payload.css2Url, binary: false });
-            if (!cssResp || !cssResp.ok) throw new Error('css2 fetch failed');
-            const cssText = String(cssResp.data || '');
-            // Find @font-face blocks
-            var blocks = cssText.split('@font-face').slice(1);
-            var wantItalic = !!(payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1);
-            // On FontFace-only domains or when ital is desired, load both normal and italic (if present)
-            var stylesToLoad = (payload.fontFaceOnly || wantItalic) ? ['normal','italic'] : ['normal'];
-            try { window.__affoGFLoaded = window.__affoGFLoaded || {}; } catch(_){}
-            async function loadFromBlock(block, styleWanted){
-              if (!block) return false;
-              // Extract first woff2/woff URL
-              var m = block.match(/url\(([^)]+\.(?:woff2|woff)[^)]*)\)/i);
-              if (!m) return false;
-              var url = m[1].trim();
-              if ((url[0]==='"' && url[url.length-1]==='"') || (url[0]==="'" && url[url.length-1]==="'")) url = url.slice(1,-1);
-              var key = payload.fontName + '|' + styleWanted + '|' + url;
-              try { if (window.__affoGFLoaded && window.__affoGFLoaded[key]) return true; } catch(_){ }
-              const binResp = await browser.runtime.sendMessage({ type: 'affoFetch', url: url, binary: true });
-              if (!binResp || !binResp.ok || !Array.isArray(binResp.data)) return false;
-              const u8 = new Uint8Array(binResp.data);
-              const src = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-              // Derive descriptors from @font-face
-              var styleDesc = ((block.match(/font-style\s*:\s*(italic|normal)/i)||[])[1]||styleWanted||'normal').toLowerCase();
-              var wMatch = block.match(/font-weight\s*:\s*(\d{2,3})(?:\s+(\d{2,3}))?/i);
-              var weightDesc = '400';
-              if (wMatch) { weightDesc = wMatch[2] ? (wMatch[1] + ' ' + wMatch[2]) : wMatch[1]; }
-              var sMatch = block.match(/font-stretch\s*:\s*([0-9]+(?:\.[0-9]+)?%)(?:\s+([0-9]+(?:\.[0-9]+)?%))?/i);
-              var stretchDesc = null;
-              if (sMatch) { stretchDesc = sMatch[2] ? (sMatch[1] + ' ' + sMatch[2]) : sMatch[1]; }
-              var desc = { style: styleDesc, weight: weightDesc, display: 'swap' };
-              if (stretchDesc) desc.stretch = stretchDesc;
-              const ff = new FontFace(appliedFamily, src, desc);
-              await ff.load();
-              document.fonts.add(ff);
-              try { if (window.__affoGFLoaded) window.__affoGFLoaded[key] = true; } catch(_){ }
-              return true;
-            }
-            for (var si = 0; si < stylesToLoad.length; si++){
-              var sw = stylesToLoad[si];
-              var matchingBlocks = [];
-              for (var i=0;i<blocks.length;i++){
-                var b = blocks[i];
-                var isItalic = /font-style:\s*italic/i.test(b);
-                var isNormal = /font-style:\s*normal/i.test(b);
-                if ((sw === 'italic' && isItalic) || (sw === 'normal' && isNormal)) {
-                  matchingBlocks.push(b);
-                }
-              }
-
-              if (matchingBlocks.length > 0) {
-                for (var j=0; j<matchingBlocks.length; j++) {
-                  try { await loadFromBlock(matchingBlocks[j], sw); } catch(_){ }
-                }
-              } else if (blocks.length > 0) {
-                try { await loadFromBlock(blocks[0], sw); } catch(_){ }
-              }
-            }
-            try { await document.fonts.ready; } catch(e) {}
-            // If nothing loaded and allowed, fall back to adding a css2 <link>
-            if (!payload.fontFaceOnly) {
-              try {
-                var anyKey = payload.fontName + '|';
-                var anyLoaded = false;
-                try {
-                  var map = window.__affoGFLoaded || {};
-                  anyLoaded = Object.keys(map).some(function(k){ return k.indexOf(anyKey) === 0; });
-                } catch(_){ }
-                if (!anyLoaded) {
-                  var linkId = (payload.linkId || (payload.styleId+'-link'));
-                  if (!document.getElementById(linkId)){
-                    var l = document.createElement('link'); l.id = linkId; l.rel='stylesheet'; l.href=payload.css2Url; document.documentElement.appendChild(l);
-                  }
-                }
-              } catch(_){}
-            }
-          } else {
-            await loadCustomIfNeeded();
-          }
-        } catch (e) {
-          // Last resort: try custom loader if applicable, otherwise inject link to css2
-          try {
-            await loadCustomIfNeeded();
-          } catch(_){ }
-          if (payload.css2Url && !payload.fontFaceOnly) {
-            try {
-              var linkId2 = (payload.linkId || (payload.styleId+'-link'));
-              if (!document.getElementById(linkId2)){
-                var l2 = document.createElement('link'); l2.id = linkId2; l2.rel='stylesheet'; l2.href=payload.css2Url; document.documentElement.appendChild(l2);
-              }
-            } catch(_){ }
-          }
-        }
-
-        var existing = document.getElementById(payload.styleId);
-        if (existing){ existing.textContent = buildCSS(); try{ existing.setAttribute('data-affo-desc', humanReadable); }catch(_){ } return; }
-        var st = document.createElement('style'); st.id = payload.styleId; st.textContent = buildCSS(); try{ st.setAttribute('data-affo-desc', humanReadable); }catch(_){ } document.documentElement.appendChild(st);
-        try { if (humanReadable) console.log('[AFFO] Inject:', humanReadable); } catch(_){ }
-        try {
-          // Keep our style last in the cascade to resist SPA hydration and route updates
-          var moving = false;
-          function moveLast(){
-            if (moving) return; moving = true;
-            try {
-              var n = document.getElementById(payload.styleId);
-              if (n && n.parentNode) { n.parentNode.appendChild(n); }
-            } catch(_){ }
-            setTimeout(function(){ moving = false; }, 50);
-          }
-          // Watch for new <style>/<link> insertions for longer window
-          var mo2 = new MutationObserver(function(muts){
-            for (var i=0;i<muts.length;i++){
-              var m = muts[i];
-              if (m.type === 'childList'){
-                var added = Array.from(m.addedNodes || []);
-                if (added.some(function(x){ return x && x.nodeType===1 && (x.nodeName==='STYLE' || x.nodeName==='LINK'); })){
-                  moveLast();
-                  break;
-                }
-              }
-            }
-          });
-          mo2.observe(document.documentElement || document, { childList: true, subtree: true });
-          // Extend window to 60s
-          setTimeout(function(){ try{ mo2.disconnect(); }catch(_){ } }, 60000);
-          // Re-append on SPA navigations (history API + back/forward)
-          try {
-            var _ps = history.pushState;
-            history.pushState = function(){ var r = _ps.apply(this, arguments); try{ moveLast(); }catch(_){ } return r; };
-          } catch(_){ }
-          try {
-            var _rs = history.replaceState;
-            history.replaceState = function(){ var r = _rs.apply(this, arguments); try{ moveLast(); }catch(_){ } return r; };
-          } catch(_){ }
-          try { window.addEventListener('popstate', function(){ try{ moveLast(); }catch(_){ } }, true); } catch(_){ }
-        } catch(_){ }
-      })();
-    } catch (e) {}
+      var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+      if (document.getElementById(linkId)) return; // Already loaded
+      
+      // Use proper URL encoding for Google Fonts
+      var familyParam = encodeURIComponent(fontName);
+      var href = 'https://fonts.googleapis.com/css2?family=' + familyParam + '&display=swap';
+      
+      var link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+      console.log(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
+    } catch (e) {
+      console.error(`[AFFO Content] Failed to load Google Font CSS ${fontName}:`, e);
+    }
   }
 
+  // Element walker function for Third Man In mode
+  function runElementWalker(fontType) {
+    try {
+      console.log(`[AFFO Content] Running element walker for ${fontType}`);
+      
+      // Clear only existing markers for this specific font type
+      var existingMarked = document.querySelectorAll(`[data-affo-font-type="${fontType}"]`);
+      console.log(`[AFFO Content] Clearing ${existingMarked.length} existing ${fontType} markers`);
+      existingMarked.forEach(function(el) {
+        el.removeAttribute('data-affo-font-type');
+      });
+
+      // Element type detection logic  
+      function getElementFontType(element) {
+        var tagName = element.tagName.toLowerCase();
+        var className = element.className || '';
+        var style = element.style.fontFamily || '';
+
+        // Explicit class/style overrides - check sans first to avoid serif matching sans-serif
+        if (className.includes('sans') || style.includes('sans')) return 'sans';
+        if (className.includes('serif') || style.includes('serif')) return 'serif';
+        if (className.includes('mono') || className.includes('code') || className.includes('monospace') ||
+            style.includes('monospace') || style.includes('mono')) return 'mono';
+
+        // Tag-based detection
+        if (['code', 'pre', 'kbd', 'samp', 'tt'].includes(tagName)) return 'mono';
+
+        // Check computed styles as fallback
+        var computed = window.getComputedStyle(element);
+        var computedFamily = computed.fontFamily.toLowerCase();
+        if (computedFamily.includes('serif') && !computedFamily.includes('sans')) return 'serif';
+        if (computedFamily.includes('mono')) return 'mono';
+
+        return 'sans'; // Default fallback
+      }
+
+      // Walk all text-containing elements
+      var walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode: function(node) {
+            // Skip elements that are hidden or have no text content
+            if (node.offsetParent === null && node.tagName !== 'BODY') return NodeFilter.FILTER_SKIP;
+            if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+
+      var totalElements = 0;
+      var markedElements = 0;
+      var element;
+      
+      while (element = walker.nextNode()) {
+        totalElements++;
+        var detectedType = getElementFontType(element);
+        if (detectedType === fontType) {
+          element.setAttribute('data-affo-font-type', fontType);
+          markedElements++;
+        }
+      }
+
+      console.log(`[AFFO Content] Element walker completed: processed ${totalElements} elements, marked ${markedElements} as ${fontType}`);
+    } catch (e) {
+      console.error(`[AFFO Content] Element walker failed for ${fontType}:`, e);
+    }
+  }
+
+  // Helper function to reapply fonts from a given entry (used by storage listener and page load)
+  function reapplyStoredFontsFromEntry(entry) {
+    try {
+      ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
+        var fontConfig = entry[fontType];
+        if (fontConfig && fontConfig.fontName) {
+          console.log(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
+          
+          // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
+          loadFont(fontConfig, fontType);
+          
+          // Generate CSS for this font type
+          var css = '';
+          var lines = [];
+          
+          // Add custom @font-face rule if present
+          if (fontConfig.fontFaceRule) {
+            lines.push(fontConfig.fontFaceRule);
+          }
+          
+          if (fontType === 'body') {
+            // Use the same CSS selector as popup.js for consistency
+            lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo) { font-family: "${fontConfig.fontName}", serif !important; }`);
+          } else {
+            // Third Man In mode - need to run element walker and apply CSS
+            if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
+              // Run element walker for this font type
+              runElementWalker(fontType);
+              
+              // Generate CSS targeting marked elements
+              var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
+              lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
+            }
+          }
+          
+          css = lines.join('\n');
+          
+          if (css) {
+            // Apply CSS by creating style element
+            var styleId = 'a-font-face-off-style-' + fontType;
+            var existingStyle = document.getElementById(styleId);
+            if (existingStyle) existingStyle.remove();
+            
+            var styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            styleEl.textContent = css;
+            document.head.appendChild(styleEl);
+            console.log(`[AFFO Content] Applied CSS for ${fontType} from storage change:`, css);
+          }
+        }
+      });
+    } catch (e) {
+      console.error('[AFFO Content] Error reapplying fonts from storage change:', e);
+    }
+  }
+
+  // Initialize: Load consolidated storage and reapply stored fonts
   try {
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
-    var origin = location.origin;
+    var origin = location.hostname;
+    
     browser.storage.local.get('affoApplyMap').then(function(data){
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
-      // If nothing saved for this origin, remove any stale nodes and stop
       if (!entry) {
-        ['a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-body'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
+        // Clean up all stale styles if no entry exists
+        ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
         return;
       }
-      if (entry.serif) {
-        inject(entry.serif);
-      } else {
+      
+      // Content script handles cleanup AND reapplies stored fonts on page load
+      console.log(`[AFFO Content] Reapplying stored fonts for origin: ${origin}`, entry);
+      
+      // Remove style elements for fonts that are not applied
+      if (!entry.body) {
+        try{ var s3=document.getElementById('a-font-face-off-style-body'); if(s3) s3.remove(); }catch(e){}
+      }
+      if (!entry.serif) {
         try{ var s=document.getElementById('a-font-face-off-style-serif'); if(s) s.remove(); }catch(e){}
       }
-      if (entry.sans) {
-        inject(entry.sans);
-      } else {
+      if (!entry.sans) {
         try{ var s2=document.getElementById('a-font-face-off-style-sans'); if(s2) s2.remove(); }catch(e){}
       }
-      if (entry.body) {
-        inject(entry.body);
+      if (!entry.mono) {
+        try{ var s4=document.getElementById('a-font-face-off-style-mono'); if(s4) s4.remove(); }catch(e){}
+      }
+      
+      // Reapply stored fonts on page load - wait for DOM to be ready
+      function reapplyStoredFonts() {
+        try {
+          ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
+            var fontConfig = entry[fontType];
+            if (fontConfig && fontConfig.fontName) {
+              console.log(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
+              
+              // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
+              loadFont(fontConfig, fontType);
+              
+              // Generate CSS for this font type
+              var css = '';
+              var lines = [];
+              
+              // Add custom @font-face rule if present
+              if (fontConfig.fontFaceRule) {
+                lines.push(fontConfig.fontFaceRule);
+              }
+              
+              if (fontType === 'body') {
+                // Use the same CSS selector as popup.js for consistency
+                lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo) { font-family: "${fontConfig.fontName}", serif !important; }`);
+              } else {
+                // Third Man In mode - need to run element walker and apply CSS
+                if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
+                  // Run element walker for this font type
+                  runElementWalker(fontType);
+                  
+                  // Generate CSS targeting marked elements
+                  var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
+                  lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
+                }
+              }
+              
+              css = lines.join('\n');
+              
+              if (css) {
+                // Apply CSS by creating style element
+                var styleId = 'a-font-face-off-style-' + fontType;
+                var existingStyle = document.getElementById(styleId);
+                if (existingStyle) existingStyle.remove();
+                
+                var styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                styleEl.textContent = css;
+                document.head.appendChild(styleEl);
+                console.log(`[AFFO Content] Applied CSS for ${fontType}:`, css);
+              }
+            }
+          });
+        } catch (e) {
+          console.error('[AFFO Content] Error reapplying fonts:', e);
+        }
+      }
+      
+      // Wait for DOM to be ready before reapplying fonts
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reapplyStoredFonts);
       } else {
-        try{ var s3=document.getElementById('a-font-face-off-style-body'); if(s3) s3.remove(); }catch(e){}
+        // DOM is already ready
+        setTimeout(reapplyStoredFonts, 100); // Small delay to ensure elements are rendered
       }
     }).catch(function(){});
   } catch (e) {}
+
+  // Storage change listener - only handles cleanup
   try {
     browser.storage.onChanged.addListener(function(changes, area){
       if (area !== 'local' || !changes.affoApplyMap) return;
       try {
-        var origin = location.origin;
+        var origin = location.hostname;
+        console.log(`[AFFO Content] Storage changed for origin ${origin}:`, changes.affoApplyMap);
         var newMap = changes.affoApplyMap.newValue || {};
         var entry = newMap[origin];
-        ['a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-body'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
-        if (!entry) return;
-        if (entry.serif) inject(entry.serif);
-        if (entry.sans) inject(entry.sans);
-        if (entry.body) inject(entry.body);
-      } catch (e) {}
+        console.log(`[AFFO Content] New map:`, newMap);
+        console.log(`[AFFO Content] New entry for ${origin}:`, entry);
+        
+        // Remove all existing styles
+        ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ 
+          try { 
+            var n=document.getElementById(id); 
+            if(n) {
+              console.log(`[AFFO Content] Removing existing style element:`, id);
+              n.remove(); 
+            }
+          } catch(e){} 
+        });
+        
+        // Apply fonts when storage changes (both immediate apply and reload persistence)
+        if (entry) {
+          console.log(`[AFFO Content] Entry found - reapplying fonts:`, entry);
+          reapplyStoredFontsFromEntry(entry);
+        } else {
+          console.log(`[AFFO Content] No entry found - all fonts should be removed`);
+        }
+      } catch (e) {
+        console.error(`[AFFO Content] Error in storage change handler:`, e);
+      }
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error(`[AFFO Content] Error setting up storage listener:`, e);
+  }
 
-  // Listen for messages from popup to apply fonts
+  // Message listener - only handles cleanup, fonts applied by popup insertCSS
   try {
     browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       if (message.type === 'applyFonts') {
-        try {
-          inject(message.config);
-          sendResponse({success: true});
-        } catch (error) {
-          console.error('Error applying fonts:', error);
-          sendResponse({success: false, error: error.message});
-        }
+        // All font application is now handled by popup insertCSS
+        console.log('Content script received applyFonts message - fonts applied by popup insertCSS');
+        sendResponse({success: true});
       } else if (message.type === 'resetFonts') {
         try {
           // Remove the font style element for this panel
@@ -468,19 +395,22 @@
         }
       } else if (message.action === 'restoreOriginal') {
         try {
-          // Remove all font-face-off elements to restore original page
-          const elementsToRemove = document.querySelectorAll('[id*="a-font-face-off"], [id*="affo-"]');
-          elementsToRemove.forEach(el => el.remove());
-
-          // Also remove any data attributes we might have added
-          const markedElements = document.querySelectorAll('[data-affo-font-type], [data-affo-guard], [data-affo-base]');
-          markedElements.forEach(el => {
-            el.removeAttribute('data-affo-font-type');
-            el.removeAttribute('data-affo-guard');
-            // Keep data-affo-base as it's just classification info
+          // Remove all A Font Face-off styles
+          ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id) {
+            try {
+              var element = document.getElementById(id);
+              if (element) element.remove();
+            } catch(e) {}
           });
-
-          console.log('Restored original page appearance for:', message.origin);
+          
+          // Also remove any Third Man In data attributes
+          try {
+            document.querySelectorAll('[data-affo-font-type]').forEach(function(el) {
+              el.removeAttribute('data-affo-font-type');
+            });
+          } catch(e) {}
+          
+          console.log('Restored original page fonts');
           sendResponse({success: true});
         } catch (error) {
           console.error('Error restoring original:', error);
@@ -488,5 +418,8 @@
         }
       }
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error(`[AFFO Content] Error setting up message listener:`, e);
+  }
+
 })();

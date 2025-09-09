@@ -6,37 +6,14 @@ This document outlines the key data structures used in the A Font Face-off brows
 
 The extension uses a unified storage architecture with `browser.storage.local` for all persistence:
 
-### 1. Third Man In Mode Domain Storage (`affoApplyMapV2`)
-**Purpose**: Stores Third Man In mode fonts applied to specific domains/websites
-**Storage Location**: `browser.storage.local`
-**Key**: `affoApplyMapV2`
-
-```javascript
-{
-  "https://example.com": {
-    "third-man-in": {
-      "serif": {
-        "fontName": "PT Serif", 
-        "fontSize": 18,
-        "variableAxes": {"wdth": 90, "grad": 150}
-      },
-      "sans": {
-        "fontName": "Comic Neue"
-      }
-      // "mono" key omitted when no mono font is configured
-    }
-  }
-}
-```
-
-### 2. Body Mode Domain Storage (`affoApplyMap`)
-**Purpose**: Stores body mode fonts applied to specific domains
+### 1. Unified Domain Storage (`affoApplyMap`)
+**Purpose**: Stores fonts applied to specific domains across all modes (Body Contact, Third Man In)
 **Storage Location**: `browser.storage.local`  
-**Key**: `affoApplyMap`
+**Key**: `affoApplyMap` (consolidated from previous dual V1/V2 system)
 
 ```javascript
 {
-  "https://example.com": {
+  "example.com": {
     "body": {
       "fontName": "Roboto"
       // ... similar structure to Third Man In
@@ -187,27 +164,25 @@ const panelStates = {
 ### Storage Operations
 
 #### Third Man In Mode (Centralized Storage Functions)
-- `getApplyMapForOrigin(origin, mode)`: Retrieve from `affoApplyMapV2`
-- `saveApplyMapForOrigin(origin, mode, config)`: Save to `affoApplyMapV2`
-- `clearApplyMapForOrigin(origin, mode, fontType)`: **Domain storage only** - Clear specific font type or all fonts from `affoApplyMapV2`
+- `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` - single read gets all domain fonts or specific font type
+- `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap` 
+- `saveBatchApplyMapForOrigin(origin, fontConfigs)`: **OPTIMIZED** - Batch save multiple font types in single storage write (used by Apply All)
+- `clearApplyMapForOrigin(origin, fontType?)`: **Domain storage only** - Clear specific font type or all fonts from `affoApplyMap`
 - `clearAllThirdManInFonts(origin)`: **Domain storage only** - Helper to clear all Third Man In fonts (serif, sans, mono) at once
 
-#### Body Mode (Inline Storage)
-- Uses direct `browser.storage.local.get('affoApplyMap')` and `browser.storage.local.set({ affoApplyMap: applyMap })` 
-- Storage logic embedded directly in `toggleApplyToPage` function
-- No centralized helper functions
+#### Body Mode (Mixed Storage Approach)
+- Uses both centralized helper functions (`saveApplyMapForOrigin`, `getApplyMapForOrigin`, `clearApplyMapForOrigin`)
+- Also has some inline `browser.storage.local.get('affoApplyMap')` and `browser.storage.local.set({ affoApplyMap: applyMap })` operations
+- Mix of centralized functions and embedded storage logic
 
-#### Key Differences Between Storage Systems
+#### Unified Storage Architecture 
 
-| Aspect | Body Mode (`affoApplyMap`) | Third Man In Mode (`affoApplyMapV2`) |
-|--------|---------------------------|-------------------------------------|
-| **Storage Key** | `affoApplyMap` | `affoApplyMapV2` |
-| **Storage Method** | Inline code in `toggleApplyToPage` | Centralized functions (`saveApplyMapForOrigin`, etc.) |
-| **Data Structure** | `domain → fontType → config` | `domain → mode → fontType → config` |
-| **Modes Supported** | Body mode only | Third Man In mode only |
-| **Font Types** | `body` | `serif`, `sans`, `mono` |
-| **Schema Version** | V1 (original) | V2 (extended) |
-| **Code Location** | `popup.js:2565, 2792` | `popup.js:5190-5200` |
+After consolidation, all modes now use the same storage system:
+- **Storage Key**: `affoApplyMap` (single unified system)
+- **Data Structure**: `domain → fontType → config` (flattened from previous nested structure)  
+- **Storage Method**: Mix of centralized functions (Third Man In) and inline code (Body Contact)
+- **Font Types Supported**: `body`, `serif`, `sans`, `mono`
+- **Benefits**: Eliminated data duplication, simplified storage queries, consistent data format
 
 ### State Management
 
@@ -218,8 +193,7 @@ const panelStates = {
 
 #### Functions that modify BOTH Domain Storage AND UI State
 - `resetAllThirdManInFonts()`: Clears domain storage + resets UI to `null` state
-- `applyUnsetSettings(panelId)`: Clears domain storage + resets UI to `null` state  
-- `toggleThirdManInFont(fontType)`: Updates domain storage + applies/removes CSS from webpage
+- `applyUnsetSettings(panelId)`: Clears domain storage + resets UI to `null` state
 
 #### Functions that modify ONLY Domain Storage
 - `clearApplyMapForOrigin()`: **Domain storage only** - No UI changes
@@ -250,24 +224,45 @@ const panelStates = {
 - Consistent format eliminates need for data transformation
 
 ### Font Application
-- `toggleThirdManInFont(fontType)`: Apply/unapply Third Man In fonts
-- `toggleApplyToPage(position)`: Apply/unapply Body/Face-off fonts
-- `applyAllThirdManInFonts()`: Apply all Third Man In font changes
+- `applyAllThirdManInFonts()`: **OPTIMIZED** - Apply all Third Man In font changes using batch storage (1 write instead of N writes)
 
-## Storage Schema Versions
+### Apply All Storage Optimization
 
-- **V1 (`affoApplyMap`)**: Original schema used for Body mode
-- **V2 (`affoApplyMapV2`)**: Extended schema for Third Man In mode only
+**Problem**: Previously, applying multiple fonts (e.g., serif + sans + mono) resulted in multiple storage writes:
+- Serif font applied → `saveApplyMapForOrigin()` → 1 storage write
+- Sans font applied → `saveApplyMapForOrigin()` → 1 storage write  
+- Mono font applied → `saveApplyMapForOrigin()` → 1 storage write
+- **Result**: 3 separate storage operations with potential race conditions
+
+**Solution**: Batch optimization collects all font changes and performs single storage write:
+1. **Collect** all font configurations that need to be applied
+2. **Single batch write** using `saveBatchApplyMapForOrigin(origin, fontConfigs)`
+3. **Parallel CSS application** for all fonts simultaneously
+4. **Result**: 1 storage write regardless of number of fonts changed
+
+**Benefits**:
+- Faster performance with fewer storage operations
+- Eliminates race conditions between rapid storage writes
+- Cleaner console logging showing batch operations
+- Scales efficiently as more font types are added
+
+## Storage Schema
+
+- **Current (`affoApplyMap`)**: Unified schema used by all modes
+  - Supports all font types: `body`, `serif`, `sans`, `mono`
+  - Flattened data structure: `domain → fontType → config`
+  - Single storage key eliminates complexity and data duplication
+  - Optimized with batch write operations for Apply All functionality
 
 ## Example Domain Storage Data
 
 ### Body Mode Example
-**Scenario**: Body mode with Merriweather 16px applied to `https://example.com`
+**Scenario**: Body mode with Merriweather 16px applied to `example.com` (protocol stripped)
 
 ```javascript
 // Storage key: affoApplyMap
 {
-  "https://example.com": {
+  "example.com": {
     "body": {
       "fontName": "Merriweather",
       "fontSize": 16
@@ -277,21 +272,19 @@ const panelStates = {
 ```
 
 ### Third Man In Mode Example  
-**Scenario**: Third Man In mode with Noto Sans 17px and Noto Serif 18px applied to `https://example.com`
+**Scenario**: Third Man In mode with Noto Sans 17px and Noto Serif 18px applied to `example.com` (protocol stripped)
 
 ```javascript
-// Storage key: affoApplyMapV2
+// Storage key: affoApplyMap (unified)
 {
-  "https://example.com": {
-    "third-man-in": {
-      "sans": {
-        "fontName": "Noto Sans",
-        "fontSize": 17
-      },
-      "serif": {
-        "fontName": "Noto Serif",
-        "fontSize": 18
-      }
+  "example.com": {
+    "sans": {
+      "fontName": "Noto Sans",
+      "fontSize": 17
+    },
+    "serif": {
+      "fontName": "Noto Serif",
+      "fontSize": 18
     }
   }
 }
@@ -301,33 +294,27 @@ const panelStates = {
 **Scenario**: Different fonts applied to multiple websites
 
 ```javascript
-// Storage key: affoApplyMapV2  
+// Storage key: affoApplyMap (unified)  
 {
-  "https://example.com": {
-    "third-man-in": {
-      "sans": {
-        "fontName": "Noto Sans",
-        "fontSize": 17
-      }
+  "example.com": {
+    "sans": {
+      "fontName": "Noto Sans",
+      "fontSize": 17
     }
   },
-  "https://github.com": {
-    "third-man-in": {
-      "mono": {
-        "fontName": "Fira Code",
-        "variableAxes": {"wght": 400}
-      }
+  "github.com": {
+    "mono": {
+      "fontName": "Fira Code",
+      "variableAxes": {"wght": 400}
     }
   },
-  "https://news.ycombinator.com": {
-    "third-man-in": {
-      "serif": {
-        "fontName": "PT Serif"
-      },
-      "sans": {
-        "fontName": "Inter",
-        "fontSize": 15
-      }
+  "news.ycombinator.com": {
+    "serif": {
+      "fontName": "PT Serif"
+    },
+    "sans": {
+      "fontName": "Inter",
+      "fontSize": 15
     }
   }
 }
@@ -343,78 +330,52 @@ The extension has evolved through several storage format improvements:
 3. **Unified Format**: Migrated all storage to browser.storage.local with consistent object structures
 4. **"No Key" Format**: Only store properties with actual values, no null/undefined properties
 
-### Legacy Compatibility
-The extension includes backward compatibility for:
-- Legacy font-variation-settings CSS strings (replaced with `variableAxes` objects)
-- Legacy `fontVariationSettings` CSS strings (replaced with `variableAxes` objects)
-- Old localStorage keys (migrated to browser.storage.local keys with `affo*` prefix)
 
-## Storage Operation Queue
 
-### Race Condition Prevention
-The extension implements a storage operation queue to prevent async race conditions in `browser.storage.local` operations:
+## Async Initialization Architecture
 
+### Fontonic-Inspired Async Pattern
+
+The extension follows the async pattern used by the Fontonic extension to eliminate race conditions between storage operations and UI updates.
+
+**Problem with Previous Approach:**
 ```javascript
-// Storage operation queue to prevent race conditions
-class StorageQueue {
-    constructor() {
-        this.queue = [];
-        this.processing = false;
-    }
-
-    async enqueue(operation) {
-        return new Promise((resolve, reject) => {
-            this.queue.push({ operation, resolve, reject });
-            this.processQueue();
-        });
-    }
-
-    async processQueue() {
-        if (this.processing || this.queue.length === 0) return;
-        
-        this.processing = true;
-        while (this.queue.length > 0) {
-            const { operation, resolve, reject } = this.queue.shift();
-            try {
-                const result = await operation();
-                resolve(result);
-            } catch (error) {
-                reject(error);
-            }
-        }
-        this.processing = false;
-    }
-}
-
-const storageQueue = new StorageQueue();
-
-// Queued storage operations wrapper
-const queuedStorage = {
-    async get(keys) { return storageQueue.enqueue(() => browser.storage.local.get(keys)); },
-    async set(items) { return storageQueue.enqueue(() => browser.storage.local.set(items)); },
-    async remove(keys) { return storageQueue.enqueue(() => browser.storage.local.remove(keys)); },
-    async clear() { return storageQueue.enqueue(() => browser.storage.local.clear()); }
-};
+// PROBLEMATIC - Race conditions possible
+await loadExtensionState();
+await initializeModeInterface(); 
+await restoreUIFromDomainStorage();
+// UI updates could happen before storage completes
 ```
 
-### Why Storage Queue is Needed
+**Current Solution (Fontonic Pattern):**
+```javascript
+// SAFE - UI updates only happen INSIDE storage completion callbacks
+loadExtensionState().then(() => {
+    return initializeModeInterface();
+}).then(() => {
+    return restoreUIFromDomainStorage();
+}).then(() => {
+    // ONLY NOW show UI - everything is ready
+    document.body.style.visibility = 'visible';
+    initializationComplete = true;
+});
+```
 
-**Problem**: When UI state was migrated from `localStorage` to `browser.storage.local`, async operations created race conditions:
-- Multiple rapid Apply button clicks would create concurrent storage operations
-- Both operations read same initial storage state
-- Resulted in toggle behavior instead of consistent apply behavior
-- User needed to click Apply twice to get Reset button
+**Key Principles:**
+1. **UI stays hidden** until ALL async operations complete
+2. **Chain operations** using `.then()` to ensure proper sequencing
+3. **UI updates happen INSIDE callbacks** - no race conditions possible
+4. **Error handling** with `.catch()` to show UI even if initialization fails
 
-**Solution**: All storage operations are now serialized through `queuedStorage`:
-- Operations execute one at a time in order
-- Each operation sees the updated state from previous operations
-- Eliminates race conditions and ensures consistent behavior
-- Apply button works correctly with single click
+**Benefits:**
+- ✅ No race conditions between user interaction and storage restoration
+- ✅ User sees correct domain-specific state immediately when UI appears
+- ✅ Simple, predictable initialization flow
+- ✅ Follows proven pattern from Fontonic extension
 
-**Implementation**: All `browser.storage.local.*` calls replaced with `queuedStorage.*` throughout the codebase.
 
 ### Troubleshooting Storage Issues
 If the extension behaves unexpectedly, clear stored data:
 1. **UI State**: Clear `affoUIState` from browser.storage.local
-2. **Domain Storage**: Clear `affoApplyMap` and `affoApplyMapV2` from browser.storage.local
+2. **Domain Storage**: Clear `affoApplyMap` from browser.storage.local
 3. **Mode Persistence**: Clear `affoCurrentMode` from browser.storage.local
