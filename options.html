@@ -53,6 +53,17 @@
   </div>
 
   <div class="section">
+    <label for="inline-domains">Inline Apply Domains</label>
+    <textarea id="inline-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+    <div class="row">
+      <button id="save-inline" class="primary">Save Domains</button>
+      <button id="reset-inline">Reset to Default</button>
+      <span id="status-inline" class="status"></span>
+    </div>
+    <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>
+  </div>
+
+  <div class="section">
     <label>Reset All Local Settings</label>
     <div class="row">
       <button id="reset-all-settings" style="background: #d73a49; color: white; border-color: #d73a49;">Reset All Local Settings</button>

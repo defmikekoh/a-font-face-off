@@ -3,6 +3,7 @@
   const DEFAULT_SERIF = ['PT Serif'];
   const DEFAULT_SANS = [];
   const DEFAULT_FFONLY = ['x.com'];
+  const DEFAULT_INLINE = ['x.com'];
 
   function normalize(lines){
     return (lines || [])
@@ -20,13 +21,15 @@
 
   async function load(){
     try {
-      const data = await browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoFontFaceOnlyDomains']);
+      const data = await browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains']);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
       document.getElementById('known-serif').value = toTextarea(serif);
       document.getElementById('known-sans').value = toTextarea(sans);
       const ffonly = Array.isArray(data.affoFontFaceOnlyDomains) ? data.affoFontFaceOnlyDomains : DEFAULT_FFONLY.slice();
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
+      const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
+      document.getElementById('inline-domains').value = toTextarea(inline);
     } catch (e) {}
   }
 
@@ -81,6 +84,23 @@
     } catch (e) {}
   }
 
+  async function saveInline(){
+    try {
+      const raw = document.getElementById('inline-domains').value;
+      const list = fromTextarea(raw);
+      await browser.storage.local.set({ affoInlineApplyDomains: list });
+      const s = document.getElementById('status-inline'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function resetInline(){
+    try {
+      await browser.storage.local.set({ affoInlineApplyDomains: DEFAULT_INLINE.slice() });
+      document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
+      const s = document.getElementById('status-inline'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
   async function resetAllSettings(){
     try {
       // Show confirmation dialog
@@ -107,6 +127,7 @@
       document.getElementById('known-serif').value = toTextarea(DEFAULT_SERIF);
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
+      document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       
       statusEl.textContent = 'All settings reset successfully';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
@@ -126,6 +147,8 @@
     document.getElementById('reset-sans').addEventListener('click', resetSans);
     document.getElementById('save-ffonly').addEventListener('click', saveFFOnly);
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
+    document.getElementById('save-inline').addEventListener('click', saveInline);
+    document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
   });
 })();

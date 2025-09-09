@@ -1614,6 +1614,14 @@ function getCurrentUIConfig(position) {
         fontName: fontName,
         variableAxes: {}
     };
+    
+    // Include fontFaceRule for custom fonts
+    if (fontName) {
+        const fontDef = getEffectiveFontDefinition(fontName);
+        if (fontDef && fontDef.fontFaceRule) {
+            config.fontFaceRule = fontDef.fontFaceRule;
+        }
+    }
 
     // Only include active basic controls directly on config (no null values)
     if (activeFontSize) config.fontSize = parseFloat(fontSize);
@@ -2886,6 +2894,23 @@ function generateBodyCSS(payload, position) {
     return css;
 }
 
+// Domain detection for inline apply domains
+let inlineApplyDomains = ['x.com']; // Will be loaded from storage
+
+// Load inline apply domains from storage
+try {
+    browser.storage.local.get('affoInlineApplyDomains').then(function(data) {
+        if (Array.isArray(data.affoInlineApplyDomains)) {
+            inlineApplyDomains = data.affoInlineApplyDomains;
+            console.log('[AFFO Popup] Loaded inline apply domains:', inlineApplyDomains);
+        }
+    }).catch(function() {});
+} catch (e) {}
+
+function shouldUseInlineApply(origin) {
+    return inlineApplyDomains.includes(origin);
+}
+
 // Separate apply/unapply functions for body mode and face-off mode
 function applyFontToPage(position, config) {
     console.log(`🟢 applyFontToPage: Applying ${position} with config:`, config);
@@ -2913,30 +2938,37 @@ function applyFontToPage(position, config) {
 
         // Save enriched payload to storage (includes fontFaceRule for custom fonts)
         return saveApplyMapForOrigin(origin, genericKey, payload).then(() => {
-            // Apply CSS using consolidated insertCSS approach
-            let css;
-            if (position === 'body') {
-                // Use Body Contact CSS generation
-                css = generateBodyContactCSS(payload);
+            // Check if this is an inline apply domain
+            if (shouldUseInlineApply(origin)) {
+                console.log(`applyFontToPage: Using inline apply for ${origin} - content script will handle font loading and styling`);
+                // For inline apply domains, storage update is enough - content script handles everything
+                return true;
             } else {
-                // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload, position);
-            }
+                // Apply CSS using consolidated insertCSS approach for standard domains
+                let css;
+                if (position === 'body') {
+                    // Use Body Contact CSS generation
+                    css = generateBodyContactCSS(payload);
+                } else {
+                    // Use existing generateBodyCSS for face-off mode
+                    css = generateBodyCSS(payload, position);
+                }
 
-            if (css) {
-                return browser.tabs.insertCSS({
-                    code: css,
-                    cssOrigin: 'user'
-                }).then(() => {
-                    appliedCssActive[genericKey] = css;
-                    console.log(`applyFontToPage: Successfully applied ${position} font using insertCSS`);
-                    return true;
-                }).catch(error => {
-                    console.error(`applyFontToPage: CSS injection failed:`, error);
-                    return false;
-                });
+                if (css) {
+                    return browser.tabs.insertCSS({
+                        code: css,
+                        cssOrigin: 'user'
+                    }).then(() => {
+                        appliedCssActive[genericKey] = css;
+                        console.log(`applyFontToPage: Successfully applied ${position} font using insertCSS`);
+                        return true;
+                    }).catch(error => {
+                        console.error(`applyFontToPage: CSS injection failed:`, error);
+                        return false;
+                    });
+                }
+                return false;
             }
-            return false;
         });
     }).catch(e => {
         console.warn('applyFontToPage failed', e);
@@ -3005,7 +3037,14 @@ function applyThirdManInFont(fontType, config) {
 
         // Save enriched payload to storage (includes fontFaceRule for custom fonts)
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
-            // First, inject Google Fonts CSS link if needed
+            // Check if this is an inline apply domain (like x.com)
+            if (shouldUseInlineApply(origin)) {
+                console.log(`applyThirdManInFont: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
+                // For inline apply domains, don't load fonts in popup - content script handles all font loading
+                return true;
+            }
+            
+            // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
 
             let fontLinkPromise = buildCss2Url(fontName).then(css2Url => {
@@ -6572,7 +6611,14 @@ function applyAllThirdManInFonts() {
         console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
 
         return saveBatchApplyMapForOrigin(origin, fontConfigs).then(() => {
-            // Step 3: Apply CSS and font loading in parallel for all fonts
+            // Check if this is an inline apply domain (like x.com)
+            if (shouldUseInlineApply(origin)) {
+                console.log(`applyAllThirdManInFonts: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
+                // For inline apply domains, don't load fonts in popup - content script handles all font loading
+                return Promise.resolve();
+            }
+            
+            // Step 3: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
             console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
             const cssPromises = cssJobs.map(job => {
