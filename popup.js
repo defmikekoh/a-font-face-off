@@ -789,6 +789,40 @@ const fontDefinitions = {
   font-display: swap;
 }`
     },
+    "GuardianTextEgyptian": {
+        axes: [],
+        defaults: {},
+        ranges: {},
+        steps: {},
+        fontFaceRule: `@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Regular.woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-RegularItalic.woff2');
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Bold.woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-BoldItalic.woff2');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}`
+    },
     "TiemposText": {
         axes: [],
         defaults: {},
@@ -839,10 +873,11 @@ const AXIS_DEFAULTS = {
 
 // Custom fonts not in Google Fonts that we support
 const CUSTOM_FONTS = [
+    'GuardianTextEgyptian',
+    'National',
     'BBC Reith Serif',
     'ABC Ginto Normal Unlicensed Trial',
     'FK Roman Standard Trial',
-    'National',
     'TiemposText',
 ];
 
@@ -944,12 +979,12 @@ function ensureGfMetadata() {
         const now = Date.now();
         const cacheAge = now - (data.gfMetadataTimestamp || 0);
         const twentyFourHours = 24 * 60 * 60 * 1000;
-        
+
         if (data.gfMetadataCache && cacheAge < twentyFourHours) {
             gfMetadata = data.gfMetadataCache;
             return gfMetadata;
         }
-        
+
         // Cache expired or missing, fetch fresh data
         return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
             if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
@@ -957,13 +992,13 @@ function ensureGfMetadata() {
         }).then(textLocal => {
             const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
             gfMetadata = JSON.parse(jsonLocal);
-            
+
             // Cache the metadata with timestamp
             browser.storage.local.set({
                 gfMetadataCache: gfMetadata,
                 gfMetadataTimestamp: now
             }).catch(e => console.warn('Failed to cache GF metadata:', e));
-            
+
             return gfMetadata;
         }).catch(e2 => {
             console.warn('Local metadata load failed; proceeding with empty metadata', e2);
@@ -1157,7 +1192,7 @@ function updateBodyButtonsImmediate() {
             if (changeCount > 0) {
                 // Check if all UI changes are actually defaults (Reset case)
                 const allDefaults = !currentConfig; // currentConfig is undefined when UI shows "Default"
-                
+
                 if (allDefaults) {
                     // Special case: changeCount > 0 but UI is default - show Reset
                     if (applyBtn) applyBtn.style.display = 'none';
@@ -1614,7 +1649,7 @@ function getCurrentUIConfig(position) {
         fontName: fontName,
         variableAxes: {}
     };
-    
+
     // Include fontFaceRule for custom fonts
     if (fontName) {
         const fontDef = getEffectiveFontDefinition(fontName);
@@ -2253,11 +2288,14 @@ function selectFont(name) {
 
         // Load font CSS for preview
         if (name) {
-            loadFont('body', name, { suppressImmediateApply: true, suppressImmediateSave: false });
+            loadFont('body', name, { suppressImmediateApply: true, suppressImmediateSave: false }).then(() => {
+                // Update preview after font is loaded
+                updateBodyPreview();
+            });
+        } else {
+            // Update preview immediately if no font to load
+            updateBodyPreview();
         }
-
-        // Update body preview (analogous to Third Man In mode)
-        updateBodyPreview();
 
         // Wait for any pending storage operations to complete, then update buttons
         // This is better than setTimeout hack - waits for actual completion
@@ -2371,73 +2409,84 @@ function selectFont(name) {
 // Font loading and management functions
 function loadFont(position, fontName, options = {}) {
     const { suppressImmediateApply = false, suppressImmediateSave = false } = options || {};
-    // Save current font settings before switching
-    const fontNameElement = document.getElementById(`${position}-font-name`) || document.getElementById(`${position}-font-display`);
-    const currentFontName = fontNameElement ? fontNameElement.textContent : null;
-    if (currentFontName && currentFontName !== fontName) {
-        saveFontSettings(position, currentFontName);
-    }
-
-    // Active axes will be cleared when font controls are reset to unset state
-
-    // Load font CSS (Google Fonts only - custom fonts handled via fontFaceRule)
-    // Skip font loading for Default (no actual font to load)
-    if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName)) {
-        // Also kick off dynamic axis discovery in background for Google families
-        loadGoogleFont(fontName);
-        getOrCreateFontDefinition(fontName).then(() => {
-            // Regenerate controls if the dynamic def was just created
-            generateFontControls(position, fontName);
-            restoreFontSettings(position, fontName);
-            if (!suppressImmediateApply) {
-                applyFont(position);
-            }
-        }).catch(err => console.warn('Dynamic axis discovery failed', err));
-    }
-    // Custom fonts are already loaded via CSS @font-face declarations
-
-    // Update font name display
-    const fontNameDisplayElement = document.getElementById(`${position}-font-name`);
-    if (fontNameDisplayElement) {
-        fontNameDisplayElement.textContent = fontName;
-    }
-    const familyDisplay = document.getElementById(`${position}-font-display`);
-    if (familyDisplay) {
-        familyDisplay.textContent = fontName;
-        familyDisplay.classList.remove('placeholder');
-
-        // Update default styling based on content
-        if (fontName === 'Default') {
-            familyDisplay.classList.add('default');
-        } else {
-            familyDisplay.classList.remove('default');
+    
+    return new Promise((resolve) => {
+        // Save current font settings before switching
+        const fontNameElement = document.getElementById(`${position}-font-name`) || document.getElementById(`${position}-font-display`);
+        const currentFontName = fontNameElement ? fontNameElement.textContent : null;
+        if (currentFontName && currentFontName !== fontName) {
+            saveFontSettings(position, currentFontName);
         }
 
-        const group = familyDisplay.closest('.control-group');
-        if (group) group.classList.remove('unset');
-    }
+        // Active axes will be cleared when font controls are reset to unset state
 
-    // Generate controls for this font
-    generateFontControls(position, fontName);
+        // Load font CSS (Google Fonts only - custom fonts handled via fontFaceRule)
+        // Skip font loading for Default (no actual font to load)
+        if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName)) {
+            // Also kick off dynamic axis discovery in background for Google families
+            loadGoogleFont(fontName);
+            getOrCreateFontDefinition(fontName).then(() => {
+                // Regenerate controls if the dynamic def was just created
+                generateFontControls(position, fontName);
+                restoreFontSettings(position, fontName);
+                if (!suppressImmediateApply) {
+                    applyFont(position);
+                }
+                completeLoadFont();
+            }).catch(err => {
+                console.warn('Dynamic axis discovery failed', err);
+                completeLoadFont();
+            });
+        } else {
+            // Custom fonts are already loaded via CSS @font-face declarations
+            completeLoadFont();
+        }
 
-    // Restore saved settings for this font (if any)
-    restoreFontSettings(position, fontName);
+        function completeLoadFont() {
+            // Update font name display
+            const fontNameDisplayElement = document.getElementById(`${position}-font-name`);
+            if (fontNameDisplayElement) {
+                fontNameDisplayElement.textContent = fontName;
+            }
+            const familyDisplay = document.getElementById(`${position}-font-display`);
+            if (familyDisplay) {
+                familyDisplay.textContent = fontName;
+                familyDisplay.classList.remove('placeholder');
 
-    // Apply font to text (unless suppressed to allow a restore to set values first)
-    if (!suppressImmediateApply) {
-        applyFont(position);
-    }
+                // Update default styling based on content
+                if (fontName === 'Default') {
+                    familyDisplay.classList.add('default');
+                } else {
+                    familyDisplay.classList.remove('default');
+                }
 
-    // Basic controls are set up via DOMContentLoaded event listeners
+                const group = familyDisplay.closest('.control-group');
+                if (group) group.classList.remove('unset');
+            }
 
-    // Save current state unless explicitly suppressed (restores will save after values are applied)
-    if (!suppressImmediateSave) {
-        setTimeout(() => saveExtensionState(), 100);
-    }
-    // Update Apply/Applied/Update buttons to reflect new UI vs saved state (Face-off mode only)
-    if (currentViewMode === 'faceoff') {
-        try { setTimeout(() => { try { refreshApplyButtonsDirtyState(); } catch (_) {} }, 0); } catch (_) {}
-    }
+            // Generate controls for this font (if not already done)
+            if (fontName === 'Default' || CUSTOM_FONTS.includes(fontName)) {
+                generateFontControls(position, fontName);
+                restoreFontSettings(position, fontName);
+                if (!suppressImmediateApply) {
+                    applyFont(position);
+                }
+            }
+
+            // Basic controls are set up via DOMContentLoaded event listeners
+
+            // Save current state unless explicitly suppressed (restores will save after values are applied)
+            if (!suppressImmediateSave) {
+                setTimeout(() => saveExtensionState(), 100);
+            }
+            // Update Apply/Applied/Update buttons to reflect new UI vs saved state (Face-off mode only)
+            if (currentViewMode === 'faceoff') {
+                try { setTimeout(() => { try { refreshApplyButtonsDirtyState(); } catch (_) {} }, 0); } catch (_) {}
+            }
+            
+            resolve();
+        }
+    });
 }
 
 // Helper to ensure preconnect links for faster font loading
@@ -3043,7 +3092,7 @@ function applyThirdManInFont(fontType, config) {
                 // For inline apply domains, don't load fonts in popup - content script handles all font loading
                 return true;
             }
-            
+
             // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
 
@@ -3207,7 +3256,7 @@ function updateThirdManInPreview(fontType) {
     if (!textElement || !nameElement) return;
 
     const cfg = getCurrentUIConfig(fontType);
-    
+
     // Handle both configured fonts and "Default" (no config)
     if (cfg) {
         // Update font name display for specific font
@@ -3246,11 +3295,11 @@ function updateThirdManInPreview(fontType) {
         const headingText = fontType.charAt(0).toUpperCase() + fontType.slice(1);
         console.log(`updateThirdManInPreview: Setting ${fontType} heading to "${headingText}"`);
         nameElement.textContent = headingText;
-        
+
         // Reset the heading font to default (same as other unset headings)
         nameElement.style.cssText = '';
         console.log(`updateThirdManInPreview: After reset, ${fontType} heading shows: "${nameElement.textContent}"`);
-        
+
         // Reset preview text to generic font family
         let genericFamily;
         switch(fontType) {
@@ -3258,7 +3307,7 @@ function updateThirdManInPreview(fontType) {
             case 'sans': genericFamily = 'sans-serif'; break;
             case 'mono': genericFamily = 'monospace'; break;
         }
-        
+
         textElement.style.cssText = `font-family: ${genericFamily};`;
     }
 }
@@ -4858,7 +4907,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                         }
                         // updateThirdManInPreview will set the correct heading text
                         updateThirdManInPreview(position);
-                        
+
                         // Update buttons after reset to show Reset All if needed
                         updateAllThirdManInButtons();
                     } else if (['top', 'bottom'].includes(position) && fontSelect) {
@@ -5792,7 +5841,7 @@ function generateThirdManInCSS(fontType, payload) {
     // Generate CSS that targets elements marked with data-affo-font-type attribute
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
     let styleRule = `[data-affo-font-type="${fontType}"] {`;
-    
+
     // Only set font-family if a specific font is chosen
     if (payload.fontName) {
         styleRule += ` font-family: "${payload.fontName}" !important;`;
@@ -6070,6 +6119,63 @@ function getModeDisplayName(mode) {
     }
 }
 
+// Reset font previews to default state
+function resetFontPreviews() {
+    console.log('🔄 resetFontPreviews: Resetting all font previews to default state');
+
+    // Reset Face-off mode previews
+    const faceoffPositions = ['top', 'bottom'];
+    faceoffPositions.forEach(position => {
+        const nameElement = document.getElementById(`${position}-font-name`);
+        const textElement = document.getElementById(`${position}-font-text`);
+        if (nameElement) {
+            nameElement.textContent = 'Select a font';
+            nameElement.style.cssText = '';
+        }
+        if (textElement) {
+            textElement.style.cssText = '';
+            textElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+        }
+    });
+
+    // Reset Body mode preview
+    const bodyNameElement = document.getElementById('body-font-name');
+    const bodyTextElement = document.getElementById('body-font-text');
+    if (bodyNameElement) {
+        bodyNameElement.textContent = 'Select a font';
+        bodyNameElement.style.cssText = '';
+    }
+    if (bodyTextElement) {
+        bodyTextElement.style.cssText = '';
+        bodyTextElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+    }
+
+    // Reset Third Man In mode previews
+    const thirdManTypes = ['serif', 'sans', 'mono'];
+    thirdManTypes.forEach(fontType => {
+        const nameElement = document.getElementById(`${fontType}-font-name`);
+        const textElement = document.getElementById(`${fontType}-font-text`);
+        if (nameElement) {
+            // Use proper heading names for Third Man In mode
+            const heading = fontType.charAt(0).toUpperCase() + fontType.slice(1);
+            nameElement.textContent = heading;
+            nameElement.style.cssText = '';
+        }
+        if (textElement) {
+            textElement.style.cssText = '';
+            // Set appropriate generic font family
+            let genericFamily;
+            switch(fontType) {
+                case 'serif': genericFamily = 'serif'; break;
+                case 'sans': genericFamily = 'sans-serif'; break;
+                case 'mono': genericFamily = 'monospace'; break;
+                default: genericFamily = 'sans-serif';
+            }
+            textElement.style.fontFamily = genericFamily;
+        }
+    });
+}
+
 // Clear domain settings for all modes
 function clearAllDomainSettings() {
     return getActiveOrigin().then(origin => {
@@ -6135,13 +6241,21 @@ function switchMode(newMode) {
                         return; // User cancelled, don't switch
                     }
                     // Clear all domain settings when switching between body-contact and third-man-in
-                    return clearAllDomainSettings().then(() => performModeSwitch(newMode));
+                    return clearAllDomainSettings().then(() => {
+                        // Reset font previews after clearing domain data
+                        resetFontPreviews();
+                        return performModeSwitch(newMode);
+                    });
                 });
             } else {
+                // Reset font previews when switching modes without domain clearing
+                resetFontPreviews();
                 return performModeSwitch(newMode);
             }
         });
     } else {
+        // Reset font previews when switching modes without confirmation
+        resetFontPreviews();
         return performModeSwitch(newMode);
     }
 }
@@ -6617,7 +6731,7 @@ function applyAllThirdManInFonts() {
                 // For inline apply domains, don't load fonts in popup - content script handles all font loading
                 return Promise.resolve();
             }
-            
+
             // Step 3: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
             console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
@@ -7015,7 +7129,7 @@ function updateAllThirdManInButtons(triggeringPanel = null) {
                 const sansConfig = getCurrentUIConfig('sans');
                 const monoConfig = getCurrentUIConfig('mono');
                 const allDefaults = !serifConfig && !sansConfig && !monoConfig;
-                
+
                 if (allDefaults) {
                     // Special case: changeCount > 0 but all UI is defaults - show Reset All
                     applyBtn.style.display = 'none';
@@ -7075,7 +7189,7 @@ function updateThirdManInButtons(panelId) {
                 const sansConfig = getCurrentUIConfig('sans');
                 const monoConfig = getCurrentUIConfig('mono');
                 const allDefaults = !serifConfig && !sansConfig && !monoConfig;
-                
+
                 if (allDefaults) {
                     // Special case: changeCount > 0 but all UI is defaults - show Reset All
                     applyBtn.style.display = 'none';
