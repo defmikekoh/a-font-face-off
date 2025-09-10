@@ -795,22 +795,39 @@
         var className = element.className || '';
         var style = element.style.fontFamily || '';
 
-        // Explicit class/style overrides - check sans first to avoid serif matching sans-serif
-        if (className.includes('sans') || style.includes('sans')) return 'sans';
-        if (className.includes('serif') || style.includes('serif')) return 'serif';
-        if (className.includes('mono') || className.includes('code') || className.includes('monospace') ||
-            style.includes('monospace') || style.includes('mono')) return 'mono';
+        // Explicit class/style overrides - use word boundaries and exact matches
+        var classWords = className.toLowerCase().split(/[\s\-_]+/);
+        var styleWords = style.toLowerCase().split(/[\s\-_,'"]+/);
+        
+        // Check for monospace keywords
+        if (classWords.some(function(word) { return ['monospace', 'mono', 'code'].indexOf(word) !== -1; }) ||
+            styleWords.some(function(word) { return ['monospace', 'mono'].indexOf(word) !== -1; })) return 'mono';
+        
+        // Check for serif keywords (but not sans-serif)
+        if (classWords.some(function(word) { return word === 'serif'; }) ||
+            styleWords.some(function(word) { return word === 'serif' && styleWords.indexOf('sans') === -1; })) return 'serif';
+        
+        // Check for sans keywords
+        if (classWords.some(function(word) { return ['sans', 'sansserif'].indexOf(word) !== -1; }) ||
+            styleWords.some(function(word) { return ['sans', 'sans-serif'].indexOf(word) !== -1; })) return 'sans';
 
         // Tag-based detection
-        if (['code', 'pre', 'kbd', 'samp', 'tt'].includes(tagName)) return 'mono';
+        if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
-        // Check computed styles as fallback
+        // For generic containers like div, only rely on explicit class/style indicators
+        // Don't use computed styles for generic containers to avoid marking wrapper elements
+        if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav'].indexOf(tagName) !== -1) {
+            return null; // Generic containers should only be marked if they have explicit indicators
+        }
+        
+        // Check computed styles as fallback (only for specific elements like p, h1, etc.)
         var computed = window.getComputedStyle(element);
         var computedFamily = computed.fontFamily.toLowerCase();
-        if (computedFamily.includes('serif') && !computedFamily.includes('sans')) return 'serif';
-        if (computedFamily.includes('mono')) return 'mono';
+        if (computedFamily.indexOf('serif') !== -1 && computedFamily.indexOf('sans') === -1) return 'serif';
+        if (computedFamily.indexOf('mono') !== -1) return 'mono';
+        if (computedFamily.indexOf('sans-serif') !== -1) return 'sans';
 
-        return 'sans'; // Default fallback
+        return null; // No clear match - don't mark this element
       }
 
       // Walk all text-containing elements

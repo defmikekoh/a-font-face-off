@@ -2552,6 +2552,11 @@ function buildCss2Url(fontName) {
     if (!fontName || String(fontName).trim() === '' || String(fontName).toLowerCase() === 'default') {
         return Promise.resolve('');
     }
+    
+    // Skip URL generation for custom fonts (they have their own @font-face rules)
+    if (fontDefinitions[fontName] && fontDefinitions[fontName].fontFaceRule) {
+        return Promise.resolve('');
+    }
 
     const familyParam = familyToQuery(fontName);
     // Prefer curated axis-tag ranges from local data file (no probe)
@@ -3212,6 +3217,17 @@ function buildThirdManInPayload(fontType) {
         return null;
     }
 
+    return buildThirdManInPayloadFromConfig(fontType, cfg);
+}
+
+function buildThirdManInPayloadFromConfig(fontType, cfg) {
+    console.log(`🔧 buildThirdManInPayloadFromConfig: Building payload for fontType: ${fontType} with specific config:`, cfg);
+    
+    if (!cfg) {
+        console.log(`🔧 buildThirdManInPayloadFromConfig: No config provided, returning null`);
+        return null;
+    }
+
     // Determine generic based on font type
     let generic;
     switch(fontType) {
@@ -3220,7 +3236,6 @@ function buildThirdManInPayload(fontType) {
         case 'mono': generic = 'monospace'; break;
         default: return null;
     }
-
 
     const weightActive = cfg.fontWeight !== null && cfg.fontWeight !== undefined;
     const fontWeight = weightActive ? Number(cfg.fontWeight) : null;
@@ -3244,7 +3259,7 @@ function buildThirdManInPayload(fontType) {
     if (cfg.css2Url) payload.css2Url = cfg.css2Url;
     if (cfg.fontFaceRule) payload.fontFaceRule = cfg.fontFaceRule;
 
-    console.log(`🔧 buildThirdManInPayload: Final payload:`, payload);
+    console.log(`🔧 buildThirdManInPayloadFromConfig: Final payload:`, payload);
     return payload;
 }
 
@@ -4530,6 +4545,163 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 const bodySizeValue = document.getElementById('body-font-size-value');
                 if (bodySizeValue) bodySizeValue.textContent = vv + 'px';
                 updateBodyPreview();
+                // Save state after font-size change
+                setTimeout(() => saveExtensionState(), 100);
+            }
+        });
+    }
+
+    // Third Man In Font Size Controls
+    const serifSizeSlider = document.getElementById('serif-font-size');
+    const serifSizeText = document.getElementById('serif-font-size-text');
+    const serifSizeGroup = document.querySelector('#serif-font-controls .control-group[data-control="font-size"]');
+    if (serifSizeSlider) {
+        serifSizeSlider.addEventListener('input', function() {
+            if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (serifSizeText) serifSizeText.value = v;
+            const serifSizeValue = document.getElementById('serif-font-size-value');
+            if (serifSizeValue) serifSizeValue.textContent = v + 'px';
+            updateThirdManInPreview('serif');
+            setTimeout(() => updateAllThirdManInButtons('serif'), 50);
+            // Save state after font-size change
+            setTimeout(() => saveExtensionState(), 100);
+        });
+    }
+    if (serifSizeText) {
+        serifSizeText.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const min = Number(serifSizeSlider?.min || 10), max = Number(serifSizeSlider?.max || 72);
+                const vv = clamp(this.value, min, max);
+                if (vv !== null) {
+                    if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
+                    if (serifSizeSlider) serifSizeSlider.value = String(vv);
+                    this.value = String(vv);
+                    const serifSizeValue = document.getElementById('serif-font-size-value');
+                    if (serifSizeValue) serifSizeValue.textContent = vv + 'px';
+                    updateThirdManInPreview('serif');
+                    setTimeout(() => updateAllThirdManInButtons('serif'), 50);
+                    // Save state after font-size change
+                    setTimeout(() => saveExtensionState(), 100);
+                }
+                this.blur();
+            }
+        });
+        serifSizeText.addEventListener('blur', function() {
+            const min = Number(serifSizeSlider?.min || 10), max = Number(serifSizeSlider?.max || 72);
+            const vv = clamp(this.value, min, max);
+            if (vv !== null) {
+                if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
+                if (serifSizeSlider) serifSizeSlider.value = String(vv);
+                this.value = String(vv);
+                const serifSizeValue = document.getElementById('serif-font-size-value');
+                if (serifSizeValue) serifSizeValue.textContent = vv + 'px';
+                updateThirdManInPreview('serif');
+                setTimeout(() => updateAllThirdManInButtons('serif'), 50);
+                // Save state after font-size change
+                setTimeout(() => saveExtensionState(), 100);
+            }
+        });
+    }
+
+    const sansSizeSlider = document.getElementById('sans-font-size');
+    const sansSizeText = document.getElementById('sans-font-size-text');
+    const sansSizeGroup = document.querySelector('#sans-font-controls .control-group[data-control="font-size"]');
+    if (sansSizeSlider) {
+        sansSizeSlider.addEventListener('input', function() {
+            if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (sansSizeText) sansSizeText.value = v;
+            const sansSizeValue = document.getElementById('sans-font-size-value');
+            if (sansSizeValue) sansSizeValue.textContent = v + 'px';
+            updateThirdManInPreview('sans');
+            setTimeout(() => updateAllThirdManInButtons('sans'), 50);
+            // Save state after font-size change
+            setTimeout(() => saveExtensionState(), 100);
+        });
+    }
+    if (sansSizeText) {
+        sansSizeText.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const min = Number(sansSizeSlider?.min || 10), max = Number(sansSizeSlider?.max || 72);
+                const vv = clamp(this.value, min, max);
+                if (vv !== null) {
+                    if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
+                    if (sansSizeSlider) sansSizeSlider.value = String(vv);
+                    this.value = String(vv);
+                    const sansSizeValue = document.getElementById('sans-font-size-value');
+                    if (sansSizeValue) sansSizeValue.textContent = vv + 'px';
+                    updateThirdManInPreview('sans');
+                    setTimeout(() => updateAllThirdManInButtons('sans'), 50);
+                    // Save state after font-size change
+                    setTimeout(() => saveExtensionState(), 100);
+                }
+                this.blur();
+            }
+        });
+        sansSizeText.addEventListener('blur', function() {
+            const min = Number(sansSizeSlider?.min || 10), max = Number(sansSizeSlider?.max || 72);
+            const vv = clamp(this.value, min, max);
+            if (vv !== null) {
+                if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
+                if (sansSizeSlider) sansSizeSlider.value = String(vv);
+                this.value = String(vv);
+                const sansSizeValue = document.getElementById('sans-font-size-value');
+                if (sansSizeValue) sansSizeValue.textContent = vv + 'px';
+                updateThirdManInPreview('sans');
+                setTimeout(() => updateAllThirdManInButtons('sans'), 50);
+                // Save state after font-size change
+                setTimeout(() => saveExtensionState(), 100);
+            }
+        });
+    }
+
+    const monoSizeSlider = document.getElementById('mono-font-size');
+    const monoSizeText = document.getElementById('mono-font-size-text');
+    const monoSizeGroup = document.querySelector('#mono-font-controls .control-group[data-control="font-size"]');
+    if (monoSizeSlider) {
+        monoSizeSlider.addEventListener('input', function() {
+            if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (monoSizeText) monoSizeText.value = v;
+            const monoSizeValue = document.getElementById('mono-font-size-value');
+            if (monoSizeValue) monoSizeValue.textContent = v + 'px';
+            updateThirdManInPreview('mono');
+            setTimeout(() => updateAllThirdManInButtons('mono'), 50);
+            // Save state after font-size change
+            setTimeout(() => saveExtensionState(), 100);
+        });
+    }
+    if (monoSizeText) {
+        monoSizeText.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const min = Number(monoSizeSlider?.min || 10), max = Number(monoSizeSlider?.max || 72);
+                const vv = clamp(this.value, min, max);
+                if (vv !== null) {
+                    if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
+                    if (monoSizeSlider) monoSizeSlider.value = String(vv);
+                    this.value = String(vv);
+                    const monoSizeValue = document.getElementById('mono-font-size-value');
+                    if (monoSizeValue) monoSizeValue.textContent = vv + 'px';
+                    updateThirdManInPreview('mono');
+                    setTimeout(() => updateAllThirdManInButtons('mono'), 50);
+                    // Save state after font-size change
+                    setTimeout(() => saveExtensionState(), 100);
+                }
+                this.blur();
+            }
+        });
+        monoSizeText.addEventListener('blur', function() {
+            const min = Number(monoSizeSlider?.min || 10), max = Number(monoSizeSlider?.max || 72);
+            const vv = clamp(this.value, min, max);
+            if (vv !== null) {
+                if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
+                if (monoSizeSlider) monoSizeSlider.value = String(vv);
+                this.value = String(vv);
+                const monoSizeValue = document.getElementById('mono-font-size-value');
+                if (monoSizeValue) monoSizeValue.textContent = vv + 'px';
+                updateThirdManInPreview('mono');
+                setTimeout(() => updateAllThirdManInButtons('mono'), 50);
                 // Save state after font-size change
                 setTimeout(() => saveExtensionState(), 100);
             }
@@ -5883,28 +6055,54 @@ function generateElementWalkerScript(fontType) {
                     el.removeAttribute('data-affo-font-type');
                 });
 
-                // Element type detection logic
+                // Element type detection logic - only mark elements that clearly match the target type
                 function getElementFontType(element) {
                     const tagName = element.tagName.toLowerCase();
                     const className = element.className || '';
                     const style = element.style.fontFamily || '';
 
-                    // Explicit class/style overrides - check sans first to avoid serif matching sans-serif
-                    if (className.includes('sans') || style.includes('sans')) return 'sans';
-                    if (className.includes('serif') || style.includes('serif')) return 'serif';
-                    if (className.includes('mono') || className.includes('code') || className.includes('monospace') ||
-                        style.includes('monospace') || style.includes('mono')) return 'mono';
+                    // Explicit class/style overrides - use word boundaries and exact matches
+                    const classWords = className.toLowerCase().split(/[\\s\\-_]+/);
+                    const styleWords = style.toLowerCase().split(/[\\s\\-_,'"]+/);
+                    
+                    // Check for monospace keywords
+                    if (classWords.some(word => ['monospace', 'mono', 'code'].indexOf(word) !== -1) ||
+                        styleWords.some(word => ['monospace', 'mono'].indexOf(word) !== -1)) return 'mono';
+                    
+                    // Check for serif keywords (but not sans-serif)
+                    if (classWords.some(word => word === 'serif') ||
+                        styleWords.some(word => word === 'serif' && styleWords.indexOf('sans') === -1)) return 'serif';
+                    
+                    // Check for sans keywords
+                    if (classWords.some(word => ['sans', 'sansserif'].indexOf(word) !== -1) ||
+                        styleWords.some(word => ['sans', 'sans-serif'].indexOf(word) !== -1)) return 'sans';
 
-                    // Tag-based detection
-                    if (['code', 'pre', 'kbd', 'samp', 'tt'].includes(tagName)) return 'mono';
+                    // Tag-based detection for monospace
+                    if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
-                    // Check computed styles as fallback
+                    // For generic containers like div, only rely on explicit class/style indicators
+                    // Don't use computed styles for generic containers to avoid marking wrapper elements
+                    if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav'].indexOf(tagName) !== -1) {
+                        return null; // Generic containers should only be marked if they have explicit indicators
+                    }
+                    
+                    // Check computed styles for clear matches (only for specific elements like p, h1, etc.)
                     const computed = window.getComputedStyle(element);
                     const computedFamily = computed.fontFamily.toLowerCase();
-                    if (computedFamily.includes('serif') && !computedFamily.includes('sans')) return 'serif';
-                    if (computedFamily.includes('mono')) return 'mono';
+                    const familyWords = computedFamily.split(/[\\s,'"]+/).filter(w => w.length > 0);
+                    
+                    // Only match serif if it's clearly serif (not sans-serif)
+                    if (familyWords.indexOf('serif') !== -1 && familyWords.indexOf('sans-serif') === -1 && familyWords.indexOf('sans') === -1) return 'serif';
+                    
+                    // Only match mono if it's clearly monospace
+                    if (familyWords.some(word => ['monospace', 'courier', 'monaco', 'consolas'].indexOf(word) !== -1)) return 'mono';
+                    
+                    // Only match sans if it's clearly sans-serif or common sans fonts
+                    if (familyWords.indexOf('sans-serif') !== -1 || 
+                        familyWords.some(word => ['helvetica', 'arial', 'roboto', 'segoe'].indexOf(word) !== -1)) return 'sans';
 
-                    return 'sans'; // Default fallback
+                    // No clear match - don't mark this element
+                    return null;
                 }
 
                 // Walk all text-containing elements
@@ -5936,6 +6134,7 @@ function generateElementWalkerScript(fontType) {
                     if (detectedType === '${fontType}') {
                         element.setAttribute('data-affo-font-type', '${fontType}');
                         markedElements++;
+                        console.log('Marked ${fontType} element:', element.tagName, element.className, element.textContent.substring(0, 50));
                     }
                 }
 
@@ -6694,37 +6893,76 @@ function applyAllThirdManInFonts() {
 
         console.log('applyAllThirdManInFonts: Collecting font configurations');
 
-        types.forEach(type => {
-            const config = getPanelFontConfig(type);
+        // Get current applied state for comparison
+        return browser.storage.local.get('affoApplyMap').then(data => {
+            const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
+            const domainData = applyMap[origin] || {};
+            
+            types.forEach(type => {
+                const config = getPanelFontConfig(type);
+                const appliedConfig = domainData[type];
 
-            // Check if config has any meaningful properties
-            const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.lineHeight || config.fontColor);
+                console.log(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
+                console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
 
-            if (hasValidConfig) {
-                console.log(`applyAllThirdManInFonts: Will apply ${type}:`, config);
-                fontConfigs[type] = config;
-                appliedAny = true;
+                // Check if config has any meaningful properties
+                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.lineHeight || config.fontColor);
 
-                // Prepare CSS/font loading jobs (but don't execute yet)
-                cssJobs.push({
-                    type: type,
-                    fontName: config.fontName,
-                    config: config
-                });
-            } else {
-                console.log(`applyAllThirdManInFonts: Skipping ${type} - has placeholder/unset font`);
+                if (hasValidConfig) {
+                    // Convert applied config to same format for comparison
+                    const appliedForComparison = appliedConfig ? {
+                        fontName: appliedConfig.fontName || null,
+                        variableAxes: appliedConfig.variableAxes || {}
+                    } : null;
+                    
+                    if (appliedConfig && appliedForComparison) {
+                        if (appliedConfig.fontSize) appliedForComparison.fontSize = appliedConfig.fontSize;
+                        if (appliedConfig.lineHeight) appliedForComparison.lineHeight = appliedConfig.lineHeight;
+                        if (appliedConfig.fontWeight) appliedForComparison.fontWeight = appliedConfig.fontWeight;
+                        if (appliedConfig.fontColor) appliedForComparison.fontColor = appliedConfig.fontColor;
+                        if (appliedConfig.fontFaceRule) appliedForComparison.fontFaceRule = appliedConfig.fontFaceRule;
+                    }
+
+                    // Only apply if config is different from what's already applied
+                    const isDifferent = !configsEqual(config, appliedForComparison);
+                    
+                    if (isDifferent) {
+                        console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
+                        console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
+                        fontConfigs[type] = config;
+                        appliedAny = true;
+
+                        // Prepare CSS/font loading jobs (but don't execute yet)
+                        cssJobs.push({
+                            type: type,
+                            fontName: config.fontName,
+                            config: config
+                        });
+                    } else {
+                        console.log(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
+                        // Don't include unchanged types in fontConfigs - they should remain as-is
+                    }
+                } else {
+                    // No valid config - clear/unset this type in the batch write
+                    if (appliedConfig) {
+                        console.log(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
+                        fontConfigs[type] = null; // Explicitly clear
+                        appliedAny = true;
+                    } else {
+                        console.log(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
+                    }
+                }
+            });
+
+            if (!appliedAny) {
+                console.log('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
+                return Promise.resolve();
             }
-        });
 
-        if (!appliedAny) {
-            console.log('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
-            return Promise.resolve();
-        }
+            // Step 2: SINGLE batch storage write for all fonts
+            console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
 
-        // Step 2: SINGLE batch storage write for all fonts
-        console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
-
-        return saveBatchApplyMapForOrigin(origin, fontConfigs).then(() => {
+            return saveBatchApplyMapForOrigin(origin, fontConfigs).then(() => {
             // Check if this is an inline apply domain (like x.com)
             if (shouldUseInlineApply(origin)) {
                 console.log(`applyAllThirdManInFonts: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
@@ -6732,8 +6970,24 @@ function applyAllThirdManInFonts() {
                 return Promise.resolve();
             }
 
-            // Step 3: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
-            console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
+            // Step 3: Clean up any existing CSS for all types before applying new CSS
+            console.log('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
+            const cleanupPromises = ['serif', 'sans', 'mono'].map(type => {
+                if (appliedCssActive[type]) {
+                    console.log(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
+                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
+                        appliedCssActive[type] = null;
+                    }).catch(error => {
+                        console.warn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
+                    });
+                } else {
+                    return Promise.resolve();
+                }
+            });
+            
+            return Promise.all(cleanupPromises).then(() => {
+                // Step 4: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
+                console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
             const cssPromises = cssJobs.map(job => {
                 return Promise.resolve().then(() => {
@@ -6766,22 +7020,42 @@ function applyAllThirdManInFonts() {
                     console.log(`applyAllThirdManInFonts: Running element walker script for ${job.type}`);
 
                     return browser.tabs.executeScript({ code: walkerScript }).then(() => {
-                        // Build and apply CSS
-                        const payload = buildThirdManInPayload(job.type);
-                        if (payload) {
-                            const css = generateThirdManInCSS(job.type, payload);
-                            if (css) {
-                                console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css.substring(0, 100) + '...');
-                                return browser.tabs.insertCSS({ code: css }).then(() => {
-                                    console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
-                                    return true;
-                                }).catch(error => {
-                                    console.error(`applyAllThirdManInFonts: insertCSS failed for ${job.type}:`, error);
-                                    return false;
-                                });
+                        // Verify what elements were marked
+                        return browser.tabs.executeScript({ 
+                            code: `
+                                (function() {
+                                    const markedElements = document.querySelectorAll('[data-affo-font-type="${job.type}"]');
+                                    console.log('VERIFICATION: ${job.type} elements marked:', markedElements.length);
+                                    for (let i = 0; i < Math.min(10, markedElements.length); i++) {
+                                        const el = markedElements[i];
+                                        const computed = window.getComputedStyle(el);
+                                        console.log('VERIFICATION: Marked ${job.type} element', i+1, ':', el.tagName, el.className, 'computedFont:', computed.fontFamily, 'text:', el.textContent.substring(0, 30));
+                                    }
+                                    return markedElements.length;
+                                })();
+                            ` 
+                        }).then((result) => {
+                            console.log(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
+                            
+                            // Use the specific config that was collected during Apply All
+                            const payload = buildThirdManInPayloadFromConfig(job.type, job.config);
+                            if (payload) {
+                                const css = generateThirdManInCSS(job.type, payload);
+                                if (css) {
+                                    console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
+                                    console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
+                                    return browser.tabs.insertCSS({ code: css }).then(() => {
+                                        console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
+                                        appliedCssActive[job.type] = css;
+                                        return true;
+                                    }).catch(error => {
+                                        console.error(`applyAllThirdManInFonts: insertCSS failed for ${job.type}:`, error);
+                                        return false;
+                                    });
+                                }
                             }
-                        }
-                        return false;
+                            return false;
+                        });
                     }).catch(error => {
                         console.error(`applyAllThirdManInFonts: Element walker failed for ${job.type}:`, error);
                         return false;
@@ -6789,11 +7063,13 @@ function applyAllThirdManInFonts() {
                 });
             });
 
-            return Promise.all(cssPromises);
+                return Promise.all(cssPromises);
+            });
         }).then(() => {
-            // Step 4: Update UI state
-            setTimeout(() => saveExtensionState(), 50);
-            console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', Object.keys(fontConfigs).length);
+                // Step 5: Update UI state
+                setTimeout(() => saveExtensionState(), 50);
+                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', Object.keys(fontConfigs).length);
+            });
         });
     });
 }
@@ -6874,19 +7150,20 @@ function countThirdManInDifferences() {
                     if (!applied) {
                         isDifferent = true;
                     } else {
-                        // Convert applied payload back to config format for comparison
+                        // Convert applied payload back to flattened config format for comparison
                         const appliedConfig = applied ? {
                             fontName: applied.fontName || null,
-                            activeControls: [],
-                            basicControls: {
-                                fontSize: applied.fontSize || null,
-                                lineHeight: applied.lineHeight || null,
-                                fontWeight: applied.fontWeight || null,
-                                fontColor: applied.fontColor || null
-                            },
-                            variableAxes: {},
-                            activeAxes: applied.variableAxes ? Object.keys(applied.variableAxes) : []
+                            variableAxes: applied.variableAxes || {}
                         } : null;
+                        
+                        // Add flattened basic control properties (only if they exist)
+                        if (applied && appliedConfig) {
+                            if (applied.fontSize) appliedConfig.fontSize = applied.fontSize;
+                            if (applied.lineHeight) appliedConfig.lineHeight = applied.lineHeight;
+                            if (applied.fontWeight) appliedConfig.fontWeight = applied.fontWeight;
+                            if (applied.fontColor) appliedConfig.fontColor = applied.fontColor;
+                            if (applied.fontFaceRule) appliedConfig.fontFaceRule = applied.fontFaceRule;
+                        }
 
                         // Use same comparison logic as body mode
                         isDifferent = !configsEqual(current, appliedConfig);
