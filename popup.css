@@ -1401,6 +1401,58 @@ body.body-contact #font-comparison {
 }
 .reset-btn:hover { background: #c0392b; }
 
+/* Excluder Controls */
+.excluder-description {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.excluder-btn {
+    padding: 8px 16px;
+    border: 1px solid #3498db;
+    background: #3498db;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 8px;
+    transition: all 0.2s ease;
+}
+
+.excluder-btn:hover {
+    background: #2980b9;
+    border-color: #2980b9;
+}
+
+.excluder-btn.secondary {
+    background: #95a5a6;
+    border-color: #95a5a6;
+}
+
+.excluder-btn.secondary:hover {
+    background: #7f8c8d;
+    border-color: #7f8c8d;
+}
+
+.excluder-btn.active {
+    background: #e74c3c;
+    border-color: #e74c3c;
+}
+
+.excluder-btn.active:hover {
+    background: #c0392b;
+    border-color: #c0392b;
+}
+
+.excluder-status {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
+    min-height: 20px;
+}
+
 /* Footer no longer overlays content; no extra pad needed */
 
 @keyframes affo-spin { to { transform: rotate(360deg); } }

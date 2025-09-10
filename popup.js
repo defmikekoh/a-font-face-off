@@ -37,18 +37,20 @@ function determineGenericFontFamily(fontName) {
         }
 
         // Monospace patterns
-        if (name.includes('mono') || name.includes('code') || name.includes('courier') ||
-            name.includes('consolas') || name.includes('dejavu sans mono') ||
-            name.includes('fira code') || name.includes('source code')) {
+        if (/\b(mono|code|courier|consolas)\b/i.test(name) ||
+            /dejavu sans mono|fira code|source code/i.test(name)) {
             return 'monospace';
         }
 
-        // Built-in serif patterns
-        if (name.includes('serif') || name.includes('times') || name.includes('georgia') ||
-            name.includes('book') || name.includes('antiqua') || name.includes('roman') ||
-            name.includes('baskerville') || name.includes('caslon') || name.includes('garamond') ||
-            name.includes('minion') || name.includes('palatino') || name.includes('trajan') ||
-            name.includes('reith serif') || name.includes('noto serif') || name.includes('pt serif')) {
+        // Sans-serif patterns (check before serif to avoid "sans serif" fonts being misclassified)
+        if (/\bsans.serif\b/i.test(name) || /\bsans\b/i.test(name)) {
+            return 'sans-serif';
+        }
+
+        // Built-in serif patterns (excluding sans-serif)
+        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) || 
+            /\b(times|georgia|book|antiqua|roman|baskerville|caslon|garamond|minion|palatino|trajan)\b/i.test(name) ||
+            /reith serif|noto serif|pt serif/i.test(name)) {
             return 'serif';
         }
 
@@ -57,12 +59,16 @@ function determineGenericFontFamily(fontName) {
     }).catch(error => {
         console.warn('Error loading font family config:', error);
         // Fallback logic when storage fails
-        if (name.includes('serif') || name.includes('times') || name.includes('georgia') ||
-            name.includes('reith serif') || name.includes('noto serif') || name.includes('pt serif')) {
-            return 'serif';
-        }
-        if (name.includes('mono') || name.includes('code') || name.includes('courier')) {
+        if (/\b(mono|code|courier)\b/i.test(name)) {
             return 'monospace';
+        }
+        if (/\bsans.serif\b/i.test(name) || /\bsans\b/i.test(name)) {
+            return 'sans-serif';
+        }
+        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) || 
+            /\b(times|georgia)\b/i.test(name) ||
+            /reith serif|noto serif|pt serif/i.test(name)) {
+            return 'serif';
         }
         return 'sans-serif';
     });
@@ -510,16 +516,16 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                             console.log('=== CSS VERIFICATION START ===');
                             console.log('CSS verification: Elements with ${fontType} marker:', document.querySelectorAll('[data-affo-font-type="${fontType}"]').length);
 
-                            const elements = document.querySelectorAll('[data-affo-font-type="${fontType}"]');
+                            var elements = document.querySelectorAll('[data-affo-font-type="${fontType}"]');
                             if (elements.length > 0) {
-                                const firstEl = elements[0];
-                                const style = getComputedStyle(firstEl);
+                                var firstEl = elements[0];
+                                var style = getComputedStyle(firstEl);
                                 console.log('CSS verification: First element tag:', firstEl.tagName);
                                 console.log('CSS verification: First element font-family:', style.fontFamily);
                                 console.log('CSS verification: First element text content (first 50 chars):', firstEl.textContent.slice(0, 50));
 
                                 // Check if there are any CSS rules targeting this element
-                                const matchedRules = [];
+                                var matchedRules = [];
                                 for (let sheet of document.styleSheets) {
                                     try {
                                         for (let rule of sheet.cssRules || sheet.rules || []) {
@@ -535,14 +541,14 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
 
                                 // Check if the font is actually loaded
                                 if (document.fonts && document.fonts.check) {
-                                    const fontName = '${fontConfig.fontName}';
-                                    const isLoaded = document.fonts.check('16px ' + fontName);
+                                    var fontName = '${fontConfig.fontName}';
+                                    var isLoaded = document.fonts.check('16px ' + fontName);
                                     console.log('CSS verification: Font loading status for', fontName, ':', isLoaded);
                                 }
                             } else {
                                 console.warn('CSS verification: No elements found with data-affo-font-type="${fontType}"');
                                 // Check if walker ran at all
-                                const allMarked = document.querySelectorAll('[data-affo-font-type]');
+                                var allMarked = document.querySelectorAll('[data-affo-font-type]');
                                 console.log('CSS verification: Total elements with any font-type marker:', allMarked.length);
                             }
                             console.log('=== CSS VERIFICATION END ===');
@@ -5813,6 +5819,45 @@ function determineInitialMode() {
     });
 }
 
+// Reset Third Man In UI to defaults before restoration
+function resetThirdManInUI() {
+    console.log('🔄 resetThirdManInUI: Resetting Third Man In UI to defaults');
+    
+    for (const fontType of ['serif', 'sans', 'mono']) {
+        // Reset font name display
+        const nameElement = document.getElementById(`${fontType}-font-name`);
+        if (nameElement) nameElement.textContent = fontType.charAt(0).toUpperCase() + fontType.slice(1);
+        
+        // Reset font display
+        const displayElement = document.getElementById(`${fontType}-font-display`);
+        if (displayElement) displayElement.textContent = 'Default';
+        
+        // Reset font selector  
+        const selectElement = document.getElementById(`${fontType}-font-select`);
+        if (selectElement) selectElement.value = 'Default';
+        
+        // Reset controls to defaults
+        const fontSizeSlider = document.getElementById(`${fontType}-font-size`);
+        const fontSizeValue = document.getElementById(`${fontType}-font-size-value`);
+        if (fontSizeSlider) fontSizeSlider.value = 17;
+        if (fontSizeValue) fontSizeValue.textContent = '17px';
+        
+        const fontWeightSlider = document.getElementById(`${fontType}-font-weight`);
+        const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
+        if (fontWeightSlider) fontWeightSlider.value = 400;
+        if (fontWeightValue) fontWeightValue.textContent = '400';
+        
+        const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
+        const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
+        if (lineHeightSlider) lineHeightSlider.value = 1.6;
+        if (lineHeightValue) lineHeightValue.textContent = '1.6';
+        
+        // Reset color selector
+        const colorSelect = document.getElementById(`${fontType}-font-color`);
+        if (colorSelect) colorSelect.value = 'default';
+    }
+}
+
 // Restore UI state from domain storage on popup initialization
 function restoreUIFromDomainStorage() {
     console.log('🔄 restoreUIFromDomainStorage: Starting UI restoration from domain storage');
@@ -5824,6 +5869,9 @@ function restoreUIFromDomainStorage() {
         }
 
         console.log('🔄 restoreUIFromDomainStorage: Origin:', origin);
+        
+        // Reset UI to defaults before loading domain-specific settings
+        resetThirdManInUI();
 
         // Load domain storage for Third Man In mode
         return getApplyMapForOrigin(origin).then(domainData => {
@@ -6010,33 +6058,16 @@ function generateThirdManInCSS(fontType, payload) {
         lines.push(payload.fontFaceRule);
     }
 
-    // Generate CSS that targets elements marked with data-affo-font-type attribute
+    // Generate CSS with separate rules for font-family vs other properties
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-    let styleRule = `[data-affo-font-type="${fontType}"] {`;
-
-    // Only set font-family if a specific font is chosen
+    
+    // Rule 1: Font family applies to ALL marked elements
     if (payload.fontName) {
-        styleRule += ` font-family: "${payload.fontName}" !important;`;
+        lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${payload.fontName}" !important; }`);
     }
-
-    if (payload.fontSize && isFinite(payload.fontSize)) {
-        styleRule += ` font-size: ${payload.fontSize}px !important;`;
-    }
-    if (payload.lineHeight && isFinite(payload.lineHeight)) {
-        styleRule += ` line-height: ${payload.lineHeight} !important;`;
-    }
-    if (payload.fontWeight && isFinite(payload.fontWeight)) {
-        styleRule += ` font-weight: ${payload.fontWeight} !important;`;
-    }
-    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
-        const variationSettings = Object.entries(payload.variableAxes)
-            .map(([axis, value]) => `"${axis}" ${value}`)
-            .join(', ');
-        styleRule += ` font-variation-settings: ${variationSettings} !important;`;
-    }
-
-    styleRule += ' }';
-    lines.push(styleRule);
+    
+    // Rule 2: Other properties are not applied automatically in Third Man In mode
+    // Only font-family applies to all elements of the type
 
     return lines.join('\n');
 }
@@ -6061,47 +6092,43 @@ function generateElementWalkerScript(fontType) {
                     const className = element.className || '';
                     const style = element.style.fontFamily || '';
 
-                    // Explicit class/style overrides - use word boundaries and exact matches
-                    const classWords = className.toLowerCase().split(/[\\s\\-_]+/);
-                    const styleWords = style.toLowerCase().split(/[\\s\\-_,'"]+/);
+                    // Check for complete words/phrases in class names and styles
+                    const classText = className.toLowerCase();
+                    const styleText = style.toLowerCase();
                     
                     // Check for monospace keywords
-                    if (classWords.some(word => ['monospace', 'mono', 'code'].indexOf(word) !== -1) ||
-                        styleWords.some(word => ['monospace', 'mono'].indexOf(word) !== -1)) return 'mono';
+                    if (/\\b(monospace|mono|code)\\b/.test(classText) ||
+                        /\\b(monospace|mono)\\b/.test(styleText)) return 'mono';
                     
-                    // Check for serif keywords (but not sans-serif)
-                    if (classWords.some(word => word === 'serif') ||
-                        styleWords.some(word => word === 'serif' && styleWords.indexOf('sans') === -1)) return 'serif';
+                    // Check for sans-serif as complete phrase first
+                    if (/\\bsans-serif\\b/.test(classText) || /\\bsans-serif\\b/.test(styleText)) return 'sans';
                     
-                    // Check for sans keywords
-                    if (classWords.some(word => ['sans', 'sansserif'].indexOf(word) !== -1) ||
-                        styleWords.some(word => ['sans', 'sans-serif'].indexOf(word) !== -1)) return 'sans';
+                    // Check for standalone sans (but not sans-serif)
+                    if (/\\bsans\\b(?!-serif)/.test(classText) || /\\bsans\\b(?!-serif)/.test(styleText)) return 'sans';
+                    
+                    // Check for serif (but not sans-serif)
+                    if (/\\bserif\\b/.test(classText.replace('sans-serif', '')) || 
+                        /\\bserif\\b/.test(styleText.replace('sans-serif', ''))) return 'serif';
 
                     // Tag-based detection for monospace
                     if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
-                    // For generic containers like div, only rely on explicit class/style indicators
-                    // Don't use computed styles for generic containers to avoid marking wrapper elements
-                    if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav'].indexOf(tagName) !== -1) {
-                        return null; // Generic containers should only be marked if they have explicit indicators
+                    // For generic containers and headings, only rely on explicit class/style indicators
+                    // Don't use computed styles for these elements to avoid marking wrapper elements or default headings
+                    if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].indexOf(tagName) !== -1) {
+                        return null; // These elements should only be marked if they have explicit indicators
                     }
                     
-                    // Check computed styles for clear matches (only for specific elements like p, h1, etc.)
-                    const computed = window.getComputedStyle(element);
-                    const computedFamily = computed.fontFamily.toLowerCase();
-                    const familyWords = computedFamily.split(/[\\s,'"]+/).filter(w => w.length > 0);
+                    // For common text elements without explicit indicators, apply default type based on target
+                    // This allows Wikipedia and other sites to work where content doesn't have explicit classes
+                    if (['p', 'span', 'a', 'li', 'td', 'th', 'label', 'button', 'strong', 'em', 'b', 'i'].indexOf(tagName) !== -1) {
+                        // Only mark if we're looking for sans (most common default) and no conflicting indicators
+                        if ('${fontType}' === 'sans' && !(/\\b(serif|mono)\\b/.test(classText) || /\\b(serif|mono)\\b/.test(styleText))) {
+                            return 'sans';
+                        }
+                    }
                     
-                    // Only match serif if it's clearly serif (not sans-serif)
-                    if (familyWords.indexOf('serif') !== -1 && familyWords.indexOf('sans-serif') === -1 && familyWords.indexOf('sans') === -1) return 'serif';
-                    
-                    // Only match mono if it's clearly monospace
-                    if (familyWords.some(word => ['monospace', 'courier', 'monaco', 'consolas'].indexOf(word) !== -1)) return 'mono';
-                    
-                    // Only match sans if it's clearly sans-serif or common sans fonts
-                    if (familyWords.indexOf('sans-serif') !== -1 || 
-                        familyWords.some(word => ['helvetica', 'arial', 'roboto', 'segoe'].indexOf(word) !== -1)) return 'sans';
-
-                    // No clear match - don't mark this element
+                    // No explicit indicators found - don't mark this element
                     return null;
                 }
 

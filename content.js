@@ -795,39 +795,44 @@
         var className = element.className || '';
         var style = element.style.fontFamily || '';
 
-        // Explicit class/style overrides - use word boundaries and exact matches
-        var classWords = className.toLowerCase().split(/[\s\-_]+/);
-        var styleWords = style.toLowerCase().split(/[\s\-_,'"]+/);
+        // Check for complete words/phrases in class names and styles
+        var classText = className.toLowerCase();
+        var styleText = style.toLowerCase();
         
         // Check for monospace keywords
-        if (classWords.some(function(word) { return ['monospace', 'mono', 'code'].indexOf(word) !== -1; }) ||
-            styleWords.some(function(word) { return ['monospace', 'mono'].indexOf(word) !== -1; })) return 'mono';
+        if (/\b(monospace|mono|code)\b/.test(classText) ||
+            /\b(monospace|mono)\b/.test(styleText)) return 'mono';
         
-        // Check for serif keywords (but not sans-serif)
-        if (classWords.some(function(word) { return word === 'serif'; }) ||
-            styleWords.some(function(word) { return word === 'serif' && styleWords.indexOf('sans') === -1; })) return 'serif';
+        // Check for sans-serif as complete phrase first
+        if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
         
-        // Check for sans keywords
-        if (classWords.some(function(word) { return ['sans', 'sansserif'].indexOf(word) !== -1; }) ||
-            styleWords.some(function(word) { return ['sans', 'sans-serif'].indexOf(word) !== -1; })) return 'sans';
+        // Check for standalone sans (but not sans-serif)
+        if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
+        
+        // Check for serif (but not sans-serif)
+        if (/\bserif\b/.test(classText.replace('sans-serif', '')) || 
+            /\bserif\b/.test(styleText.replace('sans-serif', ''))) return 'serif';
 
         // Tag-based detection
         if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
-        // For generic containers like div, only rely on explicit class/style indicators
-        // Don't use computed styles for generic containers to avoid marking wrapper elements
-        if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav'].indexOf(tagName) !== -1) {
-            return null; // Generic containers should only be marked if they have explicit indicators
+        // For generic containers and headings, only rely on explicit class/style indicators
+        // Don't use computed styles for these elements to avoid marking wrapper elements or default headings
+        if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].indexOf(tagName) !== -1) {
+            return null; // These elements should only be marked if they have explicit indicators
         }
         
-        // Check computed styles as fallback (only for specific elements like p, h1, etc.)
-        var computed = window.getComputedStyle(element);
-        var computedFamily = computed.fontFamily.toLowerCase();
-        if (computedFamily.indexOf('serif') !== -1 && computedFamily.indexOf('sans') === -1) return 'serif';
-        if (computedFamily.indexOf('mono') !== -1) return 'mono';
-        if (computedFamily.indexOf('sans-serif') !== -1) return 'sans';
-
-        return null; // No clear match - don't mark this element
+        // For common text elements without explicit indicators, apply default type based on target
+        // This allows Wikipedia and other sites to work where content doesn't have explicit classes
+        if (['p', 'span', 'a', 'li', 'td', 'th', 'label', 'button', 'strong', 'em', 'b', 'i'].indexOf(tagName) !== -1) {
+            // Only mark if we're looking for sans (most common default) and no conflicting indicators
+            if (fontType === 'sans' && !/\b(serif|mono)\b/.test(classText) && !/\b(serif|mono)\b/.test(styleText)) {
+                return 'sans';
+            }
+        }
+        
+        // No explicit indicators found - don't mark this element
+        return null;
       }
 
       // Walk all text-containing elements
@@ -956,72 +961,16 @@
               // Run element walker for this font type
               runElementWalker(fontType);
               
-              // Generate CSS targeting marked elements with full property support
+              // Generate CSS with separate rules for font-family vs other properties
               var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-              var cssProps = [`font-family: "${fontConfig.fontName}", ${generic} !important`];
               
-              // Include fontSize if present
-              if (fontConfig.fontSize) {
-                cssProps.push(`font-size: ${fontConfig.fontSize}px !important`);
-              }
-              
-              // Include other font properties if present
-              if (fontConfig.fontWeight) {
-                cssProps.push(`font-weight: ${fontConfig.fontWeight} !important`);
-              }
-              if (fontConfig.lineHeight) {
-                cssProps.push(`line-height: ${fontConfig.lineHeight} !important`);
-              }
-              if (fontConfig.fontColor) {
-                cssProps.push(`color: ${fontConfig.fontColor} !important`);
+              // Rule 1: Font family applies to ALL marked elements
+              if (fontConfig.fontName) {
+                lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
               }
               
-              // Handle font axes (slant, italic, width)
-              if (fontConfig.slntVal && fontConfig.slntVal !== 0) {
-                cssProps.push(`font-style: oblique ${fontConfig.slntVal}deg !important`);
-              }
-              if (fontConfig.italVal && fontConfig.italVal >= 1) {
-                cssProps.push(`font-style: italic !important`);
-              }
-              
-              // Build font-variation-settings from all axes
-              var variationSettings = [];
-              
-              // Include weight axis if present
-              if (fontConfig.fontWeight) {
-                variationSettings.push(`"wght" ${fontConfig.fontWeight}`);
-              }
-              
-              // Include width axis if present
-              if (fontConfig.wdthVal && isFinite(fontConfig.wdthVal)) {
-                variationSettings.push(`"wdth" ${fontConfig.wdthVal}`);
-              }
-              
-              // Include slant axis if present
-              if (fontConfig.slntVal && isFinite(fontConfig.slntVal)) {
-                variationSettings.push(`"slnt" ${fontConfig.slntVal}`);
-              }
-              
-              // Include italic axis if present
-              if (fontConfig.italVal && isFinite(fontConfig.italVal)) {
-                variationSettings.push(`"ital" ${fontConfig.italVal}`);
-              }
-              
-              // Include any other variable axes
-              if (fontConfig.variableAxes) {
-                Object.entries(fontConfig.variableAxes).forEach(function([axis, value]) {
-                  if (isFinite(Number(value))) {
-                    variationSettings.push(`"${axis}" ${value}`);
-                  }
-                });
-              }
-              
-              // Apply font-variation-settings if any axes are present
-              if (variationSettings.length > 0) {
-                cssProps.push(`font-variation-settings: ${variationSettings.join(', ')} !important`);
-              }
-              
-              lines.push(`[data-affo-font-type="${fontType}"] { ${cssProps.join('; ')}; }`);
+              // Rule 2: Other properties are not applied automatically in Third Man In mode
+              // Only font-family applies to all elements of the type
             }
           }
           
@@ -1216,32 +1165,39 @@
                   // Run element walker for this font type
                   runElementWalker(fontType);
                   
-                  // Generate CSS targeting marked elements with full property support
+                  // Generate CSS with separate rules for font-family vs other properties
                   var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-                  var cssProps = [`font-family: "${fontConfig.fontName}", ${generic} !important`];
+                  
+                  // Rule 1: Font family applies to ALL marked elements
+                  if (fontConfig.fontName) {
+                    lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
+                  }
+                  
+                  // Rule 2: Other properties apply only to elements without excluder
+                  var otherProps = [];
                   
                   // Include fontSize if present
                   if (fontConfig.fontSize) {
-                    cssProps.push(`font-size: ${fontConfig.fontSize}px !important`);
+                    otherProps.push(`font-size: ${fontConfig.fontSize}px !important`);
                   }
                   
                   // Include other font properties if present
                   if (fontConfig.fontWeight) {
-                    cssProps.push(`font-weight: ${fontConfig.fontWeight} !important`);
+                    otherProps.push(`font-weight: ${fontConfig.fontWeight} !important`);
                   }
                   if (fontConfig.lineHeight) {
-                    cssProps.push(`line-height: ${fontConfig.lineHeight} !important`);
+                    otherProps.push(`line-height: ${fontConfig.lineHeight} !important`);
                   }
                   if (fontConfig.fontColor) {
-                    cssProps.push(`color: ${fontConfig.fontColor} !important`);
+                    otherProps.push(`color: ${fontConfig.fontColor} !important`);
                   }
                   
                   // Handle font axes (slant, italic, width)
                   if (fontConfig.slntVal && fontConfig.slntVal !== 0) {
-                    cssProps.push(`font-style: oblique ${fontConfig.slntVal}deg !important`);
+                    otherProps.push(`font-style: oblique ${fontConfig.slntVal}deg !important`);
                   }
                   if (fontConfig.italVal && fontConfig.italVal >= 1) {
-                    cssProps.push(`font-style: italic !important`);
+                    otherProps.push(`font-style: italic !important`);
                   }
                   
                   // Build font-variation-settings from all axes
@@ -1278,10 +1234,12 @@
                   
                   // Apply font-variation-settings if any axes are present
                   if (variationSettings.length > 0) {
-                    cssProps.push(`font-variation-settings: ${variationSettings.join(', ')} !important`);
+                    otherProps.push(`font-variation-settings: ${variationSettings.join(', ')} !important`);
                   }
                   
-                  lines.push(`[data-affo-font-type="${fontType}"] { ${cssProps.join('; ')}; }`);
+                  if (otherProps.length > 0) {
+                    lines.push(`[data-affo-font-type="${fontType}"]:not([data-affo-exclude]) { ${otherProps.join('; ')}; }`);
+                  }
                 }
               }
               

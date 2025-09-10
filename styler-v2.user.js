@@ -285,7 +285,8 @@ function detectBaseFontFamily() {
         if (serifNames.includes(parts[0])) return 'serif';
         if (parts.some(p => serifNames.includes(p))) return 'serif';
         if (parts.includes('sans-serif')) return 'sans-serif';
-        if (parts.includes('serif')) return 'serif';
+        // Check for serif only if sans-serif wasn't found
+        if (parts.some(p => p === 'serif')) return 'serif';
 
     } catch(e) {
         console.error('[Fontonic] Base font detection failed:', e);
