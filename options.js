@@ -101,6 +101,53 @@
     } catch (e) {}
   }
 
+  async function clearFontCache(){
+    try {
+      const statusEl = document.getElementById('status-cache');
+      statusEl.textContent = 'Clearing cache...';
+      
+      await browser.storage.local.remove('affoFontCache');
+      
+      statusEl.textContent = 'Font cache cleared';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      
+    } catch (e) {
+      const statusEl = document.getElementById('status-cache');
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
+  async function viewCacheInfo(){
+    try {
+      const statusEl = document.getElementById('status-cache');
+      const data = await browser.storage.local.get('affoFontCache');
+      const fontCache = data.affoFontCache || {};
+      const entries = Object.entries(fontCache);
+      
+      if (entries.length === 0) {
+        statusEl.textContent = 'Cache is empty';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        return;
+      }
+      
+      const totalSize = entries.reduce((sum, [url, entry]) => sum + (entry.size || 0), 0);
+      const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+      const oldestEntry = Math.min(...entries.map(([url, entry]) => entry.timestamp));
+      const newestEntry = Math.max(...entries.map(([url, entry]) => entry.timestamp));
+      const ageHours = ((Date.now() - oldestEntry) / (1000 * 60 * 60)).toFixed(1);
+      
+      const info = `Cache: ${entries.length} fonts, ${totalSizeMB}MB, oldest: ${ageHours}h ago`;
+      statusEl.textContent = info;
+      setTimeout(() => { statusEl.textContent = ''; }, 5000);
+      
+    } catch (e) {
+      const statusEl = document.getElementById('status-cache');
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   async function resetAllSettings(){
     try {
       // Show confirmation dialog
@@ -149,6 +196,8 @@
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
+    document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
+    document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
   });
 })();

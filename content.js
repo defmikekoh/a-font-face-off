@@ -589,7 +589,8 @@
           binary: true
         }).then(function(response) {
           if (response && response.ok && response.binary && response.data) {
-            console.log(`[AFFO Content] Custom font download ${index + 1} successful for ${fontName}`);
+            var cacheStatus = response.cached ? 'cached' : 'downloaded';
+            console.log(`[AFFO Content] Custom font ${cacheStatus} ${index + 1} successful for ${fontName}`);
             
             // Convert binary data to ArrayBuffer
             var uint8Array = new Uint8Array(response.data);

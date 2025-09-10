@@ -19,6 +19,19 @@ Sources & Permissions
   - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
 - Permissions: host permissions requested for cross-origin font fetching on FontFace-only domains.
 
+Font Caching System
+-------------------
+File ref: `background.js:1-125`
+- **Cache Storage**: All WOFF2 font files fetched via background script are cached in browser.storage.local with 1-year expiry.
+- **Cache Key**: Font URL (each unique URL cached separately).
+- **Cache Limits**: 80MB maximum total cache size (optimized for Firefox). No count limit.
+- **Cache Management**: 
+  - Smart cleanup when size limit approached - keeps newest fonts within size constraints
+  - Cache hit/miss logging for performance monitoring
+  - Manual cache clearing via options page
+- **Benefits**: Faster font loading on repeated visits, works across tabs/page reloads, reduces network usage.
+- **Persistence**: Cache survives browser restarts and works across all tabs visiting FontFace-only domains.
+
 Selection → Load Flow
 ---------------------
 1) User opens the Font Picker modal and clicks a family.
@@ -152,5 +165,5 @@ Key Code References
 - `content.js:419` — `getHybridSelector(fontType)` (x.com broad selectors for Third Man In mode)
 - `content.js:440` — `restoreManipulatedStyles()` (style manipulation detection and restoration)
 - `content.js:571` — `runElementWalker(fontType)` (semantic text classification for Third Man In mode)
-- `background.js:2` — WOFF2 fetching for cross-origin font loading
+- `background.js:2` — WOFF2 fetching for cross-origin font loading with persistent caching
 - `options.js:87` — `saveInline()` / `resetInline()` (inline apply domain management)
