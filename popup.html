@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Font Face-off</title>
     <link rel="stylesheet" href="popup.css">
-    
+
 </head>
 <body>
     <!-- Panel overlay -->
@@ -418,8 +418,8 @@
             <p id="top-font-text" style="font-family: 'Roboto Flex', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
         </div>
 
-        <!-- Horizontal separator -->
-        <div class="separator"></div>
+        <!-- Horizontal center-line separator (faceoff only) -->
+        <div class="center-line-separator"></div>
 
         <!-- Bottom section -->
         <div class="font-section" id="bottom-font-section">
@@ -439,7 +439,7 @@
             <p id="serif-font-text" style="font-family: 'Times New Roman', serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
         </div>
 
-        <div class="separator"></div>
+        <div class="blue-line-separator"></div>
 
         <!-- Sans section (Third Man In mode) -->
         <div class="font-section" id="sans-font-section">
@@ -447,7 +447,7 @@
             <p id="sans-font-text" style="font-family: 'Arial', sans-serif; font-weight: 400;">Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal. Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this. But, in a larger sense, we can not dedicate—we can not consecrate—we can not hallow—this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us—that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion—that we here highly resolve that these dead shall not have died in vain—that this nation, under God, shall have a new birth of freedom—and that government of the people, by the people, for the people, shall not perish from the earth.</p>
         </div>
 
-        <div class="separator"></div>
+        <div class="blue-line-separator"></div>
 
         <!-- Mono section (Third Man In mode) -->
         <div class="font-section" id="mono-font-section">
@@ -460,30 +460,30 @@
         <span style="color: #001080;">self</span>.<span style="color: #001080;">dedicated_to</span> = <span style="color: #a31515;">"all men are created equal"</span>
         <span style="color: #001080;">self</span>.<span style="color: #001080;">is_at_war</span> = <span style="color: #0000ff;">True</span>
         <span style="color: #001080;">self</span>.<span style="color: #001080;">battlefield</span> = <span style="color: #a31515;">"Gettysburg"</span>
-        
+
     <span style="color: #0000ff;">def</span> <span style="color: #795e26;">dedicate_ground</span>(<span style="color: #001080;">self</span>):
         <span style="color: #a31515;">"""We cannot consecrate this ground"""</span>
         <span style="color: #0000ff;">return</span> <span style="color: #a31515;">"Already consecrated by the brave"</span>
-    
+
     <span style="color: #0000ff;">def</span> <span style="color: #795e26;">remember_sacrifice</span>(<span style="color: #001080;">self</span>):
         <span style="color: #001080;">fallen_heroes</span> = [<span style="color: #a31515;">"living"</span>, <span style="color: #a31515;">"dead"</span>]
         <span style="color: #0000ff;">for</span> <span style="color: #001080;">hero</span> <span style="color: #0000ff;">in</span> <span style="color: #001080;">fallen_heroes</span>:
             <span style="color: #795e26;">print</span>(<span style="color: #a31515;">f"Honor the </span><span style="color: #0000ff;">{</span><span style="color: #001080;">hero</span><span style="color: #0000ff;">}</span><span style="color: #a31515;"> who struggled here"</span>)
         <span style="color: #0000ff;">return</span> <span style="color: #a31515;">"consecrated far above our poor power"</span>
-    
+
     <span style="color: #0000ff;">def</span> <span style="color: #795e26;">resolve_for_future</span>(<span style="color: #001080;">self</span>):
         <span style="color: #001080;">unfinished_work</span> = [
             <span style="color: #a31515;">"increased devotion to the cause"</span>,
             <span style="color: #a31515;">"these dead shall not have died in vain"</span>,
             <span style="color: #a31515;">"new birth of freedom"</span>
         ]
-        
+
         <span style="color: #001080;">government</span> = {
             <span style="color: #a31515;">"of"</span>: <span style="color: #a31515;">"the people"</span>,
-            <span style="color: #a31515;">"by"</span>: <span style="color: #a31515;">"the people"</span>, 
+            <span style="color: #a31515;">"by"</span>: <span style="color: #a31515;">"the people"</span>,
             <span style="color: #a31515;">"for"</span>: <span style="color: #a31515;">"the people"</span>
         }
-        
+
         <span style="color: #0000ff;">return</span> <span style="color: #a31515;">f"That </span><span style="color: #0000ff;">{</span><span style="color: #001080;">government</span><span style="color: #0000ff;">}</span><span style="color: #a31515;"> shall not perish"</span>
 
 <span style="color: #008000; font-style: italic;"># Initialize our nation's dedication</span>

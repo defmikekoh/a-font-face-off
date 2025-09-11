@@ -2,11 +2,15 @@
 let currentViewMode = null; // Start modeless to avoid warnings when switching to appropriate mode
 
 // Panel state tracking across mode switches
+// On mobile (narrow screens), faceoff panels should start hidden
+const isMobile = window.innerWidth <= 599;
 const panelStates = {
-    'faceoff': { top: false, bottom: false },
-    'body-contact': { body: false },
+    'faceoff': { top: !isMobile, bottom: !isMobile },
+    'body-contact': { body: true },
     'third-man-in': { serif: false, sans: false, mono: false }
 };
+
+console.log('🔧 Initial panelStates:', panelStates);
 
 function getPanelLabel(position) {
     if (position === 'body') return 'Body';
@@ -5274,19 +5278,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         updateFontComparisonLayout();
     }
 
-    function updateFontComparisonLayout() {
-        // Remove all layout classes
-        fontComparison.classList.remove('top-panel-open', 'bottom-panel-open', 'both-panels-open');
-
-        // Add appropriate class based on which panels are open
-        if (topPanelOpen && bottomPanelOpen) {
-            fontComparison.classList.add('both-panels-open');
-        } else if (topPanelOpen) {
-            fontComparison.classList.add('top-panel-open');
-        } else if (bottomPanelOpen) {
-            fontComparison.classList.add('bottom-panel-open');
-        }
-    }
+    // Function moved to global scope - see updateFontComparisonLayout function below
 
     // Grip handlers (throttled to avoid double-fire on touch/click)
     function toggleTop() { if (topPanelOpen) hidePanel('top'); else showPanel('top'); }
@@ -6506,9 +6498,9 @@ function clearAllDomainSettings() {
     });
 }
 
-function switchMode(newMode) {
-    console.log(`switchMode called: currentViewMode=${currentViewMode}, newMode=${newMode}`);
-    if (currentViewMode === newMode) {
+function switchMode(newMode, forceInit = false) {
+    console.log(`switchMode called: currentViewMode=${currentViewMode}, newMode=${newMode}, forceInit=${forceInit}`);
+    if (currentViewMode === newMode && !forceInit) {
         console.log('switchMode: Already in target mode, skipping switch');
         return Promise.resolve();
     }
@@ -6562,16 +6554,18 @@ function switchMode(newMode) {
 function performModeSwitch(newMode) {
     console.log(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
 
-    // Save current mode panel states before switching
-    if (currentViewMode === 'faceoff') {
-        panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
-        panelStates.faceoff.bottom = document.getElementById('bottom-font-controls').classList.contains('visible');
-    } else if (currentViewMode === 'body-contact') {
-        panelStates['body-contact'].body = document.getElementById('body-font-controls').classList.contains('visible');
-    } else if (currentViewMode === 'third-man-in') {
-        panelStates['third-man-in'].serif = document.getElementById('serif-font-controls').classList.contains('visible');
-        panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
-        panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
+    // Save current mode panel states before switching (but only if we're actually switching between different modes)
+    if (currentViewMode !== newMode) {
+        if (currentViewMode === 'faceoff') {
+            panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
+            panelStates.faceoff.bottom = document.getElementById('bottom-font-controls').classList.contains('visible');
+        } else if (currentViewMode === 'body-contact') {
+            panelStates['body-contact'].body = document.getElementById('body-font-controls').classList.contains('visible');
+        } else if (currentViewMode === 'third-man-in') {
+            panelStates['third-man-in'].serif = document.getElementById('serif-font-controls').classList.contains('visible');
+            panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
+            panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
+        }
     }
 
     // Hide current mode content
@@ -6642,6 +6636,8 @@ function performModeSwitch(newMode) {
                 document.getElementById('body-font-controls').classList.add('visible');
                 document.getElementById('panel-overlay').classList.add('visible');
                 updateFontComparisonLayoutForBody();
+            } else {
+                console.log('❌ Body panel state is false, not showing panel');
             }
         } else if (newMode === 'third-man-in') {
             let anyPanelOpen = false;
@@ -6710,7 +6706,7 @@ function initializeModeInterface() {
         // Mode was already determined by determineInitialMode(), just use it
         const targetMode = currentViewMode || 'body-contact';
         console.log('About to call switchMode with:', targetMode);
-        switchMode(targetMode);
+        switchMode(targetMode, true); // Force initialization to set up panel visibility
 
         // Update active tab after mode is switched
         updateActiveTab(targetMode);
@@ -7432,6 +7428,23 @@ function togglePanel(panelId) {
         updateFontComparisonLayoutForBody();
     } else if (['serif', 'sans', 'mono'].includes(panelId)) {
         updateFontComparisonLayoutForThirdManIn();
+    }
+}
+
+function updateFontComparisonLayout() {
+    const fontComparison = document.getElementById('font-comparison');
+    if (!fontComparison) return;
+    
+    // Remove all layout classes
+    fontComparison.classList.remove('top-panel-open', 'bottom-panel-open', 'both-panels-open');
+
+    // Add appropriate class based on which panels are open
+    if (topPanelOpen && bottomPanelOpen) {
+        fontComparison.classList.add('both-panels-open');
+    } else if (topPanelOpen) {
+        fontComparison.classList.add('top-panel-open');
+    } else if (bottomPanelOpen) {
+        fontComparison.classList.add('bottom-panel-open');
     }
 }
 

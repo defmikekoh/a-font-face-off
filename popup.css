@@ -24,7 +24,20 @@ body {
     position: relative;
     overflow: hidden;
     overflow-x: hidden; /* avoid scrollbar-width adding to 100vw causing horizontal overflow */
-    padding-bottom: 90px; /* Add padding to prevent content overlap with bottom bar */
+    padding-bottom: var(--panel-grips-h); /* Keep content clear of bottom bar */
+}
+
+/* Global layout variables */
+:root {
+    /* Height of the bottom grips/footer bar */
+    --panel-grips-h: 80px;
+    /* Mode tabs total box height (content + borders) */
+    --tabs-h: 64px; /* 60px content + 2px top border + 2px bottom border */
+    /* Rink motif styling */
+    --rink-border-color: #46b; /* same as outer edge in top tab bar */
+    --rink-border-radius: 12px;
+    --rink-border-thin: 1px;  /* match thin straight borders */
+    --rink-border-thick: 3px; /* match separator/middle thickness */
 }
 
 /* Utility */
@@ -117,7 +130,8 @@ body {
     z-index: 2000;
     border-radius: 8px;
     border: 2px solid #46b; /* Brighter NHL regulation blue */
-    margin: 4px;
+    /* Remove extra gaps so preview rink aligns perfectly */
+    margin: 0 4px 0 4px;
     overflow: hidden;
     position: relative;
 }
@@ -510,7 +524,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     flex-shrink: 0;
     position: fixed;
     top: 60px; /* Account for mode tabs */
-    bottom: 90px; /* Account for bottom strip - updated to match new height */
+    bottom: var(--panel-grips-h); /* Match bottom bar height across breakpoints */
     height: auto;
     transition: transform 0.3s ease-in-out;
     z-index: 999; /* Below bottom bar */
@@ -604,6 +618,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     transform: translateX(0); /* Center positioned, no slide animation */
     border-right: 2px solid #34495e;
     border-left: 2px solid #34495e;
+    border-radius: 8px; /* Round all 4 corners for Mono CP */
     display: none; /* Ensure completely hidden when not in use */
     z-index: 1001; /* Above font previews but below bottom bar */
 }
@@ -635,10 +650,15 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
 
 #font-comparison {
     width: 100%;
-    height: calc(100vh - 150px); /* Account for 60px tabs + 90px bottom bar */
+    /* Fill the space exactly between fixed top tabs and bottom grip bar */
+    position: absolute;
+    /* Align with control panels: start at 60px below the fixed tab bar */
+    top: 60px;
+    bottom: var(--panel-grips-h);
+    left: 0;
+    right: 0;
     display: flex;
     flex-direction: column;
-    position: relative;
     transition: all 0.3s ease-in-out;
 }
 
@@ -686,12 +706,13 @@ body.view-third-man-in #font-comparison.serif-panel-open.sans-panel-open {
 }
 
 /* Lower control panel positioning for Body Contact and Third Man In modes */
+/* Align control panel vertical offset across all modes to match Face-off */
 body.view-body-contact .controls-panel {
-    top: 70px; /* 10px lower than default 60px */
+    top: 60px;
 }
 
 body.view-third-man-in .controls-panel {
-    top: 70px; /* 10px lower than default 60px */
+    top: 60px;
 }
 
 /* Small screens: single-panel overlay not full width */
@@ -757,11 +778,12 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
 /* Font sections */
 .font-section {
     flex: 1;
-    padding: 20px;
+    /* Remove top padding so heading touches the top edge of its box */
+    padding: 0 20px 20px;
     overflow-y: auto;
     background: white;
-    /* Add border to preview boxes */
-    border: 1px solid #e0e5ea;
+    /* Remove straight per-box border; outer rink border will wrap combined boxes */
+    border: none;
     box-sizing: border-box;
 }
 
@@ -772,7 +794,14 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     font-weight: bold;
     text-align: center;
     padding-bottom: 6px;
+    padding-top: 6px; /* match top padding to bottom so spacing is symmetrical while staying flush */
     border-bottom: 1px solid #eee;
+    /* Keep headings fixed at the top of each scrollable preview */
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: inherit; /* match section background */
+    /* No extra top padding so the heading sits flush with the box edge */
 }
 
 .font-section p, .font-section pre {
@@ -781,6 +810,8 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     color: #333;
     text-align: left;
     margin: 0;
+    /* Add comfortable top/bottom padding inside the scroll area */
+    padding: 12px 0 16px 0;
 }
 
 /* Mode-specific font section visibility */
@@ -811,6 +842,20 @@ body.view-faceoff #bottom-font-section {
 body.view-body-contact #body-font-section {
     display: block;
     border-radius: 8px; /* Single box: round all corners */
+}
+
+/* Remove top heading divider line in Body and Third modes */
+/* (Removed previous blanket removal of header borders in Body/Third to restore dividers) */
+
+/* Restore subtle heading divider line for specific preview sections */
+body.view-body-contact #body-font-section h3,
+body.view-third-man-in #serif-font-section h3,
+body.view-third-man-in #sans-font-section h3,
+body.view-third-man-in #mono-font-section h3 {
+    border-bottom-style: solid !important;
+    border-bottom-width: 1px !important;
+    /* Color inherits from base/light theme rules for .font-section h3 */
+    padding-bottom: 6px !important;
 }
 
 #serif-font-section,
@@ -854,7 +899,8 @@ body.view-third-man-in #sans-font-section {
 
 #body-font-section {
     background: #f8f9fa;
-    padding: 20px !important; /* Consistent 20px padding on all sides */
+    /* Match general font-section: no top padding, keep sides/bottom */
+    padding: 0 20px 20px !important;
 }
 
 #body-font-section h3 {
@@ -862,7 +908,6 @@ body.view-third-man-in #sans-font-section {
     font-size: 18px;
     font-weight: bold;
     margin: 0 0 2px 0 !important;
-    padding: 0 !important;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -872,8 +917,8 @@ body.view-third-man-in #sans-font-section {
     margin-top: 0 !important;
 }
 
-/* Horizontal separator */
-.separator {
+/* Horizontal center-line separator */
+.center-line-separator {
     height: 3px;
     background: linear-gradient(to right, #3498db, #2980b9);
     flex-shrink: 0;
@@ -902,14 +947,81 @@ body.view-third-man-in #sans-font-section {
 /* Body Contact mode - single preview area */
 body.body-contact #top-font-section,
 body.body-contact #bottom-font-section,
-body.body-contact .separator {
+body.body-contact .center-line-separator {
     display: none;
 }
+/* Ensure center-line separator is hidden when using view-body-contact flag */
+body.view-body-contact .center-line-separator { display: none !important; }
 
 body.body-contact #body-font-section {
     /* Show body preview in Body Contact mode */
     display: block;
     flex: 1;
+}
+
+/* Rink border around combined preview in each mode */
+/* Body: thin rink border around single box */
+body.view-body-contact #font-comparison {
+    /* Match Face-off and Third Man In rink thickness and color */
+    border: var(--rink-border-thick) solid var(--rink-border-color);
+    border-radius: var(--rink-border-radius);
+    box-sizing: border-box;
+    background: #ffffff;
+    overflow: hidden;
+}
+/* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
+body.view-body-contact #font-comparison::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: #ffffff; /* ice color */
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Face-off: show a dotted red separator between Top and Bottom previews */
+body.view-faceoff .center-line-separator {
+    display: block;
+    height: 2px; /* match tab center-line thickness */
+    background: repeating-linear-gradient(
+        to right,
+        #c33 0 6px,
+        transparent 6px 12px
+    );
+}
+body.view-faceoff #font-comparison {
+    border: var(--rink-border-thick) solid var(--rink-border-color);
+    border-radius: var(--rink-border-radius);
+    box-sizing: border-box;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* Third Man In: thick rink border around combined 3 boxes */
+body.view-third-man-in #font-comparison {
+    border: var(--rink-border-thick) solid var(--rink-border-color);
+    border-radius: var(--rink-border-radius);
+    box-sizing: border-box; /* include border in height calc to prevent overflow */
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* Third Man In: ensure no stray separator shows at the top */
+body.view-third-man-in .center-line-separator { display: none !important; }
+
+/* Blue line separators for Third Man In mode (between sections) */
+.blue-line-separator { display: none; height: 4px; background: #46b; }
+body.view-third-man-in .blue-line-separator { display: block; }
+/* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
+body.view-third-man-in #font-comparison::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: #ffffff; /* ice color */
+    pointer-events: none;
+    z-index: 1;
 }
 
 body.body-contact #font-comparison {
@@ -1360,7 +1472,7 @@ body.body-contact #font-comparison {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 90px; /* Adjusted height for better visibility */
+    height: var(--panel-grips-h); /* Use variable so all layouts stay in sync */
     background: linear-gradient(to top, rgba(44, 62, 80, 0.95), rgba(44, 62, 80, 0.8));
     display: flex;
     justify-content: space-between;
@@ -1510,10 +1622,12 @@ body.body-contact #font-comparison {
 
 /* Phone layout: single-row bottom bar */
 @media (max-width: 599px) {
+    /* Adjust bottom bar height for phones (reduced) */
+    :root { --panel-grips-h: 64px; }
     #panel-grips {
         flex-wrap: nowrap;
         justify-content: space-between;
-        height: 72px; /* more compact single row */
+        height: var(--panel-grips-h); /* more compact single row */
         padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px; /* Symmetric left/right padding */
         column-gap: 8px;
         --grip-width: 120px;
@@ -1741,10 +1855,9 @@ body.view-faceoff .favorites-container {
         min-width: 130px;
         max-width: 170px;
     }
-    #panel-grips {
-        height: 84px;
-        --grip-width: 140px;
-    }
+    /* Sync bottom bar height via variable so panels align (reduced) */
+    :root { --panel-grips-h: 76px; }
+    #panel-grips { height: var(--panel-grips-h); --grip-width: 140px; }
 
     /* Tablet: tighten Third Man In center stack to match outer grip heights */
     body.view-third-man-in .third-man-in-center-stack {
@@ -2839,7 +2952,7 @@ body.view-faceoff .favorites-container {
         color: #495057;
     }
 
-    .separator {
+    .center-line-separator {
         background: linear-gradient(to right, #495057, #6c757d);
     }
 
