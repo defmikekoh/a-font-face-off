@@ -74,6 +74,18 @@ function determineGenericFontFamily(fontName) {
     });
 }
 
+function getSiteSpecificRules(fontType, otherProps, hostname = null) {
+    // If no hostname provided, try to get it from the active tab
+    // For now, we'll focus on Wikipedia rules since that's what we've tested
+    if (hostname && hostname.includes('wikipedia.org')) {
+        // High-specificity Wikipedia rules that we know work
+        return `html.mf-font-size-clientpref-small body.skin-minerva .content p[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content span[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`;
+    }
+    
+    // No site-specific rules for other sites yet
+    return null;
+}
+
 function applyViewMode(forceView) {
     if (forceView) currentViewMode = forceView;
 
@@ -4219,6 +4231,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Inject custom fonts first, before any font previews
     injectCustomFonts();
 
+    // Get current tab hostname for site-specific CSS rules
+    try {
+        window.currentTabHostname = await getActiveOrigin();
+        console.log('🌐 Current tab hostname:', window.currentTabHostname);
+    } catch (error) {
+        console.warn('Could not get current tab hostname:', error);
+        window.currentTabHostname = null;
+    }
+
     // Hide all settings until domain initialization is complete
     initializationComplete = false;
     document.body.style.visibility = 'hidden';
@@ -6066,10 +6087,44 @@ function generateThirdManInCSS(fontType, payload) {
         lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${payload.fontName}" !important; }`);
     }
     
-    // Rule 2: Other properties are not applied automatically in Third Man In mode
-    // Only font-family applies to all elements of the type
+    // Rule 2: Other properties apply only to body text elements (not headings, nav, etc.)
+    const otherProps = [];
+    if (payload.fontSize && isFinite(payload.fontSize)) {
+        otherProps.push(`font-size: ${payload.fontSize}px !important`);
+    }
+    if (payload.lineHeight && isFinite(payload.lineHeight)) {
+        otherProps.push(`line-height: ${payload.lineHeight} !important`);
+    }
+    if (payload.fontWeight && isFinite(payload.fontWeight)) {
+        otherProps.push(`font-weight: ${payload.fontWeight} !important`);
+    }
+    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
+        const variationSettings = Object.entries(payload.variableAxes)
+            .map(([axis, value]) => `"${axis}" ${value}`)
+            .join(', ');
+        otherProps.push(`font-variation-settings: ${variationSettings} !important`);
+    }
+    
+    if (otherProps.length > 0) {
+        // Apply size/weight only to body text elements, not headings or navigation
+        // Use maximum specificity to override Wikipedia's CSS (.mf-font-size-clientpref-small .mw-body p)
+        lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] p, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] span, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] td, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] th, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] li { ${otherProps.join('; ')}; }`);
+        
+        // Add site-specific high-specificity rules
+        // Use global currentTabHostname if available
+        const hostname = window.currentTabHostname || null;
+        const siteSpecificRules = getSiteSpecificRules(fontType, otherProps, hostname);
+        if (siteSpecificRules) {
+            lines.push(siteSpecificRules);
+        }
+        
+        // Fallback: Generic high-specificity rules for other sites
+        lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] p, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] span, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] td, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] th, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] li { ${otherProps.join('; ')}; }`);
+    }
 
-    return lines.join('\n');
+    const css = lines.join('\n');
+    console.log(`🎯 Generated CSS for ${fontType}:`, css);
+    return css;
 }
 
 // DOM walker to identify and mark element types for Third Man In mode
@@ -6132,6 +6187,14 @@ function generateElementWalkerScript(fontType) {
                     return null;
                 }
 
+                // Debug: Find and analyze the "17 November" text before processing
+                const allElements = Array.from(document.querySelectorAll('*'));
+                const novemberElements = allElements.filter(el => el.textContent && el.textContent.includes('17 November'));
+                console.log('🔍 PRE-SCAN: Found', novemberElements.length, 'elements containing "17 November"');
+                novemberElements.forEach((el, i) => {
+                    console.log('🔍 Element', i+1, ':', el.tagName, el.className, 'text:', el.textContent.substring(0, 100));
+                });
+                
                 // Walk all text-containing elements
                 const walker = document.createTreeWalker(
                     document.body,
@@ -6161,7 +6224,15 @@ function generateElementWalkerScript(fontType) {
                     if (detectedType === '${fontType}') {
                         element.setAttribute('data-affo-font-type', '${fontType}');
                         markedElements++;
-                        console.log('Marked ${fontType} element:', element.tagName, element.className, element.textContent.substring(0, 50));
+                        console.log('Marked ${fontType} element:', element.tagName, element.className, 'willGetSize:', ['P', 'SPAN', 'TD', 'TH', 'LI'].indexOf(element.tagName) !== -1, element.textContent.substring(0, 50));
+                        
+                        // Debug specific "17 November" paragraph
+                        if (element.textContent.includes('17 November')) {
+                            console.log('🔍 FOUND "17 November" paragraph - marked as: ${fontType}');
+                            console.log('🔍 Element:', element);
+                            console.log('🔍 Computed style font-size:', window.getComputedStyle(element).fontSize);
+                            console.log('🔍 Has attribute data-affo-font-type:', element.getAttribute('data-affo-font-type'));
+                        }
                     }
                 }
 
