@@ -3816,8 +3816,6 @@ function showSaveModal(position) {
 
     // Show modal
     modal.classList.add('visible');
-    nameInput.focus();
-    nameInput.select();
 }
 
 function hideSaveModal() {
