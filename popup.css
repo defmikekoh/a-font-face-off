@@ -3043,3 +3043,341 @@ body.view-faceoff .favorites-container {
     #bottom-axes-section .control-group:not(.unset) .axis-reset-btn:hover {
         /* Use global hover style */
     }
+
+/* Numeric Modal Styles */
+#numeric-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2500;
+}
+
+#numeric-modal.visible {
+    display: flex;
+}
+
+.numeric-modal-content {
+    background: #2c3e50;
+    color: #ecf0f1;
+    border-radius: 8px;
+    width: 240px;
+    max-width: 90%;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 360px) {
+    .numeric-modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .numeric-modal-header {
+        padding: 12px 15px;
+    }
+    
+    .numeric-modal-header h3 {
+        font-size: 16px;
+    }
+    
+    .numeric-modal-body {
+        padding: 15px;
+    }
+    
+    .numeric-display {
+        margin-bottom: 15px;
+    }
+    
+    .numeric-input-display {
+        padding: 10px;
+        font-size: 16px;
+    }
+    
+    .numeric-keypad {
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .numeric-btn {
+        padding: 12px 8px;
+        font-size: 16px;
+        min-height: 44px; /* iOS touch target size */
+    }
+    
+    .numeric-actions {
+        gap: 8px;
+    }
+    
+    .numeric-action-btn {
+        padding: 10px;
+        font-size: 14px;
+        min-height: 44px; /* iOS touch target size */
+    }
+}
+
+.numeric-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #34495e;
+    background: #34495e;
+}
+
+.numeric-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #ecf0f1;
+}
+
+.numeric-modal-header .modal-close {
+    background: none;
+    border: none;
+    color: #bdc3c7;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.numeric-modal-header .modal-close:hover {
+    background: #e74c3c;
+    color: white;
+}
+
+.numeric-modal-body {
+    padding: 16px;
+}
+
+.numeric-display {
+    margin-bottom: 20px;
+}
+
+.numeric-input-display {
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    text-align: center;
+    background: #34495e;
+    border: 1px solid #4a6378;
+    border-radius: 4px;
+    color: #ecf0f1;
+    cursor: default;
+}
+
+.numeric-keypad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.numeric-btn {
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    background: #34495e;
+    color: #ecf0f1;
+    border: 1px solid #4a6378;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    user-select: none;
+}
+
+.numeric-btn:hover {
+    background: #4a6378;
+}
+
+.numeric-btn:active {
+    background: #5a738e;
+    transform: translateY(1px);
+}
+
+.numeric-zero {
+    grid-column: span 2;
+}
+
+.numeric-enter {
+    grid-row: span 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.enter-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.enter-arrow {
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.enter-text {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    opacity: 0.9;
+    line-height: 1;
+}
+
+.numeric-enter-bottom {
+    display: none; /* Hidden placeholder for enter key grid positioning */
+}
+
+.numeric-enter-final {
+    display: none; /* Hidden placeholder for enter key grid positioning */
+}
+
+.numeric-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.numeric-action-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.numeric-action-btn.cancel-btn {
+    background: #95a5a6;
+    color: #fff;
+}
+
+.numeric-action-btn.cancel-btn:hover {
+    background: #7f8c8d;
+}
+
+.numeric-action-btn.apply-btn {
+    background: #27ae60;
+    color: #fff;
+}
+
+.numeric-action-btn.apply-btn:hover {
+    background: #2ecc71;
+}
+
+/* Light theme styles for numeric modal */
+body.light-theme .numeric-modal-content {
+    background: #ffffff;
+    color: #495057;
+}
+
+body.light-theme .numeric-modal-header {
+    background: #f8f9fa;
+    border-bottom-color: #dee2e6;
+}
+
+body.light-theme .numeric-modal-header h3 {
+    color: #495057;
+}
+
+body.light-theme .numeric-modal-header .modal-close {
+    color: #6c757d;
+}
+
+body.light-theme .numeric-modal-header .modal-close:hover {
+    background: #dc3545;
+    color: white;
+}
+
+body.light-theme .numeric-input-display {
+    background: #f8f9fa;
+    border-color: #ced4da;
+    color: #495057;
+}
+
+body.light-theme .numeric-btn {
+    background: #f8f9fa;
+    color: #495057;
+    border-color: #ced4da;
+}
+
+body.light-theme .numeric-btn:hover {
+    background: #e9ecef;
+}
+
+body.light-theme .numeric-btn:active {
+    background: #dee2e6;
+}
+
+/* Auto light theme support for numeric modal */
+@media (prefers-color-scheme: light) {
+    #numeric-modal .numeric-modal-content {
+        background: #ffffff;
+        color: #495057;
+    }
+
+    #numeric-modal .numeric-modal-header {
+        background: #f8f9fa;
+        border-bottom-color: #dee2e6;
+    }
+
+    #numeric-modal .numeric-modal-header h3 {
+        color: #495057;
+    }
+
+    #numeric-modal .numeric-modal-header .modal-close {
+        color: #6c757d;
+    }
+
+    #numeric-modal .numeric-modal-header .modal-close:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    #numeric-modal .numeric-input-display {
+        background: #f8f9fa;
+        border-color: #ced4da;
+        color: #495057;
+    }
+
+    #numeric-modal .numeric-btn {
+        background: #f8f9fa;
+        color: #495057;
+        border-color: #ced4da;
+    }
+
+    #numeric-modal .numeric-btn:hover {
+        background: #e9ecef;
+    }
+
+    #numeric-modal .numeric-btn:active {
+        background: #dee2e6;
+    }
+}
+
+/* Make numeric trigger inputs look clickable */
+.numeric-trigger {
+    cursor: pointer !important;
+    user-select: none;
+}
+
+.numeric-trigger:focus {
+    outline: none;
+}

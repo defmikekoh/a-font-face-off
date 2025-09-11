@@ -2761,9 +2761,13 @@ function generateFontControls(position, fontName) {
         resetButton.setAttribute('data-axis', axis);
 
         const textInput = document.createElement('input');
-        textInput.type = 'number';
+        textInput.type = 'text';
         textInput.id = `${position}-${axis}-text`;
-        textInput.className = 'axis-text-input';
+        textInput.className = 'axis-text-input numeric-trigger';
+        textInput.setAttribute('readonly', 'true');
+        textInput.setAttribute('data-type', 'variableAxis');
+        textInput.setAttribute('data-position', position);
+        textInput.setAttribute('data-axis', axis);
         textInput.min = range[0];
         textInput.max = range[1];
         textInput.step = step;
@@ -8035,3 +8039,243 @@ function applyUnsetSettings(panelId) {
 function debounce(fn, wait) {
     let t = null; return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
 }
+
+// Numeric Modal Functionality
+let currentNumericInput = null;
+let isApplying = false;
+let originalValue = null;
+let originalControlState = null; // Store if control group was active/inactive
+
+function initializeNumericModal() {
+    const modal = document.getElementById('numeric-modal');
+    const display = document.getElementById('numeric-input');
+    const closeBtn = document.getElementById('numeric-modal-close');
+    const applyBtn = document.getElementById('numeric-apply');
+    const keypadBtns = document.querySelectorAll('.numeric-btn');
+
+    // Handle numeric trigger clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('numeric-trigger')) {
+            e.preventDefault();
+            e.stopImmediatePropagation(); // Stop other handlers from firing
+            
+            // Debug: Check control state before opening modal
+            const controlGroup = e.target.closest('.control-group');
+            const wasUnsetBeforeClick = controlGroup ? controlGroup.classList.contains('unset') : false;
+            console.log('🖱️ Numeric input clicked, control was unset:', wasUnsetBeforeClick);
+            
+            showNumericModal(e.target);
+        }
+    }, true); // Use capture phase to catch it before other handlers
+
+    // Handle keypad button clicks
+    keypadBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            const action = this.getAttribute('data-action');
+
+            if (action === 'backspace') {
+                const current = display.value;
+                display.value = current.slice(0, -1);
+            } else if (action === 'apply') {
+                // Handle enter key - same as apply button
+                console.log('✅ Enter key pressed - applying value');
+                if (currentNumericInput && display.value !== '') {
+                    const newValue = parseFloat(display.value);
+                    if (!isNaN(newValue)) {
+                        isApplying = true;
+                        applyNumericValue(currentNumericInput, newValue);
+                    }
+                }
+                hideNumericModal();
+            } else if (value) {
+                // Check if text is selected (user wants to replace it)
+                const selStart = display.selectionStart;
+                const selEnd = display.selectionEnd;
+                const hasSelection = selStart !== selEnd;
+                
+                if (hasSelection) {
+                    // Replace selected text with new value
+                    display.value = value;
+                } else {
+                    // Prevent multiple decimal points when appending
+                    if (value === '.' && display.value.includes('.')) {
+                        return;
+                    }
+                    display.value += value;
+                }
+                
+                // Position cursor at end
+                setTimeout(() => {
+                    display.setSelectionRange(display.value.length, display.value.length);
+                }, 0);
+            }
+        });
+    });
+
+    // Handle apply button
+    applyBtn.addEventListener('click', function() {
+        console.log('✅ Apply button clicked - applying value');
+        if (currentNumericInput && display.value !== '') {
+            const newValue = parseFloat(display.value);
+            if (!isNaN(newValue)) {
+                isApplying = true;
+                applyNumericValue(currentNumericInput, newValue);
+            }
+        }
+        hideNumericModal();
+    });
+
+    // Handle close button - explicitly cancel without applying
+    closeBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🚫 Close button clicked - canceling without applying');
+        cancelNumericModal();
+    });
+
+    // Handle modal backdrop click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            console.log('🚫 Backdrop clicked - canceling without applying');
+            cancelNumericModal();
+        }
+    });
+
+    // Handle escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('visible')) {
+            console.log('🚫 Escape pressed - canceling without applying');
+            cancelNumericModal();
+        }
+    });
+}
+
+function showNumericModal(input) {
+    const modal = document.getElementById('numeric-modal');
+    const display = document.getElementById('numeric-input');
+    const title = document.getElementById('numeric-modal-title');
+    
+    currentNumericInput = input;
+    
+    // Store original value and control state for cancel restoration
+    originalValue = input.value.replace('px', '');
+    
+    // Find the control group and store its active state
+    const controlGroup = input.closest('.control-group');
+    originalControlState = {
+        wasUnset: controlGroup ? controlGroup.classList.contains('unset') : false,
+        controlGroup: controlGroup
+    };
+    console.log('💾 Stored original state:', { originalValue, originalControlState });
+    
+    // Set modal title based on input type
+    const type = input.getAttribute('data-type');
+    const position = input.getAttribute('data-position');
+    const axis = input.getAttribute('data-axis');
+    
+    if (type === 'fontSize') {
+        title.textContent = `Font Size (${position})`;
+    } else if (type === 'lineHeight') {
+        title.textContent = `Line Height (${position})`;
+    } else if (type === 'variableAxis') {
+        title.textContent = `${axis} (${position})`;
+    } else {
+        title.textContent = 'Enter Value';
+    }
+    
+    // Set initial value (remove 'px' suffix if present)
+    let initialValue = input.value.replace('px', '');
+    display.value = initialValue;
+    
+    // Show modal
+    modal.classList.add('visible');
+    
+    // Focus on the display input and select all text for easy replacement
+    setTimeout(() => {
+        display.focus();
+        display.select(); // Select all text
+    }, 100);
+}
+
+function hideNumericModal() {
+    const modal = document.getElementById('numeric-modal');
+    modal.classList.remove('visible');
+    currentNumericInput = null;
+    originalValue = null;
+    originalControlState = null;
+    isApplying = false; // Reset the flag
+}
+
+function cancelNumericModal() {
+    console.log('🚫 cancelNumericModal: Canceling without applying changes');
+    
+    // On cancel: Don't change ANY values - just restore the original control state
+    if (originalControlState && originalControlState.controlGroup) {
+        console.log('🚫 Cancel: Only restoring control state, not changing any values');
+        
+        if (originalControlState.wasUnset) {
+            console.log('🔄 Restoring control to unset state');
+            originalControlState.controlGroup.classList.add('unset');
+            console.log('🔍 Control classes after adding unset:', originalControlState.controlGroup.className);
+        } else {
+            console.log('🔄 Restoring control to active state');  
+            originalControlState.controlGroup.classList.remove('unset');
+            console.log('🔍 Control classes after removing unset:', originalControlState.controlGroup.className);
+        }
+    }
+    
+    isApplying = false; // Explicitly set to false before hiding
+    hideNumericModal();
+}
+
+function applyNumericValue(input, value) {
+    console.log('🔧 applyNumericValue called with isApplying:', isApplying, 'value:', value);
+    
+    // Only apply if we're actually applying (not canceling)
+    if (!isApplying) {
+        console.log('🚫 applyNumericValue: Skipping apply because isApplying is false');
+        return;
+    }
+    
+    console.log('✅ applyNumericValue: Proceeding with apply');
+    
+    const type = input.getAttribute('data-type');
+    const position = input.getAttribute('data-position');
+    const axis = input.getAttribute('data-axis');
+    
+    // Update the input value
+    if (type === 'fontSize') {
+        input.value = value;
+        // Also update the corresponding slider
+        const slider = document.getElementById(`${position}-font-size`);
+        if (slider) {
+            slider.value = value;
+            // Trigger the slider's change event to update everything
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    } else if (type === 'lineHeight') {
+        input.value = value;
+        // Also update the corresponding slider
+        const slider = document.getElementById(`${position}-line-height`);
+        if (slider) {
+            slider.value = value;
+            // Trigger the slider's change event to update everything
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    } else if (type === 'variableAxis') {
+        input.value = value;
+        // Also update the corresponding axis slider
+        const slider = document.getElementById(`${position}-${axis}`);
+        if (slider) {
+            slider.value = value;
+            // Trigger the slider's change event to update everything
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+}
+
+// Initialize numeric modal when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeNumericModal();
+});

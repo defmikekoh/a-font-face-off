@@ -191,7 +191,7 @@
                 <label for="top-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="top-font-size-text" class="size-text-input" value="17" aria-label="Top font size in pixels (e.g., 16 or 16px)">
+                    <input type="text" id="top-font-size-text" class="size-text-input numeric-trigger" readonly value="17" aria-label="Top font size in pixels (e.g., 16 or 16px)" data-type="fontSize" data-position="top">
                 </div>
                 <div class="control-row slider-row">
                     <input type="range" id="top-font-size" min="10" max="72" step="0.01" value="17">
@@ -341,7 +341,7 @@
                 <label for="bottom-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="bottom-font-size-text" class="size-text-input" value="17" aria-label="Bottom font size in pixels (e.g., 16 or 16px)">
+                    <input type="text" id="bottom-font-size-text" class="size-text-input numeric-trigger" readonly value="17" aria-label="Bottom font size in pixels (e.g., 16 or 16px)" data-type="fontSize" data-position="bottom">
                 </div>
                 <div class="control-row slider-row">
                     <input type="range" id="bottom-font-size" min="10" max="72" step="0.01" value="17">
@@ -517,7 +517,7 @@
                 <label for="body-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="body-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <input type="text" id="body-font-size-text" class="text-input numeric-trigger" readonly value="17" step="0.01" min="6" max="200" data-type="fontSize" data-position="body">
                     <span id="body-font-size-value" class="value-display">17px</span>
                 </div>
                 <div class="control-row slider-row">
@@ -528,7 +528,7 @@
                 <label for="body-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
-                    <input type="text" id="body-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <input type="text" id="body-line-height-text" class="text-input numeric-trigger" readonly value="1.6" step="0.01" min="0.5" max="3" data-type="lineHeight" data-position="body">
                     <span id="body-line-height-value" class="value-display">1.6</span>
                 </div>
                 <div class="control-row slider-row">
@@ -607,7 +607,7 @@
                 <label for="serif-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="serif-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <input type="text" id="serif-font-size-text" class="text-input numeric-trigger" readonly value="17" step="0.01" min="6" max="200" data-type="fontSize" data-position="serif">
                     <span id="serif-font-size-value" class="value-display">17px</span>
                 </div>
                 <div class="control-row slider-row">
@@ -618,7 +618,7 @@
                 <label for="serif-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
-                    <input type="text" id="serif-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <input type="text" id="serif-line-height-text" class="text-input numeric-trigger" readonly value="1.6" step="0.01" min="0.5" max="3" data-type="lineHeight" data-position="serif">
                     <span id="serif-line-height-value" class="value-display">1.6</span>
                 </div>
                 <div class="control-row slider-row">
@@ -698,7 +698,7 @@
                 <label for="mono-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="mono-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <input type="text" id="mono-font-size-text" class="text-input numeric-trigger" readonly value="17" step="0.01" min="6" max="200" data-type="fontSize" data-position="mono">
                     <span id="mono-font-size-value" class="value-display">17px</span>
                 </div>
                 <div class="control-row slider-row">
@@ -709,7 +709,7 @@
                 <label for="mono-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
-                    <input type="text" id="mono-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <input type="text" id="mono-line-height-text" class="text-input numeric-trigger" readonly value="1.6" step="0.01" min="0.5" max="3" data-type="lineHeight" data-position="mono">
                     <span id="mono-line-height-value" class="value-display">1.6</span>
                 </div>
                 <div class="control-row slider-row">
@@ -789,7 +789,7 @@
                 <label for="sans-font-size">Font Size:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
-                    <input type="text" id="sans-font-size-text" class="text-input" value="17" step="0.01" min="6" max="200">
+                    <input type="text" id="sans-font-size-text" class="text-input numeric-trigger" readonly value="17" step="0.01" min="6" max="200" data-type="fontSize" data-position="sans">
                     <span id="sans-font-size-value" class="value-display">17px</span>
                 </div>
                 <div class="control-row slider-row">
@@ -800,7 +800,7 @@
                 <label for="sans-line-height">Line Height:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="line-height" title="Reset line height">↻</span>
-                    <input type="text" id="sans-line-height-text" class="text-input" value="1.6" step="0.01" min="0.5" max="3">
+                    <input type="text" id="sans-line-height-text" class="text-input numeric-trigger" readonly value="1.6" step="0.01" min="0.5" max="3" data-type="lineHeight" data-position="sans">
                     <span id="sans-line-height-value" class="value-display">1.6</span>
                 </div>
                 <div class="control-row slider-row">
@@ -888,6 +888,46 @@
             <div class="save-modal-footer">
                 <button id="mode-switch-cancel" class="save-modal-btn cancel-btn">Cancel</button>
                 <button id="mode-switch-continue" class="save-modal-btn save-btn">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Numeric Input Modal -->
+    <div id="numeric-modal" class="modal">
+        <div class="modal-content numeric-modal-content">
+            <div class="numeric-modal-header">
+                <h3 id="numeric-modal-title">Enter Value</h3>
+                <button id="numeric-modal-close" class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="numeric-modal-body">
+                <div class="numeric-display">
+                    <input type="text" id="numeric-input" readonly class="numeric-input-display">
+                </div>
+                <div class="numeric-keypad">
+                    <button class="numeric-btn" data-value="7">7</button>
+                    <button class="numeric-btn" data-value="8">8</button>
+                    <button class="numeric-btn" data-value="9">9</button>
+                    <button class="numeric-btn numeric-backspace" data-action="backspace">⌫</button>
+                    <button class="numeric-btn" data-value="4">4</button>
+                    <button class="numeric-btn" data-value="5">5</button>
+                    <button class="numeric-btn" data-value="6">6</button>
+                    <button class="numeric-btn numeric-enter" data-action="apply">
+                        <div class="enter-content">
+                            <div class="enter-arrow">↵</div>
+                            <div class="enter-text">Enter</div>
+                        </div>
+                    </button>
+                    <button class="numeric-btn" data-value="1">1</button>
+                    <button class="numeric-btn" data-value="2">2</button>
+                    <button class="numeric-btn" data-value="3">3</button>
+                    <button class="numeric-btn numeric-enter-bottom" data-action="apply">↵</button>
+                    <button class="numeric-btn numeric-zero" data-value="0">0</button>
+                    <button class="numeric-btn" data-value=".">.</button>
+                    <button class="numeric-btn numeric-enter-final" data-action="apply">↵</button>
+                </div>
+                <div class="numeric-actions">
+                    <button id="numeric-apply" class="numeric-action-btn apply-btn">Apply</button>
+                </div>
             </div>
         </div>
     </div>
