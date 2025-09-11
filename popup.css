@@ -502,6 +502,8 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     background: #2c3e50;
     color: white;
     padding: 20px;
+    /* Reduce bottom padding so there's no extra blank space below footer */
+    padding-bottom: 8px;
     box-sizing: border-box;
     overflow: hidden; /* scroll is on panel-body so footer doesn't overlap */
     flex-direction: column;
@@ -512,6 +514,8 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     height: auto;
     transition: transform 0.3s ease-in-out;
     z-index: 999; /* Below bottom bar */
+    /* Add subtle border around control panels */
+    border: 1px solid #34495e;
     /* display: flex is added only when .visible class is present */
 }
 
@@ -519,6 +523,9 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     left: 0;
     transform: translateX(-100%);
     border-right: 2px solid #34495e;
+    /* Inside-facing rounded corners */
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
     display: none; /* Ensure completely hidden when not in use */
 }
 
@@ -531,6 +538,9 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     right: 0;
     transform: translateX(100%);
     border-left: 2px solid #34495e;
+    /* Inside-facing rounded corners */
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
     display: none; /* Ensure completely hidden when not in use */
 }
 
@@ -545,6 +555,9 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     transform: translateX(100%);
     border-left: 2px solid #34495e;
     width: 33.333%; /* Default width */
+    /* Inside-facing rounded corners */
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
     display: none; /* Ensure completely hidden when not in use */
 }
 
@@ -575,6 +588,9 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     left: 0;
     transform: translateX(-100%);
     border-right: 2px solid #34495e;
+    /* Inside-facing rounded corners */
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
     display: none; /* Ensure completely hidden when not in use */
 }
 
@@ -601,6 +617,9 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     right: 0;
     transform: translateX(100%);
     border-left: 2px solid #34495e;
+    /* Inside-facing rounded corners */
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
     display: none; /* Ensure completely hidden when not in use */
 }
 
@@ -741,6 +760,9 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     padding: 20px;
     overflow-y: auto;
     background: white;
+    /* Add border to preview boxes */
+    border: 1px solid #e0e5ea;
+    box-sizing: border-box;
 }
 
 .font-section h3 {
@@ -772,12 +794,23 @@ body.view-faceoff #bottom-font-section {
     display: block;
 }
 
+/* Face-off preview boxes: round only the outer corners */
+body.view-faceoff #top-font-section {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+body.view-faceoff #bottom-font-section {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
 #body-font-section {
     display: none;
 }
 
 body.view-body-contact #body-font-section {
     display: block;
+    border-radius: 8px; /* Single box: round all corners */
 }
 
 #serif-font-section,
@@ -790,6 +823,16 @@ body.view-third-man-in #serif-font-section,
 body.view-third-man-in #sans-font-section,
 body.view-third-man-in #mono-font-section {
     display: block;
+}
+
+/* Third Man In: round outer corners for left/right preview boxes */
+body.view-third-man-in #serif-font-section {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+body.view-third-man-in #sans-font-section {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
 /* Font sections - dynamic styling applied via JavaScript */
@@ -1372,7 +1415,8 @@ body.body-contact #font-comparison {
     background: #f6f7f9; /* light, non-dark surface */
     color: #222222;
     border-top: 1px solid #e6e6e6;
-    padding: 10px 12px;
+    /* Align with panel content (20px side padding on parent) and tighten vertical space */
+    padding: 6px 0;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1577,7 +1621,8 @@ body.body-contact #font-comparison {
         flex: none !important;
     }
     /* Tighten footer spacing on phones to prevent overflow */
-    .panel-footer { padding: 8px 8px; gap: 8px; }
+    /* Keep phone footer tight and aligned with header */
+    .panel-footer { padding: 6px 0; gap: 8px; }
     .footer-icons { gap: 4px; }
     .footer-actions { gap: 6px; }
     .footer-actions .apply-btn,
@@ -3077,43 +3122,43 @@ body.view-faceoff .favorites-container {
         width: 95%;
         margin: 10px;
     }
-    
+
     .numeric-modal-header {
         padding: 12px 15px;
     }
-    
+
     .numeric-modal-header h3 {
         font-size: 16px;
     }
-    
+
     .numeric-modal-body {
         padding: 15px;
     }
-    
+
     .numeric-display {
         margin-bottom: 15px;
     }
-    
+
     .numeric-input-display {
         padding: 10px;
         font-size: 16px;
     }
-    
+
     .numeric-keypad {
         gap: 8px;
         margin-bottom: 15px;
     }
-    
+
     .numeric-btn {
         padding: 12px 8px;
         font-size: 16px;
         min-height: 44px; /* iOS touch target size */
     }
-    
+
     .numeric-actions {
         gap: 8px;
     }
-    
+
     .numeric-action-btn {
         padding: 10px;
         font-size: 14px;
