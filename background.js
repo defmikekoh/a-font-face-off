@@ -90,6 +90,72 @@ clearExpiredCache();
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
   try {
+    // Handle toolbar options requests
+    if (msg.type === 'getToolbarOptions') {
+      try {
+        const result = await browser.storage.local.get([
+          'affoToolbarEnabled',
+          'affoToolbarWidth',
+          'affoToolbarHeight',
+          'affoToolbarTransparency',
+          'affoToolbarGap'
+        ]);
+        console.log('[AFFO Background] Returning toolbar options:', result);
+        return result;
+      } catch (e) {
+        console.warn('[AFFO Background] Error getting toolbar options:', e);
+        return {};
+      }
+    }
+    
+    // Handle toolbar popup opening requests
+    if (msg.type === 'openPopup') {
+      console.log('[AFFO Background] Received openPopup request');
+      console.log('[AFFO Background] User agent:', navigator.userAgent);
+      console.log('[AFFO Background] Available APIs:', Object.keys(browser.browserAction || {}));
+      
+      try {
+        console.log('[AFFO Background] Attempting browserAction.openPopup()...');
+        
+        // For Firefox Android, try the standard API
+        if (browser.browserAction && browser.browserAction.openPopup) {
+          await browser.browserAction.openPopup();
+          console.log('[AFFO Background] browserAction.openPopup() call completed');
+          return { success: true, method: 'browserAction.openPopup' };
+        } else {
+          console.warn('[AFFO Background] browserAction.openPopup not available');
+          return { success: false, error: 'browserAction.openPopup not available' };
+        }
+      } catch (e) {
+        console.error('[AFFO Background] browserAction.openPopup() failed:', e.message);
+        console.error('[AFFO Background] Full error:', e);
+        return { success: false, error: e.message };
+      }
+    }
+    
+    // Handle fallback popup opening (open in new tab/window)
+    if (msg.type === 'openPopupFallback') {
+      try {
+        console.log('[AFFO Background] Attempting fallback: open popup in new tab');
+        
+        // For Firefox Android, open the popup HTML in a new tab since popups don't exist
+        const popup = browser.runtime.getURL('popup.html');
+        console.log('[AFFO Background] Popup URL:', popup);
+        
+        const tab = await browser.tabs.create({ 
+          url: popup,
+          active: true // Make sure the tab is focused
+        });
+        console.log('[AFFO Background] Tab created:', tab);
+        return { success: true, tabId: tab.id, url: popup };
+      } catch (e) {
+        console.error('[AFFO Background] Could not open popup fallback:', e);
+        console.error('[AFFO Background] Error details:', e);
+        return { success: false, error: e.message };
+      }
+    }
+    
+    // Handle font fetching requests
     if (!msg || msg.type !== 'affoFetch') return;
     const url = msg.url;
     const binary = !!msg.binary;
@@ -120,5 +186,56 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     }
   } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
+  }
+});
+
+// Listen for toolbar option changes and notify content scripts
+browser.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local') return;
+  
+  // Check if any toolbar options changed
+  const toolbarOptionsChanged = {};
+  let hasToolbarChanges = false;
+  
+  if (changes.affoToolbarEnabled) {
+    toolbarOptionsChanged.affoToolbarEnabled = changes.affoToolbarEnabled.newValue;
+    hasToolbarChanges = true;
+  }
+  if (changes.affoToolbarWidth) {
+    toolbarOptionsChanged.affoToolbarWidth = changes.affoToolbarWidth.newValue;
+    hasToolbarChanges = true;
+  }
+  if (changes.affoToolbarHeight) {
+    toolbarOptionsChanged.affoToolbarHeight = changes.affoToolbarHeight.newValue;
+    hasToolbarChanges = true;
+  }
+  if (changes.affoToolbarTransparency) {
+    toolbarOptionsChanged.affoToolbarTransparency = changes.affoToolbarTransparency.newValue;
+    hasToolbarChanges = true;
+  }
+  if (changes.affoToolbarGap) {
+    toolbarOptionsChanged.affoToolbarGap = changes.affoToolbarGap.newValue;
+    hasToolbarChanges = true;
+  }
+  
+  if (hasToolbarChanges) {
+    console.log('[AFFO Background] Toolbar options changed, notifying content scripts:', toolbarOptionsChanged);
+    
+    try {
+      // Get all tabs and send message to content scripts
+      const tabs = await browser.tabs.query({});
+      for (const tab of tabs) {
+        try {
+          await browser.tabs.sendMessage(tab.id, {
+            type: 'toolbarOptionsChanged',
+            options: toolbarOptionsChanged
+          });
+        } catch (e) {
+          // Ignore errors for tabs that don't have content scripts
+        }
+      }
+    } catch (e) {
+      console.warn('[AFFO Background] Error notifying content scripts of toolbar changes:', e);
+    }
   }
 });

@@ -4,6 +4,26 @@
   const DEFAULT_SANS = [];
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
+  
+  // Tab functionality
+  function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.dataset.tab;
+        
+        // Remove active class from all buttons and contents
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        
+        // Add active class to clicked button and corresponding content
+        button.classList.add('active');
+        document.getElementById(targetTab + '-tab').classList.add('active');
+      });
+    });
+  }
 
   function normalize(lines){
     return (lines || [])
@@ -21,7 +41,17 @@
 
   async function load(){
     try {
-      const data = await browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains']);
+      const data = await browser.storage.local.get([
+        'affoKnownSerif', 
+        'affoKnownSans', 
+        'affoFontFaceOnlyDomains', 
+        'affoInlineApplyDomains',
+        'affoToolbarEnabled',
+        'affoToolbarWidth',
+        'affoToolbarHeight',
+        'affoToolbarTransparency',
+        'affoToolbarGap'
+      ]);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
       document.getElementById('known-serif').value = toTextarea(serif);
@@ -30,6 +60,23 @@
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
       const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
       document.getElementById('inline-domains').value = toTextarea(inline);
+      
+      // Load toolbar settings with new defaults
+      document.getElementById('toolbar-enabled').checked = data.affoToolbarEnabled !== false; // Default to true
+      const width = data.affoToolbarWidth || 36;
+      const height = data.affoToolbarHeight || 20;
+      const transparency = data.affoToolbarTransparency !== undefined ? data.affoToolbarTransparency : 0.2;
+      const gap = data.affoToolbarGap || 0;
+      
+      document.getElementById('toolbar-width').value = width;
+      document.getElementById('toolbar-height').value = height;
+      document.getElementById('toolbar-transparency').value = transparency;
+      document.getElementById('toolbar-gap').value = gap;
+      
+      document.getElementById('toolbar-width-value').textContent = width + 'px';
+      document.getElementById('toolbar-height-value').textContent = height + '%';
+      document.getElementById('toolbar-transparency-value').textContent = transparency;
+      document.getElementById('toolbar-gap-value').textContent = gap + 'px';
     } catch (e) {}
   }
 
@@ -148,6 +195,44 @@
     }
   }
 
+  async function saveToolbar(){
+    try {
+      const enabled = document.getElementById('toolbar-enabled').checked;
+      const width = parseInt(document.getElementById('toolbar-width').value);
+      const height = parseInt(document.getElementById('toolbar-height').value);
+      const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
+      const gap = parseInt(document.getElementById('toolbar-gap').value);
+      
+      await browser.storage.local.set({ 
+        affoToolbarEnabled: enabled,
+        affoToolbarWidth: width,
+        affoToolbarHeight: height,
+        affoToolbarTransparency: transparency,
+        affoToolbarGap: gap
+      });
+      
+      const s = document.getElementById('status-toolbar'); 
+      s.textContent = 'Saved'; 
+      setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {
+      const s = document.getElementById('status-toolbar'); 
+      s.textContent = 'Error: ' + e.message; 
+      setTimeout(() => { s.textContent = ''; }, 3000);
+    }
+  }
+
+  function updateToolbarValues() {
+    const width = document.getElementById('toolbar-width').value;
+    const height = document.getElementById('toolbar-height').value;
+    const transparency = document.getElementById('toolbar-transparency').value;
+    const gap = document.getElementById('toolbar-gap').value;
+    
+    document.getElementById('toolbar-width-value').textContent = width + 'px';
+    document.getElementById('toolbar-height-value').textContent = height + '%';
+    document.getElementById('toolbar-transparency-value').textContent = transparency;
+    document.getElementById('toolbar-gap-value').textContent = gap + 'px';
+  }
+
   async function resetAllSettings(){
     try {
       // Show confirmation dialog
@@ -158,6 +243,7 @@
         '• All saved font configurations\n' +
         '• Known serif/sans family lists\n' +
         '• FontFace-only domains list\n' +
+        '• Toolbar settings\n' +
         '• Extension state and preferences\n\n' +
         'This action cannot be undone.'
       );
@@ -176,6 +262,14 @@
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       
+      // Reset toolbar settings to defaults
+      document.getElementById('toolbar-enabled').checked = true;
+      document.getElementById('toolbar-width').value = 36;
+      document.getElementById('toolbar-height').value = 20;
+      document.getElementById('toolbar-transparency').value = 0.2;
+      document.getElementById('toolbar-gap').value = 0;
+      updateToolbarValues();
+      
       statusEl.textContent = 'All settings reset successfully';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
       
@@ -187,6 +281,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function(){
+    initTabs();
     load();
     document.getElementById('save-serif').addEventListener('click', saveSerif);
     document.getElementById('save-sans').addEventListener('click', saveSans);
@@ -196,6 +291,11 @@
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
+    document.getElementById('save-toolbar').addEventListener('click', saveToolbar);
+    document.getElementById('toolbar-width').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-height').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-transparency').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-gap').addEventListener('input', updateToolbarValues);
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);

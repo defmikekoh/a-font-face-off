@@ -4,82 +4,181 @@
   <meta charset="utf-8">
   <title>A Font Face-off — Options</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 20px; color: #222; }
-    h1 { font-size: 18px; margin: 0 0 16px; }
-    .section { margin-bottom: 24px; }
-    label { display: block; font-weight: 600; margin-bottom: 8px; }
-    textarea { width: 100%; min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
-    button { padding: 6px 10px; border: 1px solid #bbb; background: #f5f5f5; border-radius: 4px; cursor: pointer; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #222; background: #f8f9fa; }
+    .header { background: white; padding: 20px; border-bottom: 1px solid #e9ecef; }
+    h1 { font-size: 20px; margin: 0; font-weight: 600; }
+    
+    .tabs { background: white; border-bottom: 1px solid #e9ecef; }
+    .tab-nav { display: flex; margin: 0; padding: 0 20px; }
+    .tab-button { background: none; border: none; padding: 16px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6c757d; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-button:hover { color: #495057; background: #f8f9fa; }
+    .tab-button.active { color: #2d7ef7; border-bottom-color: #2d7ef7; }
+    
+    .tab-content { display: none; padding: 20px; min-height: 500px; width: 100%; }
+    .tab-content.active { display: block; }
+    
+    .section { margin-bottom: 32px; background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-height: 200px; max-width: 100%; }
+    .section-title { font-size: 16px; font-weight: 600; margin: 0 0 16px; }
+    
+    label { display: block; font-weight: 500; margin-bottom: 8px; font-size: 14px; }
+    .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .slider-row label { margin: 0; min-width: 140px; font-size: 16px; }
+    input[type="range"] { flex: 1; height: 8px; }
+    .slider-value { min-width: 60px; font-weight: 600; color: #2d7ef7; font-size: 16px; }
+    
+    textarea { width: 100%; min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; padding: 12px; border: 1px solid #dee2e6; border-radius: 6px; resize: vertical; }
+    
+    .row { display: flex; gap: 8px; margin-top: 16px; align-items: center; }
+    button { padding: 8px 16px; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    button:hover { background: #e9ecef; }
     button.primary { background: #2d7ef7; color: white; border-color: #2d7ef7; }
-    .hint { color: #666; font-size: 12px; margin-top: 4px; }
-    .status { font-size: 12px; color: #2d7ef7; margin-left: 8px; }
+    button.primary:hover { background: #1a6de8; }
+    button.danger { background: #dc3545; color: white; border-color: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    button.purple { background: #6f42c1; color: white; border-color: #6f42c1; }
+    button.purple:hover { background: #5a32a3; }
+    
+    .hint { color: #6c757d; font-size: 13px; margin-top: 8px; line-height: 1.4; }
+    .status { font-size: 13px; color: #2d7ef7; margin-left: 8px; }
+    
+    .checkbox-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .checkbox-row input[type="checkbox"] { margin: 0; width: 18px; height: 18px; }
+    .checkbox-row label { margin: 0; font-weight: normal; font-size: 16px; }
+    
+    /* Responsive design for tablets */
+    @media (min-width: 768px) {
+      .tab-content { padding: 40px; }
+      .section { padding: 32px; margin-bottom: 40px; }
+      .section-title { font-size: 18px; margin-bottom: 24px; }
+      .slider-row { margin-bottom: 32px; }
+      .slider-row label { min-width: 160px; font-size: 17px; }
+      .slider-value { font-size: 17px; }
+      .checkbox-row { margin-bottom: 32px; }
+      .checkbox-row label { font-size: 17px; }
+      .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; }
+    }
   </style>
 </head>
 <body>
-  <h1>A Font Face-off — Options</h1>
-
-  <div class="section">
-    <label for="known-serif">Known Serif Family Names (classification)</label>
-    <textarea id="known-serif" placeholder="One family per line, case-insensitive. Example:\nPT Serif"></textarea>
-    <div class="row">
-      <button id="save-serif" class="primary">Save Serif List</button>
-      <button id="reset-serif">Reset to Default</button>
-      <span id="status-serif" class="status"></span>
+  <div class="header">
+    <h1>A Font Face-off — Options</h1>
+  </div>
+  
+  <div class="tabs">
+    <div class="tab-nav">
+      <button class="tab-button active" data-tab="toolbar">Toolbar</button>
+      <button class="tab-button" data-tab="advanced">Advanced</button>
     </div>
-    <div class="hint">Used to help classify a page’s base typeface as serif. Does not prevent Facade from changing fonts. Default includes PT Serif.</div>
   </div>
 
-  <div class="section">
-    <label for="known-sans">Known Sans Family Names (classification)</label>
-    <textarea id="known-sans" placeholder="One family per line, case-insensitive."></textarea>
-    <div class="row">
-      <button id="save-sans" class="primary">Save Sans List</button>
-      <button id="reset-sans">Reset to Default</button>
-      <span id="status-sans" class="status"></span>
+  <!-- Toolbar Tab -->
+  <div class="tab-content active" id="toolbar-tab">
+    <div class="section">
+      <div class="section-title">Toolbar Settings</div>
+      
+      <div class="checkbox-row">
+        <input type="checkbox" id="toolbar-enabled">
+        <label for="toolbar-enabled">Enable webpage toolbar</label>
+      </div>
+      
+      <div class="slider-row">
+        <label for="toolbar-width">Width (px):</label>
+        <input type="range" id="toolbar-width" min="24" max="80" value="36">
+        <span id="toolbar-width-value" class="slider-value">36px</span>
+      </div>
+      
+      <div class="slider-row">
+        <label for="toolbar-height">Height (%):</label>
+        <input type="range" id="toolbar-height" min="10" max="80" value="20">
+        <span id="toolbar-height-value" class="slider-value">20%</span>
+      </div>
+      
+      <div class="slider-row">
+        <label for="toolbar-transparency">Transparency:</label>
+        <input type="range" id="toolbar-transparency" min="0" max="1" step="0.1" value="0.2">
+        <span id="toolbar-transparency-value" class="slider-value">0.2</span>
+      </div>
+      
+      <div class="slider-row">
+        <label for="toolbar-gap">Gap from edge (px):</label>
+        <input type="range" id="toolbar-gap" min="0" max="20" value="0">
+        <span id="toolbar-gap-value" class="slider-value">0px</span>
+      </div>
+      
+      <div class="row">
+        <button id="save-toolbar" class="primary">Save Toolbar Settings</button>
+        <span id="status-toolbar" class="status"></span>
+      </div>
+      <div class="hint">Shows a floating button on the right side of web pages to quickly open the extension popup. Position is centered vertically based on the height percentage.</div>
     </div>
-    <div class="hint">Used to help classify a page’s base typeface as sans-serif. Does not prevent Facade from changing fonts.</div>
   </div>
 
-  <div class="section">
-    <label for="ff-only-domains">FontFace-only Domains</label>
-    <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
-    <div class="row">
-      <button id="save-ffonly" class="primary">Save Domains</button>
-      <button id="reset-ffonly">Reset to Default</button>
-      <span id="status-ffonly" class="status"></span>
+  <!-- Advanced Tab -->
+  <div class="tab-content" id="advanced-tab">
+    <div class="section">
+      <div class="section-title">Known Serif Family Names</div>
+      <label for="known-serif">Classification</label>
+      <textarea id="known-serif" placeholder="One family per line, case-insensitive. Example:\nPT Serif"></textarea>
+      <div class="row">
+        <button id="save-serif" class="primary">Save Serif List</button>
+        <button id="reset-serif">Reset to Default</button>
+        <span id="status-serif" class="status"></span>
+      </div>
+      <div class="hint">Used to help classify a page's base typeface as serif. Does not prevent Facade from changing fonts. Default includes PT Serif.</div>
     </div>
-    <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
-  </div>
 
-  <div class="section">
-    <label for="inline-domains">Inline Apply Domains</label>
-    <textarea id="inline-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
-    <div class="row">
-      <button id="save-inline" class="primary">Save Domains</button>
-      <button id="reset-inline">Reset to Default</button>
-      <span id="status-inline" class="status"></span>
+    <div class="section">
+      <div class="section-title">Known Sans Family Names</div>
+      <label for="known-sans">Classification</label>
+      <textarea id="known-sans" placeholder="One family per line, case-insensitive."></textarea>
+      <div class="row">
+        <button id="save-sans" class="primary">Save Sans List</button>
+        <button id="reset-sans">Reset to Default</button>
+        <span id="status-sans" class="status"></span>
+      </div>
+      <div class="hint">Used to help classify a page's base typeface as sans-serif. Does not prevent Facade from changing fonts.</div>
     </div>
-    <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>
-  </div>
 
-  <div class="section">
-    <label>Font Cache Management</label>
-    <div class="row">
-      <button id="clear-font-cache" style="background: #6f42c1; color: white; border-color: #6f42c1;">Clear Font Cache</button>
-      <button id="view-cache-info">View Cache Info</button>
-      <span id="status-cache" class="status"></span>
+    <div class="section">
+      <div class="section-title">FontFace-only Domains</div>
+      <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+      <div class="row">
+        <button id="save-ffonly" class="primary">Save Domains</button>
+        <button id="reset-ffonly">Reset to Default</button>
+        <span id="status-ffonly" class="status"></span>
+      </div>
+      <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
     </div>
-    <div class="hint">Font cache stores downloaded fonts for faster loading on x.com and other FontFace-only domains. Cache expires after 1 year.</div>
-  </div>
 
-  <div class="section">
-    <label>Reset All Local Settings</label>
-    <div class="row">
-      <button id="reset-all-settings" style="background: #d73a49; color: white; border-color: #d73a49;">Reset All Local Settings</button>
-      <span id="status-reset-all" class="status"></span>
+    <div class="section">
+      <div class="section-title">Inline Apply Domains</div>
+      <textarea id="inline-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+      <div class="row">
+        <button id="save-inline" class="primary">Save Domains</button>
+        <button id="reset-inline">Reset to Default</button>
+        <span id="status-inline" class="status"></span>
+      </div>
+      <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>
     </div>
-    <div class="hint">⚠️ This will clear all extension data including applied fonts, saved configurations, and custom settings. This action cannot be undone.</div>
+
+    <div class="section">
+      <div class="section-title">Font Cache Management</div>
+      <div class="row">
+        <button id="clear-font-cache" class="purple">Clear Font Cache</button>
+        <button id="view-cache-info">View Cache Info</button>
+        <span id="status-cache" class="status"></span>
+      </div>
+      <div class="hint">Font cache stores downloaded fonts for faster loading on x.com and other FontFace-only domains. Cache expires after 1 year.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Reset All Local Settings</div>
+      <div class="row">
+        <button id="reset-all-settings" class="danger">Reset All Local Settings</button>
+        <span id="status-reset-all" class="status"></span>
+      </div>
+      <div class="hint">⚠️ This will clear all extension data including applied fonts, saved configurations, and custom settings. This action cannot be undone.</div>
+    </div>
   </div>
 
   <script src="options.js"></script>

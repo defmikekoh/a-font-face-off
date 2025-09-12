@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Hockey mask with sticks and puck">
+  <title>Hockey mask with sticks and puck</title>
+  <!-- Left stick (moved outward, no crossing) -->
+  <path d="M4 4 L7.5 12.5"/>
+  <path d="M7.5 12.5 l-1.5 3 H4.5"/>
+  <!-- Right stick (moved outward, no crossing) -->
+  <path d="M20 4 L16.5 12.5"/>
+  <path d="M16.5 12.5 l1.5 3 H19.5"/>
+  <!-- Simple hockey mask outline -->
+  <path d="M12 7c-3 0-4.5 2.1-4.5 4.2 0 3.1 2 6.2 4.5 6.7 2.5-.5 4.5-3.6 4.5-6.7C16.5 9.1 15 7 12 7Z"/>
+  <!-- Eyes -->
+  <circle cx="9.8" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
+  <circle cx="14.2" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
+  <!-- Vents -->
+  <circle cx="12" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
+  <circle cx="10.6" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
+  <circle cx="13.4" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
+  <!-- Puck -->
+  <ellipse cx="12" cy="19" rx="3.0" ry="1.4" fill="currentColor" stroke="none"/>
+</svg>
