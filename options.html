@@ -3,107 +3,44 @@
 <head>
   <meta charset="utf-8">
   <title>A Font Face-off — Options</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #222; background: #f8f9fa; }
-    .header { background: white; padding: 20px; border-bottom: 1px solid #e9ecef; }
-    h1 { font-size: 20px; margin: 0; font-weight: 600; }
-    
-    .tabs { background: white; border-bottom: 1px solid #e9ecef; }
-    .tab-nav { display: flex; margin: 0; padding: 0 20px; }
-    .tab-button { background: none; border: none; padding: 16px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6c757d; border-bottom: 2px solid transparent; transition: all 0.2s; }
-    .tab-button:hover { color: #495057; background: #f8f9fa; }
-    .tab-button.active { color: #2d7ef7; border-bottom-color: #2d7ef7; }
-    
-    .tab-content { display: none; padding: 20px; min-height: 500px; width: 100%; }
-    .tab-content.active { display: block; }
-    
-    .section { margin-bottom: 32px; background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-height: 200px; max-width: 100%; }
-    .section-title { font-size: 16px; font-weight: 600; margin: 0 0 16px; }
-    
-    label { display: block; font-weight: 500; margin-bottom: 8px; font-size: 14px; }
-    .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .slider-row label { margin: 0; min-width: 140px; font-size: 16px; }
-    input[type="range"] { flex: 1; height: 8px; }
-    .slider-value { min-width: 60px; font-weight: 600; color: #2d7ef7; font-size: 16px; }
-    
-    textarea { width: 100%; min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; padding: 12px; border: 1px solid #dee2e6; border-radius: 6px; resize: vertical; }
-    
-    .row { display: flex; gap: 8px; margin-top: 16px; align-items: center; }
-    button { padding: 8px 16px; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
-    button:hover { background: #e9ecef; }
-    button.primary { background: #2d7ef7; color: white; border-color: #2d7ef7; }
-    button.primary:hover { background: #1a6de8; }
-    button.danger { background: #dc3545; color: white; border-color: #dc3545; }
-    button.danger:hover { background: #c82333; }
-    button.purple { background: #6f42c1; color: white; border-color: #6f42c1; }
-    button.purple:hover { background: #5a32a3; }
-    
-    .hint { color: #6c757d; font-size: 13px; margin-top: 8px; line-height: 1.4; }
-    .status { font-size: 13px; color: #2d7ef7; margin-left: 8px; }
-    
-    .checkbox-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .checkbox-row input[type="checkbox"] { margin: 0; width: 18px; height: 18px; }
-    .checkbox-row label { margin: 0; font-weight: normal; font-size: 16px; }
-    
-    /* Responsive design for tablets */
-    @media (min-width: 768px) {
-      .tab-content { padding: 40px; }
-      .section { padding: 32px; margin-bottom: 40px; }
-      .section-title { font-size: 18px; margin-bottom: 24px; }
-      .slider-row { margin-bottom: 32px; }
-      .slider-row label { min-width: 160px; font-size: 17px; }
-      .slider-value { font-size: 17px; }
-      .checkbox-row { margin-bottom: 32px; }
-      .checkbox-row label { font-size: 17px; }
-      .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; }
-    }
-  </style>
+  <link rel="stylesheet" type="text/css" href="settings.css" />
 </head>
 <body>
-  <div class="header">
-    <h1>A Font Face-off — Options</h1>
+  <div id="header">
+    <h2>A Font Face-off — Options</h2>
   </div>
   
-  <div class="tabs">
-    <div class="tab-nav">
-      <button class="tab-button active" data-tab="toolbar">Toolbar</button>
-      <button class="tab-button" data-tab="advanced">Advanced</button>
-    </div>
+  <div id="settingsTabs">
+    <div id="generalTab" style="border-color: var(--primary-color); border-radius: 4px 0 0 4px;">Toolbar</div>
+    <div id="excludeTab" style="border-color: var(--box-background); border-radius: 0 4px 4px 0;">Advanced</div>
   </div>
 
-  <!-- Toolbar Tab -->
-  <div class="tab-content active" id="toolbar-tab">
-    <div class="section">
-      <div class="section-title">Toolbar Settings</div>
+  <div id="generalSettings">
+    <div style="background: var(--box-background); padding: 20px; border-radius: 10px; margin: 0 auto; width: 90%; max-width: 500px;">
+      <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Toolbar Settings</label>
       
-      <div class="checkbox-row">
-        <input type="checkbox" id="toolbar-enabled">
-        <label for="toolbar-enabled">Enable webpage toolbar</label>
-      </div>
+      <input type="checkbox" id="toolbar-enabled">
+      <label for="toolbar-enabled">Enable webpage toolbar</label>
       
-      <div class="slider-row">
-        <label for="toolbar-width">Width (px):</label>
-        <input type="range" id="toolbar-width" min="24" max="80" value="36">
-        <span id="toolbar-width-value" class="slider-value">36px</span>
-      </div>
+      <label for="toolbar-width">Width (px):</label>
+      <span id="toolbar-width-value" class="currentValue">36px</span>
+      <input type="range" id="toolbar-width" min="24" max="80" value="36">
+      <br />
       
-      <div class="slider-row">
-        <label for="toolbar-height">Height (%):</label>
-        <input type="range" id="toolbar-height" min="10" max="80" value="20">
-        <span id="toolbar-height-value" class="slider-value">20%</span>
-      </div>
+      <label for="toolbar-height">Height (%):</label>
+      <span id="toolbar-height-value" class="currentValue">20%</span>
+      <input type="range" id="toolbar-height" min="10" max="80" value="20">
+      <br />
       
-      <div class="slider-row">
-        <label for="toolbar-transparency">Transparency:</label>
-        <input type="range" id="toolbar-transparency" min="0" max="1" step="0.1" value="0.2">
-        <span id="toolbar-transparency-value" class="slider-value">0.2</span>
-      </div>
+      <label for="toolbar-transparency">Transparency:</label>
+      <span id="toolbar-transparency-value" class="currentValue">0.2</span>
+      <input type="range" id="toolbar-transparency" min="0" max="1" step="0.1" value="0.2">
+      <br />
       
-      <div class="slider-row">
-        <label for="toolbar-gap">Gap from edge (px):</label>
-        <input type="range" id="toolbar-gap" min="0" max="20" value="0">
-        <span id="toolbar-gap-value" class="slider-value">0px</span>
-      </div>
+      <label for="toolbar-gap">Gap from edge (px):</label>
+      <span id="toolbar-gap-value" class="currentValue">0px</span>
+      <input type="range" id="toolbar-gap" min="0" max="20" value="0">
+      <br />
       
       <div class="row">
         <button id="save-toolbar" class="primary">Save Toolbar Settings</button>
@@ -113,8 +50,7 @@
     </div>
   </div>
 
-  <!-- Advanced Tab -->
-  <div class="tab-content" id="advanced-tab">
+  <div id="excludeSettings" style="display: none;">
     <div class="section">
       <div class="section-title">Known Serif Family Names</div>
       <label for="known-serif">Classification</label>

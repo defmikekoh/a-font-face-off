@@ -108,7 +108,7 @@
             right: options.gap + 'px',
             width: options.width + 'px',
             height: containerHeight + 'px',
-            zIndex: '2147483647', // Maximum z-index
+            zIndex: '2147483647',
             pointerEvents: 'auto',
             display: 'flex',
             flexDirection: 'column',
@@ -153,7 +153,7 @@
         
         // Load the monochrome icon
         toolbarButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
                  role="img" aria-label="Hockey mask with sticks and puck" style="pointer-events: none; background: transparent;">
               <title>Hockey mask with sticks and puck</title>
@@ -220,7 +220,7 @@
             Object.assign(toolbarButton.style, {
                 background: 'transparent',
                 transform: 'scale(1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                boxShadow: 'none'
             });
         });
         
@@ -333,7 +333,7 @@
             Object.assign(fontInspectorButton.style, {
                 background: 'transparent',
                 transform: 'scale(1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                boxShadow: 'none'
             });
         });
         
