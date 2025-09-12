@@ -58,6 +58,8 @@
   z-index: auto;
   zoom: 1;
   -webkit-font-smoothing: antialiased;
+  /* Fix: Prevent any WhatFont element from causing horizontal overflow */
+  box-sizing: border-box;
 }
 
 /*
@@ -145,6 +147,12 @@
   position: fixed;
   right: 10px;
   top: 10px;
+  /* Fix: Prevent the control from affecting page layout */
+  max-width: calc(100vw - 20px);
+  width: auto;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .__whatfont_exit {
@@ -166,6 +174,9 @@
   position: absolute;
   width: 260px;
 	z-index: 214748364;
+  /* Fix: Ensure panel doesn't cause layout issues */
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
 }
 
 .__whatfont_panel_title {
@@ -448,4 +459,28 @@ ul.__whatfont_font_service li {
 
 .__whatfont_panel_content .__whatfont_panel_tools .__whatfont_tweet_icon:hover {
   opacity: 1;
+}
+
+/* Additional fix: Comprehensive protection against page widening */
+[class*="__whatfont"] {
+  /* Ensure all WhatFont elements stay within viewport bounds */
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+}
+
+/* Specific fixes for positioned elements that could cause overflow */
+.__whatfont_control,
+.__whatfont_tip,
+.__whatfont_panel {
+  /* Prevent these positioned elements from extending beyond viewport */
+  max-width: calc(100vw - 20px) !important;
+  left: auto !important;
+  right: 10px !important;
+}
+
+/* Ensure the exit button text doesn't force unwanted width */
+.__whatfont_exit {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
