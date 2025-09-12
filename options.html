@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>A Font Face-off — Options</title>
   <link rel="stylesheet" type="text/css" href="settings.css" />
 </head>
@@ -11,43 +12,63 @@
   </div>
   
   <div id="settingsTabs">
-    <div id="generalTab" style="border-color: var(--primary-color); border-radius: 4px 0 0 4px;">Toolbar</div>
-    <div id="excludeTab" style="border-color: var(--box-background); border-radius: 0 4px 4px 0;">Advanced</div>
+    <div id="generalTab">Toolbar</div>
+    <div id="excludeTab">Advanced</div>
   </div>
 
   <div id="generalSettings">
-    <div style="background: var(--box-background); padding: 20px; border-radius: 10px; margin: 0 auto; width: 90%; max-width: 500px;">
-      <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Toolbar Settings</label>
-      
-      <input type="checkbox" id="toolbar-enabled">
-      <label for="toolbar-enabled">Enable webpage toolbar</label>
-      
-      <label for="toolbar-width">Width (px):</label>
-      <span id="toolbar-width-value" class="currentValue">36px</span>
-      <input type="range" id="toolbar-width" min="24" max="80" value="36">
-      <br />
-      
-      <label for="toolbar-height">Height (%):</label>
-      <span id="toolbar-height-value" class="currentValue">20%</span>
-      <input type="range" id="toolbar-height" min="10" max="80" value="20">
-      <br />
-      
-      <label for="toolbar-transparency">Transparency:</label>
-      <span id="toolbar-transparency-value" class="currentValue">0.2</span>
-      <input type="range" id="toolbar-transparency" min="0" max="1" step="0.1" value="0.2">
-      <br />
-      
-      <label for="toolbar-gap">Gap from edge (px):</label>
-      <span id="toolbar-gap-value" class="currentValue">0px</span>
-      <input type="range" id="toolbar-gap" min="0" max="20" value="0">
-      <br />
-      
-      <div class="row">
-        <button id="save-toolbar" class="primary">Save Toolbar Settings</button>
-        <span id="status-toolbar" class="status"></span>
-      </div>
-      <div class="hint">Shows a floating button on the right side of web pages to quickly open the extension popup. Position is centered vertically based on the height percentage.</div>
+    <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Toolbar Settings</label>
+    
+    <div id="toolbar-preview" style="position: fixed; top: 20%; right: 0px; width: 36px; height: 20vh; z-index: 1000; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(249, 249, 251, 0.9); border-radius: 8px; opacity: 0.8; box-sizing: border-box;">
+      <button id="preview-font-selector" style="width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: #2d7ef7; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; margin: 2px 0; outline: none; box-shadow: none; background-color: transparent; transition: all 0.2s ease;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; background: transparent;">
+          <path d="M7 7H17M7 17L17 7M7 17H17"/>
+        </svg>
+      </button>
+      <button id="preview-font-inspector" style="width: 28px; height: 28px; border: none; border-radius: 8px; background: transparent; color: #2d7ef7; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; margin: 2px 0; outline: none; box-shadow: none; background-color: transparent; transition: all 0.2s ease;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; background: transparent;">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </button>
     </div>
+    
+    <label for="toolbar-enabled">Toolbar Enabled?</label>
+    <select id="toolbar-enabled">
+        <option value="true">Enabled</option>
+        <option value="false">Disabled</option>
+    </select>
+    
+    <label for="toolbar-width">Width (px):</label>
+    <span id="toolbar-width-value" class="currentValue">36px</span>
+    <input type="range" id="toolbar-width" min="24" max="80" value="36">
+    <br />
+    
+    <label for="toolbar-height">Height (%):</label>
+    <span id="toolbar-height-value" class="currentValue">20%</span>
+    <input type="range" id="toolbar-height" min="10" max="80" value="20">
+    <br />
+    
+    <label for="toolbar-position">Position (%):</label>
+    <span id="toolbar-position-value" class="currentValue">50%</span>
+    <input type="range" id="toolbar-position" min="0" max="100" value="50">
+    <br />
+    
+    <label for="toolbar-transparency">Transparency:</label>
+    <span id="toolbar-transparency-value" class="currentValue">0.2</span>
+    <input type="range" id="toolbar-transparency" min="0" max="1" step="0.1" value="0.2">
+    <br />
+    
+    <label for="toolbar-gap">Gap from edge (px):</label>
+    <span id="toolbar-gap-value" class="currentValue">0px</span>
+    <input type="range" id="toolbar-gap" min="0" max="20" value="0">
+    <br />
+    
+    <div class="row">
+      <button id="save-toolbar">Save Toolbar Settings</button>
+      <span id="status-toolbar" class="status"></span>
+    </div>
+    <div class="hint">Shows a floating button on the right side of web pages to quickly open the extension popup. Position is centered vertically based on the height percentage.</div>
   </div>
 
   <div id="excludeSettings" style="display: none;">
@@ -56,8 +77,8 @@
       <label for="known-serif">Classification</label>
       <textarea id="known-serif" placeholder="One family per line, case-insensitive. Example:\nPT Serif"></textarea>
       <div class="row">
-        <button id="save-serif" class="primary">Save Serif List</button>
         <button id="reset-serif">Reset to Default</button>
+        <button id="save-serif">Save Serif List</button>
         <span id="status-serif" class="status"></span>
       </div>
       <div class="hint">Used to help classify a page's base typeface as serif. Does not prevent Facade from changing fonts. Default includes PT Serif.</div>
@@ -68,8 +89,8 @@
       <label for="known-sans">Classification</label>
       <textarea id="known-sans" placeholder="One family per line, case-insensitive."></textarea>
       <div class="row">
-        <button id="save-sans" class="primary">Save Sans List</button>
         <button id="reset-sans">Reset to Default</button>
+        <button id="save-sans">Save Sans List</button>
         <span id="status-sans" class="status"></span>
       </div>
       <div class="hint">Used to help classify a page's base typeface as sans-serif. Does not prevent Facade from changing fonts.</div>
@@ -79,8 +100,8 @@
       <div class="section-title">FontFace-only Domains</div>
       <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
       <div class="row">
-        <button id="save-ffonly" class="primary">Save Domains</button>
         <button id="reset-ffonly">Reset to Default</button>
+        <button id="save-ffonly">Save Domains</button>
         <span id="status-ffonly" class="status"></span>
       </div>
       <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
@@ -90,8 +111,8 @@
       <div class="section-title">Inline Apply Domains</div>
       <textarea id="inline-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
       <div class="row">
-        <button id="save-inline" class="primary">Save Domains</button>
         <button id="reset-inline">Reset to Default</button>
+        <button id="save-inline">Save Domains</button>
         <span id="status-inline" class="status"></span>
       </div>
       <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>

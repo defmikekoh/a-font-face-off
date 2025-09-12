@@ -97,6 +97,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
           'affoToolbarEnabled',
           'affoToolbarWidth',
           'affoToolbarHeight',
+          'affoToolbarPosition',
           'affoToolbarTransparency',
           'affoToolbarGap'
         ]);
@@ -207,6 +208,10 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
   if (changes.affoToolbarHeight) {
     toolbarOptionsChanged.affoToolbarHeight = changes.affoToolbarHeight.newValue;
+    hasToolbarChanges = true;
+  }
+  if (changes.affoToolbarPosition) {
+    toolbarOptionsChanged.affoToolbarPosition = changes.affoToolbarPosition.newValue;
     hasToolbarChanges = true;
   }
   if (changes.affoToolbarTransparency) {

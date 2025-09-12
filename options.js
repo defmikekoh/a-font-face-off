@@ -1,5 +1,62 @@
 /* Options page logic: manage known serif/sans lists */
 (function(){
+  // Theme functionality to match essential-buttons-toolbar
+  function overrideTheme(theme) {
+    document.documentElement.classList.toggle('dark-theme', theme === 'dark');
+    document.documentElement.classList.toggle('light-theme', theme === 'light');
+  }
+  
+  // Use auto theme to match essential-buttons-toolbar default behavior
+  overrideTheme('auto');
+
+  // Toolbar preview functionality
+  function updateToolbarPreview() {
+    const preview = document.getElementById('toolbar-preview');
+    const enabled = document.getElementById('toolbar-enabled').value === 'true';
+    const width = parseInt(document.getElementById('toolbar-width').value);
+    const height = parseInt(document.getElementById('toolbar-height').value);
+    const position = parseInt(document.getElementById('toolbar-position').value);
+    const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
+    const gap = parseInt(document.getElementById('toolbar-gap').value);
+    
+    if (!preview) return;
+    
+    if (enabled) {
+      preview.style.display = 'flex';
+      
+      // Height determines container size, position determines vertical location
+      const containerHeight = (window.innerHeight * height / 100);
+      const topOffset = (window.innerHeight - containerHeight) * (position / 100);
+      
+      // Apply real toolbar styling exactly like the real toolbar
+      preview.style.position = 'fixed';
+      preview.style.top = topOffset + 'px';
+      preview.style.right = gap + 'px';
+      preview.style.width = width + 'px';
+      preview.style.height = containerHeight + 'px';
+      preview.style.justifyContent = 'space-between';
+      preview.style.padding = '20px 0';
+      preview.style.background = 'rgba(249, 249, 251, 0.9)';
+      preview.style.borderRadius = '8px';
+      // Match essential-buttons-toolbar behavior: transparency = opacity (higher = more opaque)
+      preview.style.opacity = transparency;
+      
+      console.log('[Preview] Transparency calculation (matching essential-buttons-toolbar):', {
+        transparency: transparency,
+        finalOpacity: transparency
+      });
+      
+      // Update button sizes (with 8px padding like real toolbar)
+      const buttonSize = Math.max(width - 8, 24);
+      const buttons = preview.querySelectorAll('button');
+      buttons.forEach(button => {
+        button.style.width = buttonSize + 'px';
+        button.style.height = buttonSize + 'px';
+      });
+    } else {
+      preview.style.display = 'none';
+    }
+  }
   const DEFAULT_SERIF = ['PT Serif'];
   const DEFAULT_SANS = [];
   const DEFAULT_FFONLY = ['x.com'];
@@ -7,21 +64,29 @@
   
   // Tab functionality
   function initTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
+    const generalTab = document.getElementById('generalTab');
+    const excludeTab = document.getElementById('excludeTab');
+    const generalSettings = document.getElementById('generalSettings');
+    const excludeSettings = document.getElementById('excludeSettings');
     
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const targetTab = button.dataset.tab;
-        
-        // Remove active class from all buttons and contents
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        tabContents.forEach(content => content.classList.remove('active'));
-        
-        // Add active class to clicked button and corresponding content
-        button.classList.add('active');
-        document.getElementById(targetTab + '-tab').classList.add('active');
-      });
+    generalTab.addEventListener('click', () => {
+      // Show general, hide exclude
+      generalSettings.style.display = 'block';
+      excludeSettings.style.display = 'none';
+      
+      // Update tab appearance
+      generalTab.style.borderColor = 'var(--primary-color)';
+      excludeTab.style.borderColor = 'var(--box-background)';
+    });
+    
+    excludeTab.addEventListener('click', () => {
+      // Show exclude, hide general  
+      generalSettings.style.display = 'none';
+      excludeSettings.style.display = 'block';
+      
+      // Update tab appearance
+      generalTab.style.borderColor = 'var(--box-background)';
+      excludeTab.style.borderColor = 'var(--primary-color)';
     });
   }
 
@@ -49,6 +114,7 @@
         'affoToolbarEnabled',
         'affoToolbarWidth',
         'affoToolbarHeight',
+        'affoToolbarPosition',
         'affoToolbarTransparency',
         'affoToolbarGap'
       ]);
@@ -62,21 +128,27 @@
       document.getElementById('inline-domains').value = toTextarea(inline);
       
       // Load toolbar settings with new defaults
-      document.getElementById('toolbar-enabled').checked = data.affoToolbarEnabled !== false; // Default to true
+      document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
       const width = data.affoToolbarWidth || 36;
       const height = data.affoToolbarHeight || 20;
+      const position = data.affoToolbarPosition !== undefined ? data.affoToolbarPosition : 50;
       const transparency = data.affoToolbarTransparency !== undefined ? data.affoToolbarTransparency : 0.2;
       const gap = data.affoToolbarGap || 0;
       
       document.getElementById('toolbar-width').value = width;
       document.getElementById('toolbar-height').value = height;
+      document.getElementById('toolbar-position').value = position;
       document.getElementById('toolbar-transparency').value = transparency;
       document.getElementById('toolbar-gap').value = gap;
       
       document.getElementById('toolbar-width-value').textContent = width + 'px';
       document.getElementById('toolbar-height-value').textContent = height + '%';
+      document.getElementById('toolbar-position-value').textContent = position + '%';
       document.getElementById('toolbar-transparency-value').textContent = transparency;
       document.getElementById('toolbar-gap-value').textContent = gap + 'px';
+      
+      // Update preview after loading settings
+      updateToolbarPreview();
     } catch (e) {}
   }
 
@@ -197,9 +269,10 @@
 
   async function saveToolbar(){
     try {
-      const enabled = document.getElementById('toolbar-enabled').checked;
+      const enabled = document.getElementById('toolbar-enabled').value === 'true';
       const width = parseInt(document.getElementById('toolbar-width').value);
       const height = parseInt(document.getElementById('toolbar-height').value);
+      const position = parseInt(document.getElementById('toolbar-position').value);
       const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
       const gap = parseInt(document.getElementById('toolbar-gap').value);
       
@@ -207,6 +280,7 @@
         affoToolbarEnabled: enabled,
         affoToolbarWidth: width,
         affoToolbarHeight: height,
+        affoToolbarPosition: position,
         affoToolbarTransparency: transparency,
         affoToolbarGap: gap
       });
@@ -224,11 +298,13 @@
   function updateToolbarValues() {
     const width = document.getElementById('toolbar-width').value;
     const height = document.getElementById('toolbar-height').value;
+    const position = document.getElementById('toolbar-position').value;
     const transparency = document.getElementById('toolbar-transparency').value;
     const gap = document.getElementById('toolbar-gap').value;
     
     document.getElementById('toolbar-width-value').textContent = width + 'px';
     document.getElementById('toolbar-height-value').textContent = height + '%';
+    document.getElementById('toolbar-position-value').textContent = position + '%';
     document.getElementById('toolbar-transparency-value').textContent = transparency;
     document.getElementById('toolbar-gap-value').textContent = gap + 'px';
   }
@@ -263,9 +339,10 @@
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       
       // Reset toolbar settings to defaults
-      document.getElementById('toolbar-enabled').checked = true;
+      document.getElementById('toolbar-enabled').value = 'true';
       document.getElementById('toolbar-width').value = 36;
       document.getElementById('toolbar-height').value = 20;
+      document.getElementById('toolbar-position').value = 50;
       document.getElementById('toolbar-transparency').value = 0.2;
       document.getElementById('toolbar-gap').value = 0;
       updateToolbarValues();
@@ -292,12 +369,32 @@
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('save-toolbar').addEventListener('click', saveToolbar);
-    document.getElementById('toolbar-width').addEventListener('input', updateToolbarValues);
-    document.getElementById('toolbar-height').addEventListener('input', updateToolbarValues);
-    document.getElementById('toolbar-transparency').addEventListener('input', updateToolbarValues);
-    document.getElementById('toolbar-gap').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-enabled').addEventListener('change', updateToolbarPreview);
+    document.getElementById('toolbar-width').addEventListener('input', function() {
+      updateToolbarValues();
+      updateToolbarPreview();
+    });
+    document.getElementById('toolbar-height').addEventListener('input', function() {
+      updateToolbarValues();
+      updateToolbarPreview();
+    });
+    document.getElementById('toolbar-position').addEventListener('input', function() {
+      updateToolbarValues();
+      updateToolbarPreview();
+    });
+    document.getElementById('toolbar-transparency').addEventListener('input', function() {
+      updateToolbarValues();
+      updateToolbarPreview();
+    });
+    document.getElementById('toolbar-gap').addEventListener('input', function() {
+      updateToolbarValues();
+      updateToolbarPreview();
+    });
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
+    
+    // Initialize preview after load
+    setTimeout(updateToolbarPreview, 100);
   });
 })();

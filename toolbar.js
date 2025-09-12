@@ -10,6 +10,7 @@
         enabled: true,
         width: 36, // Default 36px button width
         height: 20, // Default 20% of screen height
+        position: 50, // Default 50% vertical position (center)
         transparency: 0.2, // Default 0.2 transparency
         gap: 0 // Default 0px gap from edge
     };
@@ -64,6 +65,7 @@
                     if (result.affoToolbarEnabled !== undefined) options.enabled = result.affoToolbarEnabled;
                     if (result.affoToolbarWidth !== undefined) options.width = result.affoToolbarWidth;
                     if (result.affoToolbarHeight !== undefined) options.height = result.affoToolbarHeight;
+                    if (result.affoToolbarPosition !== undefined) options.position = result.affoToolbarPosition;
                     if (result.affoToolbarTransparency !== undefined) options.transparency = result.affoToolbarTransparency;
                     if (result.affoToolbarGap !== undefined) options.gap = result.affoToolbarGap;
                 }
@@ -85,8 +87,9 @@
         toolbarContainer = document.createElement('div');
         toolbarContainer.id = 'affo-toolbar-container';
         
+        // Height determines container size, position determines vertical location
         const containerHeight = (window.innerHeight * options.height / 100);
-        const topOffset = (window.innerHeight - containerHeight) * (options.height / 100); // Position based on height percentage
+        const topOffset = (window.innerHeight - containerHeight) * (options.position / 100);
         
         console.log('[AFFO Toolbar] Container dimensions:', {
             height: containerHeight,
@@ -96,7 +99,8 @@
         });
         
         // Apply styles directly to avoid CSP issues
-        const finalOpacity = 1 - options.transparency;
+        // Match essential-buttons-toolbar behavior: transparency = opacity (higher = more opaque)
+        const finalOpacity = options.transparency;
         console.log('[AFFO Toolbar] Transparency calculation:', {
             optionsTransparency: options.transparency,
             finalOpacity: finalOpacity
@@ -112,8 +116,9 @@
             pointerEvents: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'center',
+            justifyContent: 'space-between',
             alignItems: 'center',
+            padding: '20px 0',
             background: 'rgba(249, 249, 251, 0.9)',
             borderRadius: '8px',
             transition: 'opacity 0.2s ease',
@@ -157,23 +162,23 @@
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
                  role="img" aria-label="Hockey mask with sticks and puck" style="pointer-events: none; background: transparent;">
               <title>Hockey mask with sticks and puck</title>
-              <!-- Left stick (moved outward, no crossing) -->
-              <path d="M4 4 L7.5 12.5"/>
-              <path d="M7.5 12.5 l-1.5 3 H4.5"/>
-              <!-- Right stick (moved outward, no crossing) -->
-              <path d="M20 4 L16.5 12.5"/>
-              <path d="M16.5 12.5 l1.5 3 H19.5"/>
-              <!-- Simple hockey mask outline -->
-              <path d="M12 7c-3 0-4.5 2.1-4.5 4.2 0 3.1 2 6.2 4.5 6.7 2.5-.5 4.5-3.6 4.5-6.7C16.5 9.1 15 7 12 7Z"/>
+              <!-- Left stick (more vertical, longer; blade larger and inward) -->
+              <path d="M4 3 L7 19"/>
+              <path d="M7 19 L10.6 21"/>
+              <!-- Right stick (more vertical, longer; blade larger and inward) -->
+              <path d="M20 3 L17 19"/>
+              <path d="M17 19 L13.4 21"/>
+              <!-- Smaller mask moved up -->
+              <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
               <!-- Eyes -->
-              <circle cx="9.8" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
-              <circle cx="14.2" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
+              <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+              <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
               <!-- Vents -->
-              <circle cx="12" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <circle cx="10.6" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <circle cx="13.4" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <!-- Puck -->
-              <ellipse cx="12" cy="19" rx="3.0" ry="1.4" fill="currentColor" stroke="none"/>
+              <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <!-- Puck (smaller, moved up to avoid blade overlap) -->
+              <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
             </svg>
         `;
         
@@ -451,8 +456,9 @@
     function updateToolbarAppearance() {
         if (!toolbarContainer || !toolbarButton) return;
         
+        // Height determines container size, position determines vertical location
         const containerHeight = (window.innerHeight * options.height / 100);
-        const topOffset = (window.innerHeight - containerHeight) * (options.height / 100); // Position based on height percentage
+        const topOffset = (window.innerHeight - containerHeight) * (options.position / 100);
         
         // Update container
         Object.assign(toolbarContainer.style, {
@@ -460,8 +466,10 @@
             right: options.gap + 'px',
             width: options.width + 'px',
             height: containerHeight + 'px',
+            justifyContent: 'space-between',
+            padding: '20px 0',
             background: 'rgba(249, 249, 251, 0.9)',
-            opacity: 1 - options.transparency
+            opacity: options.transparency
         });
         
         // Update button
@@ -517,17 +525,23 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
                  style="pointer-events: none; background: transparent;">
-              <path d="M4 4 L7.5 12.5"/>
-              <path d="M7.5 12.5 l-1.5 3 H4.5"/>
-              <path d="M20 4 L16.5 12.5"/>
-              <path d="M16.5 12.5 l1.5 3 H19.5"/>
-              <path d="M12 7c-3 0-4.5 2.1-4.5 4.2 0 3.1 2 6.2 4.5 6.7 2.5-.5 4.5-3.6 4.5-6.7C16.5 9.1 15 7 12 7Z"/>
-              <circle cx="9.8" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
-              <circle cx="14.2" cy="10.6" r="0.9" fill="currentColor" stroke="none"/>
-              <circle cx="12" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <circle cx="10.6" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <circle cx="13.4" cy="13.2" r="0.6" fill="currentColor" stroke="none"/>
-              <ellipse cx="12" cy="19" rx="3.0" ry="1.4" fill="currentColor" stroke="none"/>
+              <!-- Left stick (more vertical, longer; blade larger and inward) -->
+              <path d="M4 3 L7 19"/>
+              <path d="M7 19 L10.6 21"/>
+              <!-- Right stick (more vertical, longer; blade larger and inward) -->
+              <path d="M20 3 L17 19"/>
+              <path d="M17 19 L13.4 21"/>
+              <!-- Smaller mask moved up -->
+              <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+              <!-- Eyes -->
+              <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+              <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+              <!-- Vents -->
+              <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <!-- Puck (smaller, moved up to avoid blade overlap) -->
+              <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
             </svg>
         `;
         
@@ -722,6 +736,10 @@
                     }
                     if (message.options.affoToolbarHeight !== undefined) {
                         options.height = message.options.affoToolbarHeight;
+                        shouldUpdate = true;
+                    }
+                    if (message.options.affoToolbarPosition !== undefined) {
+                        options.position = message.options.affoToolbarPosition;
                         shouldUpdate = true;
                     }
                     if (message.options.affoToolbarTransparency !== undefined) {
