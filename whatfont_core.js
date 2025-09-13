@@ -1229,3 +1229,6 @@ function _whatFont() {
     return _wf;
 }
 
+// Expose _whatFont function to global scope for extension access
+window._whatFont = _whatFont;
+

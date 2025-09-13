@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        /* Reset and defensive styles for iframe isolation like essential-buttons-toolbar */
+        :root {
+            height: 100% !important;
+            width: 100% !important;
+            font-size: 14px !important;
+            line-height: 1 !important;
+        }
+        
+        * {
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            font-size: inherit !important;
+            font-family: inherit !important;
+            vertical-align: baseline !important;
+            outline: none !important;
+            text-decoration: none !important;
+            background: transparent !important;
+            max-width: none !important;
+            max-height: none !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+        }
+        
+        html {
+            height: 100% !important;
+            width: 100% !important;
+            background: transparent !important;
+        }
+        
+        /* CSS variables for adaptive theming like essential-buttons-toolbar */
+        :root {
+            --toolbar-background: #2b2a33;
+            --private-background: 50, 28, 100;
+            --border-color: #45444c;
+            --icon-color: #fbfbfe;
+            --primary-color: 137, 180, 250;
+            color-scheme: dark;
+        }
+        
+        @media (prefers-color-scheme: light) {
+            :root {
+                --toolbar-background: #f9f9fb;
+                --private-background: 207, 174, 233;
+                --border-color: #f4f4f6;
+                --icon-color: #15141a;
+                --primary-color: 137, 180, 250;
+                color-scheme: light;
+            }
+        }
+        
+        body {
+            background: transparent !important;
+            color: var(--icon-color) !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            height: 100% !important;
+            width: 100% !important;
+            min-height: 100% !important;
+            min-width: 100% !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 20px 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            position: relative !important;
+            box-sizing: border-box !important;
+        }
+        
+        .toolbar-button {
+            aspect-ratio: 1 !important;
+            cursor: pointer !important;
+            border: none !important;
+            border-radius: 20% !important;
+            background: transparent !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s !important;
+            color: var(--icon-color) !important;
+            padding: 0 !important;
+            margin: 4px 0 !important;
+            box-sizing: border-box !important;
+            outline: none !important;
+        }
+        
+        /* Only apply hover on non-touch devices */
+        @media (hover: hover) {
+            .toolbar-button:hover {
+                background: rgba(var(--primary-color), 0.3) !important;
+                transform: scale(1.05) !important;
+            }
+        }
+        
+        .toolbar-button:active {
+            background: rgba(var(--primary-color), 0.5) !important;
+            transform: scale(0.95) !important;
+        }
+        
+        .toolbar-button.pressed {
+            background: rgba(var(--primary-color), 0.8) !important;
+        }
+        
+        .toolbar-button svg {
+            height: 50% !important;
+            aspect-ratio: 1 !important;
+            margin: auto !important;
+            pointer-events: none !important;
+        }
+        
+        /* Slight blue tint for Face-off and WhatFont buttons */
+        #faceoff-button, #whatfont-button {
+            color: rgb(var(--primary-color)) !important;
+        }
+        
+    </style>
+</head>
+<body>
+    <button id="faceoff-button" class="toolbar-button" title="A Font Face-off">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" role="img" aria-label="Hockey mask with sticks and puck">
+            <title>Hockey mask with sticks and puck</title>
+            <!-- Left stick (more vertical, longer; blade larger and inward) -->
+            <path d="M4 3 L7 19"/>
+            <path d="M7 19 L10.6 21"/>
+            <!-- Right stick (more vertical, longer; blade larger and inward) -->
+            <path d="M20 3 L17 19"/>
+            <path d="M17 19 L13.4 21"/>
+            <!-- Smaller mask moved up -->
+            <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+            <!-- Eyes -->
+            <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+            <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+            <!-- Vents -->
+            <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+            <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+            <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+            <!-- Puck (smaller, moved up to avoid blade overlap) -->
+            <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+        </svg>
+    </button>
+    
+    <button id="whatfont-button" class="toolbar-button" title="Font Inspector">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+        </svg>
+    </button>
+    
+    <button id="close-tab-button" class="toolbar-button" title="Close Tab">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+    </button>
+    
+    <button id="page-up-button" class="toolbar-button" title="Page Up">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent">
+            <polyline points="17 11 12 6 7 11"></polyline>
+            <polyline points="17 18 12 13 7 18"></polyline>
+        </svg>
+    </button>
+    
+    <button id="page-down-button" class="toolbar-button" title="Page Down">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent">
+            <polyline points="7 13 12 18 17 13"></polyline>
+            <polyline points="7 6 12 11 17 6"></polyline>
+        </svg>
+    </button>
+    
+    <script src="left-toolbar-iframe.js"></script>
+</body>
+</html>

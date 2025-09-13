@@ -136,7 +136,7 @@
 	opacity: 0.9;
   padding: 4px 5px 6px 5px;
   position: absolute;
-  z-index: 2147483647;
+  z-index: 2147483648 !important;
 }
 
 .__whatfont_control {
@@ -145,10 +145,12 @@
   -webkit-box-shadow: inset 0 1px 0 #555, 0 0 2px #000;
 	padding: 4px 8px;
   position: fixed;
-  right: 10px;
+  right: 60px;
   top: 10px;
+  /* Ensure WhatFont appears above our toolbars */
+  z-index: 2147483648 !important;
   /* Fix: Prevent the control from affecting page layout */
-  max-width: calc(100vw - 20px);
+  max-width: calc(100vw - 80px);
   width: auto;
   box-sizing: border-box;
   white-space: nowrap;

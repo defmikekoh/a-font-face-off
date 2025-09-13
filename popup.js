@@ -394,6 +394,55 @@ function getActiveOrigin() {
     }).catch(() => null);
 }
 
+// Helper: execute script in the correct tab (source tab if available, otherwise active tab)
+function executeScriptInTargetTab(options) {
+    if (window.sourceTabId) {
+        console.log('[AFFO Popup] Executing script in source tab:', window.sourceTabId);
+        return browser.tabs.executeScript(window.sourceTabId, options);
+    } else {
+        console.log('[AFFO Popup] Executing script in active tab');
+        return browser.tabs.executeScript(options);
+    }
+}
+
+// Helper: insert CSS in the correct tab (source tab if available, otherwise active tab)
+function insertCSSInTargetTab(options) {
+    if (window.sourceTabId) {
+        console.log('[AFFO Popup] Inserting CSS in source tab:', window.sourceTabId);
+        return browser.tabs.insertCSS(window.sourceTabId, options);
+    } else {
+        console.log('[AFFO Popup] Inserting CSS in active tab');
+        return browser.tabs.insertCSS(options);
+    }
+}
+
+// Helper: send message to the correct tab (source tab if available, otherwise active tab)
+function sendMessageToTargetTab(message) {
+    if (window.sourceTabId) {
+        console.log('[AFFO Popup] Sending message to source tab:', window.sourceTabId);
+        return browser.tabs.sendMessage(window.sourceTabId, message);
+    } else {
+        console.log('[AFFO Popup] Sending message to active tab');
+        return browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+            if (tabs[0]) {
+                return browser.tabs.sendMessage(tabs[0].id, message);
+            }
+        });
+    }
+}
+
+// Get domain and source tab from URL parameters (for when opened in new tab with context)
+function getContextFromUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const domain = urlParams.get('domain');
+    const sourceTabId = urlParams.get('sourceTabId');
+    console.log('[AFFO Popup] Context parameters from URL:', { domain, sourceTabId });
+    return { 
+        domain: domain, 
+        sourceTabId: sourceTabId ? parseInt(sourceTabId) : null 
+    };
+}
+
 // Reset face-off for a panel: remove stored per-origin data, remove injected CSS, and unset controls (keep family)
 function resetFaceoffFor(position) {
     const genericKey = (position === 'top') ? 'serif' : 'sans';
@@ -413,7 +462,7 @@ function resetFaceoffFor(position) {
         const styleIdOff = 'a-font-face-off-style-' + genericKey;
         const linkIdOff = styleIdOff + '-link';
         cssPromises.push(
-            browser.tabs.executeScript({ code: `
+            executeScriptInTargetTab({ code: `
                 (function(){
                     try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
                     try{ var l=document.getElementById('${linkIdOff}'); if(l) l.remove(); }catch(_){}
@@ -494,7 +543,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
             let fontLoaded = false;
             for (let i = 0; i < 5 && !fontLoaded; i++) {
                 try {
-                    const result = await browser.tabs.executeScript({ code: fontCheckScript });
+                    const result = await executeScriptInTargetTab({ code: fontCheckScript });
                     fontLoaded = result && result[0];
                     if (!fontLoaded) {
                         console.log(`reapplyThirdManInCSS: Font not ready, waiting... (attempt ${i+1}/5)`);
@@ -512,7 +561,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         try {
             const walkerScript = generateElementWalkerScript(fontType);
             console.log(`reapplyThirdManInCSS: Running walker script for ${fontType}`);
-            await browser.tabs.executeScript({ code: walkerScript });
+            await executeScriptInTargetTab({ code: walkerScript });
         } catch (e) {
             console.warn(`reapplyThirdManInCSS: Walker script failed for ${fontType}:`, e);
         }
@@ -521,7 +570,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         const cssCode = generateThirdManInCSS(fontType, fontConfig);
         if (cssCode) {
             console.log(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
-            await browser.tabs.insertCSS({ code: cssCode });
+            await insertCSSInTargetTab({ code: cssCode });
             appliedCssActive[fontType] = cssCode;
 
             // Verify the CSS was applied with comprehensive debugging
@@ -3035,7 +3084,7 @@ function applyFontToPage(position, config) {
                 }
 
                 if (css) {
-                    return browser.tabs.insertCSS({
+                    return insertCSSInTargetTab({
                         code: css,
                         cssOrigin: 'user'
                     }).then(() => {
@@ -3077,7 +3126,7 @@ function unapplyFontFromPage(position) {
         }).then(() => {
             // Remove injected style elements
             const styleIdOff = 'a-font-face-off-style-' + genericKey;
-            return browser.tabs.executeScript({ code: `
+            return executeScriptInTargetTab({ code: `
                 (function(){
                     try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
                     try{ var l=document.getElementById('${styleIdOff}-link'); if(l) l.remove(); }catch(_){}
@@ -3144,7 +3193,7 @@ function applyThirdManInFont(fontType, config) {
                             }
                         })();
                     `;
-                    return browser.tabs.executeScript({ code: linkScript }).catch(error => {
+                    return executeScriptInTargetTab({ code: linkScript }).catch(error => {
                         console.warn(`applyThirdManInFont: Font link injection failed:`, error);
                     });
                 }
@@ -3159,13 +3208,13 @@ function applyThirdManInFont(fontType, config) {
                 const walkerScript = generateElementWalkerScript(fontType);
                 console.log(`applyThirdManInFont: Running element walker script for ${fontType}`);
 
-                return browser.tabs.executeScript({ code: walkerScript }).then(() => {
+                return executeScriptInTargetTab({ code: walkerScript }).then(() => {
                     // Apply CSS using the already-built payload
                     if (payload) {
                         const css = generateThirdManInCSS(fontType, payload);
                         if (css) {
                             console.log(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
-                            return browser.tabs.insertCSS({
+                            return insertCSSInTargetTab({
                                 code: css,
                                 cssOrigin: 'user'
                             }).then(() => {
@@ -3212,7 +3261,7 @@ function unapplyThirdManInFont(fontType) {
             // Remove injected style elements and clean up data attributes
             const styleId = `a-font-face-off-${fontType}-style`;
             const linkId = `${styleId}-link`;
-            return browser.tabs.executeScript({ code: `
+            return executeScriptInTargetTab({ code: `
                 (function(){
                     try{ var s=document.getElementById('${styleId}'); if(s) s.remove(); }catch(_){}
                     try{ var l=document.getElementById('${linkId}'); if(l) l.remove(); }catch(_){}
@@ -4237,13 +4286,27 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Inject custom fonts first, before any font previews
     injectCustomFonts();
 
-    // Get current tab hostname for site-specific CSS rules
+    // Get current tab hostname and context for site-specific CSS rules
     try {
-        window.currentTabHostname = await getActiveOrigin();
-        console.log('🌐 Current tab hostname:', window.currentTabHostname);
+        // First check if context was passed as URL parameters (from left toolbar)
+        const urlContext = getContextFromUrlParams();
+        if (urlContext.domain) {
+            window.currentTabHostname = urlContext.domain;
+            window.sourceTabId = urlContext.sourceTabId;
+            console.log('🌐 Using context from URL parameters:', {
+                domain: window.currentTabHostname,
+                sourceTabId: window.sourceTabId
+            });
+        } else {
+            // Fall back to getting domain from active tab
+            window.currentTabHostname = await getActiveOrigin();
+            window.sourceTabId = null; // Will use current active tab
+            console.log('🌐 Current tab hostname from active tab:', window.currentTabHostname);
+        }
     } catch (error) {
         console.warn('Could not get current tab hostname:', error);
         window.currentTabHostname = null;
+        window.sourceTabId = null;
     }
 
     // Hide all settings until domain initialization is complete
@@ -6483,13 +6546,9 @@ function clearAllDomainSettings() {
             // Clear all font settings (already done in bodyPromise since storage is consolidated)
             return bodyPromise.then(() => {
                 // Send message to content script to restore original page
-                browser.tabs.query({ active: true, currentWindow: true }, tabs => {
-                    if (tabs[0]) {
-                        browser.tabs.sendMessage(tabs[0].id, {
-                            action: 'restoreOriginal',
-                            origin: origin
-                        });
-                    }
+                sendMessageToTargetTab({
+                    action: 'restoreOriginal',
+                    origin: origin
                 });
             });
         });
@@ -7105,7 +7164,7 @@ function applyAllThirdManInFonts() {
                                     }
                                 })();
                             `;
-                            return browser.tabs.executeScript({ code: linkScript }).catch(error => {
+                            return executeScriptInTargetTab({ code: linkScript }).catch(error => {
                                 console.warn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
                             });
                         }
@@ -7115,7 +7174,7 @@ function applyAllThirdManInFonts() {
                     const walkerScript = generateElementWalkerScript(job.type);
                     console.log(`applyAllThirdManInFonts: Running element walker script for ${job.type}`);
 
-                    return browser.tabs.executeScript({ code: walkerScript }).then(() => {
+                    return executeScriptInTargetTab({ code: walkerScript }).then(() => {
                         // Verify what elements were marked
                         return browser.tabs.executeScript({ 
                             code: `
@@ -7140,7 +7199,7 @@ function applyAllThirdManInFonts() {
                                 if (css) {
                                     console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
                                     console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
-                                    return browser.tabs.insertCSS({ code: css }).then(() => {
+                                    return insertCSSInTargetTab({ code: css }).then(() => {
                                         console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
                                         appliedCssActive[job.type] = css;
                                         return true;
@@ -8025,18 +8084,14 @@ function applyUnsetSettings(panelId) {
                     console.log(`applyUnsetSettings: Storage updated successfully`);
 
                     // Send message to content script to remove fonts from page
-                    return browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
-                        if (tabs.length > 0) {
-                            console.log('Sending resetFonts message to content script for panelId:', panelId);
-                            return browser.tabs.sendMessage(tabs[0].id, {
-                                type: 'resetFonts',
-                                panelId: panelId
-                            }).then(response => {
-                                console.log('Content script response:', response);
-                            }).catch(err => {
-                                console.warn('Could not send reset message to content script:', err);
-                            });
-                        }
+                    console.log('Sending resetFonts message to content script for panelId:', panelId);
+                    return sendMessageToTargetTab({
+                        type: 'resetFonts',
+                        panelId: panelId
+                    }).then(response => {
+                        console.log('Content script response:', response);
+                    }).catch(err => {
+                        console.warn('Could not send reset message to content script:', err);
                     });
                 });
             });

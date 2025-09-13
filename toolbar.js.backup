@@ -1,0 +1,533 @@
+// A Font Face-off iframe-based toolbar content script
+(function() {
+    'use strict';
+    
+    if (window.self !== window.top) return; // Skip iframes
+    
+    let toolbarIframe;
+    let unhideIcon;
+    let isHidden = false;
+    let options = {
+        enabled: true,
+        width: 36, // Default 36px button width
+        height: 20, // Default 20% of screen height
+        position: 50, // Default 50% vertical position (center)
+        transparency: 0.2, // Default 0.2 transparency
+        gap: 0 // Default 0px gap from edge
+    };
+    
+    // Remove any existing toolbar
+    function removeExistingToolbar() {
+        const existingIframe = document.getElementById('affo-toolbar-iframe');
+        const existingUnhide = document.getElementById('affo-unhide-icon');
+        
+        if (existingIframe) {
+            console.log('[AFFO Toolbar] Removing existing toolbar iframe');
+            existingIframe.remove();
+        }
+        if (existingUnhide) {
+            console.log('[AFFO Toolbar] Removing existing unhide icon');
+            existingUnhide.remove();
+        }
+        if (!existingIframe && !existingUnhide) {
+            console.log('[AFFO Toolbar] No existing toolbar to remove');
+        }
+    }
+    
+    // Load options from storage via message passing
+    function loadOptions(callback) {
+        console.log('[AFFO Toolbar] Loading options from storage...');
+        console.log('[AFFO Toolbar] window.browser:', typeof window.browser);
+        console.log('[AFFO Toolbar] window.chrome:', typeof window.chrome);
+        console.log('[AFFO Toolbar] window.browser.runtime:', window.browser && typeof window.browser.runtime);
+        console.log('[AFFO Toolbar] window.chrome.runtime:', window.chrome && typeof window.chrome.runtime);
+        
+        try {
+            // Try multiple approaches to get browser API
+            let browserAPI = null;
+            
+            if (typeof browser !== 'undefined' && browser.runtime) {
+                browserAPI = browser;
+            } else if (window.browser && window.browser.runtime) {
+                browserAPI = window.browser;
+            } else if (window.chrome && window.chrome.runtime) {
+                browserAPI = window.chrome;
+            } else if (typeof chrome !== 'undefined' && chrome.runtime) {
+                browserAPI = chrome;
+            }
+            
+            if (!browserAPI) {
+                console.error('[AFFO Toolbar] No browser API available, using defaults');
+                callback();
+                return;
+            }
+            
+            console.log('[AFFO Toolbar] Using browser API:', browserAPI === browser ? 'browser' : browserAPI === chrome ? 'chrome' : 'window.browser/chrome');
+            
+            // Use message passing to get storage data from background script
+            browserAPI.runtime.sendMessage({
+                type: 'getToolbarOptions'
+            }).then(function(result) {
+                console.log('[AFFO Toolbar] Loaded options from storage:', result);
+                if (result && typeof result === 'object') {
+                    if (result.affoToolbarEnabled !== undefined) options.enabled = result.affoToolbarEnabled;
+                    if (result.affoToolbarWidth !== undefined) options.width = result.affoToolbarWidth;
+                    if (result.affoToolbarHeight !== undefined) options.height = result.affoToolbarHeight;
+                    if (result.affoToolbarPosition !== undefined) options.position = result.affoToolbarPosition;
+                    if (result.affoToolbarTransparency !== undefined) options.transparency = result.affoToolbarTransparency;
+                    if (result.affoToolbarGap !== undefined) options.gap = result.affoToolbarGap;
+                }
+                console.log('[AFFO Toolbar] Final options:', options);
+                callback();
+            }).catch(function(e) {
+                console.warn('[AFFO Toolbar] Error loading toolbar options via message:', e);
+                callback();
+            });
+        } catch (e) {
+            console.warn('[AFFO Toolbar] Error loading toolbar options:', e);
+            callback();
+        }
+    }
+    
+    // Create the toolbar iframe or unhide icon
+    function createToolbar() {
+        console.log('[AFFO Toolbar] Creating toolbar...');
+        
+        if (isHidden) {
+            createUnhideIcon();
+        } else {
+            createToolbarIframe();
+        }
+    }
+    
+    // Create the toolbar iframe
+    function createToolbarIframe() {
+        console.log('[AFFO Toolbar] Creating toolbar iframe...');
+        toolbarIframe = document.createElement('iframe');
+        toolbarIframe.id = 'affo-toolbar-iframe';
+        
+        // Calculate height using user's percentage setting, but ensure minimum for 2 buttons
+        const minHeightFor2Buttons = 84; // Minimum pixels needed for 2 stacked buttons
+        const userPercentageHeight = (window.innerHeight * options.height / 100);
+        const baseHeight = Math.max(minHeightFor2Buttons, userPercentageHeight);
+        const containerHeight = Math.floor(baseHeight / (window.visualViewport?.scale || 1));
+        const topOffset = (window.innerHeight - containerHeight) * (options.position / 100);
+        
+        console.log('[AFFO Toolbar] Iframe dimensions:', {
+            height: containerHeight,
+            topOffset: topOffset,
+            windowHeight: window.innerHeight,
+            heightPercent: options.height
+        });
+        
+        // Use essential-buttons-toolbar's iframe styling approach
+        const iframeCSS = `display: block !important; position: fixed !important; z-index: 2147483647 !important; ` +
+                         `margin: 0 !important; padding: 0 !important; min-height: unset !important; max-height: unset !important; ` +
+                         `min-width: unset !important; max-width: unset !important; border: 0 !important; ` +
+                         `background: transparent !important; color-scheme: light !important; border-radius: 8px !important; ` +
+                         `top: ${topOffset}px !important; right: ${options.gap}px !important; ` +
+                         `width: ${options.width}px !important; height: ${containerHeight}px !important; pointer-events: auto !important;`;
+        
+        toolbarIframe.style.cssText = iframeCSS;
+        toolbarIframe.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('toolbar-iframe.html');
+        
+        console.log('[AFFO Toolbar] Applied iframe CSS:', iframeCSS);
+        
+        // Add iframe event listeners
+        toolbarIframe.addEventListener('load', function() {
+            console.log('[AFFO Toolbar] Iframe loaded successfully');
+            
+            // Send initial styles to iframe
+            toolbarIframe.contentWindow.postMessage({
+                type: 'updateStyles',
+                styles: {
+                    transparency: options.transparency
+                }
+            }, '*');
+        });
+        
+        // Hide during printing
+        const mediaQuery = window.matchMedia('print');
+        function handlePrint() {
+            toolbarIframe.style.display = mediaQuery.matches ? 'none' : 'block';
+        }
+        mediaQuery.addListener(handlePrint);
+        handlePrint();
+        
+        document.body.appendChild(toolbarIframe);
+        console.log('[AFFO Toolbar] Iframe created and added to page');
+    }
+    
+    // Create the unhide icon when toolbar is hidden
+    function createUnhideIcon() {
+        console.log('[AFFO Toolbar] Creating unhide icon...');
+        unhideIcon = document.createElement('div');
+        unhideIcon.id = 'affo-unhide-icon';
+        
+        const calculatedHeight = Math.floor(options.height / (window.visualViewport?.scale || 1));
+        const iconStyles = {
+            position: 'fixed',
+            top: (window.innerHeight - calculatedHeight * 2.5) + 'px',
+            right: (calculatedHeight * 0.5) + 'px',
+            width: calculatedHeight + 'px',
+            height: calculatedHeight + 'px',
+            background: 'rgba(43, 42, 51, 0.8)',
+            border: '2px solid #38373f',
+            borderRadius: '20%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: '2147483647',
+            boxSizing: 'border-box'
+        };
+        
+        Object.assign(unhideIcon.style, iconStyles);
+        
+        unhideIcon.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 50%; height: 50%; color: white; pointer-events: none;">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        `;
+        
+        // Add click handler to show toolbar
+        unhideIcon.addEventListener('click', function() {
+            isHidden = false;
+            initializeToolbar();
+        });
+        
+        // Make draggable (similar to essential-buttons-toolbar)
+        makeDraggable(unhideIcon);
+        
+        document.body.appendChild(unhideIcon);
+        console.log('[AFFO Toolbar] Unhide icon created and added to page');
+    }
+    
+    // Make element draggable (for unhide icon)
+    function makeDraggable(element) {
+        let dragging = false;
+        
+        function handleDragStart(e) {
+            dragging = false;
+            document.body.style.overflow = 'hidden';
+            document.body.style.touchAction = 'none';
+            document.body.style.userSelect = 'none';
+            
+            const elWidth = element.getBoundingClientRect().width;
+            const elHeight = element.getBoundingClientRect().height;
+            
+            function moveHandler(event) {
+                dragging = true;
+                const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+                const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+                const xPos = clientX - elWidth / 2;
+                const yPos = clientY - elHeight / 2;
+                element.style.left = `${xPos}px`;
+                element.style.top = `${yPos}px`;
+                element.style.right = 'auto';
+            }
+            
+            function endHandler() {
+                document.body.style.overflow = '';
+                document.body.style.touchAction = '';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('touchmove', moveHandler);
+                document.removeEventListener('mouseup', endHandler);
+                document.removeEventListener('touchend', endHandler);
+                
+                // If not dragging, treat as click to show toolbar
+                if (!dragging) {
+                    setTimeout(() => {
+                        isHidden = false;
+                        initializeToolbar();
+                    }, 200);
+                }
+            }
+            
+            document.addEventListener('mousemove', moveHandler);
+            document.addEventListener('touchmove', moveHandler);
+            document.addEventListener('mouseup', endHandler);
+            document.addEventListener('touchend', endHandler);
+        }
+        
+        element.addEventListener('mousedown', handleDragStart);
+        element.addEventListener('touchstart', handleDragStart);
+    }
+    
+    // Listen for messages from iframe
+        console.log('[AFFO Toolbar] Initializing WhatFont...');
+        console.log('[AFFO Toolbar] jQuery available:', typeof window.$);
+        console.log('[AFFO Toolbar] WhatFont available:', typeof window.WhatFont);
+        
+        // Check if WhatFont is already loaded (from content script)
+        if (typeof window.WhatFont !== 'undefined') {
+            console.log('[AFFO Toolbar] WhatFont already loaded, initializing...');
+            try {
+                // Set the CSS URL to use local file before initializing
+                const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
+                console.log('[AFFO Toolbar] Setting WhatFont CSS URL to:', localCSSUrl);
+                window.WhatFont.setCSSURL(localCSSUrl);
+                
+                window.WhatFont.init();
+                console.log('[AFFO Toolbar] WhatFont initialized successfully');
+            } catch (e) {
+                console.error('[AFFO Toolbar] Error initializing WhatFont:', e);
+            }
+            return;
+        }
+        
+        // Check if jQuery is available first
+        if (typeof window.$ === 'undefined') {
+            console.log('[AFFO Toolbar] jQuery not available, loading it first...');
+            loadJQueryThenWhatFont();
+            return;
+        }
+        
+        // Load WhatFont script
+        console.log('[AFFO Toolbar] jQuery available, loading WhatFont...');
+        const script = document.createElement('script');
+        script.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('whatfont_core.js');
+        script.onload = function() {
+            console.log('[AFFO Toolbar] WhatFont script loaded');
+            
+            // Add a small delay to let the script execute
+            setTimeout(() => {
+                console.log('[AFFO Toolbar] _whatFont function available:', typeof window._whatFont);
+                console.log('[AFFO Toolbar] window keys containing whatFont:', Object.keys(window).filter(key => key.toLowerCase().includes('whatfont') || key.toLowerCase().includes('_whatfont')));
+                
+                // Create WhatFont object from _whatFont function
+                if (typeof window._whatFont === 'function') {
+                    try {
+                        window.WhatFont = window._whatFont();
+                        console.log('[AFFO Toolbar] WhatFont object created successfully');
+                        
+                        // Set the CSS URL to use local file before initializing
+                        const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
+                        console.log('[AFFO Toolbar] Setting WhatFont CSS URL to:', localCSSUrl);
+                        window.WhatFont.setCSSURL(localCSSUrl);
+                        
+                        window.WhatFont.init();
+                        console.log('[AFFO Toolbar] WhatFont initialized successfully');
+                    } catch (e) {
+                        console.error('[AFFO Toolbar] Error creating/initializing WhatFont:', e);
+                    }
+                } else {
+                    console.warn('[AFFO Toolbar] _whatFont function not found after loading script');
+                    console.log('[AFFO Toolbar] Trying alternative approach - checking for errors...');
+                    
+                    // Try to re-execute the script content directly
+                    fetch((typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('whatfont_core.js'))
+                        .then(response => response.text())
+                        .then(scriptContent => {
+                            console.log('[AFFO Toolbar] Script content length:', scriptContent.length);
+                            console.log('[AFFO Toolbar] Script starts with:', scriptContent.substring(0, 100));
+                            
+                            // Try to evaluate the script directly
+                            try {
+                                eval(scriptContent);
+                                console.log('[AFFO Toolbar] Direct eval completed');
+                                console.log('[AFFO Toolbar] _whatFont function in local scope:', typeof _whatFont);
+                                
+                                // The function exists in local scope, assign it to window
+                                if (typeof _whatFont === 'function') {
+                                    window._whatFont = _whatFont;
+                                    console.log('[AFFO Toolbar] Assigned _whatFont to window');
+                                    console.log('[AFFO Toolbar] window._whatFont now available:', typeof window._whatFont);
+                                    
+                                    // Now create and initialize WhatFont
+                                    try {
+                                        window.WhatFont = window._whatFont();
+                                        console.log('[AFFO Toolbar] WhatFont object created successfully');
+                                        
+                                        // Set the CSS URL to use local file before initializing
+                                        const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
+                                        console.log('[AFFO Toolbar] Setting WhatFont CSS URL to:', localCSSUrl);
+                                        window.WhatFont.setCSSURL(localCSSUrl);
+                                        
+                                        window.WhatFont.init();
+                                        console.log('[AFFO Toolbar] WhatFont initialized successfully');
+                                    } catch (initError) {
+                                        console.error('[AFFO Toolbar] Error creating/initializing WhatFont:', initError);
+                                    }
+                                } else {
+                                    console.error('[AFFO Toolbar] _whatFont function not found even in local scope');
+                                }
+                            } catch (evalError) {
+                                console.error('[AFFO Toolbar] Error evaluating script:', evalError);
+                            }
+                        })
+                        .catch(fetchError => {
+                            console.error('[AFFO Toolbar] Error fetching script content:', fetchError);
+                        });
+                }
+            }, 100);
+        };
+        script.onerror = function(e) {
+            console.error('[AFFO Toolbar] Error loading WhatFont script:', e);
+        };
+        document.head.appendChild(script);
+    }
+    
+    // Load jQuery first, then WhatFont
+    function loadJQueryThenWhatFont() {
+        console.log('[AFFO Toolbar] Loading jQuery first...');
+        const jqueryScript = document.createElement('script');
+        jqueryScript.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('jquery.js');
+        jqueryScript.onload = function() {
+            console.log('[AFFO Toolbar] jQuery loaded, now loading WhatFont...');
+            const whatfontScript = document.createElement('script');
+            whatfontScript.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('whatfont_core.js');
+            whatfontScript.onload = function() {
+                console.log('[AFFO Toolbar] WhatFont script loaded');
+                console.log('[AFFO Toolbar] _whatFont function available:', typeof window._whatFont);
+                
+                // Create WhatFont object from _whatFont function
+                if (typeof window._whatFont === 'function') {
+                    try {
+                        window.WhatFont = window._whatFont();
+                        console.log('[AFFO Toolbar] WhatFont object created successfully');
+                        
+                        // Set the CSS URL to use local file before initializing
+                        const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
+                        console.log('[AFFO Toolbar] Setting WhatFont CSS URL to:', localCSSUrl);
+                        window.WhatFont.setCSSURL(localCSSUrl);
+                        
+                        window.WhatFont.init();
+                        console.log('[AFFO Toolbar] WhatFont initialized successfully');
+                    } catch (e) {
+                        console.error('[AFFO Toolbar] Error creating/initializing WhatFont:', e);
+                    }
+                } else {
+                    console.warn('[AFFO Toolbar] _whatFont function not found after loading script');
+                }
+            };
+            whatfontScript.onerror = function(e) {
+                console.error('[AFFO Toolbar] Error loading WhatFont script:', e);
+            };
+            document.head.appendChild(whatfontScript);
+        };
+        jqueryScript.onerror = function(e) {
+            console.error('[AFFO Toolbar] Error loading jQuery:', e);
+        };
+        document.head.appendChild(jqueryScript);
+    }
+    
+    // Listen for messages from iframe
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'hideToolbar') {
+            console.log('[AFFO Toolbar] Received hide toolbar message from iframe');
+            isHidden = true;
+            initializeToolbar();
+        }
+    });
+    
+    // Update toolbar position and size
+    function updateToolbarPosition() {
+        if (isHidden && unhideIcon) {
+            const calculatedHeight = Math.floor(options.height / (window.visualViewport?.scale || 1));
+            unhideIcon.style.width = calculatedHeight + 'px';
+            unhideIcon.style.height = calculatedHeight + 'px';
+        } else if (!isHidden && toolbarIframe) {
+            const containerHeight = (window.innerHeight * options.height / 100);
+            const topOffset = (window.innerHeight - containerHeight) * (options.position / 100);
+            
+            toolbarIframe.style.top = topOffset + 'px';
+            toolbarIframe.style.right = options.gap + 'px';
+            toolbarIframe.style.width = options.width + 'px';
+            toolbarIframe.style.height = containerHeight + 'px';
+            
+            // Update iframe styles
+            if (toolbarIframe.contentWindow) {
+                toolbarIframe.contentWindow.postMessage({
+                    type: 'updateStyles',
+                    styles: {
+                        transparency: options.transparency
+                    }
+                }, '*');
+            }
+        }
+    }
+    
+    // Main initialization function
+    function initializeToolbar() {
+        console.log('[AFFO Toolbar] Initializing toolbar...');
+        loadOptions(function() {
+            if (!options.enabled) {
+                console.log('[AFFO Toolbar] Toolbar is disabled, skipping initialization');
+                return;
+            }
+            
+            console.log('[AFFO Toolbar] Starting toolbar creation with options:', options);
+            
+            removeExistingToolbar();
+            createToolbar();
+            
+            console.log('[AFFO Toolbar] Toolbar fully initialized');
+        });
+    }
+    
+    // Listen for toolbar option changes
+    try {
+        // Try multiple approaches to get browser API for message listening
+        let browserAPI = null;
+        
+        if (typeof browser !== 'undefined' && browser.runtime) {
+            browserAPI = browser;
+        } else if (window.browser && window.browser.runtime) {
+            browserAPI = window.browser;
+        } else if (window.chrome && window.chrome.runtime) {
+            browserAPI = window.chrome;
+        } else if (typeof chrome !== 'undefined' && chrome.runtime) {
+            browserAPI = chrome;
+        }
+        
+        if (browserAPI && browserAPI.runtime) {
+            browserAPI.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+                console.log('[AFFO Toolbar] Received message:', message);
+                
+                if (message.type === 'toolbarOptionsChanged') {
+                    console.log('[AFFO Toolbar] Toolbar options changed:', message.options);
+                    
+                    // Update options
+                    if (message.options.affoToolbarEnabled !== undefined) options.enabled = message.options.affoToolbarEnabled;
+                    if (message.options.affoToolbarWidth !== undefined) options.width = message.options.affoToolbarWidth;
+                    if (message.options.affoToolbarHeight !== undefined) options.height = message.options.affoToolbarHeight;
+                    if (message.options.affoToolbarPosition !== undefined) options.position = message.options.affoToolbarPosition;
+                    if (message.options.affoToolbarTransparency !== undefined) options.transparency = message.options.affoToolbarTransparency;
+                    if (message.options.affoToolbarGap !== undefined) options.gap = message.options.affoToolbarGap;
+                    
+                    console.log('[AFFO Toolbar] Updated options:', options);
+                    
+                    // Re-initialize or update toolbar with new options
+                    if (options.enabled) {
+                        initializeToolbar();
+                    } else {
+                        removeExistingToolbar();
+                    }
+                }
+                
+                return true; // Keep message channel open
+            });
+        }
+    } catch (e) {
+        console.warn('[AFFO Toolbar] Could not set up message listener:', e);
+    }
+    
+    // Listen for window resize to update toolbar position
+    window.addEventListener('resize', updateToolbarPosition);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateToolbarPosition);
+    }
+    
+    // Wait for DOM to be ready and initialize
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeToolbar);
+    } else {
+        initializeToolbar();
+    }
+    
+    console.log('[AFFO Toolbar] Iframe-based content script loaded');
+    
+})();

@@ -9,9 +9,9 @@
   // Use auto theme to match essential-buttons-toolbar default behavior
   overrideTheme('auto');
 
-  // Toolbar preview functionality
-  function updateToolbarPreview() {
-    const preview = document.getElementById('toolbar-preview');
+  // Left toolbar preview functionality
+  function updateLeftToolbarPreview() {
+    const preview = document.getElementById('left-toolbar-preview');
     const enabled = document.getElementById('toolbar-enabled').value === 'true';
     const width = parseInt(document.getElementById('toolbar-width').value);
     const height = parseInt(document.getElementById('toolbar-height').value);
@@ -24,32 +24,41 @@
     if (enabled) {
       preview.style.display = 'flex';
       
-      // Height determines container size, position determines vertical location
-      const containerHeight = (window.innerHeight * height / 100);
-      const topOffset = (window.innerHeight - containerHeight) * (position / 100);
+      // Apply left toolbar positioning logic
+      const containerHeight = `${height}vh`;
+      const useTransformCentering = height < 100;
+      const topPosition = useTransformCentering ? `${position}%` : '0';
       
-      // Apply real toolbar styling exactly like the real toolbar
+      // Apply real left toolbar styling
       preview.style.position = 'fixed';
-      preview.style.top = topOffset + 'px';
-      preview.style.right = gap + 'px';
+      preview.style.left = gap + 'px';
       preview.style.width = width + 'px';
-      preview.style.height = containerHeight + 'px';
-      preview.style.justifyContent = 'space-between';
-      preview.style.padding = '20px 0';
-      preview.style.background = 'rgba(249, 249, 251, 0.9)';
-      preview.style.borderRadius = '8px';
-      // Match essential-buttons-toolbar behavior: transparency = opacity (higher = more opaque)
+      preview.style.height = containerHeight;
       preview.style.opacity = transparency;
       
-      console.log('[Preview] Transparency calculation (matching essential-buttons-toolbar):', {
+      if (useTransformCentering) {
+        preview.style.top = topPosition;
+        preview.style.transform = 'translateY(-50%)';
+      } else {
+        preview.style.top = '0';
+        preview.style.transform = 'none';
+      }
+      
+      console.log('[Left Toolbar Preview] Updated positioning:', {
+        width: width,
+        height: height,
+        position: position,
         transparency: transparency,
-        finalOpacity: transparency
+        gap: gap,
+        useTransformCentering: useTransformCentering,
+        topPosition: topPosition
       });
       
-      // Update button sizes (with 8px padding like real toolbar)
-      const buttonSize = Math.max(width - 8, 24);
-      const buttons = preview.querySelectorAll('button');
-      buttons.forEach(button => {
+      // Update button sizes to match container width (like essential-buttons-toolbar)
+      const previewButtons = preview.querySelectorAll('.preview-button');
+      const buttonSize = Math.max(width - 8, 20); // Account for padding like real toolbar
+      
+      previewButtons.forEach(button => {
         button.style.width = buttonSize + 'px';
         button.style.height = buttonSize + 'px';
       });
@@ -129,7 +138,7 @@
       
       // Load toolbar settings with new defaults
       document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
-      const width = data.affoToolbarWidth || 36;
+      const width = data.affoToolbarWidth || 48;
       const height = data.affoToolbarHeight || 20;
       const position = data.affoToolbarPosition !== undefined ? data.affoToolbarPosition : 50;
       const transparency = data.affoToolbarTransparency !== undefined ? data.affoToolbarTransparency : 0.2;
@@ -148,7 +157,7 @@
       document.getElementById('toolbar-gap-value').textContent = gap + 'px';
       
       // Update preview after loading settings
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     } catch (e) {}
   }
 
@@ -340,7 +349,7 @@
       
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
-      document.getElementById('toolbar-width').value = 36;
+      document.getElementById('toolbar-width').value = 48;
       document.getElementById('toolbar-height').value = 20;
       document.getElementById('toolbar-position').value = 50;
       document.getElementById('toolbar-transparency').value = 0.2;
@@ -369,32 +378,32 @@
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('save-toolbar').addEventListener('click', saveToolbar);
-    document.getElementById('toolbar-enabled').addEventListener('change', updateToolbarPreview);
+    document.getElementById('toolbar-enabled').addEventListener('change', updateLeftToolbarPreview);
     document.getElementById('toolbar-width').addEventListener('input', function() {
       updateToolbarValues();
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     });
     document.getElementById('toolbar-height').addEventListener('input', function() {
       updateToolbarValues();
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     });
     document.getElementById('toolbar-position').addEventListener('input', function() {
       updateToolbarValues();
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     });
     document.getElementById('toolbar-transparency').addEventListener('input', function() {
       updateToolbarValues();
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     });
     document.getElementById('toolbar-gap').addEventListener('input', function() {
       updateToolbarValues();
-      updateToolbarPreview();
+      updateLeftToolbarPreview();
     });
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
     
     // Initialize preview after load
-    setTimeout(updateToolbarPreview, 100);
+    setTimeout(updateLeftToolbarPreview, 100);
   });
 })();

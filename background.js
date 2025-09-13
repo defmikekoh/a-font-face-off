@@ -134,13 +134,63 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       }
     }
     
+    // Handle close current tab requests
+    if (msg.type === 'closeCurrentTab') {
+      try {
+        console.log('[AFFO Background] Closing current tab');
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+          await browser.tabs.remove(tabs[0].id);
+          console.log('[AFFO Background] Tab closed successfully');
+          return { success: true };
+        } else {
+          console.warn('[AFFO Background] No active tab found');
+          return { success: false, error: 'No active tab found' };
+        }
+      } catch (e) {
+        console.error('[AFFO Background] Error closing tab:', e);
+        return { success: false, error: e.message };
+      }
+    }
+    
+    // Handle getting current tab info
+    if (msg.type === 'getCurrentTab') {
+      try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+          return { success: true, tabId: tabs[0].id, url: tabs[0].url };
+        } else {
+          return { success: false, error: 'No active tab found' };
+        }
+      } catch (e) {
+        console.error('[AFFO Background] Error getting current tab:', e);
+        return { success: false, error: e.message };
+      }
+    }
+    
     // Handle fallback popup opening (open in new tab/window)
     if (msg.type === 'openPopupFallback') {
       try {
         console.log('[AFFO Background] Attempting fallback: open popup in new tab');
         
         // For Firefox Android, open the popup HTML in a new tab since popups don't exist
-        const popup = browser.runtime.getURL('popup.html');
+        let popup = browser.runtime.getURL('popup.html');
+        
+        // If domain and sourceTabId are provided, pass them as URL parameters
+        const params = new URLSearchParams();
+        if (msg.domain) {
+          params.set('domain', msg.domain);
+          console.log('[AFFO Background] Added domain parameter:', msg.domain);
+        }
+        if (msg.sourceTabId) {
+          params.set('sourceTabId', msg.sourceTabId.toString());
+          console.log('[AFFO Background] Added sourceTabId parameter:', msg.sourceTabId);
+        }
+        
+        if (params.toString()) {
+          popup += '?' + params.toString();
+        }
+        
         console.log('[AFFO Background] Popup URL:', popup);
         
         const tab = await browser.tabs.create({ 
