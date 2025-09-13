@@ -2598,6 +2598,14 @@ body.view-faceoff .favorites-container {
     background: #34495e;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
+    /* Smooth transitions for reordering */
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Delete button styling */
+.edit-favorite-actions,
+.delete-favorite-btn {
+    cursor: pointer;
 }
 
 /* Drag handle for reordering */

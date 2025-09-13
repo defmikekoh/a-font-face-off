@@ -4050,8 +4050,11 @@ function hideEditFavoritesModal() {
 // Drag-and-drop reordering for Edit Favorites
 function enableFavoritesReorder(container) {
     if (!container) return;
-    const items = container.querySelectorAll('.edit-favorite-item');
+    
+    // Get all drag handles for event listeners
+    const dragHandles = container.querySelectorAll('.drag-handle');
     let dropIndicator = null;
+    let autoScrollInterval = null;
     function ensureIndicator() {
         if (!dropIndicator) {
             dropIndicator = document.createElement('div');
@@ -4063,7 +4066,86 @@ function enableFavoritesReorder(container) {
     function hideIndicator() {
         if (dropIndicator && dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
     }
-    items.forEach(item => {
+    let currentMouseY = 0;
+    function startAutoScroll(clientY) {
+        currentMouseY = clientY;
+        console.log('startAutoScroll called with clientY:', clientY, 'existing interval:', !!autoScrollInterval);
+        console.log('Container element:', container.className, container.id, 'tagName:', container.tagName);
+        if (autoScrollInterval) {
+            console.log('Returning early, interval already exists');
+            return;
+        }
+        
+        console.log('Creating new auto-scroll interval');
+        autoScrollInterval = setInterval(() => {
+            const containerRect = container.getBoundingClientRect();
+            const scrollZone = 200; // pixels from edge to trigger scroll (very generous)
+            const maxScrollSpeed = 200; // max pixels per second (reduced for better control)
+            
+            // Allow scrolling when mouse is above/below container or within expanded scroll zones
+            // More generous zones for easier triggering when reordering
+            const shouldScrollUp = currentMouseY <= containerRect.top + scrollZone;
+            const shouldScrollDown = currentMouseY >= containerRect.bottom - scrollZone;
+            
+            console.log('Auto-scroll tick - mouseY:', currentMouseY, 'containerTop:', containerRect.top, 'containerBottom:', containerRect.bottom, 'shouldScrollUp:', shouldScrollUp, 'shouldScrollDown:', shouldScrollDown, 'scrollTop:', container.scrollTop, 'scrollHeight:', container.scrollHeight, 'clientHeight:', container.clientHeight);
+            
+            // Find the actually scrollable container
+            let scrollContainer = container;
+            if (container.scrollHeight <= container.clientHeight) {
+                // Container isn't scrollable, try parent elements
+                let parent = container.parentElement;
+                while (parent && parent.scrollHeight <= parent.clientHeight && parent !== document.body) {
+                    parent = parent.parentElement;
+                }
+                if (parent && parent.scrollHeight > parent.clientHeight) {
+                    scrollContainer = parent;
+                    console.log('Using parent as scroll container:', parent.className, parent.tagName);
+                }
+            }
+            
+            if (shouldScrollUp && scrollContainer.scrollTop > 0) {
+                // Calculate scroll speed based on distance from edge (closer = faster)
+                // When above the container, use maximum speed
+                let scrollSpeed;
+                if (currentMouseY < containerRect.top) {
+                    scrollSpeed = maxScrollSpeed; // Maximum speed when completely above
+                } else {
+                    const distanceFromTop = currentMouseY - containerRect.top;
+                    const normalizedDistance = Math.min(distanceFromTop / scrollZone, 1);
+                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance)); // Reduced minimum speed
+                }
+                console.log('Scrolling up, mouseY:', currentMouseY, 'containerTop:', containerRect.top, 'scrollTop:', scrollContainer.scrollTop);
+                scrollContainer.scrollBy({ top: -scrollSpeed / 15, behavior: 'auto' }); // Reduced scroll speed
+            } else if (shouldScrollDown && scrollContainer.scrollTop < scrollContainer.scrollHeight - scrollContainer.clientHeight) {
+                // Calculate scroll speed based on distance from edge (closer = faster)
+                // When below the container, use maximum speed
+                let scrollSpeed;
+                if (currentMouseY > containerRect.bottom) {
+                    scrollSpeed = maxScrollSpeed; // Maximum speed when completely below
+                } else {
+                    const distanceFromBottom = containerRect.bottom - currentMouseY;
+                    const normalizedDistance = Math.min(distanceFromBottom / scrollZone, 1);
+                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance)); // Reduced minimum speed
+                }
+                scrollContainer.scrollBy({ top: scrollSpeed / 15, behavior: 'auto' }); // Reduced scroll speed
+            } else {
+                // Don't stop auto-scroll here - let the drag handlers manage it
+                console.log('No scroll needed, but keeping interval active');
+            }
+        }, 16); // ~60fps for smooth scrolling
+    }
+    function updateAutoScroll(clientY) {
+        currentMouseY = clientY;
+    }
+    function stopAutoScroll() {
+        if (autoScrollInterval) {
+            clearInterval(autoScrollInterval);
+            autoScrollInterval = null;
+        }
+    }
+    // Get favorite items for HTML5 drag events
+    const favoriteItems = container.querySelectorAll('.edit-favorite-item');
+    favoriteItems.forEach(item => {
         // Desktop HTML5 DnD
         item.addEventListener('dragstart', (e) => {
             item.classList.add('dragging');
@@ -4074,6 +4156,7 @@ function enableFavoritesReorder(container) {
             item.removeAttribute('draggable');
             persistFavoritesOrder(container);
             hideIndicator();
+            stopAutoScroll();
         });
     });
     container.addEventListener('dragover', (e) => {
@@ -4081,25 +4164,58 @@ function enableFavoritesReorder(container) {
         const after = getDragAfterElement(container, e.clientY);
         const dragging = container.querySelector('.dragging');
         if (!dragging) return;
-        // Position drop indicator
+        
+        // Update auto-scroll position and start if needed
+        if (!autoScrollInterval) {
+            startAutoScroll(e.clientY);
+        } else {
+            updateAutoScroll(e.clientY);
+        }
+        
+        // Store the target position for when drop happens, but don't move the item yet
+        dragging.dataset.dropAfter = after ? after.dataset.name : '';
+        
+        // Only position drop indicator - don't actually move the item during drag
         const ind = ensureIndicator();
         const crect = container.getBoundingClientRect();
         let topPx;
         if (after == null) {
-            container.appendChild(dragging);
-            const last = container.querySelector('.edit-favorite-item:last-child');
+            // Drop at end
+            const items = [...container.querySelectorAll('.edit-favorite-item:not(.dragging)')];
+            const last = items[items.length - 1];
             const lrect = last ? last.getBoundingClientRect() : null;
             topPx = (lrect ? (lrect.bottom - crect.top + container.scrollTop) : (container.scrollTop + container.scrollHeight));
         } else {
-            container.insertBefore(dragging, after);
+            // Drop before this item
             const arect = after.getBoundingClientRect();
             topPx = (arect.top - crect.top + container.scrollTop);
         }
         ind.style.top = `${Math.max(0, topPx)}px`;
     });
+    
+    container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dragging = container.querySelector('.dragging');
+        if (!dragging) return;
+        
+        // Now actually perform the reorder based on stored drop position
+        const dropAfterName = dragging.dataset.dropAfter;
+        if (dropAfterName === '') {
+            // Drop at end
+            container.appendChild(dragging);
+        } else {
+            // Drop before the specified item
+            const after = container.querySelector(`[data-name="${dropAfterName}"]`);
+            if (after) {
+                container.insertBefore(dragging, after);
+            }
+        }
+        
+        // Clean up
+        delete dragging.dataset.dropAfter;
+    });
 
     // Pointer/touch fallback (works on mobile)
-    const handles = container.querySelectorAll('.drag-handle');
     let ptr = { active: false, item: null, container: null };
     let proxy = null;
     let startOffsetY = 0;
@@ -4107,22 +4223,35 @@ function enableFavoritesReorder(container) {
         if (!ptr.active || !ptr.container || !ptr.item) return;
         const after = getDragAfterElement(ptr.container, e.clientY);
         const dragging = ptr.item;
+        
         // Update proxy position
         if (proxy) {
             const y = e.clientY - startOffsetY;
             proxy.style.top = `${y}px`;
         }
-        // Reorder
+        
+        // Update auto-scroll position and start if needed
+        if (!autoScrollInterval) {
+            startAutoScroll(e.clientY);
+        } else {
+            updateAutoScroll(e.clientY);
+        }
+        
+        // Store the target position for when drop happens, but don't move the item yet
+        dragging.dataset.dropAfter = after ? after.dataset.name : '';
+        
+        // Only show indicator - don't actually move the item during drag
         const ind = ensureIndicator();
         const crect = ptr.container.getBoundingClientRect();
         let topPx;
         if (after == null) {
-            ptr.container.appendChild(dragging);
-            const last = ptr.container.querySelector('.edit-favorite-item:last-child');
+            // Drop at end
+            const items = [...ptr.container.querySelectorAll('.edit-favorite-item:not(.dragging)')];
+            const last = items[items.length - 1];
             const lrect = last ? last.getBoundingClientRect() : null;
             topPx = (lrect ? (lrect.bottom - crect.top + ptr.container.scrollTop) : (ptr.container.scrollTop + ptr.container.scrollHeight));
         } else {
-            ptr.container.insertBefore(dragging, after);
+            // Drop before this item
             const arect = after.getBoundingClientRect();
             topPx = (arect.top - crect.top + ptr.container.scrollTop);
         }
@@ -4131,25 +4260,54 @@ function enableFavoritesReorder(container) {
     const onPointerUp = (e) => {
         if (!ptr.active) return;
         try { e.target.releasePointerCapture && e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+        
+        // Perform the actual reorder based on stored drop position
+        const dragging = ptr.item;
+        const dropAfterName = dragging.dataset.dropAfter;
+        if (dropAfterName !== undefined) {
+            if (dropAfterName === '') {
+                // Drop at end
+                ptr.container.appendChild(dragging);
+            } else {
+                // Drop before the specified item
+                const after = ptr.container.querySelector(`[data-name="${dropAfterName}"]`);
+                if (after) {
+                    ptr.container.insertBefore(dragging, after);
+                }
+            }
+        }
+        
+        // Clean up
+        delete dragging.dataset.dropAfter;
         ptr.item.classList.remove('dragging');
         ptr.item.removeAttribute('draggable');
         persistFavoritesOrder(ptr.container);
         if (proxy && proxy.parentNode) proxy.parentNode.removeChild(proxy);
         proxy = null;
         hideIndicator();
+        stopAutoScroll();
         ptr = { active: false, item: null, container: null };
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
         document.removeEventListener('pointercancel', onPointerUp);
     };
-    handles.forEach(h => {
-        h.addEventListener('pointerdown', (e) => {
+    dragHandles.forEach(handle => {
+        handle.addEventListener('pointerdown', (e) => {
             const item = e.target.closest('.edit-favorite-item');
             if (!item) return;
+            
+            // Prevent default browser behavior (text selection, page scroll, etc.)
+            e.preventDefault();
+            
             ptr = { active: true, item, container };
             item.classList.add('dragging');
             // Prevent page scroll while dragging
             try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
+            
+            // Attach global listeners immediately
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerUp);
             // Create floating proxy of the item for clearer drag feedback
             const rect = item.getBoundingClientRect();
             startOffsetY = e.clientY - rect.top;
