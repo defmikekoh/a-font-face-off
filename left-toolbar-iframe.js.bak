@@ -6,60 +6,68 @@
     
     // Initialize WhatFont by sending message to parent
     function initWhatFont() {
+        console.log('[Left Toolbar] Requesting WhatFont initialization from parent');
         // Send message to parent window to handle WhatFont
         parent.postMessage({ type: 'initWhatFont' }, '*');
     }
     
     // Hide toolbar
     function hideToolbar() {
+        console.log('[Left Toolbar] Hiding toolbar');
         // Send message to parent window to hide toolbar
         parent.postMessage({ type: 'hideToolbar' }, '*');
     }
     
     // Close current tab
     function closeTab() {
+        console.log('[Left Toolbar] Closing current tab');
         // Send message to parent window to close tab
         parent.postMessage({ type: 'closeTab' }, '*');
     }
     
     // Page up functionality
     function pageUp() {
+        console.log('[Left Toolbar] Page up');
         // Send message to parent window to scroll up
         parent.postMessage({ type: 'pageUp' }, '*');
     }
     
     // Page up longpress functionality
     function pageUpLongpress() {
+        console.log('[Left Toolbar] Page up longpress');
         // Send message to parent window to scroll up with longpress
         parent.postMessage({ type: 'pageUpLongpress' }, '*');
     }
     
     // Page down functionality  
     function pageDown() {
+        console.log('[Left Toolbar] Page down');
         // Send message to parent window to scroll down
         parent.postMessage({ type: 'pageDown' }, '*');
     }
     
     // Page down longpress functionality  
     function pageDownLongpress() {
+        console.log('[Left Toolbar] Page down longpress');
         // Send message to parent window to scroll down with longpress
         parent.postMessage({ type: 'pageDownLongpress' }, '*');
     }
     
     // Open extension popup  
     function openPopup() {
+        console.log('[Left Toolbar] Requesting popup from parent with domain context');
         // Send message to parent window to handle popup opening with domain context
         parent.postMessage({ type: 'openPopup' }, '*');
     }
     
-    // Show SVG based on theme (exactly like Essential)
+    // Show SVG based on theme (based on essential-buttons-toolbar)
     function showSVG(svgs, theme, additionalClass) {
         svgs.forEach((svg) => {
             if (
                 svg.classList.contains(theme) &&
                 (!additionalClass || svg.classList.contains(additionalClass))
             ) {
-                svg.style.display = 'block';
+                svg.style.display = 'flex';
             } else {
                 svg.style.display = 'none';
             }
@@ -68,6 +76,8 @@
     
     // Apply icon theme to all buttons
     async function applyIconTheme() {
+        console.log('[Left Toolbar] Applying icon theme...');
+        
         // Get icon theme setting
         let iconTheme = 'heroIcons'; // default
         try {
@@ -78,8 +88,10 @@
             console.error('[Left Toolbar] Error getting icon theme, using default:', e);
         }
         
+        console.log('[Left Toolbar] Using icon theme:', iconTheme);
+        
         // Apply theme to all buttons with themed icons
-        const themedButtons = ['faceoff-button', 'whatfont-button', 'hide-toolbar-button', 'close-tab-button', 'page-up-button', 'page-down-button'];
+        const themedButtons = ['hide-toolbar-button', 'close-tab-button', 'page-up-button', 'page-down-button'];
         themedButtons.forEach(buttonId => {
             const button = document.getElementById(buttonId);
             if (button) {
@@ -89,53 +101,22 @@
         });
     }
     
-    // Initialize event listeners - EXACTLY like Essential
+    // Initialize event listeners
     document.addEventListener('DOMContentLoaded', function() {
-        // Get Essential-style divs
-        const toolbarDiv = document.getElementById('toolbar');
-        const menuDiv = document.getElementById('menu');
-        
-        if (!toolbarDiv || !menuDiv) {
-            console.error('[Left Toolbar] Toolbar divs not found!');
-            return;
-        }
-        
-        // Set up toolbar as vertical like Essential does for left position
-        toolbarDiv.classList.add('vertical');
-        menuDiv.classList.add('vertical');
-        toolbarDiv.style.width = '100%';
-        menuDiv.style.width = '50%';
-        toolbarDiv.style.left = '0';
-        menuDiv.style.right = '0';
-        
-        // Show all our buttons in toolbar div like Essential does
-        const buttons = [
-            'faceoff-button',
-            'whatfont-button', 
-            'hide-toolbar-button',
-            'close-tab-button',
-            'page-up-button',
-            'page-down-button'
-        ];
-        
-        buttons.forEach(buttonId => {
-            const button = document.getElementById(buttonId);
-            if (button) {
-                button.style.display = 'flex';
-                button.style.width = '100%';
-                button.style.alignItems = 'center';
-                button.style.justifyContent = 'center';
-                toolbarDiv.appendChild(button);
-            }
-        });
-        
-        // Get button references after they're moved to toolbar
         const faceoffButton = document.getElementById('faceoff-button');
         const whatfontButton = document.getElementById('whatfont-button');
         const hideToolbarButton = document.getElementById('hide-toolbar-button');
         const closeTabButton = document.getElementById('close-tab-button');
         const pageUpButton = document.getElementById('page-up-button');
         const pageDownButton = document.getElementById('page-down-button');
+        
+        console.log('[Left Toolbar] DOM loaded, buttons found:', 
+            !!faceoffButton, !!whatfontButton, !!hideToolbarButton, !!closeTabButton, !!pageUpButton, !!pageDownButton);
+        
+        if (!hideToolbarButton || !closeTabButton || !pageUpButton || !pageDownButton) {
+            console.error('[Left Toolbar] Navigation buttons not found in DOM!');
+            return;
+        }
         
         // Helper function to handle button press with proper touch handling and longpress support
         function handleButtonPress(button, callback, logMessage, longPressCallback) {
@@ -146,6 +127,7 @@
             button.addEventListener('click', function(e) {
                 e.preventDefault();
                 if (!isLongPress) {
+                    console.log(logMessage);
                     this.classList.add('pressed');
                     // Force blur to remove any stuck hover states on touch devices
                     this.blur();
@@ -163,6 +145,7 @@
                     isLongPress = false;
                     pressTimer = setTimeout(() => {
                         isLongPress = true;
+                        console.log(logMessage + ' (longpress)');
                         this.classList.add('pressed');
                         this.blur();
                         setTimeout(() => {
@@ -192,6 +175,7 @@
                     isLongPress = false;
                     pressTimer = setTimeout(() => {
                         isLongPress = true;
+                        console.log(logMessage + ' (longpress)');
                         this.classList.add('pressed');
                         this.blur();
                         setTimeout(() => {
@@ -232,17 +216,56 @@
         handleButtonPress(pageUpButton, pageUp, '[Left Toolbar] Page up button clicked', pageUpLongpress);
         handleButtonPress(pageDownButton, pageDown, '[Left Toolbar] Page down button clicked', pageDownLongpress);
         
-        // Essential uses CSS-only sizing - no JavaScript button sizing needed
-        // Let CSS aspect-ratio and iframe width handle all sizing automatically
+        // Set button sizes to scale with container width (like essential-buttons-toolbar)  
+        const containerWidth = window.innerWidth;
+        const buttonSize = Math.max(containerWidth - 4, 20); // Leave 2px margin each side, min 20px
+        
+        // Apply sizing to all buttons (including new faceoff, whatfont, and hide toolbar buttons)
+        const allButtons = [faceoffButton, whatfontButton, hideToolbarButton, closeTabButton, pageUpButton, pageDownButton].filter(btn => btn);
+        
+        allButtons.forEach(button => {
+            button.style.width = buttonSize + 'px';
+            button.style.height = buttonSize + 'px';
+            button.style.minWidth = buttonSize + 'px';
+            button.style.minHeight = buttonSize + 'px';
+            
+            // Also scale the SVG icons proportionally
+            const svg = button.querySelector('svg');
+            if (svg) {
+                const iconSize = Math.floor(buttonSize * 0.6); // 60% of button size like our CSS
+                svg.style.width = iconSize + 'px';
+                svg.style.height = iconSize + 'px';
+            }
+        });
+        
+        console.log('[Left Toolbar] Button and icon sizing details:', {
+            'iframe window.innerWidth': window.innerWidth,
+            'calculated buttonSize': buttonSize,
+            'calculated iconSize': Math.floor(buttonSize * 0.6),
+            'containerWidth - 4': containerWidth - 4
+        });
+        
+        // Also log actual computed button dimensions
+        setTimeout(() => {
+            const computedStyle = getComputedStyle(closeTabButton);
+            console.log('[Left Toolbar] Actual button computed dimensions:', {
+                'computed width': computedStyle.width,
+                'computed height': computedStyle.height,
+                'computed margin': computedStyle.margin,
+                'computed padding': computedStyle.padding
+            });
+        }, 100);
         
         // Apply icon theme after everything is set up
         applyIconTheme();
         
+        console.log('[Left Toolbar] Left toolbar iframe initialized');
     });
     
     // Apply transparency to the entire body like essential-buttons-toolbar
     function applyTransparency(transparency) {
         document.body.style.opacity = transparency;
+        console.log('[Left Toolbar] Applied transparency to entire body:', transparency);
     }
     
     // Listen for messages from parent window
@@ -257,7 +280,9 @@
     
     // Apply default transparency on load (will be overridden by parent)
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('[Left Toolbar] Initial background color:', getComputedStyle(document.body).backgroundColor);
         // Don't apply default transparency here - wait for parent to send the setting
+        console.log('[Left Toolbar] Waiting for transparency setting from parent...');
     });
     
 })();

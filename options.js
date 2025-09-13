@@ -9,9 +9,11 @@
   // Use auto theme to match essential-buttons-toolbar default behavior
   overrideTheme('auto');
 
-  // Left toolbar preview functionality
-  function updateLeftToolbarPreview() {
+  // Update preview after saving toolbar settings (simple, non-live version)
+  function updatePreviewAfterSave() {
     const preview = document.getElementById('left-toolbar-preview');
+    if (!preview) return;
+    
     const enabled = document.getElementById('toolbar-enabled').value === 'true';
     const width = parseInt(document.getElementById('toolbar-width').value);
     const height = parseInt(document.getElementById('toolbar-height').value);
@@ -19,53 +21,25 @@
     const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
     const gap = parseInt(document.getElementById('toolbar-gap').value);
     
-    if (!preview) return;
-    
     if (enabled) {
       preview.style.display = 'flex';
-      
-      // Apply left toolbar positioning logic
-      const containerHeight = `${height}vh`;
-      const useTransformCentering = height < 100;
-      const topPosition = useTransformCentering ? `${position}%` : '0';
-      
-      // Apply real left toolbar styling
-      preview.style.position = 'fixed';
-      preview.style.left = gap + 'px';
       preview.style.width = width + 'px';
-      preview.style.height = containerHeight;
+      preview.style.height = height + 'vh';
       preview.style.opacity = transparency;
+      preview.style.left = gap + 'px';
       
-      if (useTransformCentering) {
-        preview.style.top = topPosition;
+      if (height < 100) {
+        preview.style.top = position + '%';
         preview.style.transform = 'translateY(-50%)';
       } else {
         preview.style.top = '0';
         preview.style.transform = 'none';
       }
-      
-      console.log('[Left Toolbar Preview] Updated positioning:', {
-        width: width,
-        height: height,
-        position: position,
-        transparency: transparency,
-        gap: gap,
-        useTransformCentering: useTransformCentering,
-        topPosition: topPosition
-      });
-      
-      // Update button sizes to match container width (like essential-buttons-toolbar)
-      const previewButtons = preview.querySelectorAll('.preview-button');
-      const buttonSize = Math.max(width - 8, 20); // Account for padding like real toolbar
-      
-      previewButtons.forEach(button => {
-        button.style.width = buttonSize + 'px';
-        button.style.height = buttonSize + 'px';
-      });
     } else {
       preview.style.display = 'none';
     }
   }
+
   const DEFAULT_SERIF = ['PT Serif'];
   const DEFAULT_SANS = [];
   const DEFAULT_FFONLY = ['x.com'];
@@ -168,7 +142,7 @@
       document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
       
       // Update preview after loading settings
-      updateLeftToolbarPreview();
+      updatePreviewAfterSave();
     } catch (e) {}
   }
 
@@ -401,35 +375,19 @@
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
-    document.getElementById('save-toolbar').addEventListener('click', saveToolbar);
-    document.getElementById('toolbar-enabled').addEventListener('change', updateLeftToolbarPreview);
-    document.getElementById('toolbar-width').addEventListener('input', function() {
-      updateToolbarValues();
-      updateLeftToolbarPreview();
+    document.getElementById('save-toolbar').addEventListener('click', function() {
+      saveToolbar();
+      updatePreviewAfterSave();
     });
-    document.getElementById('toolbar-height').addEventListener('input', function() {
-      updateToolbarValues();
-      updateLeftToolbarPreview();
-    });
-    document.getElementById('toolbar-position').addEventListener('input', function() {
-      updateToolbarValues();
-      updateLeftToolbarPreview();
-    });
-    document.getElementById('toolbar-transparency').addEventListener('input', function() {
-      updateToolbarValues();
-      updateLeftToolbarPreview();
-    });
-    document.getElementById('toolbar-gap').addEventListener('input', function() {
-      updateToolbarValues();
-      updateLeftToolbarPreview();
-    });
+    document.getElementById('toolbar-width').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-height').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-position').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-transparency').addEventListener('input', updateToolbarValues);
+    document.getElementById('toolbar-gap').addEventListener('input', updateToolbarValues);
     document.getElementById('pageup-scroll-overlap').addEventListener('input', updateToolbarValues);
     document.getElementById('pageup-longpress-overlap').addEventListener('input', updateToolbarValues);
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
-    
-    // Initialize preview after load
-    setTimeout(updateLeftToolbarPreview, 100);
   });
 })();
