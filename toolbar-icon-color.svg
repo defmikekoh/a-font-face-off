@@ -1,23 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-     fill="none" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Hockey mask with sticks and puck">
+     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Hockey mask with sticks and puck">
+  <defs>
+    <!-- Clipping mask for left half -->
+    <clipPath id="leftHalf">
+      <rect x="0" y="0" width="12" height="24"/>
+    </clipPath>
+    <!-- Clipping mask for right half -->
+    <clipPath id="rightHalf">
+      <rect x="12" y="0" width="12" height="24"/>
+    </clipPath>
+  </defs>
   <title>Hockey mask with sticks and puck</title>
-  <!-- Left stick (longer, no crossing, blade faces inward) -->
-  <path d="M3.5 3 L9 19"/>
-  <path d="M9 19 L11.0 20.2"/>
-  <!-- Right stick (longer, no crossing, blade faces inward) -->
-  <path d="M20.5 3 L15 19"/>
-  <path d="M15 19 L13.0 20.2"/>
-  <!-- Smaller simple hockey mask outline -->
-  <path d="M12 6c-3 0-4.5 2.3-4.5 4.3 0 2.8 1.8 5.3 4.5 5.8 2.7-.5 4.5-3 4.5-5.8 0-2-1.5-4.3-4.5-4.3Z"/>
-  <!-- Eyes -->
-  <circle cx="10" cy="9.2" r="0.9" fill="#222" stroke="none"/>
-  <circle cx="14" cy="9.2" r="0.9" fill="#222" stroke="none"/>
-  <!-- Vents -->
-  <circle cx="12" cy="12.6" r="0.6" fill="#222" stroke="none"/>
-  <circle cx="10.6" cy="12.6" r="0.6" fill="#222" stroke="none"/>
-  <circle cx="13.4" cy="12.6" r="0.6" fill="#222" stroke="none"/>
-  <!-- Puck (moved up to avoid blade overlap) -->
-  <ellipse cx="12" cy="17.6" rx="3.0" ry="1.2" fill="#222" stroke="none"/>
-  <!-- Small red accent (optional) -->
-  <circle cx="12" cy="6.2" r="1.0" fill="#c33" stroke="none"/>
+  <!-- Left stick (secondary color - red) -->
+  <path d="M4 3 L7 19" stroke="#e64553"/>
+  <path d="M7 19 L10.6 21" stroke="#e64553"/>
+  <!-- Right stick (primary color - blue) -->
+  <path d="M20 3 L17 19" stroke="#1e66f5"/>
+  <path d="M17 19 L13.4 21" stroke="#1e66f5"/>
+  <!-- Full mask outline clipped to left half (primary blue) -->
+  <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z" stroke="#1e66f5" fill="none" clip-path="url(#leftHalf)"/>
+  <!-- Full mask outline clipped to right half (secondary red) -->
+  <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z" stroke="#e64553" fill="none" clip-path="url(#rightHalf)"/>
+  <!-- Eyes (left blue, right red) -->
+  <circle cx="10" cy="8.8" r="0.8" fill="#1e66f5" stroke="none"/>
+  <circle cx="14" cy="8.8" r="0.8" fill="#e64553" stroke="none"/>
+  <!-- Vents (center half blue/half red, left blue, right red) -->
+  <circle cx="12" cy="12.0" r="0.5" fill="#1e66f5" stroke="none" clip-path="url(#leftHalf)"/>
+  <circle cx="12" cy="12.0" r="0.5" fill="#e64553" stroke="none" clip-path="url(#rightHalf)"/>
+  <circle cx="10.7" cy="12.0" r="0.5" fill="#1e66f5" stroke="none"/>
+  <circle cx="13.3" cy="12.0" r="0.5" fill="#e64553" stroke="none"/>
+  <!-- Puck (black) -->
+  <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="black" stroke="none"/>
 </svg>
