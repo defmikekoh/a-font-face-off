@@ -125,7 +125,10 @@
         'affoToolbarHeight',
         'affoToolbarPosition',
         'affoToolbarTransparency',
-        'affoToolbarGap'
+        'affoToolbarGap',
+        'affoPageUpScrollOverlap',
+        'affoPageUpLongpressOverlap',
+        'affoIconTheme'
       ]);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
@@ -143,18 +146,26 @@
       const position = data.affoToolbarPosition !== undefined ? data.affoToolbarPosition : 50;
       const transparency = data.affoToolbarTransparency !== undefined ? data.affoToolbarTransparency : 0.2;
       const gap = data.affoToolbarGap || 0;
+      const pageUpScrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
+      const pageUpLongpressOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
+      const iconTheme = data.affoIconTheme || 'heroIcons';
       
       document.getElementById('toolbar-width').value = width;
       document.getElementById('toolbar-height').value = height;
       document.getElementById('toolbar-position').value = position;
       document.getElementById('toolbar-transparency').value = transparency;
       document.getElementById('toolbar-gap').value = gap;
+      document.getElementById('pageup-scroll-overlap').value = pageUpScrollOverlap;
+      document.getElementById('pageup-longpress-overlap').value = pageUpLongpressOverlap;
+      document.getElementById('icon-theme').value = iconTheme;
       
       document.getElementById('toolbar-width-value').textContent = width + 'px';
       document.getElementById('toolbar-height-value').textContent = height + '%';
       document.getElementById('toolbar-position-value').textContent = position + '%';
       document.getElementById('toolbar-transparency-value').textContent = transparency;
       document.getElementById('toolbar-gap-value').textContent = gap + 'px';
+      document.getElementById('pageup-scroll-overlap-value').textContent = pageUpScrollOverlap + 'px';
+      document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
       
       // Update preview after loading settings
       updateLeftToolbarPreview();
@@ -284,6 +295,9 @@
       const position = parseInt(document.getElementById('toolbar-position').value);
       const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
       const gap = parseInt(document.getElementById('toolbar-gap').value);
+      const pageUpScrollOverlap = parseInt(document.getElementById('pageup-scroll-overlap').value);
+      const pageUpLongpressOverlap = parseInt(document.getElementById('pageup-longpress-overlap').value);
+      const iconTheme = document.getElementById('icon-theme').value;
       
       await browser.storage.local.set({ 
         affoToolbarEnabled: enabled,
@@ -291,7 +305,10 @@
         affoToolbarHeight: height,
         affoToolbarPosition: position,
         affoToolbarTransparency: transparency,
-        affoToolbarGap: gap
+        affoToolbarGap: gap,
+        affoPageUpScrollOverlap: pageUpScrollOverlap,
+        affoPageUpLongpressOverlap: pageUpLongpressOverlap,
+        affoIconTheme: iconTheme
       });
       
       const s = document.getElementById('status-toolbar'); 
@@ -310,12 +327,16 @@
     const position = document.getElementById('toolbar-position').value;
     const transparency = document.getElementById('toolbar-transparency').value;
     const gap = document.getElementById('toolbar-gap').value;
+    const pageUpScrollOverlap = document.getElementById('pageup-scroll-overlap').value;
+    const pageUpLongpressOverlap = document.getElementById('pageup-longpress-overlap').value;
     
     document.getElementById('toolbar-width-value').textContent = width + 'px';
     document.getElementById('toolbar-height-value').textContent = height + '%';
     document.getElementById('toolbar-position-value').textContent = position + '%';
     document.getElementById('toolbar-transparency-value').textContent = transparency;
     document.getElementById('toolbar-gap-value').textContent = gap + 'px';
+    document.getElementById('pageup-scroll-overlap-value').textContent = pageUpScrollOverlap + 'px';
+    document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
   }
 
   async function resetAllSettings(){
@@ -354,6 +375,9 @@
       document.getElementById('toolbar-position').value = 50;
       document.getElementById('toolbar-transparency').value = 0.2;
       document.getElementById('toolbar-gap').value = 0;
+      document.getElementById('pageup-scroll-overlap').value = 80;
+      document.getElementById('pageup-longpress-overlap').value = 60;
+      document.getElementById('icon-theme').value = 'heroIcons';
       updateToolbarValues();
       
       statusEl.textContent = 'All settings reset successfully';
@@ -399,6 +423,8 @@
       updateToolbarValues();
       updateLeftToolbarPreview();
     });
+    document.getElementById('pageup-scroll-overlap').addEventListener('input', updateToolbarValues);
+    document.getElementById('pageup-longpress-overlap').addEventListener('input', updateToolbarValues);
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);

@@ -55,7 +55,9 @@
   "web_accessible_resources": [
     "wf.css",
     "left-toolbar-iframe.html",
-    "left-toolbar-iframe.js"
+    "left-toolbar-iframe.js",
+    "icons/featherIcons/unhide.svg",
+    "icons/heroIcons/unhide.svg"
   ],
 
 

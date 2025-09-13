@@ -134,11 +134,28 @@
     <input type="range" id="toolbar-gap" min="0" max="20" value="0">
     <br />
     
+    <label for="pageup-scroll-overlap">Page Up/Down scroll overlap (px):</label>
+    <span id="pageup-scroll-overlap-value" class="currentValue">80px</span>
+    <input type="range" id="pageup-scroll-overlap" min="0" max="200" step="10" value="80">
+    <br />
+    
+    <label for="pageup-longpress-overlap">Page Up/Down scroll overlap longpress (px):</label>
+    <span id="pageup-longpress-overlap-value" class="currentValue">60px</span>
+    <input type="range" id="pageup-longpress-overlap" min="0" max="200" step="10" value="60">
+    <br />
+    
+    <label for="icon-theme">Icon theme:</label>
+    <select id="icon-theme">
+        <option value="featherIcons">Feather</option>
+        <option value="heroIcons">Heroicons</option>
+    </select>
+    <br />
+    
     <div class="row">
       <button id="save-toolbar">Save Toolbar Settings</button>
       <span id="status-toolbar" class="status"></span>
     </div>
-    <div class="hint">Shows a floating vertical toolbar on the left side of web pages with Face-off, WhatFont, and navigation buttons. Position controls vertical centering.</div>
+    <div class="hint">Shows a floating vertical toolbar on the left side of web pages with Face-off, WhatFont, and navigation buttons. Position controls vertical centering. Page Up/Down buttons support longpress for different scroll distances.</div>
   </div>
 
   <div id="excludeSettings" style="display: none;">

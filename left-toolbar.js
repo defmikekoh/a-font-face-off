@@ -18,6 +18,8 @@
     console.log('[Left Toolbar] Starting injection...');
     
     let leftToolbarIframe = null;
+    let leftToolbarHidden = false;
+    let unhideIcon = null;
     let options = {};
     
     console.log('[Left Toolbar] Initializing left toolbar...');
@@ -175,14 +177,23 @@
             case 'openPopup':
                 handleOpenPopup();
                 break;
+            case 'hideToolbar':
+                handleHideToolbar();
+                break;
             case 'closeTab':
                 handleCloseTab();
                 break;
             case 'pageUp':
                 handlePageUp();
                 break;
+            case 'pageUpLongpress':
+                handlePageUpLongpress();
+                break;
             case 'pageDown':
                 handlePageDown();
+                break;
+            case 'pageDownLongpress':
+                handlePageDownLongpress();
                 break;
             case 'toolbarOptionsChanged':
                 handleToolbarOptionsChanged(event.data.options);
@@ -392,22 +403,182 @@
         }
     }
     
-    // Page up (scroll up by one viewport height)
-    function handlePageUp() {
-        console.log('[Left Toolbar] Handling page up');
-        window.scrollBy({
-            top: -window.innerHeight,
-            behavior: 'smooth'
-        });
+    // Handle hide toolbar (based on essential-buttons-toolbar implementation)
+    function handleHideToolbar() {
+        console.log('[Left Toolbar] Handling hide toolbar');
+        leftToolbarHidden = true;
+        reinitializeToolbar();
     }
     
-    // Page down (scroll down by one viewport height)  
-    function handlePageDown() {
+    // Handle unhide toolbar (show toolbar again)
+    function handleUnhideToolbar() {
+        console.log('[Left Toolbar] Handling unhide toolbar');
+        leftToolbarHidden = false;
+        reinitializeToolbar();
+    }
+    
+    // Reinitialize toolbar (handle hide/unhide)
+    function reinitializeToolbar() {
+        console.log('[Left Toolbar] Reinitializing toolbar, hidden:', leftToolbarHidden);
+        
+        // Remove existing iframe or unhide icon
+        if (leftToolbarIframe) {
+            leftToolbarIframe.remove();
+            leftToolbarIframe = null;
+        }
+        if (unhideIcon) {
+            unhideIcon.remove();
+            unhideIcon = null;
+        }
+        
+        // Create appropriate element based on hidden state
+        if (leftToolbarHidden) {
+            createUnhideIcon();
+        } else {
+            createLeftToolbar();
+        }
+    }
+    
+    // Create unhide icon (based on essential-buttons-toolbar implementation)
+    async function createUnhideIcon() {
+        console.log('[Left Toolbar] Creating unhide icon...');
+        
+        unhideIcon = document.createElement('div');
+        unhideIcon.setAttribute('id', 'affo-unhide-icon');
+        
+        // Get icon theme setting
+        let iconTheme = 'heroIcons'; // default
+        try {
+            const data = await browser.storage.local.get(['affoIconTheme']);
+            iconTheme = data.affoIconTheme || 'heroIcons';
+        } catch (e) {
+            console.error('[Left Toolbar] Error getting icon theme, using default:', e);
+        }
+        
+        // Create image element using the themed icon like essential-buttons-toolbar
+        const img = document.createElement('img');
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        img.src = browserAPI.runtime.getURL(`icons/${iconTheme}/unhide.svg`);
+        img.style.cssText = 'pointer-events: none; height: 50%; width: 50%; margin: auto;';
+        
+        // Style similar to essential-buttons-toolbar
+        const viewportScale = window.visualViewport?.scale || 1;
+        const calculatedSize = Math.floor(options.width / viewportScale);
+        
+        unhideIcon.style.cssText = `
+            display: flex !important;
+            position: fixed !important;
+            z-index: 2147483647 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 2px solid #45444c !important;
+            background: rgba(43, 42, 51, 0.8) !important;
+            color-scheme: light !important;
+            border-radius: 20% !important;
+            box-sizing: border-box !important;
+            cursor: pointer !important;
+            left: ${options.gap}px !important;
+            width: ${calculatedSize}px !important;
+            height: ${calculatedSize}px !important;
+        `;
+        
+        // Position near bottom of screen like essential-buttons-toolbar
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+        unhideIcon.style.top = `${viewportHeight - calculatedSize * 2.5}px`;
+        
+        unhideIcon.appendChild(img);
+        
+        // Add click handler to unhide toolbar
+        unhideIcon.addEventListener('click', handleUnhideToolbar);
+        
+        // Add to DOM
+        document.body.appendChild(unhideIcon);
+        
+        console.log('[Left Toolbar] Unhide icon created and positioned');
+    }
+    
+    // Page up (scroll up by one viewport height minus overlap)
+    async function handlePageUp() {
+        console.log('[Left Toolbar] Handling page up');
+        try {
+            const data = await browser.storage.local.get(['affoPageUpScrollOverlap']);
+            const scrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
+            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            
+            window.scrollBy({
+                top: -scrollDistance,
+                behavior: 'smooth'
+            });
+        } catch (e) {
+            console.error('[Left Toolbar] Error getting scroll overlap setting, using default:', e);
+            window.scrollBy({
+                top: -(window.innerHeight - 80),
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    // Page down (scroll down by one viewport height minus overlap)  
+    async function handlePageDown() {
         console.log('[Left Toolbar] Handling page down');
-        window.scrollBy({
-            top: window.innerHeight,
-            behavior: 'smooth'
-        });
+        try {
+            const data = await browser.storage.local.get(['affoPageUpScrollOverlap']);
+            const scrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
+            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            
+            window.scrollBy({
+                top: scrollDistance,
+                behavior: 'smooth'
+            });
+        } catch (e) {
+            console.error('[Left Toolbar] Error getting scroll overlap setting, using default:', e);
+            window.scrollBy({
+                top: (window.innerHeight - 80),
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    // Page up longpress (scroll up by one viewport height minus longpress overlap)
+    async function handlePageUpLongpress() {
+        console.log('[Left Toolbar] Handling page up longpress');
+        try {
+            const data = await browser.storage.local.get(['affoPageUpLongpressOverlap']);
+            const scrollOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
+            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            
+            window.scrollBy({
+                top: -scrollDistance,
+                behavior: 'smooth'
+            });
+        } catch (e) {
+            console.error('[Left Toolbar] Error getting longpress scroll overlap setting, using default:', e);
+            window.scrollBy({
+                top: -(window.innerHeight - 60),
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    // Page down longpress (scroll down by one viewport height minus longpress overlap)
+    async function handlePageDownLongpress() {
+        console.log('[Left Toolbar] Handling page down longpress');
+        try {
+            const data = await browser.storage.local.get(['affoPageUpLongpressOverlap']);
+            const scrollOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
+            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            
+            window.scrollBy({
+                top: scrollDistance,
+                behavior: 'smooth'
+            });
+        } catch (e) {
+            console.error('[Left Toolbar] Error getting longpress scroll overlap setting, using default:', e);
+            window.scrollBy({
+                top: (window.innerHeight - 60),
+                behavior: 'smooth'
+            });
+        }
     }
     
     // Initialize when DOM is ready
@@ -524,6 +695,21 @@
     // Start the retry mechanism if _whatFont isn't immediately available
     if (typeof window._whatFont === 'undefined') {
         setTimeout(waitForWhatFont, 200);
+    }
+    
+    // Listen for storage changes to update icon theme
+    try {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
+            browserAPI.storage.onChanged.addListener((changes, areaName) => {
+                if (areaName === 'local' && changes.affoIconTheme && leftToolbarIframe) {
+                    console.log('[Left Toolbar] Icon theme changed, updating iframe');
+                    leftToolbarIframe.contentWindow.postMessage({ type: 'updateIconTheme' }, '*');
+                }
+            });
+        }
+    } catch (e) {
+        console.error('[Left Toolbar] Error setting up storage listener:', e);
     }
     
 })();

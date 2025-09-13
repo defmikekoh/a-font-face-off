@@ -388,7 +388,7 @@ function loadModeSettings() {
 
 // Helper: get current active tab's origin without requiring 'tabs' permission
 function getActiveOrigin() {
-    return browser.tabs.executeScript({ code: 'location.hostname' }).then(res => {
+    return executeScriptInTargetTab({ code: 'location.hostname' }).then(res => {
         if (Array.isArray(res) && res.length) return String(res[0]);
         return null;
     }).catch(() => null);
