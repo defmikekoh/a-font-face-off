@@ -1405,7 +1405,7 @@
     console.error(`[AFFO Content] Error setting up storage listener:`, e);
   }
 
-  // Message listener - only handles cleanup, fonts applied by popup insertCSS
+  // Message listener - handles cleanup, fonts applied by popup insertCSS
   try {
     browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       if (message.type === 'applyFonts') {

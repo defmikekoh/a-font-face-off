@@ -224,24 +224,37 @@
 <body>
   <div id="header">
     <h2>
-      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px; color: #1e40af;">
-        <!-- Left stick -->
-        <path d="M4 3 L7 19"/>
-        <path d="M7 19 L10.6 21"/>
-        <!-- Right stick -->
-        <path d="M20 3 L17 19"/>
-        <path d="M17 19 L13.4 21"/>
-        <!-- Mask -->
-        <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
-        <!-- Eyes -->
-        <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-        <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-        <!-- Vents -->
-        <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-        <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-        <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-        <!-- Puck -->
-        <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;">
+        <defs>
+          <!-- Clipping mask for left half -->
+          <clipPath id="leftHalf">
+            <rect x="0" y="0" width="12" height="24"/>
+          </clipPath>
+          <!-- Clipping mask for right half -->
+          <clipPath id="rightHalf">
+            <rect x="12" y="0" width="12" height="24"/>
+          </clipPath>
+        </defs>
+        <!-- Left stick (secondary color - red) -->
+        <path d="M4 3 L7 19" stroke="#e64553"/>
+        <path d="M7 19 L10.6 21" stroke="#e64553"/>
+        <!-- Right stick (primary color - blue) -->
+        <path d="M20 3 L17 19" stroke="#1e66f5"/>
+        <path d="M17 19 L13.4 21" stroke="#1e66f5"/>
+        <!-- Full mask outline clipped to left half (primary blue) -->
+        <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z" stroke="#1e66f5" fill="none" clip-path="url(#leftHalf)"/>
+        <!-- Full mask outline clipped to right half (secondary red) -->
+        <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z" stroke="#e64553" fill="none" clip-path="url(#rightHalf)"/>
+        <!-- Eyes (left blue, right red) -->
+        <circle cx="10" cy="8.8" r="0.8" fill="#1e66f5" stroke="none"/>
+        <circle cx="14" cy="8.8" r="0.8" fill="#e64553" stroke="none"/>
+        <!-- Vents (center half blue/half red, left blue, right red) -->
+        <circle cx="12" cy="12.0" r="0.5" fill="#1e66f5" stroke="none" clip-path="url(#leftHalf)"/>
+        <circle cx="12" cy="12.0" r="0.5" fill="#e64553" stroke="none" clip-path="url(#rightHalf)"/>
+        <circle cx="10.7" cy="12.0" r="0.5" fill="#1e66f5" stroke="none"/>
+        <circle cx="13.3" cy="12.0" r="0.5" fill="#e64553" stroke="none"/>
+        <!-- Puck (black) -->
+        <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="black" stroke="none"/>
       </svg>
       A Font Face-off — Options
     </h2>
@@ -272,9 +285,11 @@
       <!-- Face-off button -->
       <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 3 L7 19"/><path d="M7 19 L10.6 21"/>
-          <path d="M20 3 L17 19"/><path d="M17 19 L13.4 21"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="heroIcons">
+          <path d="M4 3 L7 19"/>
+          <path d="M7 19 L10.6 21"/>
+          <path d="M20 3 L17 19"/>
+          <path d="M17 19 L13.4 21"/>
           <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
           <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
           <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
@@ -361,6 +376,13 @@
     <label for="pageup-longpress-overlap">Page Up/Down scroll overlap longpress (px):</label>
     <span id="pageup-longpress-overlap-value" class="currentValue">60px</span>
     <input type="range" id="pageup-longpress-overlap" min="0" max="200" step="10" value="60">
+    <br />
+    
+    <label for="pageup-scroll-type">Page Up/Down scroll type:</label>
+    <select id="pageup-scroll-type">
+        <option value="smooth">Smooth</option>
+        <option value="instant">Instant</option>
+    </select>
     <br />
     
     <label for="icon-theme">Icon theme:</label>

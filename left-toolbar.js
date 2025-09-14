@@ -515,83 +515,118 @@
         
     }
     
+    // Find scrollable element (same logic as essential-buttons-toolbar)
+    function findScrollableElement() {
+        const candidates = document.querySelectorAll('main, div, section');
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = document.documentElement.clientHeight;
+        
+        if (document.documentElement.scrollHeight > viewportHeight) {
+            return document.documentElement;
+        }
+        if (document.body.scrollHeight > document.body.clientHeight) {
+            return document.body;
+        }
+        
+        for (const el of candidates) {
+            if (el.scrollHeight > viewportHeight * 0.95 &&
+                el.clientWidth > viewportWidth * 0.8 &&
+                (getComputedStyle(el).overflowY === 'auto' ||
+                 getComputedStyle(el).overflowY === 'scroll')) {
+                return el;
+            }
+        }
+        
+        return document.documentElement;
+    }
+    
     // Page up (scroll up by one viewport height minus overlap)
     async function handlePageUp() {
         try {
-            const data = await browser.storage.local.get(['affoPageUpScrollOverlap']);
-            const scrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
-            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            const data = await browser.storage.local.get([
+                'affoPageUpScrollOverlap', 
+                'affoPageUpScrollType'
+            ]);
             
-            window.scrollBy({
-                top: -scrollDistance,
-                behavior: 'smooth'
-            });
+            const element = findScrollableElement();
+            const overlapSetting = data.affoPageUpScrollOverlap || 80;
+            const scrollType = data.affoPageUpScrollType || 'smooth';
+            
+            const offset = Math.max(window.innerHeight - overlapSetting, 10);
+            const targetTop = Math.max(0, element.scrollTop - offset);
+            
+            element.scrollTo({ top: targetTop, behavior: scrollType });
         } catch (e) {
-            console.error('[Left Toolbar] Error getting scroll overlap setting, using default:', e);
-            window.scrollBy({
-                top: -(window.innerHeight - 80),
-                behavior: 'smooth'
-            });
+            console.error('Error in handlePageUp:', e);
         }
     }
     
     // Page down (scroll down by one viewport height minus overlap)  
     async function handlePageDown() {
         try {
-            const data = await browser.storage.local.get(['affoPageUpScrollOverlap']);
-            const scrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
-            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            const data = await browser.storage.local.get([
+                'affoPageUpScrollOverlap', 
+                'affoPageUpScrollType'
+            ]);
             
-            window.scrollBy({
-                top: scrollDistance,
-                behavior: 'smooth'
-            });
+            const element = findScrollableElement();
+            const overlapSetting = data.affoPageUpScrollOverlap || 80;
+            const scrollType = data.affoPageUpScrollType || 'smooth';
+            
+            const offset = Math.max(window.innerHeight - overlapSetting, 10);
+            const targetTop = Math.min(
+                element.scrollHeight,
+                element.scrollTop + offset
+            );
+            
+            element.scrollTo({ top: targetTop, behavior: scrollType });
         } catch (e) {
-            console.error('[Left Toolbar] Error getting scroll overlap setting, using default:', e);
-            window.scrollBy({
-                top: (window.innerHeight - 80),
-                behavior: 'smooth'
-            });
+            console.error('Error in handlePageDown:', e);
         }
     }
     
     // Page up longpress (scroll up by one viewport height minus longpress overlap)
     async function handlePageUpLongpress() {
         try {
-            const data = await browser.storage.local.get(['affoPageUpLongpressOverlap']);
-            const scrollOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
-            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            const data = await browser.storage.local.get([
+                'affoPageUpLongpressOverlap', 
+                'affoPageUpScrollType'
+            ]);
             
-            window.scrollBy({
-                top: -scrollDistance,
-                behavior: 'smooth'
-            });
+            const element = findScrollableElement();
+            const overlapSetting = data.affoPageUpLongpressOverlap || 60;
+            const scrollType = data.affoPageUpScrollType || 'smooth';
+            
+            const offset = Math.max(window.innerHeight - overlapSetting, 10);
+            const targetTop = Math.max(0, element.scrollTop - offset);
+            
+            element.scrollTo({ top: targetTop, behavior: scrollType });
         } catch (e) {
-            console.error('[Left Toolbar] Error getting longpress scroll overlap setting, using default:', e);
-            window.scrollBy({
-                top: -(window.innerHeight - 60),
-                behavior: 'smooth'
-            });
+            console.error('Error in handlePageUpLongpress:', e);
         }
     }
     
     // Page down longpress (scroll down by one viewport height minus longpress overlap)
     async function handlePageDownLongpress() {
         try {
-            const data = await browser.storage.local.get(['affoPageUpLongpressOverlap']);
-            const scrollOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
-            const scrollDistance = Math.max(window.innerHeight - scrollOverlap, 10);
+            const data = await browser.storage.local.get([
+                'affoPageUpLongpressOverlap', 
+                'affoPageUpScrollType'
+            ]);
             
-            window.scrollBy({
-                top: scrollDistance,
-                behavior: 'smooth'
-            });
+            const element = findScrollableElement();
+            const overlapSetting = data.affoPageUpLongpressOverlap || 60;
+            const scrollType = data.affoPageUpScrollType || 'smooth';
+            
+            const offset = Math.max(window.innerHeight - overlapSetting, 10);
+            const targetTop = Math.min(
+                element.scrollHeight,
+                element.scrollTop + offset
+            );
+            
+            element.scrollTo({ top: targetTop, behavior: scrollType });
         } catch (e) {
-            console.error('[Left Toolbar] Error getting longpress scroll overlap setting, using default:', e);
-            window.scrollBy({
-                top: (window.innerHeight - 60),
-                behavior: 'smooth'
-            });
+            console.error('Error in handlePageDownLongpress:', e);
         }
     }
     

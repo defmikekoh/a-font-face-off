@@ -35,6 +35,16 @@
         preview.style.top = '0';
         preview.style.transform = 'none';
       }
+      
+      // Update button sizes to match toolbar button sizing  
+      // Buttons are square and approximately match the iframe width (accounting for any margins)
+      // Use the same size as the actual toolbar buttons
+      const buttonSize = Math.max(width - 4, 20); // Minimal margin adjustment, minimum 20px
+      const previewButtons = preview.querySelectorAll('.preview-button');
+      previewButtons.forEach(button => {
+        button.style.width = buttonSize + 'px';
+        button.style.height = buttonSize + 'px';
+      });
     } else {
       preview.style.display = 'none';
     }
@@ -129,6 +139,7 @@
       const gap = data.affoToolbarGap || 0;
       const pageUpScrollOverlap = data.affoPageUpScrollOverlap !== undefined ? data.affoPageUpScrollOverlap : 80;
       const pageUpLongpressOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
+      const pageUpScrollType = data.affoPageUpScrollType || 'smooth';
       const iconTheme = data.affoIconTheme || 'heroIcons';
       
       document.getElementById('toolbar-width').value = width;
@@ -138,6 +149,7 @@
       document.getElementById('toolbar-gap').value = gap;
       document.getElementById('pageup-scroll-overlap').value = pageUpScrollOverlap;
       document.getElementById('pageup-longpress-overlap').value = pageUpLongpressOverlap;
+      document.getElementById('pageup-scroll-type').value = pageUpScrollType;
       document.getElementById('icon-theme').value = iconTheme;
       
       document.getElementById('toolbar-width-value').textContent = width + 'px';
@@ -278,6 +290,7 @@
       const gap = parseInt(document.getElementById('toolbar-gap').value);
       const pageUpScrollOverlap = parseInt(document.getElementById('pageup-scroll-overlap').value);
       const pageUpLongpressOverlap = parseInt(document.getElementById('pageup-longpress-overlap').value);
+      const pageUpScrollType = document.getElementById('pageup-scroll-type').value;
       const iconTheme = document.getElementById('icon-theme').value;
       
       await browser.storage.local.set({ 
@@ -289,6 +302,7 @@
         affoToolbarGap: gap,
         affoPageUpScrollOverlap: pageUpScrollOverlap,
         affoPageUpLongpressOverlap: pageUpLongpressOverlap,
+        affoPageUpScrollType: pageUpScrollType,
         affoIconTheme: iconTheme
       });
       
@@ -318,6 +332,8 @@
     document.getElementById('toolbar-gap-value').textContent = gap + 'px';
     document.getElementById('pageup-scroll-overlap-value').textContent = pageUpScrollOverlap + 'px';
     document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
+    
+    // Don't update preview in real-time - only on save
   }
 
   async function resetAllSettings(){
@@ -358,6 +374,7 @@
       document.getElementById('toolbar-gap').value = 0;
       document.getElementById('pageup-scroll-overlap').value = 80;
       document.getElementById('pageup-longpress-overlap').value = 60;
+      document.getElementById('pageup-scroll-type').value = 'smooth';
       document.getElementById('icon-theme').value = 'heroIcons';
       updateToolbarValues();
       

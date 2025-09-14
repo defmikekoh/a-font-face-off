@@ -542,3 +542,19 @@ li button {
 #customNewTabURL {
     display: none;
 }
+
+/* Preview buttons should match toolbar button sizing */
+.preview-button {
+    /* Size will be set dynamically by updatePreviewAfterSave() to match toolbar width */
+    width: 40px;  /* Default size, updated by JS */
+    height: 40px; /* Default size, updated by JS */
+    flex-shrink: 0;
+}
+
+/* Preview SVG icons should scale like real toolbar */  
+.preview-button svg {
+    height: 50% !important;
+    width: unset !important;
+    aspect-ratio: 1;
+    margin: auto;
+}
