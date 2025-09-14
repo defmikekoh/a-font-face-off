@@ -42,61 +42,106 @@
       height: 60px; /* Match popup tab height */
     }
     
-    /* Create multiple pseudo-elements using a different approach */
-    
-    /* Center dotted line using ::before (avoid duplicating in background-image) */
-    #settingsTabs::before {
-      content: '';
+    /* Main tab bar styling (no layered images; we use elements like popup) */
+    #settingsTabs {
+      background-color: var(--tab-background);
+    }
+
+    /* Center dotted red line (same as popup .center-line) */
+    #settingsTabs .center-line {
       position: absolute;
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      width: 2px; /* thinner for crisper dot/dash look */
+      width: 2px;
       height: 100%;
       background: repeating-linear-gradient(
         to bottom,
-        var(--secondary-color) 0px,
-        var(--secondary-color) 4px,
-        transparent 4px,
-        transparent 8px
-      );
-      z-index: 3;
-    }
-    
-    /* Goal lines using ::after */
-    #settingsTabs::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: 
-        /* Left goal line */
-        linear-gradient(to right, transparent 18px, var(--secondary-color) 18px, var(--secondary-color) 20px, transparent 20px),
-        /* Right goal line */
-        linear-gradient(to left, transparent 18px, var(--secondary-color) 18px, var(--secondary-color) 20px, transparent 20px);
+        #c33 0px,
+        #c33 6px,
+        transparent 6px,
+        transparent 12px
+      ) !important;
       z-index: 2;
     }
-    
-    
-    /* Main tab bar styling with center elements using background */
-    #settingsTabs {
-      /* Keep color separate from layered images to avoid resets */
-      background-color: var(--tab-background);
-      background-image:
-        /* Center blue dot */
-        radial-gradient(circle at center, var(--primary-color) 2px, transparent 2px),
-        /* Faceoff circle border */
-        radial-gradient(circle at center, transparent 17px, var(--primary-color) 17px, var(--primary-color) 20px, transparent 20px);
-      background-size: 100% 100%, 100% 100%;
-      background-repeat: no-repeat, no-repeat;
-      background-position: center, center;
+
+    /* Goal lines (same as popup) */
+    #settingsTabs .goal-line-left,
+    #settingsTabs .goal-line-right {
+      position: absolute;
+      top: 0;
+      width: 2px;
+      height: 100%;
+      background: #c33 !important; /* explicit red like popup */
+      z-index: 1;
+    }
+    #settingsTabs .goal-line-left { left: 18px; }
+    #settingsTabs .goal-line-right { right: 18px; }
+
+    /* Goal creases (same as popup) */
+    #settingsTabs .goal-crease-left,
+    #settingsTabs .goal-crease-right {
+      position: absolute;
+      top: 50%;
+      width: 15px;
+      height: 30px;
+      transform: translateY(-50%);
+      border: 2px solid #c33 !important; /* explicit red like popup */
+      background: transparent;
+      z-index: 2;
+    }
+    #settingsTabs .goal-crease-left {
+      left: 18px; border-left: none; border-radius: 0 15px 15px 0;
+    }
+    #settingsTabs .goal-crease-right {
+      right: 18px; border-right: none; border-radius: 15px 0 0 15px;
+    }
+
+    /* Goal box rectangles (same as popup) */
+    #settingsTabs .goal-box-left,
+    #settingsTabs .goal-box-right {
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 20px;
+      transform: translateY(-50%);
+      border: 2px solid #c33 !important; /* explicit red like popup */
+      background: transparent;
+      z-index: 2;
+    }
+    #settingsTabs .goal-box-left { left: 10px; border-radius: 6px 0 0 6px; }
+    #settingsTabs .goal-box-right { right: 10px; border-radius: 0 6px 6px 0; }
+
+    /* Faceoff circle & dot (same as popup dimensions) */
+    #settingsTabs .faceoff-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--primary-color);
+      border-radius: 50%;
+      background: #ffffff; /* white ice inside the circle */
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    }
+    #settingsTabs .faceoff-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--primary-color);
+      font-size: 18px;
+      font-weight: bold;
+      z-index: 2;
+      line-height: 1;
+      pointer-events: none;
     }
     
     
-    /* Tab styling to work with rink theme */
-    #settingsTabs div {
+    /* Tab styling to work with rink theme (scope only to tab labels) */
+    #settingsTabs > div#generalTab,
+    #settingsTabs > div#excludeTab {
       position: relative;
       z-index: 3;
       background: transparent !important;
@@ -108,38 +153,21 @@
       height: 100% !important;
     }
     
-    /* Left goal crease - always visible, clean without nets */
-    #generalTab::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 18px;
-      width: 15px;
-      height: 30px;
-      transform: translateY(-50%);
-      border: 2px solid var(--secondary-color);
-      border-left: none;
-      border-radius: 0 15px 15px 0;
-      background: transparent;
-      z-index: 4;
-    }
-    
-    
-    /* Right goal crease - always visible, clean without nets */
-    #excludeTab::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      right: 18px;
-      width: 15px;
-      height: 30px;
-      transform: translateY(-50%);
-      border: 2px solid var(--secondary-color);
-      border-right: none;
-      border-radius: 15px 0 0 15px;
-      background: transparent;
-      z-index: 4;
-    }
+    /* Decorative rink elements should not intercept clicks */
+    #settingsTabs .center-line,
+    #settingsTabs .goal-line-left,
+    #settingsTabs .goal-line-right,
+    #settingsTabs .goal-crease-left,
+    #settingsTabs .goal-crease-right,
+    #settingsTabs .goal-box-left,
+    #settingsTabs .goal-box-right,
+    #settingsTabs .faceoff-circle,
+    #settingsTabs .faceoff-dot { pointer-events: none; }
+
+    /* Neutralize generic tab div borders from settings.css on line elements only */
+    #settingsTabs .center-line,
+    #settingsTabs .goal-line-left,
+    #settingsTabs .goal-line-right { border: none !important; }
     
     
     /* Active tab highlighting with blue tint like popup */
@@ -150,36 +178,7 @@
       position: relative;
     }
 
-    /* Goal net outlines inside options tab bar (match popup) */
-    #settingsTabs .goal-box-left,
-    #settingsTabs .goal-box-right,
-    #settingsTabs .goal-box-left-mirror,
-    #settingsTabs .goal-box-right-mirror {
-      position: absolute;
-      top: 50%;
-      width: 10px;
-      height: 20px;
-      transform: translateY(-50%);
-      border: 2px solid var(--secondary-color);
-      background: transparent;
-      z-index: 2; /* Below tab labels (z-index:3), above rink base */
-    }
-    #settingsTabs .goal-box-left {
-      left: 8px;
-      border-radius: 6px 0 0 6px;
-    }
-    #settingsTabs .goal-box-left-mirror {
-      left: 18px; /* start at goal line position */
-      border-radius: 0 6px 6px 0;
-    }
-    #settingsTabs .goal-box-right {
-      right: 8px;
-      border-radius: 0 6px 6px 0;
-    }
-    #settingsTabs .goal-box-right-mirror {
-      right: 18px; /* start at goal line position */
-      border-radius: 6px 0 0 6px;
-    }
+    /* Ensure tab labels appear above rink decor */
     
     /* Shorter red bar at bottom like popup - using pseudo-element */
     #settingsTabs div.active::after {
@@ -249,11 +248,15 @@
   </div>
   
   <div id="settingsTabs">
-    <!-- Goal net outlines (match popup tab bar) -->
+    <div class="center-line"></div>
+    <div class="goal-line-left"></div>
+    <div class="goal-line-right"></div>
+    <div class="goal-crease-left"></div>
+    <div class="goal-crease-right"></div>
     <div class="goal-box-left"></div>
-    <div class="goal-box-left-mirror"></div>
     <div class="goal-box-right"></div>
-    <div class="goal-box-right-mirror"></div>
+    <span class="faceoff-circle" aria-hidden="true"></span>
+    <span class="faceoff-dot" aria-hidden="true">●</span>
     <div id="generalTab">Toolbar</div>
     <div id="excludeTab">Advanced</div>
   </div>

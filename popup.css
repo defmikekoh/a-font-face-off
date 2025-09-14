@@ -177,27 +177,6 @@ body {
     z-index: 2;
 }
 
-/* Authentic hockey goals based on official rink diagram */
-.goal-left, .goal-right {
-    position: absolute;
-    top: 50%;
-    width: 16px;
-    height: 20px;
-    transform: translateY(-50%);
-    z-index: 3;
-}
-
-.goal-left {
-    left: 4px;
-}
-
-.goal-right {
-    right: 4px; /* Move container inward from edge */
-}
-
-
-
-
 /* Full-height goal lines like official rink diagram */
 .goal-line-left, .goal-line-right {
     position: absolute;
@@ -304,31 +283,26 @@ body {
 }
 
 /* Face-off circle for the Face-off tab */
-.mode-tab[data-mode="faceoff"] {
-    position: relative;
-}
-
-/* Face-off circle - smaller to avoid overlap with active bar */
-.mode-tab[data-mode="faceoff"]::before {
-    content: '';
+.mode-tab[data-mode="faceoff"] { position: relative; }
+/* Named element for discoverability */
+.mode-tab[data-mode="faceoff"] .faceoff-circle {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border: 3px solid #46b; /* NHL blue circle */
     border-radius: 50%;
     background: rgba(0, 51, 160, 0.1);
     transform: translate(-50%, -50%);
     z-index: 1;
 }
-
-.mode-tab[data-mode="faceoff"].active::before {
+.mode-tab[data-mode="faceoff"].active .faceoff-circle {
     background: rgba(0, 51, 160, 0.2);
 }
 
 /* Center dash in face-off circle using a span element instead of ::after */
-.mode-tab[data-mode="faceoff"] .center-dash {
+.mode-tab[data-mode="faceoff"] .faceoff-dot {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -345,7 +319,7 @@ body {
 .mode-tab[data-mode="faceoff"] .face-text {
     position: absolute;
     top: 50%;
-    left: calc(50% - 25px);
+    left: calc(50% - 28px);
     transform: translate(-50%, -50%) rotate(180deg);
     z-index: 3;
     font-size: 11px;
@@ -359,7 +333,7 @@ body {
 .mode-tab[data-mode="faceoff"] .off-text {
     position: absolute;
     top: 50%;
-    left: calc(50% + 25px);
+    left: calc(50% + 28px);
     transform: translate(-50%, -50%);
     z-index: 3;
     font-size: 11px;
