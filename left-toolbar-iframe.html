@@ -98,45 +98,65 @@
     <div id="menu"></div>
     <span>
         <button id="faceoff-button" class="toolbar-button" title="A Font Face-off">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="featherIcons" style="display: none;" role="img" aria-label="Hockey mask with sticks and puck">
-                <title>Hockey mask with sticks and puck</title>
-                <!-- Left stick (more vertical, longer; blade larger and inward) -->
-                <path d="M4 3 L7 19"/>
-                <path d="M7 19 L10.6 21"/>
-                <!-- Right stick (more vertical, longer; blade larger and inward) -->
-                <path d="M20 3 L17 19"/>
-                <path d="M17 19 L13.4 21"/>
-                <!-- Smaller mask moved up -->
-                <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
-                <!-- Eyes -->
-                <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-                <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-                <!-- Vents -->
-                <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <!-- Puck (smaller, moved up to avoid blade overlap) -->
-                <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="featherIcons" style="display: none;" role="img" aria-label="Hockey mask with sticks and puck (maximized)">
+                <title>Hockey mask with sticks and puck (maximized)</title>
+                <!-- Scale around the 12,12 center to use more of the viewBox -->
+                <!-- Slightly reduced scale to avoid clipping at edges -->
+                <g transform="translate(12,12) scale(1.18) translate(-12,-12)">
+                  <!-- Left stick group: rotate around joint so handle direction passes through top-left corner -->
+                  <g transform="rotate(0.4 7 19)">
+                    <path d="M3 2 L7 19"/>
+                    <path d="M7 19 L10.6 21"/>
+                  </g>
+                  <!-- Right stick group: rotate around joint so handle direction passes through top-right corner -->
+                  <g transform="rotate(-0.4 17 19)">
+                    <path d="M21 2 L17 19"/>
+                    <path d="M17 19 L13.4 21"/>
+                  </g>
+                  <!-- Mask (scaled up proportionally around center to use more vertical space) -->
+                  <g transform="translate(12,12) scale(1.22) translate(-12,-12)">
+                    <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+                    <!-- Eyes -->
+                    <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+                    <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+                    <!-- Vents -->
+                    <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                  </g>
+                  <!-- Puck -->
+                  <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+                </g>
             </svg>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="heroIcons" style="display: none;" role="img" aria-label="Hockey mask with sticks and puck">
-                <title>Hockey mask with sticks and puck</title>
-                <!-- Left stick (more vertical, longer; blade larger and inward) -->
-                <path d="M4 3 L7 19"/>
-                <path d="M7 19 L10.6 21"/>
-                <!-- Right stick (more vertical, longer; blade larger and inward) -->
-                <path d="M20 3 L17 19"/>
-                <path d="M17 19 L13.4 21"/>
-                <!-- Smaller mask moved up -->
-                <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
-                <!-- Eyes -->
-                <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-                <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
-                <!-- Vents -->
-                <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
-                <!-- Puck (smaller, moved up to avoid blade overlap) -->
-                <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="heroIcons" style="display: none;" role="img" aria-label="Hockey mask with sticks and puck (maximized)">
+                <title>Hockey mask with sticks and puck (maximized)</title>
+                <!-- Scale around the 12,12 center to use more of the viewBox -->
+                <!-- Slightly reduced scale to avoid clipping at edges -->
+                <g transform="translate(12,12) scale(1.18) translate(-12,-12)">
+                  <!-- Left stick group: rotate around joint so handle direction passes through top-left corner -->
+                  <g transform="rotate(0.4 7 19)">
+                    <path d="M3 2 L7 19"/>
+                    <path d="M7 19 L10.6 21"/>
+                  </g>
+                  <!-- Right stick group: rotate around joint so handle direction passes through top-right corner -->
+                  <g transform="rotate(-0.4 17 19)">
+                    <path d="M21 2 L17 19"/>
+                    <path d="M17 19 L13.4 21"/>
+                  </g>
+                  <!-- Mask (scaled up proportionally around center to use more vertical space) -->
+                  <g transform="translate(12,12) scale(1.22) translate(-12,-12)">
+                    <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+                    <!-- Eyes -->
+                    <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+                    <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+                    <!-- Vents -->
+                    <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                    <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+                  </g>
+                  <!-- Puck -->
+                  <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+                </g>
             </svg>
         </button>
         
