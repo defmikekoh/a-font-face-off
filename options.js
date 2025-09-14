@@ -52,12 +52,17 @@
     const generalSettings = document.getElementById('generalSettings');
     const excludeSettings = document.getElementById('excludeSettings');
     
+    // Set initial active state - General tab is active by default
+    generalTab.classList.add('active');
+    
     generalTab.addEventListener('click', () => {
       // Show general, hide exclude
       generalSettings.style.display = 'block';
       excludeSettings.style.display = 'none';
       
-      // Update tab appearance
+      // Update tab appearance - hockey theme uses active class
+      generalTab.classList.add('active');
+      excludeTab.classList.remove('active');
       generalTab.style.borderColor = 'var(--primary-color)';
       excludeTab.style.borderColor = 'var(--box-background)';
     });
@@ -67,7 +72,9 @@
       generalSettings.style.display = 'none';
       excludeSettings.style.display = 'block';
       
-      // Update tab appearance
+      // Update tab appearance - hockey theme uses active class
+      excludeTab.classList.add('active');
+      generalTab.classList.remove('active');
       generalTab.style.borderColor = 'var(--box-background)';
       excludeTab.style.borderColor = 'var(--primary-color)';
     });

@@ -6,6 +6,173 @@
   <title>A Font Face-off — Options</title>
   <link rel="stylesheet" type="text/css" href="settings.css" />
   <style>
+    /* Hockey Theme Override */
+    :root {
+      --background-color: #e8f1ff !important; /* Very light blue ice */
+      --box-background: #d1e5ff !important; /* Slightly darker blue for contrast */
+      --tab-background: white !important; /* White ice color like popup */
+      --text-color: #1e40af !important; /* Dark blue text */
+      --primary-color: #46b !important; /* Hockey blue like popup */
+      --secondary-color: #c33 !important; /* Hockey red like popup */
+      --link-color: #3730a3 !important; /* Darker blue for links */
+      --rink-border: #46b; /* Blue rink border like popup */
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background-color: #1e3a5f !important; /* Dark blue ice */
+        --box-background: #2d4a6b !important; /* Darker blue for contrast */
+        --tab-background: white !important; /* Keep white ice even in dark mode like popup */
+        --text-color: #1e40af !important; /* Keep dark blue text on white background */
+        --primary-color: #46b !important; /* Same hockey blue */
+        --secondary-color: #c33 !important; /* Same hockey red */
+        --link-color: #a5b4fc !important; /* Lighter blue for links in dark areas */
+        --rink-border: #46b; /* Same blue rink border */
+      }
+    }
+
+    /* Hockey Rink Tab Bar */
+    #settingsTabs {
+      position: relative;
+      border: 2px solid var(--rink-border) !important; /* Match popup border thickness */
+      border-radius: 8px !important; /* Less rounded, more rink-like */
+      background: var(--tab-background) !important;
+      overflow: visible; /* Allow creases to show */
+      height: 60px; /* Match popup tab height */
+    }
+    
+    /* Create multiple pseudo-elements using a different approach */
+    
+    /* Center dotted line using ::before */
+    #settingsTabs::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 100%;
+      background: repeating-linear-gradient(
+        to bottom,
+        var(--secondary-color) 0px,
+        var(--secondary-color) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      z-index: 3;
+    }
+    
+    /* Goal lines using ::after */
+    #settingsTabs::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        /* Left goal line */
+        linear-gradient(to right, transparent 18px, var(--secondary-color) 18px, var(--secondary-color) 20px, transparent 20px),
+        /* Right goal line */
+        linear-gradient(to left, transparent 18px, var(--secondary-color) 18px, var(--secondary-color) 20px, transparent 20px);
+      z-index: 2;
+    }
+    
+    
+    /* Main tab bar styling with center elements using background */
+    #settingsTabs {
+      background: var(--tab-background);
+      background-image: 
+        /* Center dotted line */
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0px,
+          transparent 2px,
+          var(--secondary-color) 2px,
+          var(--secondary-color) 8px,
+          transparent 8px,
+          transparent 10px
+        ),
+        /* Center blue dot */
+        radial-gradient(circle at center, var(--primary-color) 2px, transparent 2px),
+        /* Faceoff circle border */
+        radial-gradient(circle at center, transparent 10px, var(--primary-color) 10px, var(--primary-color) 13px, transparent 13px);
+      background-size: 3px 100%, 100% 100%, 100% 100%;
+      background-repeat: repeat-y, no-repeat, no-repeat;
+      background-position: 50% 0, center, center;
+    }
+    
+    
+    /* Tab styling to work with rink theme */
+    #settingsTabs div {
+      position: relative;
+      z-index: 3;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      height: 100% !important;
+    }
+    
+    /* Left goal crease - always visible, clean without nets */
+    #generalTab::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 18px;
+      width: 15px;
+      height: 30px;
+      transform: translateY(-50%);
+      border: 2px solid var(--secondary-color);
+      border-left: none;
+      border-radius: 0 15px 15px 0;
+      background: transparent;
+      z-index: 4;
+    }
+    
+    
+    /* Right goal crease - always visible, clean without nets */
+    #excludeTab::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 18px;
+      width: 15px;
+      height: 30px;
+      transform: translateY(-50%);
+      border: 2px solid var(--secondary-color);
+      border-right: none;
+      border-radius: 15px 0 0 15px;
+      background: transparent;
+      z-index: 4;
+    }
+    
+    
+    /* Active tab highlighting with blue tint like popup */
+    #settingsTabs div.active {
+      background: rgba(0, 51, 160, 0.15) !important; /* Light blue tint like popup */
+      color: var(--primary-color) !important; /* Hockey blue like popup */
+      font-weight: 700 !important;
+      position: relative;
+    }
+    
+    /* Shorter red bar at bottom like popup - using pseudo-element */
+    #settingsTabs div.active::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      width: 20px;
+      height: 3px;
+      background: var(--secondary-color);
+      transform: translateX(-50%);
+      border-radius: 1.5px;
+      z-index: 6;
+    }
+    
+
     /* Left toolbar preview theme matching left-toolbar-iframe.html */
     #left-toolbar-preview {
       --toolbar-background: #2b2a33;
@@ -34,7 +201,28 @@
 </head>
 <body>
   <div id="header">
-    <h2>A Font Face-off — Options</h2>
+    <h2>
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px; color: #1e40af;">
+        <!-- Left stick -->
+        <path d="M4 3 L7 19"/>
+        <path d="M7 19 L10.6 21"/>
+        <!-- Right stick -->
+        <path d="M20 3 L17 19"/>
+        <path d="M17 19 L13.4 21"/>
+        <!-- Mask -->
+        <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+        <!-- Eyes -->
+        <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+        <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+        <!-- Vents -->
+        <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+        <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+        <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+        <!-- Puck -->
+        <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+      </svg>
+      A Font Face-off — Options
+    </h2>
   </div>
   
   <div id="settingsTabs">
