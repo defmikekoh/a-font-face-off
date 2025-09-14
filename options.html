@@ -36,28 +36,29 @@
       position: relative;
       border: 2px solid var(--rink-border) !important; /* Match popup border thickness */
       border-radius: 8px !important; /* Less rounded, more rink-like */
-      background: var(--tab-background) !important;
+      /* Use background-color so we don't reset background-image layers */
+      background-color: var(--tab-background) !important;
       overflow: visible; /* Allow creases to show */
       height: 60px; /* Match popup tab height */
     }
     
     /* Create multiple pseudo-elements using a different approach */
     
-    /* Center dotted line using ::before */
+    /* Center dotted line using ::before (avoid duplicating in background-image) */
     #settingsTabs::before {
       content: '';
       position: absolute;
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      width: 3px;
+      width: 2px; /* thinner for crisper dot/dash look */
       height: 100%;
       background: repeating-linear-gradient(
         to bottom,
         var(--secondary-color) 0px,
-        var(--secondary-color) 6px,
-        transparent 6px,
-        transparent 12px
+        var(--secondary-color) 4px,
+        transparent 4px,
+        transparent 8px
       );
       z-index: 3;
     }
@@ -81,25 +82,16 @@
     
     /* Main tab bar styling with center elements using background */
     #settingsTabs {
-      background: var(--tab-background);
-      background-image: 
-        /* Center dotted line */
-        repeating-linear-gradient(
-          to bottom,
-          transparent 0px,
-          transparent 2px,
-          var(--secondary-color) 2px,
-          var(--secondary-color) 8px,
-          transparent 8px,
-          transparent 10px
-        ),
+      /* Keep color separate from layered images to avoid resets */
+      background-color: var(--tab-background);
+      background-image:
         /* Center blue dot */
         radial-gradient(circle at center, var(--primary-color) 2px, transparent 2px),
         /* Faceoff circle border */
-        radial-gradient(circle at center, transparent 10px, var(--primary-color) 10px, var(--primary-color) 13px, transparent 13px);
-      background-size: 3px 100%, 100% 100%, 100% 100%;
-      background-repeat: repeat-y, no-repeat, no-repeat;
-      background-position: 50% 0, center, center;
+        radial-gradient(circle at center, transparent 17px, var(--primary-color) 17px, var(--primary-color) 20px, transparent 20px);
+      background-size: 100% 100%, 100% 100%;
+      background-repeat: no-repeat, no-repeat;
+      background-position: center, center;
     }
     
     
@@ -156,6 +148,37 @@
       color: var(--primary-color) !important; /* Hockey blue like popup */
       font-weight: 700 !important;
       position: relative;
+    }
+
+    /* Goal net outlines inside options tab bar (match popup) */
+    #settingsTabs .goal-box-left,
+    #settingsTabs .goal-box-right,
+    #settingsTabs .goal-box-left-mirror,
+    #settingsTabs .goal-box-right-mirror {
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 20px;
+      transform: translateY(-50%);
+      border: 2px solid var(--secondary-color);
+      background: transparent;
+      z-index: 2; /* Below tab labels (z-index:3), above rink base */
+    }
+    #settingsTabs .goal-box-left {
+      left: 8px;
+      border-radius: 6px 0 0 6px;
+    }
+    #settingsTabs .goal-box-left-mirror {
+      left: 18px; /* start at goal line position */
+      border-radius: 0 6px 6px 0;
+    }
+    #settingsTabs .goal-box-right {
+      right: 8px;
+      border-radius: 0 6px 6px 0;
+    }
+    #settingsTabs .goal-box-right-mirror {
+      right: 18px; /* start at goal line position */
+      border-radius: 6px 0 0 6px;
     }
     
     /* Shorter red bar at bottom like popup - using pseudo-element */
@@ -226,6 +249,11 @@
   </div>
   
   <div id="settingsTabs">
+    <!-- Goal net outlines (match popup tab bar) -->
+    <div class="goal-box-left"></div>
+    <div class="goal-box-left-mirror"></div>
+    <div class="goal-box-right"></div>
+    <div class="goal-box-right-mirror"></div>
     <div id="generalTab">Toolbar</div>
     <div id="excludeTab">Advanced</div>
   </div>
