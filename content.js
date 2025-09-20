@@ -44,6 +44,10 @@
   // Debug control - set to false to reduce logging
   var DEBUG_VERBOSE = false;
   var DEBUG_ELEMENTS = true; // Keep element application debugging
+
+  // Global cleanup tracking to prevent flipping between settings
+  var activeObservers = {}; // Track MutationObservers by fontType
+  var activeTimers = {}; // Track timeout/interval IDs by fontType
   
   function debugLog(message, ...args) {
     if (DEBUG_VERBOSE) debugLog(message, ...args);
@@ -77,6 +81,25 @@
   
   function applyInlineStyles(fontConfig, fontType) {
     elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
+
+    // Cleanup previous observers and timers for this fontType to prevent flipping
+    if (activeObservers[fontType]) {
+      try {
+        activeObservers[fontType].disconnect();
+        debugLog(`[AFFO Content] Cleaned up MutationObserver for ${fontType}`);
+      } catch(e) {}
+      delete activeObservers[fontType];
+    }
+    if (activeTimers[fontType]) {
+      activeTimers[fontType].forEach(function(timerId) {
+        try {
+          clearTimeout(timerId);
+          clearInterval(timerId);
+        } catch(e) {}
+      });
+      debugLog(`[AFFO Content] Cleaned up ${activeTimers[fontType].length} timers for ${fontType}`);
+      delete activeTimers[fontType];
+    }
     
     // For domains with restrictive CSP (like x.com), provide fallback fonts
     var fallbackChain = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
@@ -287,11 +310,18 @@
       });
       
       mo.observe(document.documentElement || document, { childList: true, subtree: true });
-      
+
+      // Track the observer for cleanup
+      activeObservers[fontType] = mo;
+
+      // Initialize timers array for this fontType
+      if (!activeTimers[fontType]) activeTimers[fontType] = [];
+
       // Extended resiliency window for inline domains (10 minutes)
-      setTimeout(function() { 
-        try { mo.disconnect(); } catch(_) {} 
+      var disconnectTimer = setTimeout(function() {
+        try { mo.disconnect(); } catch(_) {}
       }, 600000);
+      activeTimers[fontType].push(disconnectTimer);
       
       // Re-apply styles on SPA navigations (history API hooks)
       function reapplyInlineStyles() {
@@ -353,7 +383,7 @@
       } catch(_) {}
       
       // Enhanced monitoring with much more frequent checks for x.com
-      setTimeout(function() {
+      var monitoringTimer = setTimeout(function() {
         try {
           // On x.com, monitor every 1 second for the first 2 minutes, then every 5 seconds for 8 more minutes
           var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
@@ -378,9 +408,13 @@
               debugLog(`[AFFO Content] Error in frequent style check:`, e);
             }
           }, initialFrequency);
-          
+
+          // Track the interval timer for cleanup
+          if (!activeTimers[fontType]) activeTimers[fontType] = [];
+          activeTimers[fontType].push(initialInterval);
+
           // Switch to less frequent monitoring after initial period
-          setTimeout(function() {
+          var switchTimer = setTimeout(function() {
             clearInterval(initialInterval);
             debugLog(`[AFFO Content] Switching to less frequent monitoring for ${fontType}`);
             
@@ -397,19 +431,27 @@
                 debugLog(`[AFFO Content] Error in periodic style check:`, e);
               }
             }, laterFrequency);
-            
+
+            // Track the later interval for cleanup
+            activeTimers[fontType].push(laterInterval);
+
             // Stop monitoring after total duration
-            setTimeout(function() {
+            var stopTimer = setTimeout(function() {
               clearInterval(laterInterval);
               debugLog(`[AFFO Content] Stopped style monitoring for ${fontType} after ${totalDuration/1000} seconds (${checkCount} total checks)`);
             }, totalDuration - initialDuration);
             
           }, initialDuration);
+
+          // Track the switch and stop timers for cleanup
+          activeTimers[fontType].push(switchTimer);
+          activeTimers[fontType].push(stopTimer);
           
         } catch(e) {
           debugLog(`[AFFO Content] Error setting up enhanced monitoring for ${fontType}:`, e);
         }
       }, 1000);
+      activeTimers[fontType].push(monitoringTimer);
       
       // Add focus/visibility event listeners to re-apply styles when page becomes visible
       try {
