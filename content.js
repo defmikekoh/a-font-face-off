@@ -1064,7 +1064,7 @@
               cssProps.push(`font-variation-settings: ${variationSettings.join(', ')} !important`);
             }
             
-            lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo) { ${cssProps.join('; ')}; }`);
+            lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="__whatfont_"]) { ${cssProps.join('; ')}; }`);
           } else {
             // Third Man In mode - need to run element walker and apply CSS
             if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
@@ -1340,7 +1340,7 @@
                   cssProps.push(`font-variation-settings: ${variationSettings.join(', ')} !important`);
                 }
                 
-                lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo) { ${cssProps.join('; ')}; }`);
+                lines.push(`body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="__whatfont_"]) { ${cssProps.join('; ')}; }`);
               } else {
                 // Third Man In mode - need to run element walker and apply CSS
                 if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
