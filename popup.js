@@ -913,6 +913,48 @@ const fontDefinitions = {
   font-style: normal;
   font-display: swap;
 }`
+    },
+    "Apercu Pro": {
+        axes: [],
+        defaults: {},
+        ranges: {},
+        steps: {},
+        fontFaceRule: `@font-face {
+  font-family: 'Apercu Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_pro.woff') format('woff');
+}
+@font-face {
+  font-family: 'Apercu Pro';
+  font-style: italic;
+  font-weight: 400;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_italic_pro.woff') format('woff');
+}
+@font-face {
+  font-family: 'Apercu Pro';
+  font-style: normal;
+  font-weight: 600;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_pro.woff') format('woff');
+}
+@font-face {
+  font-family: 'Apercu Pro';
+  font-style: italic;
+  font-weight: 600;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_italic_pro.woff') format('woff');
+}
+@font-face {
+  font-family: 'Apercu Pro';
+  font-style: normal;
+  font-weight: 700;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_pro.woff') format('woff');
+}
+@font-face {
+  font-family: 'Apercu Pro';
+  font-style: italic;
+  font-weight: 700;
+  src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_italic_pro.woff') format('woff');
+}`
     }
 };
 
@@ -944,6 +986,7 @@ const AXIS_DEFAULTS = {
 
 // Custom fonts not in Google Fonts that we support
 const CUSTOM_FONTS = [
+    'Apercu Pro',
     'GuardianTextEgyptian',
     'National',
     'BBC Reith Serif',
