@@ -1,5 +1,53 @@
 // Content script: cleanup and storage monitoring only
 // All font injection is now handled by popup.js using insertCSS
+
+// Inject Apercu Pro font definitions
+(function(){
+  var apercuFontCSS = `
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: normal;
+      font-weight: 400;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_pro.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: italic;
+      font-weight: 400;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_italic_pro.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: normal;
+      font-weight: 600;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_pro.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: italic;
+      font-weight: 600;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_italic_pro.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: normal;
+      font-weight: 700;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_pro.woff') format('woff');
+    }
+    @font-face {
+      font-family: 'Apercu Pro';
+      font-style: italic;
+      font-weight: 700;
+      src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_italic_pro.woff') format('woff');
+    }
+  `;
+
+  var apercuStyle = document.createElement('style');
+  apercuStyle.id = 'affo-apercu-font';
+  apercuStyle.textContent = apercuFontCSS;
+  (document.head || document.documentElement).appendChild(apercuStyle);
+})();
+
 (function(){
   // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
   try {
