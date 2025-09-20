@@ -90,9 +90,12 @@
       fallbackChain = 'Arial, Helvetica, sans-serif';
     }
     
-    var cssPropsObject = {
-      'font-family': `"${fontConfig.fontName}", ${fallbackChain}`
-    };
+    var cssPropsObject = {};
+
+    // Only include font-family if fontName is actually set
+    if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
+      cssPropsObject['font-family'] = `"${fontConfig.fontName}", ${fallbackChain}`;
+    }
     
     // Include fontSize if present
     if (fontConfig.fontSize) {
@@ -885,7 +888,7 @@
     try {
       ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
         var fontConfig = entry[fontType];
-        if (fontConfig && fontConfig.fontName) {
+        if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
           
           // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
@@ -903,7 +906,12 @@
           
           if (fontType === 'body') {
             // Use the same CSS selector as popup.js for consistency
-            var cssProps = [`font-family: "${fontConfig.fontName}", serif !important`];
+            var cssProps = [];
+
+            // Only add font-family if fontName is actually set
+            if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
+              cssProps.push(`font-family: "${fontConfig.fontName}", serif !important`);
+            }
             
             // Include fontSize if present
             if (fontConfig.fontSize) {
@@ -977,7 +985,7 @@
               var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
               
               // Rule 1: Font family applies to ALL marked elements
-              if (fontConfig.fontName) {
+              if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
                 lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
               }
               
@@ -1156,7 +1164,7 @@
         try {
           ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
             var fontConfig = entry[fontType];
-            if (fontConfig && fontConfig.fontName) {
+            if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
               
               // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
@@ -1174,7 +1182,12 @@
               
               if (fontType === 'body') {
                 // Use the same CSS selector as popup.js for consistency
-                var cssProps = [`font-family: "${fontConfig.fontName}", serif !important`];
+                var cssProps = [];
+
+                // Only add font-family if fontName is actually set
+                if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
+                  cssProps.push(`font-family: "${fontConfig.fontName}", serif !important`);
+                }
                 
                 // Include fontSize if present
                 if (fontConfig.fontSize) {
@@ -1248,7 +1261,7 @@
                   var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
                   
                   // Rule 1: Font family applies to ALL marked elements
-                  if (fontConfig.fontName) {
+                  if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
                     lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${fontConfig.fontName}", ${generic} !important; }`);
                   }
                   
