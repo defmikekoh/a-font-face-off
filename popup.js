@@ -1745,6 +1745,24 @@ function getCurrentUIConfig(position) {
     const fontWeight = fontWeightControl.value;
     const fontColor = hasColorControl ? fontColorControl.value : null;
 
+    console.log(`getCurrentUIConfig(${position}): lineHeight control value:`, lineHeight, 'control element:', lineHeightControl);
+    const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
+    console.log(`getCurrentUIConfig(${position}): lineHeight text input:`, lineHeightTextInput ? lineHeightTextInput.value : 'not found', 'element:', lineHeightTextInput);
+
+    // Debug: Check DOM attributes vs JavaScript values
+    console.log(`getCurrentUIConfig(${position}): lineHeight range slider DOM value attribute:`, lineHeightControl.getAttribute('value'));
+    console.log(`getCurrentUIConfig(${position}): lineHeight range slider JavaScript value:`, lineHeightControl.value);
+    if (lineHeightTextInput) {
+        console.log(`getCurrentUIConfig(${position}): lineHeight text input DOM value attribute:`, lineHeightTextInput.getAttribute('value'));
+        console.log(`getCurrentUIConfig(${position}): lineHeight text input JavaScript value:`, lineHeightTextInput.value);
+    }
+
+    // Debug: Test floating point precision issues
+    const rawLineHeight = lineHeightControl.value;
+    const parseFloatResult = parseFloat(rawLineHeight);
+    const numberResult = Number(rawLineHeight);
+    console.log(`getCurrentUIConfig(${position}): Floating point test - raw:`, rawLineHeight, 'parseFloat:', parseFloatResult, 'Number:', numberResult, 'equal:', parseFloatResult === numberResult);
+
     // Get control groups to determine what's currently active (not unset)
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
@@ -1756,6 +1774,12 @@ function getCurrentUIConfig(position) {
     const activeLineHeight = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
     const activeWeight = weightGroup && !weightGroup.classList.contains('unset');
     const activeColor = colorGroup && !colorGroup.classList.contains('unset');
+
+    // Debug active controls
+    console.log(`getCurrentUIConfig(${position}): Active controls - fontSize:`, activeFontSize, 'lineHeight:', activeLineHeight, 'weight:', activeWeight);
+    if (lineHeightGroup) {
+        console.log(`getCurrentUIConfig(${position}): lineHeightGroup classes:`, lineHeightGroup.className, 'has unset:', lineHeightGroup.classList.contains('unset'));
+    }
 
 
     // Return UI config with only currently active controls (flattened structure)
@@ -1892,11 +1916,22 @@ function applyFontConfig(position, config) {
     return new Promise(resolve => {
         setTimeout(() => {
         // Set basic controls
-        document.getElementById(`${position}-font-size`).value = config.fontSize || 17;
-        document.getElementById(`${position}-line-height`).value = config.lineHeight || 1.6;
-        document.getElementById(`${position}-font-weight`).value = config.fontWeight || 400;
-        if (config.fontColor) {
-            document.getElementById(`${position}-font-color`).value = config.fontColor;
+        console.log(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.6);
+        const fontSizeControl = document.getElementById(`${position}-font-size`);
+        const lineHeightControl = document.getElementById(`${position}-line-height`);
+        const fontWeightControl = document.getElementById(`${position}-font-weight`);
+        const fontColorControl = document.getElementById(`${position}-font-color`);
+
+        if (fontSizeControl) fontSizeControl.value = config.fontSize || 17;
+        if (lineHeightControl) {
+            const lineHeightValue = config.lineHeight || 1.6;
+            lineHeightControl.value = lineHeightValue;
+            // Force sync by setting attribute as well
+            lineHeightControl.setAttribute('value', lineHeightValue);
+        }
+        if (fontWeightControl) fontWeightControl.value = config.fontWeight || 400;
+        if (config.fontColor && fontColorControl) {
+            fontColorControl.value = config.fontColor;
         }
         // When no color is saved, leave the input at its default - it will be marked as unset anyway
 
@@ -1904,7 +1939,19 @@ function applyFontConfig(position, config) {
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
         if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
-        if (lineHeightTextInput) lineHeightTextInput.value = config.lineHeight || 1.6;
+        if (lineHeightTextInput) {
+            const lineHeightValue = config.lineHeight || 1.6;
+            console.log(`applyFontConfig(${position}): Setting lineHeight text input to:`, lineHeightValue);
+            lineHeightTextInput.value = lineHeightValue;
+            // Force sync by setting attribute as well
+            lineHeightTextInput.setAttribute('value', lineHeightValue);
+        }
+
+        // Debug: Verify values are set correctly after assignment
+        console.log(`applyFontConfig(${position}): After setting - range slider value:`, lineHeightControl ? lineHeightControl.value : 'not found');
+        if (lineHeightTextInput) {
+            console.log(`applyFontConfig(${position}): After setting - text input value:`, lineHeightTextInput.value);
+        }
 
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
@@ -1964,35 +2011,6 @@ function applyFontConfig(position, config) {
             });
         }
 
-        // Handle weight control state
-        const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
-        if (weightControl) {
-            if (activeControlsFromConfig.has('weight')) {
-                weightControl.classList.remove('unset');
-            } else {
-                weightControl.classList.add('unset');
-            }
-        }
-
-        // Handle font-size control state
-        const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
-        if (sizeControl) {
-            if (activeControlsFromConfig.has('font-size')) {
-                sizeControl.classList.remove('unset');
-            } else {
-                sizeControl.classList.add('unset');
-            }
-        }
-
-        // Handle line height control state
-        const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
-        if (lineHeightControl) {
-            if (activeControlsFromConfig.has('line-height')) {
-                lineHeightControl.classList.remove('unset');
-            } else {
-                lineHeightControl.classList.add('unset');
-            }
-        }
 
         // Apply the font
         applyFont(position);
@@ -3925,9 +3943,11 @@ function hideSaveModal() {
 
 // Favorites Popup functionality
 function showFavoritesPopup(position) {
+    console.log('showFavoritesPopup called for position:', position);
     const popup = document.getElementById('favorites-popup');
     const listContainer = document.getElementById('favorites-popup-list');
     const noFavorites = document.getElementById('no-favorites');
+    console.log('Favorites popup elements:', {popup, listContainer, noFavorites});
 
     // Clear existing content
     listContainer.innerHTML = '';
@@ -3936,6 +3956,9 @@ function showFavoritesPopup(position) {
     const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
         ? savedFavoritesOrder.filter(n => savedFavorites[n])
         : Object.keys(savedFavorites);
+    console.log('savedFavorites:', savedFavorites);
+    console.log('savedFavoritesOrder:', savedFavoritesOrder);
+    console.log('Favorite names to show:', names);
     if (names.length === 0) {
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
@@ -3970,18 +3993,24 @@ function showFavoritesPopup(position) {
             item.addEventListener('click', function() {
                 const position = this.getAttribute('data-position');
                 const favoriteName = this.getAttribute('data-favorite-name');
-                const config = savedFavorites[favoriteName];
+                const rawConfig = savedFavorites[favoriteName];
+                console.log('Loading favorite - raw config:', JSON.stringify(rawConfig, null, 2));
+                const config = savedEntryToConfig(rawConfig);
+                console.log('Loading favorite - processed config:', JSON.stringify(config, null, 2));
 
                 if (config) {
-                    applyFontConfig(position, config);
-                    hideFavoritesPopup();
+                    applyFontConfig(position, config).then(() => {
+                        // Font config has been fully applied, including control group updates
+                        console.log(`Favorite loaded and applied for ${position}`);
 
-                    // Update Apply button visibility after loading favorite
-                    if (position === 'body') {
-                        updateBodyButtons();
-                    } else if (currentViewMode === 'third-man-in') {
-                        updateAllThirdManInButtons();
-                    }
+                        // Update Apply button visibility after loading favorite (now that control groups are updated)
+                        if (position === 'body') {
+                            updateBodyButtons();
+                        } else if (currentViewMode === 'third-man-in') {
+                            updateAllThirdManInButtons();
+                        }
+                    });
+                    hideFavoritesPopup();
                 }
             });
 
@@ -5668,6 +5697,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         }
 
         const config = getCurrentUIConfig(position);
+        console.log('Saving favorite - config from getCurrentUIConfig:', JSON.stringify(config, null, 2));
         savedFavorites[name] = config;
         if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
         if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
@@ -6528,6 +6558,7 @@ function buildCurrentPayload(position, providedConfig = null) {
         return null;
     }
 
+
     // Determine generic font family based on position
     let genericKey;
     if (position === 'body') {
@@ -6558,7 +6589,7 @@ function buildCurrentPayload(position, providedConfig = null) {
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const lineHeightActive = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
     const lineHeight = lineHeightActive ? Number(cfg.lineHeight) : null;
-    console.log(`buildCurrentPayload: Line height - group:`, lineHeightGroup, 'active:', lineHeightActive, 'value:', lineHeight);
+    console.log(`buildCurrentPayload: Line height - group:`, lineHeightGroup, 'active:', lineHeightActive, 'raw cfg.lineHeight:', cfg.lineHeight, 'Number() result:', lineHeight);
 
     // Check if color is active (not "unset")
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
