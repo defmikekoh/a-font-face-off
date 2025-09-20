@@ -284,14 +284,43 @@
   <div id="generalSettings">
     <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Toolbar Settings</label>
     
-    <div id="left-toolbar-preview" style="position: fixed; left: 0px; top: 20%; width: 48px; height: 20vh; z-index: 1000; pointer-events: none; 
-         border-radius: 8px; opacity: 0.8; display: flex; flex-direction: column; justify-content: space-between; align-items: center; 
+    <div id="left-toolbar-preview" style="position: fixed; left: 0px; top: 20%; width: 48px; height: 20vh; z-index: 1000; pointer-events: none;
+         border-radius: 8px; opacity: 0.8; display: none; flex-direction: column; justify-content: space-between; align-items: center;
          padding: 20px 0; box-sizing: border-box; transform: translateY(-50%);
          background: transparent; color: var(--icon-color);">
       
       <!-- Face-off button -->
-      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
+      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent;
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="featherIcons" style="display: none;" role="img" aria-label="Hockey mask with sticks and puck (feather)">
+          <!-- Scale around the 12,12 center to use more of the viewBox -->
+          <!-- Slightly reduced scale to avoid clipping at edges -->
+          <g transform="translate(12,12) scale(1.18) translate(-12,-12)">
+            <!-- Left stick group: rotate around joint so handle direction passes through top-left corner -->
+            <g transform="rotate(0.4 7 19)">
+              <path d="M3 2 L7 19"/>
+              <path d="M7 19 L10.6 21"/>
+            </g>
+            <!-- Right stick group: rotate around joint so handle direction passes through top-right corner -->
+            <g transform="rotate(-0.4 17 19)">
+              <path d="M21 2 L17 19"/>
+              <path d="M17 19 L13.4 21"/>
+            </g>
+            <!-- Mask (scaled up proportionally around center to use more vertical space) -->
+            <g transform="translate(12,12) scale(1.22) translate(-12,-12)">
+              <path d="M12 5.0c-2.6 0-3.9 2.0-3.9 3.8 0 2.5 1.6 4.9 3.9 5.4 2.3-.5 3.9-2.9 3.9-5.4 0-1.8-1.3-3.8-3.9-3.8Z"/>
+              <!-- Eyes -->
+              <circle cx="10" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+              <circle cx="14" cy="8.8" r="0.8" fill="currentColor" stroke="none"/>
+              <!-- Vents -->
+              <circle cx="12" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="10.7" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+              <circle cx="13.3" cy="12.0" r="0.5" fill="currentColor" stroke="none"/>
+            </g>
+            <!-- Puck -->
+            <ellipse cx="12" cy="18.2" rx="2.8" ry="1.1" fill="currentColor" stroke="none"/>
+          </g>
+        </svg>
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" background="transparent" class="heroIcons" role="img" aria-label="Hockey mask with sticks and puck (maximized)">
           <!-- Scale around the 12,12 center to use more of the viewBox -->
           <!-- Slightly reduced scale to avoid clipping at edges -->
@@ -324,38 +353,50 @@
       </div>
       
       <!-- WhatFont button -->
-      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
+      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent;
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="featherIcons" style="display: none;">
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="heroIcons">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
         </svg>
       </div>
       
       <!-- Close Tab button -->
-      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
+      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent;
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="featherIcons" style="display: none;">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="heroIcons">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </div>
       
       <!-- Page Up button -->
-      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
+      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent;
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="featherIcons" style="display: none;">
           <polyline points="17 11 12 6 7 11"></polyline>
           <polyline points="17 18 12 13 7 18"></polyline>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="heroIcons">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 18.75L12 11.25L19.5 18.75M4.5 12.75L12 5.25L19.5 12.75" />
         </svg>
       </div>
       
       <!-- Page Down button -->
-      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent; 
+      <div class="preview-button" style="aspect-ratio: 1; border: none; border-radius: 20%; background: transparent;
            display: flex; align-items: center; justify-content: center; color: var(--icon-color, #fbfbfe); margin: 4px 0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="featherIcons" style="display: none;">
           <polyline points="7 13 12 18 17 13"></polyline>
           <polyline points="7 6 12 11 17 6"></polyline>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="heroIcons">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 5.25L12 12.75L4.5 5.25M19.5 11.25L12 18.75L4.5 11.25" />
         </svg>
       </div>
     </div>
@@ -490,5 +531,8 @@
   </div>
 
   <script src="options.js"></script>
+  <script src="jquery.js"></script>
+  <script src="whatfont_core.js"></script>
+  <script src="left-toolbar.js"></script>
 </body>
 </html>

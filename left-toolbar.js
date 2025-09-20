@@ -7,10 +7,6 @@
         return;
     }
     
-    // Don't show toolbar on extension pages (options, popup, etc.)
-    if (window.location.protocol === 'moz-extension:' || window.location.protocol === 'chrome-extension:') {
-        return;
-    }
     
     window.affoLeftToolbarInjected = true;
     
@@ -20,65 +16,6 @@
     let options = {};
     
     
-    // Load toolbar options and initialize
-    function init() {
-        loadToolbarOptions(function() {
-            if (options.enabled !== false) { // Default to enabled
-                createLeftToolbar();
-            }
-        });
-    }
-    
-    // Load toolbar options from storage (direct access like Essential)
-    function loadToolbarOptions(callback) {
-        try {
-            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-            const keys = [
-                'affoToolbarEnabled',
-                'affoToolbarWidth', 
-                'affoToolbarHeight',
-                'affoToolbarPosition',
-                'affoToolbarTransparency',
-                'affoToolbarGap'
-            ];
-            
-            browserAPI.storage.local.get(keys).then(function(result) {
-                // Use saved settings or defaults for left toolbar
-                options = {
-                    enabled: result.affoToolbarEnabled !== false, // Default to enabled
-                    width: result.affoToolbarWidth || 48,         // Use same width setting
-                    height: result.affoToolbarHeight || 20,       // Height as percentage
-                    position: result.affoToolbarPosition !== undefined ? result.affoToolbarPosition : 50, // Position as percentage (for vertical centering)
-                    transparency: result.affoToolbarTransparency !== undefined ? result.affoToolbarTransparency : 0.2,
-                    gap: result.affoToolbarGap || 0               // Gap from left edge
-                };
-                
-                callback();
-            }).catch(function(e) {
-                // Use defaults if loading fails
-                options = {
-                    enabled: true,
-                    width: 48,
-                    height: 20,
-                    position: 50,
-                    transparency: 0.2,
-                    gap: 0
-                };
-                callback();
-            });
-        } catch (e) {
-            // Use defaults if loading fails
-            options = {
-                enabled: true,
-                width: 48,
-                height: 20,
-                position: 50,
-                transparency: 0.2,
-                gap: 0
-            };
-            callback();
-        }
-    }
     
     // Create the left toolbar iframe with robust DOM body checking (like Essential)
     function createLeftToolbar() {
@@ -210,9 +147,7 @@
             const targetElement = document.getElementById('affo-left-toolbar-iframe');
             if (!targetElement || targetElement.parentElement.tagName.toLowerCase() !== 'html') {
                 // Toolbar missing or misplaced, reinitialize
-                if (options.enabled !== false) {
-                    createLeftToolbar();
-                }
+                createLeftToolbar();
                 return;
             }
             
@@ -227,8 +162,8 @@
     // Handle messages from iframe and toolbar option changes
     window.addEventListener('message', function(event) {
         if (!event.data || !event.data.type) return;
-        
-        
+
+
         switch (event.data.type) {
             case 'initWhatFont':
                 handleInitWhatFont();
@@ -411,9 +346,7 @@
             leftToolbarIframe = null;
         }
         
-        if (options.enabled !== false) {
-            createLeftToolbar();
-        }
+        createLeftToolbar();
     }
     
     // Close current tab
@@ -630,12 +563,40 @@
         }
     }
     
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    // Initialize toolbar like Essential - simple and direct
+    function initializeToolbar() {
+        getSettingsValues().then(() => {
+            createLeftToolbar();
+        });
     }
+
+    // Get settings like Essential does
+    function getSettingsValues() {
+        const keys = [
+            'affoToolbarEnabled',
+            'affoToolbarWidth',
+            'affoToolbarHeight',
+            'affoToolbarPosition',
+            'affoToolbarTransparency',
+            'affoToolbarGap',
+            'affoIconTheme'
+        ];
+        return (typeof browser !== 'undefined' ? browser : chrome).storage.local.get(keys).then((result) => {
+            // Set options from storage like Essential
+            options = {
+                enabled: result.affoToolbarEnabled !== false, // Default to enabled
+                width: result.affoToolbarWidth || 48,
+                height: result.affoToolbarHeight || 20,
+                position: result.affoToolbarPosition !== undefined ? result.affoToolbarPosition : 50,
+                transparency: result.affoToolbarTransparency !== undefined ? result.affoToolbarTransparency : 0.2,
+                gap: result.affoToolbarGap || 0,
+                iconTheme: result.affoIconTheme || 'heroIcons'
+            };
+            });
+    }
+
+    // Start initialization immediately like Essential
+    initializeToolbar();
     
     // Listen for toolbar option changes from background script
     try {
@@ -659,10 +620,7 @@
                         leftToolbarIframe = null;
                     }
                     
-                    if (options.enabled !== false) {
-                        createLeftToolbar();
-                    } else {
-                    }
+                    createLeftToolbar();
                 }
             });
         }

@@ -13,41 +13,54 @@
   function updatePreviewAfterSave() {
     const preview = document.getElementById('left-toolbar-preview');
     if (!preview) return;
-    
-    const enabled = document.getElementById('toolbar-enabled').value === 'true';
-    const width = parseInt(document.getElementById('toolbar-width').value);
-    const height = parseInt(document.getElementById('toolbar-height').value);
-    const position = parseInt(document.getElementById('toolbar-position').value);
-    const transparency = parseFloat(document.getElementById('toolbar-transparency').value);
-    const gap = parseInt(document.getElementById('toolbar-gap').value);
-    
-    if (enabled) {
-      preview.style.display = 'flex';
-      preview.style.width = width + 'px';
-      preview.style.height = height + 'vh';
-      preview.style.opacity = transparency;
-      preview.style.left = gap + 'px';
-      
-      if (height < 100) {
-        preview.style.top = position + '%';
-        preview.style.transform = 'translateY(-50%)';
+
+    // Always keep preview hidden since we have the real toolbar injected directly
+    preview.style.display = 'none';
+  }
+
+  // Icon theme switching functionality (like Essential)
+  function showSVG(svgs, theme, additionalClass) {
+    svgs.forEach((svg) => {
+      if (
+        svg.classList.contains(theme) &&
+        (!additionalClass || svg.classList.contains(additionalClass))
+      ) {
+        svg.style.display = 'block';
       } else {
-        preview.style.top = '0';
-        preview.style.transform = 'none';
+        svg.style.display = 'none';
       }
-      
-      // Update button sizes to match toolbar button sizing  
-      // Buttons are square and approximately match the iframe width (accounting for any margins)
-      // Use the same size as the actual toolbar buttons
-      const buttonSize = Math.max(width - 4, 20); // Minimal margin adjustment, minimum 20px
-      const previewButtons = preview.querySelectorAll('.preview-button');
-      previewButtons.forEach(button => {
-        button.style.width = buttonSize + 'px';
-        button.style.height = buttonSize + 'px';
-      });
-    } else {
-      preview.style.display = 'none';
+    });
+  }
+
+  function applyIconThemeToPreview() {
+    try {
+      const iconTheme = document.getElementById('icon-theme').value || 'heroIcons';
+      const allSVGs = document.querySelectorAll('#left-toolbar-preview svg');
+      showSVG(allSVGs, iconTheme);
+    } catch (e) {
+      console.error('[AFFO Options] Error applying icon theme to preview:', e);
     }
+  }
+
+  // Add click behaviors for preview buttons (like Essential)
+  function addPreviewClickBehaviors() {
+    const previewButtons = document.querySelectorAll('.preview-button');
+
+    previewButtons.forEach((button, index) => {
+      // Close Tab button is the 3rd button (index 2)
+      if (index === 2) {
+        button.style.cursor = 'pointer';
+        button.title = 'Close options page';
+        button.addEventListener('click', function() {
+          // Essential-style behavior: show button info instead of closing
+          alert('Close Tab Button\n\nThis button closes the current tab when used in the actual toolbar.\n\n(Preview only - not functional)');
+        });
+      } else {
+        // Make other buttons show they're not clickable
+        button.style.cursor = 'default';
+        button.title = 'Preview only - not functional';
+      }
+    });
   }
 
   const DEFAULT_SERIF = ['PT Serif'];
@@ -162,6 +175,10 @@
       
       // Update preview after loading settings
       updatePreviewAfterSave();
+
+      // Apply icon theme and add click behaviors
+      applyIconThemeToPreview();
+      addPreviewClickBehaviors();
     } catch (e) {}
   }
 
@@ -402,6 +419,7 @@
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();
       updatePreviewAfterSave();
+      applyIconThemeToPreview();
     });
     document.getElementById('toolbar-width').addEventListener('input', updateToolbarValues);
     document.getElementById('toolbar-height').addEventListener('input', updateToolbarValues);
@@ -413,5 +431,7 @@
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
+
+    // Icon theme will only apply on save, not on change
   });
 })();
