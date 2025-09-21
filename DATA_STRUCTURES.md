@@ -334,44 +334,52 @@ The extension has evolved through several storage format improvements:
 
 ## Async Initialization Architecture
 
-### Fontonic-Inspired Async Pattern
+### Promise-based Flow Architecture ✅ **CURRENT SYSTEM**
 
-The extension follows the async pattern used by the Fontonic extension to eliminate race conditions between storage operations and UI updates.
+The extension now uses a comprehensive Promise-based Flow architecture that eliminates race conditions throughout the entire codebase.
 
-**Problem with Previous Approach:**
+**Previous Problem (setTimeout-based timing):**
 ```javascript
-// PROBLEMATIC - Race conditions possible
-await loadExtensionState();
-await initializeModeInterface(); 
-await restoreUIFromDomainStorage();
-// UI updates could happen before storage completes
+// PROBLEMATIC - Race conditions throughout codebase
+applyFontConfig(position, config);
+setTimeout(() => updateButtons(), 50); // Hope DOM is ready
+updateBodyButtons(); // Called immediately - reads stale state
 ```
 
-**Current Solution (Fontonic Pattern):**
+**Current Solution (Promise-based Flow):**
 ```javascript
-// SAFE - UI updates only happen INSIDE storage completion callbacks
-loadExtensionState().then(() => {
-    return initializeModeInterface();
-}).then(() => {
-    return restoreUIFromDomainStorage();
-}).then(() => {
-    // ONLY NOW show UI - everything is ready
-    document.body.style.visibility = 'visible';
-    initializationComplete = true;
-});
+// SAFE - Explicit dependencies and sequential execution
+await applyFontConfig(position, config);  // DOM updates complete
+await updateButtons(position);           // Guaranteed fresh state
+hideFavoritesPopup();                   // UI state is consistent
 ```
 
-**Key Principles:**
-1. **UI stays hidden** until ALL async operations complete
-2. **Chain operations** using `.then()` to ensure proper sequencing
-3. **UI updates happen INSIDE callbacks** - no race conditions possible
-4. **Error handling** with `.catch()` to show UI even if initialization fails
+**Key Architectural Changes (2024 Promise Refactor):**
+1. **Explicit Dependencies**: Every async operation returns a Promise
+2. **Sequential Flow**: Related operations await their dependencies
+3. **Atomic Operations**: CSS injection and font loading are awaitable
+4. **Eliminated setTimeout Hacks**: All timing-based coordination removed
+5. **Predictable State**: State changes happen in known, awaitable steps
+
+**Core Functions Refactored:**
+- ✅ `applyFontConfig()` - Clean async function with proper DOM waiting
+- ✅ `loadFont()` and `selectFont()` - Full async/await conversion
+- ✅ `updateBodyButtons()` and `updateAllThirdManInButtons()` - Async button state management
+- ✅ `switchMode()` and `loadModeSettings()` - Coordinated mode transitions
+- ✅ `applyFontToPage()` and CSS injection - Atomic page operations
+- ✅ Storage operations - First-class Promise integration
+
+**Race Condition Fixed:**
+The original issue where reset buttons appeared inconsistently for different favorite types is now resolved:
+- ✅ `applyFontConfig()` completes fully before `updateButtons()` functions run
+- ✅ Control group state is read only after DOM updates are complete
+- ✅ Favorites loading is atomic and sequential
 
 **Benefits:**
-- ✅ No race conditions between user interaction and storage restoration
-- ✅ User sees correct domain-specific state immediately when UI appears
-- ✅ Simple, predictable initialization flow
-- ✅ Follows proven pattern from Fontonic extension
+- ✅ No race conditions possible by design
+- ✅ User sees correct state immediately with no flicker
+- ✅ Predictable, maintainable execution flow
+- ✅ New features can be added without timing concerns
 
 
 ### Troubleshooting Storage Issues

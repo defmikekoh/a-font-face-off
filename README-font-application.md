@@ -53,9 +53,27 @@ See: `content.js` (selector + style text authoring and updates)
   - `ital`/`slnt` → `font-style: italic | oblique <deg>`
 - Non‑active axes are cleared so no stale variations linger when switching families.
 
-## Apply Button Readiness
+## Apply Button Readiness ✅ **Promise-based Flow Architecture**
 
-When you tap Apply, the popup polls `document.fonts.check('16px "<Family>"')` in the active tab to flip the button to Applied once the font is actually usable.
+The Apply button system now uses a Promise-based Flow architecture (2024 refactor) that eliminates race conditions:
+
+**Previous System (polling-based):**
+- Applied font configuration immediately
+- Polled `document.fonts.check('16px "<Family>"')` to detect readiness
+- Updated button state asynchronously
+- Race conditions possible between font application and button updates
+
+**Current System (Promise-based):**
+- Font application operations are fully awaitable
+- Button state updates only after font operations complete
+- Sequential flow: `await applyFontConfig()` → `await updateButtons()`
+- Atomic operations prevent race conditions by design
+
+**Key Benefits:**
+- ✅ Apply button state always reflects actual application status
+- ✅ No timing issues between font loading and UI updates
+- ✅ Predictable button behavior across all font types
+- ✅ Eliminated the race condition that caused inconsistent reset button behavior
 
 ## Files
 
