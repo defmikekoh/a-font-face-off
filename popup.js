@@ -381,6 +381,24 @@ function getActiveOrigin() {
     }).catch(() => null);
 }
 
+// Update domain display in the preview domain rink
+async function updateDomainDisplay() {
+    const domainDisplay = document.getElementById('body-domain-display');
+    if (!domainDisplay) return;
+
+    try {
+        const origin = await getActiveOrigin();
+        if (origin) {
+            domainDisplay.textContent = origin;
+        } else {
+            domainDisplay.textContent = 'Unknown Domain';
+        }
+    } catch (error) {
+        console.error('Error updating domain display:', error);
+        domainDisplay.textContent = 'Error Loading Domain';
+    }
+}
+
 // Helper: execute script in the correct tab (source tab if available, otherwise active tab)
 function executeScriptInTargetTab(options) {
     if (window.sourceTabId) {
@@ -6985,6 +7003,8 @@ async function performModeSwitch(newMode) {
         } else {
             console.log('❌ Body panel state is false, not showing panel');
         }
+        // Update domain display when switching to body mode
+        updateDomainDisplay();
     } else if (newMode === 'third-man-in') {
         let anyPanelOpen = false;
         if (panelStates['third-man-in'].serif) {
@@ -7003,6 +7023,7 @@ async function performModeSwitch(newMode) {
             document.getElementById('panel-overlay').classList.add('visible');
         }
         updateFontComparisonLayoutForThirdManIn();
+        updateDomainDisplay();
     }
 
     // Initialize Apply/Reset button states for new modes
@@ -7068,6 +7089,9 @@ function initializeModeInterface() {
         // Force load settings on initial popup open (switchMode may skip if mode is already set)
         console.log('Force calling loadModeSettings for initial load');
         loadModeSettings();
+
+        // Update domain display for body mode
+        updateDomainDisplay();
 
         // Backup: If UI is in Third Man In mode but font restoration didn't run, force it
         (async () => {

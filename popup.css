@@ -636,6 +636,19 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     transition: all 0.3s ease-in-out;
 }
 
+#font-preview-rink {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    border: var(--rink-border-thick) solid var(--rink-border-color);
+    border-radius: var(--rink-border-radius);
+    box-sizing: border-box;
+    background: #ffffff;
+    overflow: hidden;
+    position: relative;
+    min-height: 0; /* allow inner sections to stretch within the popup */
+}
+
 /* Face-off mode panel states - only apply in face-off mode */
 body.view-faceoff #font-comparison.top-panel-open {
     margin-left: 33.333%;
@@ -809,13 +822,24 @@ body.view-faceoff #bottom-font-section {
     border-bottom-right-radius: 8px;
 }
 
-#body-font-section {
+#body-font-section,
+#body-domain-section {
     display: none;
 }
 
 body.view-body-contact #body-font-section {
     display: block;
     border-radius: 8px; /* Single box: round all corners */
+}
+
+body.view-body-contact #body-domain-section.domain-display-rink {
+    display: block !important;
+    border-radius: 8px; /* Single box: round all corners */
+}
+
+body.view-third-man-in #body-domain-section.domain-display-rink {
+    display: block !important;
+    border-radius: 8px;
 }
 
 /* Remove top heading divider line in Body and Third modes */
@@ -935,7 +959,7 @@ body.body-contact #body-font-section {
 
 /* Rink border around combined preview in each mode */
 /* Body: thin rink border around single box */
-body.view-body-contact #font-comparison {
+body.view-body-contact #font-preview-rink {
     /* Match Face-off and Third Man In rink thickness and color */
     border: var(--rink-border-thick) solid var(--rink-border-color);
     border-radius: var(--rink-border-radius);
@@ -944,7 +968,7 @@ body.view-body-contact #font-comparison {
     overflow: hidden;
 }
 /* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
-body.view-body-contact #font-comparison::before {
+body.view-body-contact #font-preview-rink::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
@@ -964,7 +988,7 @@ body.view-faceoff .center-line-separator {
         transparent 6px 12px
     );
 }
-body.view-faceoff #font-comparison {
+body.view-faceoff #font-preview-rink {
     border: var(--rink-border-thick) solid var(--rink-border-color);
     border-radius: var(--rink-border-radius);
     box-sizing: border-box;
@@ -973,7 +997,7 @@ body.view-faceoff #font-comparison {
 }
 
 /* Third Man In: thick rink border around combined 3 boxes */
-body.view-third-man-in #font-comparison {
+body.view-third-man-in #font-preview-rink {
     border: var(--rink-border-thick) solid var(--rink-border-color);
     border-radius: var(--rink-border-radius);
     box-sizing: border-box; /* include border in height calc to prevent overflow */
@@ -988,7 +1012,7 @@ body.view-third-man-in .center-line-separator { display: none !important; }
 .blue-line-separator { display: none; height: 4px; background: #46b; }
 body.view-third-man-in .blue-line-separator { display: block; }
 /* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
-body.view-third-man-in #font-comparison::before {
+body.view-third-man-in #font-preview-rink::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
@@ -1046,6 +1070,48 @@ body.body-contact #font-comparison {
     margin-bottom: 15px;
     border-left: 3px solid #3498db;
     padding-left: 10px;
+}
+
+/* Domain display rink - compact single line */
+.domain-display-rink {
+    padding: 8px 20px !important;
+    background: #2c3e50;
+    border: 1px solid #34495e;
+    border-color: #34495e !important; /* Match control panel border color exactly */
+    min-height: auto !important;
+    flex: 0 0 auto; /* Do not steal vertical space from the preview rink */
+    overflow: visible;
+    margin-top: 0;
+    border-radius: 8px;
+}
+
+.domain-rink {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+}
+
+.domain-bar-left,
+.domain-bar-right {
+    width: 3px; /* Match the Basic Properties accent thickness */
+    height: 16px;
+    background-color: #3498db; /* Match Body CP heading accent (dark/elevated theme) */
+    flex-shrink: 0;
+}
+
+.domain-text {
+    font-size: 16px;
+    color: #3498db; /* Match Body CP settings heading color */
+    font-weight: bold;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+    line-height: 1;
 }
 
 .control-group {
@@ -2693,6 +2759,20 @@ body.view-faceoff .favorites-container {
     .control-section h3 {
         color: #495057;
         border-left-color: #495057;
+    }
+
+    .domain-display-rink {
+        background: #ffffff !important;
+        border: 1px solid #34495e !important;
+    }
+
+    .domain-bar-left,
+    .domain-bar-right {
+        background-color: #495057;
+    }
+
+    .domain-text {
+        color: #495057;
     }
 
     .control-group label {
