@@ -6722,12 +6722,8 @@ function modeHasAppliedSettings(mode) {
                 return !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
             });
         } else if (mode === 'faceoff') {
-            return browser.storage.local.get('affoApplyMap').then(data => {
-                const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-                // Using origin directly (hostname)
-                const domainData = map[origin];
-                return !!(domainData && (domainData.serif || domainData.sans));
-            });
+            // Faceoff mode never saves domain settings - it's preview-only
+            return false;
         }
         return false;
     }).catch(() => false);
@@ -6834,8 +6830,8 @@ async function switchMode(newMode, forceInit = false) {
         return;
     }
 
-    // Show confirmation modal when switching between body-contact and third-man-in modes,
-    // or when switching from faceoff to a mode that has saved settings
+    // Show confirmation modal when switching between incompatible modes that save domain settings
+    // OR when switching from faceoff to a mode that would conflict with existing domain settings
     // BUT NOT during initial mode determination (when currentViewMode is null)
     const showModal = currentViewMode !== null && (
         (currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
@@ -6844,13 +6840,31 @@ async function switchMode(newMode, forceInit = false) {
     );
 
     if (showModal) {
-        // Check if current mode or target mode has applied settings
-        const [currentHasSettings, targetHasSettings] = await Promise.all([
-            modeHasAppliedSettings(currentViewMode),
-            modeHasAppliedSettings(newMode)
-        ]);
+        let shouldShowConfirmation = false;
 
-        if (currentHasSettings || targetHasSettings) {
+        if ((currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
+            (currentViewMode === 'third-man-in' && newMode === 'body-contact')) {
+            // For incompatible modes, check if either has settings
+            const [currentHasSettings, targetHasSettings] = await Promise.all([
+                modeHasAppliedSettings(currentViewMode),
+                modeHasAppliedSettings(newMode)
+            ]);
+            shouldShowConfirmation = currentHasSettings || targetHasSettings;
+        } else if (currentViewMode === 'faceoff') {
+            // For faceoff -> other modes, check if the OPPOSITE incompatible mode has settings
+            // that would be lost when domain data is cleared
+            if (newMode === 'body-contact') {
+                // Switching to body-contact: check if third-man-in has settings that would be lost
+                const oppositeHasSettings = await modeHasAppliedSettings('third-man-in');
+                shouldShowConfirmation = oppositeHasSettings;
+            } else if (newMode === 'third-man-in') {
+                // Switching to third-man-in: check if body-contact has settings that would be lost
+                const oppositeHasSettings = await modeHasAppliedSettings('body-contact');
+                shouldShowConfirmation = oppositeHasSettings;
+            }
+        }
+
+        if (shouldShowConfirmation) {
             // Show confirmation modal
             const currentDisplayName = getModeDisplayName(currentViewMode);
             const newDisplayName = getModeDisplayName(newMode);
