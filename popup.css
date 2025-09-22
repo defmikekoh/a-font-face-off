@@ -1074,7 +1074,7 @@ body.body-contact #font-comparison {
 
 /* Domain display rink - compact single line */
 .domain-display-rink {
-    padding: 8px 20px !important;
+    padding: 0 20px 8px !important;
     background: #2c3e50;
     border: 1px solid #34495e;
     border-color: #34495e !important; /* Match control panel border color exactly */
@@ -1083,23 +1083,84 @@ body.body-contact #font-comparison {
     overflow: visible;
     margin-top: 0;
     border-radius: 8px;
+    position: relative;
 }
 
 .domain-rink {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
     margin: 0;
-    padding: 0;
+    padding: 6px 0 0;
+    position: relative;
+    width: 100%;
 }
 
-.domain-bar-left,
-.domain-bar-right {
-    width: 3px; /* Match the Basic Properties accent thickness */
-    height: 16px;
-    background-color: #3498db; /* Match Body CP heading accent (dark/elevated theme) */
-    flex-shrink: 0;
+.domain-goal-ice {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 0;
+    position: relative;
+    overflow: visible;
+}
+
+.domain-goal-ice::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 4px;
+    height: 6px;
+    background: #f9d44a;
+    border-radius: 999px;
+    z-index: 0;
+}
+
+.domain-goal-ice::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: rgba(204, 51, 51, 0.38);
+    border-radius: 999px;
+    z-index: 1;
+}
+
+.domain-goal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 20px 2px;
+    border-left: 4px solid #c33;
+    border-right: 4px solid #c33;
+    border-top: 4px solid #c33;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    background: linear-gradient(
+        to top,
+        transparent 0 2px,
+        #2c3e50 2px 100%
+    );
+    position: relative;
+    z-index: 2;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+.domain-goal::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px 10px 0 0;
+    background-image:
+        repeating-linear-gradient(45deg, rgba(236, 240, 241, 0.08) 0, rgba(236, 240, 241, 0.08) 3px, transparent 3px, transparent 12px),
+        repeating-linear-gradient(-45deg, rgba(236, 240, 241, 0.08) 0, rgba(236, 240, 241, 0.08) 3px, transparent 3px, transparent 12px);
+    pointer-events: none;
+    z-index: -1;
 }
 
 .domain-text {
@@ -1113,6 +1174,8 @@ body.body-contact #font-comparison {
     max-width: 250px;
     line-height: 1;
 }
+
+
 
 .control-group {
     display: flex;
@@ -2766,9 +2829,37 @@ body.view-faceoff .favorites-container {
         border: 1px solid #34495e !important;
     }
 
-    .domain-bar-left,
-    .domain-bar-right {
-        background-color: #495057;
+    .domain-goal-ice::before {
+        bottom: 6px;
+        height: 6px;
+        background: #ffe26f;
+        z-index: 0;
+    }
+
+    .domain-goal-ice::after {
+        bottom: 0;
+        height: 2px;
+        background: rgba(204, 51, 51, 0.3);
+        z-index: 1;
+    }
+
+    .domain-goal {
+        background: linear-gradient(
+            to top,
+            transparent 0 2px,
+            #ffffff 2px 100%
+        );
+        border-bottom: 0;
+    }
+
+    .domain-goal::before {
+        background-image:
+            repeating-linear-gradient(45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px),
+            repeating-linear-gradient(-45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px);
+    }
+
+    .domain-goal::after {
+        background: rgba(204, 51, 51, 0.35);
     }
 
     .domain-text {
