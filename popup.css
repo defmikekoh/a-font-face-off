@@ -1785,6 +1785,47 @@ body.mode-switching #panel-grips {
             font-size: 9px !important;
             line-height: 1.2 !important;
         }
+
+        /* Mobile: fix third-man-in-content container height */
+        body.view-third-man-in .third-man-in-content.active {
+            align-items: stretch !important; /* Fill full height instead of center */
+        }
+
+        /* Mobile: use same approach as tablet with mobile dimensions */
+        body.view-third-man-in .third-man-in-center-stack {
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 0 !important; /* No padding - inherit from parent like serif grip */
+            gap: 1px !important;
+            margin: 0 !important;
+            border: none !important;
+            align-self: stretch !important; /* Fill full height like outer grips */
+            box-sizing: border-box !important;
+        }
+
+        body.view-third-man-in .third-man-in-center-stack .favorite-btn {
+            flex: 1.5 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            width: auto !important;
+            height: auto !important;
+            line-height: 1 !important;
+            font-size: inherit !important;
+        }
+
+        body.view-third-man-in .third-man-in-center-stack .centered-grip {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
     }
 
     /* Debug outlines removed */
@@ -1970,17 +2011,51 @@ body.view-faceoff .favorites-container {
     :root { --panel-grips-h: 76px; }
     #panel-grips { height: var(--panel-grips-h); --grip-width: 140px; }
 
-    /* Tablet: tighten Third Man In center stack to match outer grip heights */
+    /* Tablet: fix third-man-in-content container height */
+    body.view-third-man-in .third-man-in-content.active {
+        align-items: stretch !important; /* Fill full height instead of center */
+    }
+
+    /* Tablet: use same approach as mobile - no padding, inherit from parent */
     body.view-third-man-in .third-man-in-center-stack {
-        gap: 5px !important;
-        padding: 7px 10px 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important; /* No padding - inherit from parent like serif grip */
+        gap: 1px !important;
+        margin: 0 !important;
+        border: none !important;
+        align-self: stretch !important;
+        box-sizing: border-box !important;
     }
+
+    /* Pencil button - larger top section */
     body.view-third-man-in .third-man-in-center-stack .favorite-btn {
-        width: 20px !important;
-        height: 20px !important;
+        flex: 1.5 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        width: auto !important;
+        height: auto !important;
+        line-height: 1 !important;
+        font-size: inherit !important;
     }
+
+    /* Mono grip - smaller bottom section */
     body.view-third-man-in .third-man-in-center-stack .centered-grip {
-        padding: 7px 10px !important;
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 8px 10px !important; /* Same as other grips */
+        margin: 0 !important;
+        cursor: pointer !important;
+        border-radius: 8px !important; /* Same as other grips */
+        transition: none !important;
+        user-select: none !important;
     }
     body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
         margin-bottom: -3px !important;  /* tighten handle-label spacing */
