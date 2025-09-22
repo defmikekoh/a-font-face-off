@@ -6915,128 +6915,133 @@ async function switchMode(newMode, forceInit = false) {
 async function performModeSwitch(newMode) {
     console.log(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
 
-    // Save current mode panel states before switching (but only if we're actually switching between different modes)
-    if (currentViewMode !== newMode) {
-        if (currentViewMode === 'faceoff') {
-            panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
-            panelStates.faceoff.bottom = document.getElementById('bottom-font-controls').classList.contains('visible');
-        } else if (currentViewMode === 'body-contact') {
-            panelStates['body-contact'].body = document.getElementById('body-font-controls').classList.contains('visible');
-        } else if (currentViewMode === 'third-man-in') {
-            panelStates['third-man-in'].serif = document.getElementById('serif-font-controls').classList.contains('visible');
-            panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
-            panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
-        }
-    }
-
-    // Hide current mode content
-    console.log(`🔄 performModeSwitch: Removing active class from all .mode-content elements`);
-    document.querySelectorAll('.mode-content').forEach(content => {
-        console.log(`🔄 performModeSwitch: Removing active from`, content.className);
-        content.classList.remove('active');
-    });
-
-    console.log(`🔄 performModeSwitch: Removing active class from all .mode-tab elements`);
-    document.querySelectorAll('.mode-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-
-    // Hide all panels
-    console.log(`🔄 performModeSwitch: Removing visible class from all .controls-panel elements`);
-    document.querySelectorAll('.controls-panel').forEach(panel => {
-        panel.classList.remove('visible');
-    });
-
-    // Show new mode content
-    const newModeContent = document.querySelector(`.${newMode}-content`);
-    console.log(`🔄 performModeSwitch: Looking for mode content with selector: .${newMode}-content`);
-    console.log(`🔄 performModeSwitch: Found mode content element:`, newModeContent);
-    if (newModeContent) {
-        newModeContent.classList.add('active');
-        console.log(`🔄 performModeSwitch: Added active class to ${newMode} content, final classes:`, newModeContent.className);
-
-        // DEBUG: Check all mode contents after switch
-        document.querySelectorAll('.mode-content').forEach(content => {
-            console.log(`🔄 DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
-        });
-    } else {
-        console.error(`🔄 performModeSwitch: Could not find mode content for ${newMode}!`);
-    }
-
-    // Activate new mode tab
-    const newModeTab = document.querySelector(`.mode-tab[data-mode="${newMode}"]`);
-    if (newModeTab) {
-        newModeTab.classList.add('active');
-    }
-
-    currentViewMode = newMode;
-
-    // Apply view mode (updates body classes and saves to storage)
+    document.body.classList.add('mode-switching');
     try {
-        await applyViewMode(currentViewMode);
-    } catch (error) {
-        console.error('Error applying view mode:', error);
-    }
-
-    // Load settings for the new mode
-    await loadModeSettings();
-
-    // Restore panel states for the new mode
-    if (newMode === 'faceoff') {
-        if (panelStates.faceoff.top) {
-            document.getElementById('top-font-controls').classList.add('visible');
-            topPanelOpen = true;
-        }
-        if (panelStates.faceoff.bottom) {
-            document.getElementById('bottom-font-controls').classList.add('visible');
-            bottomPanelOpen = true;
-        }
-        if (topPanelOpen || bottomPanelOpen) {
-            document.getElementById('panel-overlay').classList.add('visible');
-        }
-        updateFontComparisonLayout();
-    } else if (newMode === 'body-contact') {
-        if (panelStates['body-contact'].body) {
-            document.getElementById('body-font-controls').classList.add('visible');
-            document.getElementById('panel-overlay').classList.add('visible');
-            updateFontComparisonLayoutForBody();
-        } else {
-            console.log('❌ Body panel state is false, not showing panel');
-        }
-        // Update domain display when switching to body mode
-        updateDomainDisplay();
-    } else if (newMode === 'third-man-in') {
-        let anyPanelOpen = false;
-        if (panelStates['third-man-in'].serif) {
-            document.getElementById('serif-font-controls').classList.add('visible');
-            anyPanelOpen = true;
-        }
-        if (panelStates['third-man-in'].sans) {
-            document.getElementById('sans-font-controls').classList.add('visible');
-            anyPanelOpen = true;
-        }
-        if (panelStates['third-man-in'].mono) {
-            document.getElementById('mono-font-controls').classList.add('visible');
-            anyPanelOpen = true;
-        }
-        if (anyPanelOpen) {
-            document.getElementById('panel-overlay').classList.add('visible');
-        }
-        updateFontComparisonLayoutForThirdManIn();
-        updateDomainDisplay();
-    }
-
-    // Initialize Apply/Reset button states for new modes
-    if (['body-contact', 'third-man-in'].includes(newMode)) {
-        try {
-            if (newMode === 'body-contact') {
-                await updateBodyButtons();
-            } else if (newMode === 'third-man-in') {
-                await updateAllThirdManInButtons();
+        // Save current mode panel states before switching (but only if we're actually switching between different modes)
+        if (currentViewMode !== newMode) {
+            if (currentViewMode === 'faceoff') {
+                panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
+                panelStates.faceoff.bottom = document.getElementById('bottom-font-controls').classList.contains('visible');
+            } else if (currentViewMode === 'body-contact') {
+                panelStates['body-contact'].body = document.getElementById('body-font-controls').classList.contains('visible');
+            } else if (currentViewMode === 'third-man-in') {
+                panelStates['third-man-in'].serif = document.getElementById('serif-font-controls').classList.contains('visible');
+                panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
+                panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
             }
-        } catch (error) {
-            console.error('Error updating buttons after mode switch:', error);
         }
+
+        // Hide current mode content
+        console.log(`🔄 performModeSwitch: Removing active class from all .mode-content elements`);
+        document.querySelectorAll('.mode-content').forEach(content => {
+            console.log(`🔄 performModeSwitch: Removing active from`, content.className);
+            content.classList.remove('active');
+        });
+
+        console.log(`🔄 performModeSwitch: Removing active class from all .mode-tab elements`);
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+
+        // Hide all panels
+        console.log(`🔄 performModeSwitch: Removing visible class from all .controls-panel elements`);
+        document.querySelectorAll('.controls-panel').forEach(panel => {
+            panel.classList.remove('visible');
+        });
+
+        // Show new mode content
+        const newModeContent = document.querySelector(`.${newMode}-content`);
+        console.log(`🔄 performModeSwitch: Looking for mode content with selector: .${newMode}-content`);
+        console.log(`🔄 performModeSwitch: Found mode content element:`, newModeContent);
+        if (newModeContent) {
+            newModeContent.classList.add('active');
+            console.log(`🔄 performModeSwitch: Added active class to ${newMode} content, final classes:`, newModeContent.className);
+
+            // DEBUG: Check all mode contents after switch
+            document.querySelectorAll('.mode-content').forEach(content => {
+                console.log(`🔄 DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
+            });
+        } else {
+            console.error(`🔄 performModeSwitch: Could not find mode content for ${newMode}!`);
+        }
+
+        // Activate new mode tab
+        const newModeTab = document.querySelector(`.mode-tab[data-mode="${newMode}"]`);
+        if (newModeTab) {
+            newModeTab.classList.add('active');
+        }
+
+        currentViewMode = newMode;
+
+        // Apply view mode (updates body classes and saves to storage)
+        try {
+            await applyViewMode(currentViewMode);
+        } catch (error) {
+            console.error('Error applying view mode:', error);
+        }
+
+        // Load settings for the new mode
+        await loadModeSettings();
+
+        // Restore panel states for the new mode
+        if (newMode === 'faceoff') {
+            if (panelStates.faceoff.top) {
+                document.getElementById('top-font-controls').classList.add('visible');
+                topPanelOpen = true;
+            }
+            if (panelStates.faceoff.bottom) {
+                document.getElementById('bottom-font-controls').classList.add('visible');
+                bottomPanelOpen = true;
+            }
+            if (topPanelOpen || bottomPanelOpen) {
+                document.getElementById('panel-overlay').classList.add('visible');
+            }
+            updateFontComparisonLayout();
+        } else if (newMode === 'body-contact') {
+            if (panelStates['body-contact'].body) {
+                document.getElementById('body-font-controls').classList.add('visible');
+                document.getElementById('panel-overlay').classList.add('visible');
+                updateFontComparisonLayoutForBody();
+            } else {
+                console.log('❌ Body panel state is false, not showing panel');
+            }
+            // Update domain display when switching to body mode
+            updateDomainDisplay();
+        } else if (newMode === 'third-man-in') {
+            let anyPanelOpen = false;
+            if (panelStates['third-man-in'].serif) {
+                document.getElementById('serif-font-controls').classList.add('visible');
+                anyPanelOpen = true;
+            }
+            if (panelStates['third-man-in'].sans) {
+                document.getElementById('sans-font-controls').classList.add('visible');
+                anyPanelOpen = true;
+            }
+            if (panelStates['third-man-in'].mono) {
+                document.getElementById('mono-font-controls').classList.add('visible');
+                anyPanelOpen = true;
+            }
+            if (anyPanelOpen) {
+                document.getElementById('panel-overlay').classList.add('visible');
+            }
+            updateFontComparisonLayoutForThirdManIn();
+            updateDomainDisplay();
+        }
+
+        // Initialize Apply/Reset button states for new modes
+        if (['body-contact', 'third-man-in'].includes(newMode)) {
+            try {
+                if (newMode === 'body-contact') {
+                    await updateBodyButtons();
+                } else if (newMode === 'third-man-in') {
+                    await updateAllThirdManInButtons();
+                }
+            } catch (error) {
+                console.error('Error updating buttons after mode switch:', error);
+            }
+        }
+    } finally {
+        document.body.classList.remove('mode-switching');
     }
 }
 

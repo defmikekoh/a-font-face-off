@@ -438,6 +438,10 @@ body.view-third-man-in .grip-area {
     height: auto !important;
 }
 
+body.view-third-man-in #panel-grips {
+    align-items: flex-end !important;
+}
+
 /* Mono grip positioned in center */
 body.view-third-man-in #mono-font-grip {
     position: relative !important;
@@ -448,41 +452,38 @@ body.view-third-man-in .third-man-in-center-stack {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    /* Match Face-off center behavior and stretch to row height */
-    justify-content: flex-start !important;
-    align-self: stretch !important;
-    gap: 15px !important; /* desktop/tablet gap to mirror Face-off */
-    flex: 1 1 auto !important;
-    flex-basis: 0 !important;
-    min-width: 0 !important;
+    justify-content: flex-end !important;
+    gap: 6px !important;
+    height: 100% !important;
+    flex: 0 0 var(--grip-width) !important;
+    width: var(--grip-width) !important;
+    padding: 8px 10px 0 !important;
+    box-sizing: border-box !important;
     margin: 0 5px !important;
+    align-self: stretch !important;
 }
 
 body.view-third-man-in .third-man-in-center-stack .favorite-btn {
-    width: 24px !important;
-    height: 24px !important;
+    width: 20px !important;
+    height: 20px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     border-radius: 4px !important;
     font-size: 12px !important;
-    flex-shrink: 0 !important;
+    margin: 0 !important;
 }
 
 body.view-third-man-in .third-man-in-center-stack .centered-grip {
-    /* Let mono grip expand to fill available vertical space in the center stack */
-    height: auto !important;
-    min-height: 0 !important;
-    flex: 1 1 auto !important;
-    flex-shrink: 1 !important;
-    align-self: center !important; /* center when clamped by max-width */
-    width: 100% !important; /* allow narrow containers to use full width */
-    max-width: var(--grip-width) !important; /* non-media: clamp to other grip width */
-    box-sizing: border-box !important;
+    /* Align mono grip baseline with serif/sans grips */
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important; /* identical cushion as outer grips */
 }
 
 body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
-    margin-bottom: -4px !important;
+    margin-bottom: -3px !important;
 }
 
 .controls-panel {
@@ -500,7 +501,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     top: 60px; /* Account for mode tabs */
     bottom: var(--panel-grips-h); /* Match bottom bar height across breakpoints */
     height: auto;
-    transition: transform 0.3s ease-in-out;
+    transition: none;
     z-index: 999; /* Below bottom bar */
     /* Add subtle border around control panels */
     border: 1px solid #34495e;
@@ -633,7 +634,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     right: 0;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease-in-out;
+    transition: none;
 }
 
 #font-preview-rink {
@@ -753,7 +754,7 @@ body.view-third-man-in .controls-panel {
 
 /* Preferred: Mono grip slides up from below when switching to Third Man In */
 body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .centered-grip {
-    animation: tmi-slide-up 180ms ease-out;
+    animation: none !important;
 }
 
 /* If user prefers reduced motion, disable the effect entirely */
@@ -1586,6 +1587,10 @@ body.body-contact #font-comparison {
     --grip-width: 160px;
 }
 
+body.mode-switching #panel-grips {
+    display: none !important;
+}
+
 /* Apply buttons near grips (visible in Facade view) */
 .apply-btn {
     display: none; /* hidden by default - facade mode removed */
@@ -1733,13 +1738,14 @@ body.body-contact #font-comparison {
         height: var(--panel-grips-h); /* more compact single row */
         padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px; /* Symmetric left/right padding */
         column-gap: 8px;
-        --grip-width: 120px;
+        --grip-width: min(120px, calc((100vw - 32px) / 3));
     }
 
     /* Third Man In mode: use same approach as Face-off with identical padding */
     body.view-third-man-in #panel-grips {
         justify-content: space-between !important;
         gap: 0 !important;
+        align-items: flex-end !important;
         padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px !important; /* Same padding as Face-off */
     }
 
@@ -1754,36 +1760,30 @@ body.body-contact #font-comparison {
         }
     }
 
-    /* Third Man In center stack: match Face-off favorites-container behavior exactly - mobile-specific */
+    /* Third Man In center stack: tune spacing for phones */
     @media (max-width: 599px) {
         body.view-third-man-in .third-man-in-center-stack {
-            flex: 1 1 auto !important; /* Same as favorites-container */
-            display: flex !important;
-            flex-direction: column !important; /* Same as favorites-edit-section */
-            align-items: center !important; /* Same as favorites-edit-section */
-            justify-content: flex-start !important; /* allow mono to fill remaining height */
-            margin: 0 5px !important; /* Same margin as Face-off favorites container */
-            gap: 4px !important; /* Slightly tighter to align overall height with outer grips */
-            min-width: 0 !important; /* Same as favorites-container */
-            flex-basis: 0 !important; /* Same as favorites-container */
-            /* No max-width constraint - let it take same space as Face-off favorites */
-            align-self: stretch !important; /* match row height */
+            gap: 4px !important;
+            padding: 6px 8px 0 !important;
         }
 
-        /* Mobile: slightly smaller edit button to reduce total stack height */
         body.view-third-man-in .third-man-in-center-stack .favorite-btn {
-            width: 22px !important;
-            height: 22px !important;
+            width: 18px !important;
+            height: 18px !important;
         }
 
-        /* Mobile: mono grip fills remaining stack height to match outer grips */
         body.view-third-man-in .third-man-in-center-stack .centered-grip {
-            height: auto !important;
-            min-height: 0 !important;
-            flex: 1 1 auto !important;
+            padding: 6px 8px !important;
         }
+
         body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
-            margin-bottom: -6px !important; /* tighter spacing between handle and label */
+            margin-bottom: -4px !important;
+            font-size: 16px !important;
+        }
+
+        body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-label {
+            font-size: 9px !important;
+            line-height: 1.2 !important;
         }
     }
 
@@ -1810,18 +1810,17 @@ body.body-contact #font-comparison {
             -webkit-overflow-scrolling: auto;
             padding-bottom: 0;
             margin: 0 5px !important; /* Same margin as Third Man In */
-            min-width: 0 !important; /* Allow shrinking to match Third Man In */
-            flex-basis: 0 !important; /* Same flex-basis as Third Man In */
+            min-width: 0 !important; /* Allow shrinking */
+            flex-basis: 0 !important;
         }
     }
 
     /* Face-off mode: ensure outer grips have exact same width for perfect centering */
     body.view-faceoff .grip-area {
-        flex: 0 0 var(--grip-width) !important;
-        width: var(--grip-width) !important;
-        box-sizing: border-box !important;
-        /* Match Body grip vertical padding so heights are consistent */
-        padding: 8px 10px !important;
+        flex: 0 0 var(--grip-width);
+        width: var(--grip-width);
+        box-sizing: border-box;
+        padding: 8px 10px;
     }
 
     /* Third Man In mode: center stack - DISABLED, handled above with debug colors */
@@ -1854,8 +1853,8 @@ body.body-contact #font-comparison {
     padding: 8px 10px;
     cursor: pointer;
     border-radius: 8px;
-    /* Limit transitions to visual properties to avoid layout fly-in */
-    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    /* Keep grip state changes immediate to avoid "flying" effects when modes switch */
+    transition: none;
     user-select: none;
     flex-shrink: 0;
     border: 1px solid #4a5a6a; /* ensure visible box when rolled in */
@@ -1899,7 +1898,16 @@ body.body-contact #font-comparison {
 
 /* Separate favorites container */
 /* Only apply favorites container styling to modes that actually have one */
-body.view-body-contact .favorites-container,
+body.view-body-contact .favorites-container {
+    display: flex;
+    gap: 15px;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    margin: 0 5px;
+    max-width: 600px;
+}
+
 body.view-faceoff .favorites-container {
     display: flex;
     gap: 15px;
@@ -1964,25 +1972,18 @@ body.view-faceoff .favorites-container {
 
     /* Tablet: tighten Third Man In center stack to match outer grip heights */
     body.view-third-man-in .third-man-in-center-stack {
-        gap: 6px !important;            /* reduce space between pencil and mono */
-        justify-content: center !important; /* center items vertically within stack */
-        align-self: auto !important;     /* avoid stretching taller than grips */
+        gap: 5px !important;
+        padding: 7px 10px 0 !important;
     }
     body.view-third-man-in .third-man-in-center-stack .favorite-btn {
-        width: 22px !important;          /* slightly smaller pencil for tighter stack */
-        height: 22px !important;
+        width: 20px !important;
+        height: 20px !important;
     }
     body.view-third-man-in .third-man-in-center-stack .centered-grip {
-        flex: 0 0 auto !important;       /* disable flex-fill so it doesn't expand */
-        height: 28px !important;         /* slightly shorter mono grip */
-        min-height: 28px !important;
-        /* Ensure mono grip width matches other grips on tablet */
-        align-self: center !important;   /* do not stretch across center stack */
-        width: var(--grip-width) !important;
-        max-width: var(--grip-width) !important;
+        padding: 7px 10px !important;
     }
     body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
-        margin-bottom: -5px !important;  /* tighten handle-label spacing */
+        margin-bottom: -3px !important;  /* tighten handle-label spacing */
     }
 }
 
@@ -2830,7 +2831,7 @@ body.view-faceoff .favorites-container {
     }
 
     .domain-goal-ice::before {
-        bottom: 6px;
+        bottom: 4px;
         height: 6px;
         background: #ffe26f;
         z-index: 0;
