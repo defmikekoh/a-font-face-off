@@ -901,7 +901,8 @@
         var style = element.style.fontFamily || '';
 
         // Check for complete words/phrases in class names and styles
-        var classText = className.toLowerCase();
+        // Convert className to string safely (it might be a DOMTokenList)
+        var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
         var styleText = style.toLowerCase();
         
         // Check for monospace keywords

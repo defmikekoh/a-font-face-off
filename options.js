@@ -63,7 +63,7 @@
     });
   }
 
-  const DEFAULT_SERIF = ['PT Serif'];
+  const DEFAULT_SERIF = ['PT Serif', 'mencken-std'];
   const DEFAULT_SANS = ['Apercu Pro'];
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
