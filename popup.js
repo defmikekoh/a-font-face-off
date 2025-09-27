@@ -5077,6 +5077,141 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
         });
     }
 
+    // Third Man In Line Height Controls
+    const serifLineHeightSlider = document.getElementById('serif-line-height');
+    const serifLineHeightText = document.getElementById('serif-line-height-text');
+    const serifLineHeightGroup = serifLineHeightSlider ? serifLineHeightSlider.closest('.control-group') : null;
+
+    if (serifLineHeightSlider) {
+        serifLineHeightSlider.addEventListener('input', function() {
+            if (serifLineHeightGroup) serifLineHeightGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (serifLineHeightText) serifLineHeightText.value = v;
+            const serifLineHeightValue = document.getElementById('serif-line-height-value');
+            if (serifLineHeightValue) serifLineHeightValue.textContent = v;
+            updateThirdManInPreview('serif');
+            updateAllThirdManInButtons('serif');
+            saveExtensionState();
+        });
+    }
+
+    const sansLineHeightSlider = document.getElementById('sans-line-height');
+    const sansLineHeightText = document.getElementById('sans-line-height-text');
+    const sansLineHeightGroup = sansLineHeightSlider ? sansLineHeightSlider.closest('.control-group') : null;
+
+    if (sansLineHeightSlider) {
+        sansLineHeightSlider.addEventListener('input', function() {
+            if (sansLineHeightGroup) sansLineHeightGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (sansLineHeightText) sansLineHeightText.value = v;
+            const sansLineHeightValue = document.getElementById('sans-line-height-value');
+            if (sansLineHeightValue) sansLineHeightValue.textContent = v;
+            updateThirdManInPreview('sans');
+            updateAllThirdManInButtons('sans');
+            saveExtensionState();
+        });
+    }
+
+    const monoLineHeightSlider = document.getElementById('mono-line-height');
+    const monoLineHeightText = document.getElementById('mono-line-height-text');
+    const monoLineHeightGroup = monoLineHeightSlider ? monoLineHeightSlider.closest('.control-group') : null;
+
+    if (monoLineHeightSlider) {
+        monoLineHeightSlider.addEventListener('input', function() {
+            if (monoLineHeightGroup) monoLineHeightGroup.classList.remove('unset');
+            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
+            if (monoLineHeightText) monoLineHeightText.value = v;
+            const monoLineHeightValue = document.getElementById('mono-line-height-value');
+            if (monoLineHeightValue) monoLineHeightValue.textContent = v;
+            updateThirdManInPreview('mono');
+            updateAllThirdManInButtons('mono');
+            saveExtensionState();
+        });
+    }
+
+    // Third Man In Font Weight Controls
+    const serifFontWeightSlider = document.getElementById('serif-font-weight');
+    const serifFontWeightGroup = serifFontWeightSlider ? serifFontWeightSlider.closest('.control-group') : null;
+
+    if (serifFontWeightSlider) {
+        serifFontWeightSlider.addEventListener('input', function() {
+            if (serifFontWeightGroup) serifFontWeightGroup.classList.remove('unset');
+            const v = this.value;
+            const serifFontWeightValue = document.getElementById('serif-font-weight-value');
+            if (serifFontWeightValue) serifFontWeightValue.textContent = v;
+            updateThirdManInPreview('serif');
+            updateAllThirdManInButtons('serif');
+            saveExtensionState();
+        });
+    }
+
+    const sansFontWeightSlider = document.getElementById('sans-font-weight');
+    const sansFontWeightGroup = sansFontWeightSlider ? sansFontWeightSlider.closest('.control-group') : null;
+
+    if (sansFontWeightSlider) {
+        sansFontWeightSlider.addEventListener('input', function() {
+            if (sansFontWeightGroup) sansFontWeightGroup.classList.remove('unset');
+            const v = this.value;
+            const sansFontWeightValue = document.getElementById('sans-font-weight-value');
+            if (sansFontWeightValue) sansFontWeightValue.textContent = v;
+            updateThirdManInPreview('sans');
+            updateAllThirdManInButtons('sans');
+            saveExtensionState();
+        });
+    }
+
+    const monoFontWeightSlider = document.getElementById('mono-font-weight');
+    const monoFontWeightGroup = monoFontWeightSlider ? monoFontWeightSlider.closest('.control-group') : null;
+
+    if (monoFontWeightSlider) {
+        monoFontWeightSlider.addEventListener('input', function() {
+            if (monoFontWeightGroup) monoFontWeightGroup.classList.remove('unset');
+            const v = this.value;
+            const monoFontWeightValue = document.getElementById('mono-font-weight-value');
+            if (monoFontWeightValue) monoFontWeightValue.textContent = v;
+            updateThirdManInPreview('mono');
+            updateAllThirdManInButtons('mono');
+            saveExtensionState();
+        });
+    }
+
+    // Third Man In Color Controls
+    const serifColorSelect = document.getElementById('serif-font-color');
+    const serifColorGroup = serifColorSelect ? serifColorSelect.closest('.control-group') : null;
+
+    if (serifColorSelect) {
+        serifColorSelect.addEventListener('change', function() {
+            if (serifColorGroup) serifColorGroup.classList.remove('unset');
+            updateThirdManInPreview('serif');
+            updateAllThirdManInButtons('serif');
+            saveExtensionState();
+        });
+    }
+
+    const sansColorSelect = document.getElementById('sans-font-color');
+    const sansColorGroup = sansColorSelect ? sansColorSelect.closest('.control-group') : null;
+
+    if (sansColorSelect) {
+        sansColorSelect.addEventListener('change', function() {
+            if (sansColorGroup) sansColorGroup.classList.remove('unset');
+            updateThirdManInPreview('sans');
+            updateAllThirdManInButtons('sans');
+            saveExtensionState();
+        });
+    }
+
+    const monoColorSelect = document.getElementById('mono-font-color');
+    const monoColorGroup = monoColorSelect ? monoColorSelect.closest('.control-group') : null;
+
+    if (monoColorSelect) {
+        monoColorSelect.addEventListener('change', function() {
+            if (monoColorGroup) monoColorGroup.classList.remove('unset');
+            updateThirdManInPreview('mono');
+            updateAllThirdManInButtons('mono');
+            saveExtensionState();
+        });
+    }
+
     // Body Line Height Controls
     const bodyLineHeightSlider = document.getElementById('body-line-height');
     const bodyLineHeightText = document.getElementById('body-line-height-text');
@@ -6204,9 +6339,11 @@ function resetThirdManInUI() {
         if (fontWeightValue) fontWeightValue.textContent = '400';
         
         const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
+        const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
         const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
         if (lineHeightSlider) lineHeightSlider.value = 1.6;
         if (lineHeightValue) lineHeightValue.textContent = '1.6';
+        if (lineHeightTextInput) lineHeightTextInput.value = 1.6;
         
         // Reset color selector
         const colorSelect = document.getElementById(`${fontType}-font-color`);
@@ -6279,12 +6416,18 @@ function restoreUIFromDomainStorage() {
 
                     if (savedFont.fontWeight) {
                         const fontWeightSlider = document.getElementById(`${fontType}-font-weight`);
+                        const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
                         if (fontWeightSlider) fontWeightSlider.value = savedFont.fontWeight;
+                        if (fontWeightValue) fontWeightValue.textContent = savedFont.fontWeight;
                     }
 
                     if (savedFont.lineHeight) {
                         const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
+                        const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
+                        const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
                         if (lineHeightSlider) lineHeightSlider.value = savedFont.lineHeight;
+                        if (lineHeightTextInput) lineHeightTextInput.value = savedFont.lineHeight;
+                        if (lineHeightValue) lineHeightValue.textContent = savedFont.lineHeight;
                     }
 
                     if (savedFont.fontColor) {
