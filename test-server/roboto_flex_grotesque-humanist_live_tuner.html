@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roboto Flex Live Axis Tuner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC@-10..0,25..151,100..1000,-200..150,27..175,323..603,25..135,649..854,-305..-98,560..788,416..570,528..760&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+      --panel: #f3f4f6;
+      --muted: #4b5563;
+      --ring: #2563eb;
+      --card: #ffffff;
+    }
+    body {
+      margin: 0; padding: 12px;
+      background: var(--bg); color: var(--fg);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+    }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p.meta { color: var(--muted); margin: 0 0 10px; font-size: 13px; }
+
+    .grid { display: flex; flex-direction: column; gap: 12px; }
+    @media (min-width: 900px) {
+      .grid { display: grid; grid-template-columns: minmax(260px,0.5fr) 1fr; gap: 14px; }
+    }
+    .card { background: var(--panel); border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
+
+    .buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+    button { background: #fff; border: 1px solid #e5e7eb; padding: 5px 8px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+    button:hover { border-color: var(--ring); }
+    button.secondary { background: #f9fafb; }
+
+    .row { display: grid; grid-template-columns: 84px 1fr 46px 64px; gap: 6px; align-items: center; margin: 4px 0; }
+    .row label { font-size: 11px; color: #374151; }
+    input[type=range] { width: 100%; accent-color: var(--ring); }
+    .val, .def { font-size: 11px; }
+    .val { text-align: right; color: #111827; font-variant-numeric: tabular-nums; }
+    .def { color: #6b7280; }
+
+    .divider { height: 1px; background: #e5e7eb; margin: 10px 0; }
+
+    .sample { background: var(--card); border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
+    .sample h2 { margin: 0 0 6px; font-size: 13px; color: #111827; }
+    .sample p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--fg); }
+
+    .axis-code { margin-top: 8px; font-family: monospace; font-size: 11px;
+                 background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; overflow-x: auto; }
+
+    .examples-3col { display: grid; gap: 10px; }
+    @media (min-width: 1000px) { .examples-3col { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1400px) { .examples-3col { grid-template-columns: 1fr 1fr 1fr; } }
+
+    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .footer { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Roboto Flex — Grotesque ↔ Humanist Live Tuner</h1>
+  <p class="meta">Four presets (Grotesque, Humanist, Google Defaults, Reset) + a Custom preview under the sliders.</p>
+
+  <div class="grid">
+    <!-- Left controls -->
+    <div class="card controls">
+      <div class="buttons">
+        <button id="preset-grotesque">Grotesque</button>
+        <button id="preset-humanist">Humanist</button>
+        <button id="preset-google">Google defaults</button>
+        <button class="secondary" id="reset">Reset</button>
+      </div>
+
+      <div class="row"><label>font-size</label>
+        <input type="range" id="fontsize" min="12" max="28" value="16">
+        <div class="val" data-for="fontsize"></div>
+        <div class="def" data-default-for="fontsize"></div>
+      </div>
+
+      <!-- sliders for custom -->
+      <div class="row"><label>wght</label><input type="range" id="wght" min="100" max="1000" value="400"><div class="val" data-for="wght"></div><div class="def" data-default-for="wght"></div></div>
+      <div class="row"><label>wdth</label><input type="range" id="wdth" min="25" max="151" value="100"><div class="val" data-for="wdth"></div><div class="def" data-default-for="wdth"></div></div>
+      <div class="row"><label>opsz</label><input type="range" id="opsz" min="8" max="144" value="14"><div class="val" data-for="opsz"></div><div class="def" data-default-for="opsz"></div></div>
+      <div class="row"><label>XTRA</label><input type="range" id="XTRA" min="323" max="603" value="468"><div class="val" data-for="XTRA"></div><div class="def" data-default-for="XTRA"></div></div>
+      <div class="row"><label>YOPQ</label><input type="range" id="YOPQ" min="25" max="135" value="79"><div class="val" data-for="YOPQ"></div><div class="def" data-default-for="YOPQ"></div></div>
+      <div class="row"><label>XOPQ</label><input type="range" id="XOPQ" min="27" max="175" value="96"><div class="val" data-for="XOPQ"></div><div class="def" data-default-for="XOPQ"></div></div>
+      <div class="row"><label>GRAD</label><input type="range" id="GRAD" min="-200" max="150" value="0"><div class="val" data-for="GRAD"></div><div class="def" data-default-for="GRAD"></div></div>
+      <div class="row"><label>slnt</label><input type="range" id="slnt" min="-10" max="0" value="0"><div class="val" data-for="slnt"></div><div class="def" data-default-for="slnt"></div></div>
+
+      <div class="divider"></div>
+      <!-- Custom panel -->
+      <div class="sample" id="custom">
+        <h2>Custom (Sliders)</h2>
+        <p class="text" style="font-family:'Roboto Flex',sans-serif;">
+          The quick brown fox jumps over the lazy dog — 1234567890.
+        </p>
+        <div class="axis-code" id="customCode"></div>
+      </div>
+      <p class="hint">Right-side panels are locked presets. Sliders only change Custom. Font-size affects all.</p>
+    </div>
+
+    <!-- Right presets -->
+    <div class="card">
+      <div class="examples-3col">
+        <div class="sample" id="grotesque">
+          <h2>Grotesque (Preset)</h2>
+          <p class="text" style="font-family:'Roboto Flex',sans-serif;">
+            The quick brown fox jumps over the lazy dog — 1234567890.
+            A usable grotesque-leaning preset aimed at UI labels & dense layouts.
+          </p>
+          <div class="axis-code" id="grotesqueCode"></div>
+        </div>
+
+        <div class="sample" id="humanist">
+          <h2>Humanist (Preset)</h2>
+          <p class="text" style="font-family:'Roboto Flex',sans-serif;">
+            The quick brown fox jumps over the lazy dog — 1234567890.
+            A usable humanist-leaning preset for comfortable reading.
+          </p>
+          <div class="axis-code" id="humanistCode"></div>
+        </div>
+
+        <div class="sample" id="google">
+          <h2>Google Defaults (Preset)</h2>
+          <p class="text" style="font-family:'Roboto Flex',sans-serif;">
+            The quick brown fox jumps over the lazy dog — 1234567890.
+            Roboto Flex default browser-served form.
+          </p>
+          <div class="axis-code" id="googleCode"></div>
+        </div>
+      </div>
+      <div class="footer">Tip: Copy a CSS block and paste into your project.</div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sliders = ["wght","wdth","opsz","XTRA","YOPQ","XOPQ","GRAD","slnt"];
+      const vals = Object.fromEntries(["fontsize", ...sliders].map(id => [id, document.getElementById(id)]));
+
+      const DEFAULTS = { fontsize:16, wght:400, wdth:100, opsz:14, XTRA:468, YOPQ:79, XOPQ:96, GRAD:0, slnt:0 };
+
+      const gText=document.querySelector('#grotesque .text');
+      const hText=document.querySelector('#humanist .text');
+      const dText=document.querySelector('#google .text');
+      const cText=document.querySelector('#custom .text');
+
+      const gCode=document.getElementById('grotesqueCode');
+      const hCode=document.getElementById('humanistCode');
+      const dCode=document.getElementById('googleCode');
+      const cCode=document.getElementById('customCode');
+
+      const presetGrotesque={ wght:400, wdth:95, XTRA:400, YOPQ:60, XOPQ:92, opsz:16, GRAD:0, slnt:0 };
+      const presetHumanist={ wght:400, wdth:102, XTRA:500, YOPQ:100, XOPQ:90, opsz:14, GRAD:12, slnt:0 };
+      const presetGoogle={ wght:400, wdth:100, opsz:14, XTRA:468, YOPQ:79, XOPQ:96, GRAD:0, slnt:0,
+                           YTAS:750, YTDE:-203, YTFI:738, YTLC:514, YTUC:712 };
+
+      function cssBlock(v){
+        return `font-variation-settings:
+  "wght" ${v.wght},
+  "wdth" ${v.wdth},
+  "XTRA" ${v.XTRA},
+  "YOPQ" ${v.YOPQ},
+  "XOPQ" ${v.XOPQ},
+  "opsz" ${v.opsz},
+  "GRAD" ${v.GRAD},
+  "slnt" ${v.slnt},
+  "YTAS" ${v.YTAS||750},
+  "YTDE" ${v.YTDE||-203},
+  "YTFI" ${v.YTFI||738},
+  "YTLC" ${v.YTLC||514},
+  "YTUC" ${v.YTUC||712};`;
+      }
+      function settingsString(v){
+        return `"wght" ${v.wght}, "wdth" ${v.wdth}, "XTRA" ${v.XTRA}, "YOPQ" ${v.YOPQ}, "XOPQ" ${v.XOPQ}, "opsz" ${v.opsz}, "GRAD" ${v.GRAD}, "slnt" ${v.slnt}, "YTAS" ${v.YTAS||750}, "YTDE" ${v.YTDE||-203}, "YTFI" ${v.YTFI||738}, "YTLC" ${v.YTLC||514}, "YTUC" ${v.YTUC||712}`;
+      }
+
+      function updateDefaultsUI(){
+        document.querySelectorAll('.def').forEach(span=>{
+          const id=span.getAttribute('data-default-for');
+          if(DEFAULTS[id]!==undefined) span.textContent=`def ${DEFAULTS[id]}`;
+        });
+      }
+
+      function applyFontSize(px){
+        [gText,hText,dText,cText].forEach(el=>el.style.fontSize=px+'px');
+        const val=document.querySelector('.val[data-for="fontsize"]');
+        if(val) val.textContent=px;
+      }
+
+      function applyCustom(v){
+        cText.style.fontVariationSettings=settingsString(v);
+        cCode.textContent=cssBlock(v);
+        document.querySelectorAll('.val').forEach(span=>{
+          const id=span.getAttribute('data-for');
+          if(id && vals[id]) span.textContent=vals[id].value;
+        });
+      }
+
+      function setSliders(obj){
+        for(const k of Object.keys(obj)){ if(vals[k]) vals[k].value=obj[k]; }
+        applyCustom(getCustomValues());
+      }
+      function getCustomValues(){
+        return Object.fromEntries(sliders.map(id=>[id,Number(vals[id].value)]));
+      }
+
+      gText.style.fontVariationSettings=settingsString(presetGrotesque);
+      hText.style.fontVariationSettings=settingsString(presetHumanist);
+      dText.style.fontVariationSettings=settingsString(presetGoogle);
+      gCode.textContent=cssBlock(presetGrotesque);
+      hCode.textContent=cssBlock(presetHumanist);
+      dCode.textContent=cssBlock(presetGoogle);
+
+      updateDefaultsUI();
+      setSliders(presetGrotesque);
+
+      vals.fontsize.addEventListener('input',()=>applyFontSize(Number(vals.fontsize.value)));
+      sliders.forEach(id=>vals[id].addEventListener('input',()=>applyCustom(getCustomValues())));
+
+      document.getElementById('preset-grotesque').addEventListener('click',()=>setSliders(presetGrotesque));
+      document.getElementById('preset-humanist').addEventListener('click',()=>setSliders(presetHumanist));
+      document.getElementById('preset-google').addEventListener('click',()=>setSliders(presetGoogle));
+      document.getElementById('reset').addEventListener('click',()=>{
+        applyFontSize(DEFAULTS.fontsize);
+        setSliders({ wght:DEFAULTS.wght, wdth:DEFAULTS.wdth, opsz:DEFAULTS.opsz, XTRA:DEFAULTS.XTRA, YOPQ:DEFAULTS.YOPQ, XOPQ:DEFAULTS.XOPQ, GRAD:DEFAULTS.GRAD, slnt:DEFAULTS.slnt });
+      });
+
+      applyFontSize(Number(vals.fontsize.value));
+      applyCustom(getCustomValues());
+    });
+  </script>
+</body>
+</html>

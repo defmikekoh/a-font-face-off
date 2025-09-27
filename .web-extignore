@@ -9,11 +9,13 @@ build_src/
 # Docs and repo metadata
 README.md
 README-*.md
+*.md
 docs/
 .gitignore
 .web-extignore
 package.json
 package-lock.json
+test-server
 
 # OS/editor junk
 .DS_Store
@@ -26,3 +28,7 @@ Thumbs.db
 
 # Maps and misc
 *.map
+
+# other junk
+zoutput.txt
+zothercode

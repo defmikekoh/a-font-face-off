@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Roboto Flex Humanist vs Google Fonts</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Lato&family=Fira+Sans&family=Roboto&display=swap" rel="stylesheet">
+<style>
+  body { margin:20px; font-size:18px; line-height:1.5; }
+  .grid { display:grid; gap:20px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .sample { padding:12px; border:1px solid #ccc; border-radius:8px; background:#fafafa; }
+  .sample h2 { margin:0 0 8px; font-size:14px; }
+  .sample p { margin:0; }
+  .humanist { font-family:'Roboto Flex', sans-serif;
+              font-variation-settings:"wght" 400,"wdth" 102,"XTRA" 500,"YOPQ" 100,"XOPQ" 90,"opsz" 14,"GRAD" 12,"slnt" 0; }
+  .opensans { font-family:'Open Sans', sans-serif; }
+  .lato { font-family:'Lato', sans-serif; }
+  .fira { font-family:'Fira Sans', sans-serif; }
+  .roboto { font-family:'Roboto', sans-serif; }
+</style>
+</head>
+<body>
+<h1>Humanist Preset vs Existing Google Fonts</h1>
+<div class="grid">
+  <div class="sample humanist">
+    <h2>Roboto Flex (Humanist preset)</h2>
+    <p>The quick brown fox jumps over the lazy dog — 1234567890.</p>
+  </div>
+  <div class="sample opensans">
+    <h2>Open Sans</h2>
+    <p>The quick brown fox jumps over the lazy dog — 1234567890.</p>
+  </div>
+  <div class="sample lato">
+    <h2>Lato</h2>
+    <p>The quick brown fox jumps over the lazy dog — 1234567890.</p>
+  </div>
+  <div class="sample fira">
+    <h2>Fira Sans</h2>
+    <p>The quick brown fox jumps over the lazy dog — 1234567890.</p>
+  </div>
+  <div class="sample roboto">
+    <h2>Roboto (classic)</h2>
+    <p>The quick brown fox jumps over the lazy dog — 1234567890.</p>
+  </div>
+</div>
+</body>
+</html>
