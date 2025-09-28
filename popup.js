@@ -1940,7 +1940,7 @@ async function applyFontConfig(position, config) {
 
     try {
         // Set basic controls
-        console.log(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.6);
+        console.log(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.5);
         const fontSizeControl = document.getElementById(`${position}-font-size`);
         const lineHeightControl = document.getElementById(`${position}-line-height`);
         const fontWeightControl = document.getElementById(`${position}-font-weight`);
@@ -1948,7 +1948,7 @@ async function applyFontConfig(position, config) {
 
         if (fontSizeControl) fontSizeControl.value = config.fontSize || 17;
         if (lineHeightControl) {
-            const lineHeightValue = config.lineHeight || 1.6;
+            const lineHeightValue = config.lineHeight || 1.5;
             lineHeightControl.value = lineHeightValue;
             // Force sync by setting attribute as well
             lineHeightControl.setAttribute('value', lineHeightValue);
@@ -1964,7 +1964,7 @@ async function applyFontConfig(position, config) {
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
         if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
         if (lineHeightTextInput) {
-            const lineHeightValue = config.lineHeight || 1.6;
+            const lineHeightValue = config.lineHeight || 1.5;
             console.log(`applyFontConfig(${position}): Setting lineHeight text input to:`, lineHeightValue);
             lineHeightTextInput.value = lineHeightValue;
             // Force sync by setting attribute as well
@@ -1980,7 +1980,7 @@ async function applyFontConfig(position, config) {
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
         if (fsVal) fsVal.textContent = (config.fontSize || 17) + 'px';
-        document.getElementById(`${position}-line-height-value`).textContent = config.lineHeight || 1.6;
+        document.getElementById(`${position}-line-height-value`).textContent = config.lineHeight || 1.5;
         document.getElementById(`${position}-font-weight-value`).textContent = config.fontWeight || 400;
 
         // Restore active controls state from flattened config
@@ -5477,6 +5477,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (panel.id.includes('top')) position = 'top';
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
             else return; // unsupported panel
 
             const activeControls = getActiveControls(position);
@@ -5488,10 +5491,10 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             const lineHeightValue = document.getElementById(`${position}-line-height-value`);
 
             if (lineHeightControl && lineHeightValue) {
-                lineHeightControl.value = 1.6;
-                lineHeightValue.textContent = '1.6';
+                lineHeightControl.value = 1.5;
+                lineHeightValue.textContent = '1.5';
                 if (lineHeightTextInput) {
-                    lineHeightTextInput.value = 1.6;
+                    lineHeightTextInput.value = 1.5;
                 }
 
                 // Remove from active controls and add unset class
@@ -5499,6 +5502,15 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 if (controlGroup) {
                     controlGroup.classList.add('unset');
                 }
+
+                // Remove focus from the reset button (more aggressive for mobile)
+                e.target.blur();
+                setTimeout(() => {
+                    e.target.blur();
+                    // Force focus to body to ensure button loses focus
+                    document.body.focus();
+                }, 10);
+                setTimeout(() => e.target.blur(), 100);
 
                 applyFont(position);
                 saveExtensionState();
@@ -5511,6 +5523,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (panel.id.includes('top')) position = 'top';
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
             else return; // unsupported panel
 
             const activeControls = getActiveControls(position);
@@ -5527,6 +5542,16 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 if (controlGroup) {
                     controlGroup.classList.add('unset');
                 }
+
+                // Remove focus from the reset button (more aggressive for mobile)
+                e.target.blur();
+                setTimeout(() => {
+                    e.target.blur();
+                    // Force focus to body to ensure button loses focus
+                    document.body.focus();
+                }, 10);
+                setTimeout(() => e.target.blur(), 100);
+
                 applyFont(position);
                 saveExtensionState();
             }
@@ -5538,6 +5563,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (panel.id.includes('top')) position = 'top';
             else if (panel.id.includes('bottom')) position = 'bottom';
             else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
             else return; // unsupported panel
 
             const activeControls = getActiveControls(position);
@@ -5551,9 +5579,48 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 if (span) span.textContent = '17px';
                 activeControls.delete('font-size');
                 if (group) group.classList.add('unset');
+
+                // Remove focus from the reset button (more aggressive for mobile)
+                e.target.blur();
+                setTimeout(() => {
+                    e.target.blur();
+                    // Force focus to body to ensure button loses focus
+                    document.body.focus();
+                }, 10);
+                setTimeout(() => e.target.blur(), 100);
+
                 applyFont(position);
                 saveExtensionState();
             }
+        }
+
+        // Variable axes reset button handler
+        if (e.target.classList.contains('axis-reset-btn') && e.target.hasAttribute('data-axis')) {
+            const panel = e.target.closest('.controls-panel');
+            let position;
+            if (panel.id.includes('top')) position = 'top';
+            else if (panel.id.includes('bottom')) position = 'bottom';
+            else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
+            else return; // unsupported panel
+
+            const axis = e.target.getAttribute('data-axis');
+            const activeAxes = getActiveAxes(position);
+            const controlGroup = e.target.closest('.control-group');
+
+            // Remove the axis from active axes
+            activeAxes.delete(axis);
+            if (controlGroup) {
+                controlGroup.classList.add('unset');
+            }
+
+            // Remove focus from the reset button
+            e.target.blur();
+
+            applyFont(position);
+            saveExtensionState();
         }
 
         // Family reset button handler
@@ -5990,13 +6057,13 @@ function resetTopFont() {
 
     // Reset basic properties
     document.getElementById('top-font-size').value = 17;
-    document.getElementById('top-line-height').value = 1.6;
+    document.getElementById('top-line-height').value = 1.5;
     document.getElementById('top-font-weight').value = 400;
     // Color left unset - will be marked as unset in UI state
 
     // Reset display values
     (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('top-line-height-value').textContent = '1.6';
+    document.getElementById('top-line-height-value').textContent = '1.5';
     document.getElementById('top-font-weight-value').textContent = '400';
 
     // Reset weight control to unset/dimmed state
@@ -6040,7 +6107,7 @@ function resetBottomFont() {
 
     // Reset basic properties
     document.getElementById('bottom-font-size').value = 17;
-    document.getElementById('bottom-line-height').value = 1.6;
+    document.getElementById('bottom-line-height').value = 1.5;
     document.getElementById('bottom-font-weight').value = 400;
     // Color left unset - will be marked as unset in UI state
 
@@ -6048,11 +6115,11 @@ function resetBottomFont() {
     const bottomFontSizeTextInput = document.getElementById('bottom-font-size-text');
     const bottomLineHeightTextInput = document.getElementById('bottom-line-height-text');
     if (bottomFontSizeTextInput) bottomFontSizeTextInput.value = 17;
-    if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.6;
+    if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.5;
 
     // Reset display values
     (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('bottom-line-height-value').textContent = '1.6';
+    document.getElementById('bottom-line-height-value').textContent = '1.5';
     document.getElementById('bottom-font-weight-value').textContent = '400';
 
     // Reset weight control to unset/dimmed state
@@ -6348,9 +6415,9 @@ function resetThirdManInUI() {
         const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
         const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
         const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
-        if (lineHeightSlider) lineHeightSlider.value = 1.6;
-        if (lineHeightValue) lineHeightValue.textContent = '1.6';
-        if (lineHeightTextInput) lineHeightTextInput.value = 1.6;
+        if (lineHeightSlider) lineHeightSlider.value = 1.5;
+        if (lineHeightValue) lineHeightValue.textContent = '1.5';
+        if (lineHeightTextInput) lineHeightTextInput.value = 1.5;
         
         // Reset color selector
         const colorSelect = document.getElementById(`${fontType}-font-color`);
@@ -8479,9 +8546,9 @@ function unsetAllPanelControls(panelId) {
         if (bodyFontSizeSlider) bodyFontSizeSlider.value = 17;
         if (bodyFontSizeText) bodyFontSizeText.value = 17;
         if (bodyFontSizeValue) bodyFontSizeValue.textContent = '17px';
-        if (bodyLineHeightSlider) bodyLineHeightSlider.value = 1.6;
-        if (bodyLineHeightText) bodyLineHeightText.value = 1.6;
-        if (bodyLineHeightValue) bodyLineHeightValue.textContent = '1.6';
+        if (bodyLineHeightSlider) bodyLineHeightSlider.value = 1.5;
+        if (bodyLineHeightText) bodyLineHeightText.value = 1.5;
+        if (bodyLineHeightValue) bodyLineHeightValue.textContent = '1.5';
         if (bodyFontWeightSlider) bodyFontWeightSlider.value = 400;
         if (bodyFontWeightValue) bodyFontWeightValue.textContent = '400';
     }

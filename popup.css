@@ -1354,7 +1354,35 @@ body.body-contact #font-comparison {
 
 .control-group.unset .axis-reset-btn {
     opacity: 0.5;
-    background: #7f8c8d;
+    background: #7f8c8d !important;
+}
+
+.control-group.unset .axis-reset-btn:focus {
+    outline: none !important;
+    background: #7f8c8d !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.control-group.unset .axis-reset-btn:active {
+    outline: none !important;
+    background: #7f8c8d !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* More specific overrides for all possible states */
+.control-group.unset .axis-reset-btn:focus:active,
+.control-group.unset .axis-reset-btn:active:focus,
+.control-group.unset .axis-reset-btn:focus:hover,
+.control-group.unset .axis-reset-btn:hover:focus {
+    outline: none !important;
+    background: #7f8c8d !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 0.5 !important;
 }
 
 .control-group.unset .axis-reset-btn:hover {
@@ -3081,9 +3109,24 @@ body.view-faceoff .favorites-container {
     }
 
     .control-group.unset .axis-reset-btn {
-        background: #6c757d;
+        background: #6c757d !important;
         color: white;
         border: 1px solid #495057;
+    }
+
+    .control-group.unset .axis-reset-btn:focus {
+        outline: none !important;
+        background: #6c757d !important;
+        border: 1px solid #495057 !important;
+        box-shadow: none !important;
+    }
+
+    .control-group.unset .axis-reset-btn:active {
+        outline: none !important;
+        background: #6c757d !important;
+        border: 1px solid #495057 !important;
+        box-shadow: none !important;
+        transform: none !important;
     }
 
     .control-group.unset .axis-reset-btn:hover {
