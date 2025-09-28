@@ -6629,8 +6629,15 @@ function generateElementWalkerScript(fontType) {
                 // Element type detection logic - only mark elements that clearly match the target type
                 function getElementFontType(element) {
                     const tagName = element.tagName.toLowerCase();
+
                     const className = element.className || '';
                     const style = element.style.fontFamily || '';
+
+                    // Exclude pure UI elements (but not headings)
+                    if (['nav', 'header', 'footer', 'aside'].indexOf(tagName) !== -1) return null;
+
+                    // Exclude navigation and UI class names
+                    if (className && /\\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb)\\b/i.test(className)) return null;
 
                     // Get computed font-family (what WhatFont sees)
                     const computedStyle = window.getComputedStyle(element);
@@ -6651,7 +6658,13 @@ function generateElementWalkerScript(fontType) {
                     
                     // Check for standalone sans (but not sans-serif)
                     if (/\\bsans\\b(?!-serif)/.test(classText) || /\\bsans\\b(?!-serif)/.test(styleText)) return 'sans';
-                    
+
+                    // Check for sans-serif in computed font-family (what WhatFont sees)
+                    if (/\\bsans-serif\\b/.test(computedText)) {
+                        console.log('SANS FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
+                        return 'sans';
+                    }
+
                     // Check for serif in computed font-family (what WhatFont sees)
                     if (/\\bserif\\b/.test(computedText.replace('sans-serif', ''))) {
                         console.log('SERIF FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
@@ -7615,31 +7628,7 @@ function applyAllThirdManInFonts() {
 
             const cssPromises = cssJobs.map(job => {
                 return Promise.resolve().then(() => {
-                    // Font link injection
-                    return buildCss2Url(job.fontName).then(css2Url => {
-                        if (css2Url) {
-                            const linkId = `a-font-face-off-style-${job.type}-link`;
-                            const linkScript = `
-                                (function() {
-                                    var linkId = '${linkId}';
-                                    var existingLink = document.getElementById(linkId);
-                                    if (!existingLink) {
-                                        var link = document.createElement('link');
-                                        link.id = linkId;
-                                        link.rel = 'stylesheet';
-                                        link.href = '${css2Url}';
-                                        document.head.appendChild(link);
-                                        console.log('Third Man In Batch: Added Google Fonts link for ${job.fontName}:', '${css2Url}');
-                                    }
-                                })();
-                            `;
-                            return executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                                console.warn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
-                            });
-                        }
-                    });
-                }).then(() => {
-                    // Element walker script
+                    // Element walker script - RUN BEFORE font loading to see original fonts
                     const walkerScript = generateElementWalkerScript(job.type);
                     console.log(`applyAllThirdManInFonts: Running element walker script for ${job.type}`);
 

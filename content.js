@@ -900,43 +900,56 @@
         var className = element.className || '';
         var style = element.style.fontFamily || '';
 
+        // Exclude pure UI elements (but not headings)
+        if (['nav', 'header', 'footer', 'aside'].indexOf(tagName) !== -1) return null;
+
+        // Exclude navigation and UI class names
+        if (className && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb)\b/i.test(className)) return null;
+
+        // Get computed font-family (what WhatFont sees)
+        var computedStyle = window.getComputedStyle(element);
+        var computedFontFamily = computedStyle.fontFamily || '';
+
         // Check for complete words/phrases in class names and styles
         // Convert className to string safely (it might be a DOMTokenList)
         var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
         var styleText = style.toLowerCase();
-        
+        var computedText = computedFontFamily.toLowerCase();
+
         // Check for monospace keywords
         if (/\b(monospace|mono|code)\b/.test(classText) ||
             /\b(monospace|mono)\b/.test(styleText)) return 'mono';
-        
+
         // Check for sans-serif as complete phrase first
         if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
-        
+
         // Check for standalone sans (but not sans-serif)
         if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
-        
-        // Check for serif (but not sans-serif)
-        if (/\bserif\b/.test(classText.replace('sans-serif', '')) || 
-            /\bserif\b/.test(styleText.replace('sans-serif', ''))) return 'serif';
 
-        // Tag-based detection
+        // Check for sans-serif in computed font-family (what WhatFont sees)
+        if (/\bsans-serif\b/.test(computedText)) {
+            console.log('SANS FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
+            return 'sans';
+        }
+
+        // Check for serif in computed font-family (what WhatFont sees)
+        if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
+            console.log('SERIF FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
+            return 'serif';
+        }
+
+        // Check for serif (but not sans-serif) in class names and inline styles
+        if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
+            /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
+            console.log('SERIF FOUND (class/style):', element.tagName, 'className:', classText, 'style:', styleText);
+            return 'serif';
+        }
+
+        // Tag-based detection for monospace
         if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
-        // For generic containers and headings, only rely on explicit class/style indicators
-        // Don't use computed styles for these elements to avoid marking wrapper elements or default headings
-        if (['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].indexOf(tagName) !== -1) {
-            return null; // These elements should only be marked if they have explicit indicators
-        }
-        
-        // For common text elements without explicit indicators, apply default type based on target
-        // This allows Wikipedia and other sites to work where content doesn't have explicit classes
-        if (['p', 'span', 'a', 'li', 'td', 'th', 'label', 'button', 'strong', 'em', 'b', 'i'].indexOf(tagName) !== -1) {
-            // Only mark if we're looking for sans (most common default) and no conflicting indicators
-            if (fontType === 'sans' && !/\b(serif|mono)\b/.test(classText) && !/\b(serif|mono)\b/.test(styleText)) {
-                return 'sans';
-            }
-        }
-        
+        // Third Man In mode only finds explicit markers - no assumptions
+
         // No explicit indicators found - don't mark this element
         return null;
       }
@@ -1532,15 +1545,37 @@
         }
       } else if (message.action === 'restoreOriginal') {
         try {
-          // Remove all A Font Face-off styles
+          // Remove all A Font Face-off CSS style elements
           ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id) {
             try {
               var element = document.getElementById(id);
               if (element) element.remove();
             } catch(e) {}
           });
-          
-          // Also remove any Third Man In data attributes
+
+          // Remove Google Fonts links efficiently - check for known patterns first
+          try {
+            var allLinks = document.getElementsByTagName('link');
+            for (var i = allLinks.length - 1; i >= 0; i--) {
+              var link = allLinks[i];
+              if (link.id && link.id.indexOf('a-font-face-off-style-') === 0 && link.id.indexOf('-link') > 0) {
+                link.remove();
+              }
+            }
+          } catch(e) {}
+
+          // Remove custom font @font-face style elements efficiently
+          try {
+            var allStyles = document.getElementsByTagName('style');
+            for (var j = allStyles.length - 1; j >= 0; j--) {
+              var style = allStyles[j];
+              if (style.id && style.id.indexOf('affo-') === 0 && style.id.indexOf('-font') > 0) {
+                style.remove();
+              }
+            }
+          } catch(e) {}
+
+          // Remove any Third Man In data attributes
           try {
             document.querySelectorAll('[data-affo-font-type]').forEach(function(el) {
               el.removeAttribute('data-affo-font-type');
