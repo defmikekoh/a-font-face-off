@@ -2046,6 +2046,13 @@ async function applyFontConfig(position, config) {
             updateThirdManInPreview(position);
         }
 
+        // Update button states after configuration has been applied to UI controls and preview
+        if (position === 'body') {
+            await updateBodyButtons();
+        } else if (['serif', 'sans', 'mono'].includes(position)) {
+            await updateAllThirdManInButtons(position);
+        }
+
         console.log(`applyFontConfig(${position}): Successfully completed`);
     } catch (error) {
         console.error(`applyFontConfig(${position}): Error applying config:`, error);
