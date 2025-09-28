@@ -1341,6 +1341,7 @@ body.body-contact #font-comparison {
     box-sizing: border-box;
     line-height: 1;
     padding: 0;
+    border: none;
 }
 
 .axis-reset-btn:hover {
@@ -1355,6 +1356,7 @@ body.body-contact #font-comparison {
 .control-group.unset .axis-reset-btn {
     opacity: 0.5;
     background: #7f8c8d !important;
+    border: none !important;
 }
 
 .control-group.unset .axis-reset-btn:focus {
@@ -1362,6 +1364,7 @@ body.body-contact #font-comparison {
     background: #7f8c8d !important;
     border: none !important;
     box-shadow: none !important;
+    opacity: 0.5 !important;
 }
 
 .control-group.unset .axis-reset-btn:active {
@@ -1370,6 +1373,7 @@ body.body-contact #font-comparison {
     border: none !important;
     box-shadow: none !important;
     transform: none !important;
+    opacity: 0.5 !important;
 }
 
 /* More specific overrides for all possible states */
@@ -1383,6 +1387,12 @@ body.body-contact #font-comparison {
     box-shadow: none !important;
     transform: none !important;
     opacity: 0.5 !important;
+}
+
+.axis-reset-btn:focus,
+.axis-reset-btn:focus-visible {
+    outline: none;
+    box-shadow: none;
 }
 
 .control-group.unset .axis-reset-btn:hover {
