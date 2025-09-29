@@ -1435,7 +1435,7 @@
                   
                   if (otherProps.length > 0) {
                     // Use maximum specificity to override Wikipedia's CSS (.mf-font-size-clientpref-small .mw-body p)
-                    lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] p, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] span, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] td, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] th, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] li { ${otherProps.join('; ')}; }`);
+                    lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"]:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.nav):not(.navigation):not(.menu):not(.header):not(.footer):not(.sidebar):not(.aside):not([class*="nav"]):not([class*="menu"]):not([class*="header"]):not([class*="footer"]):not([class*="sidebar"]):not([id*="nav"]):not([id*="menu"]):not([id*="header"]):not([id*="footer"]):not([id*="sidebar"]) { ${otherProps.join('; ')}; }`);
                   }
                 }
               }
