@@ -6659,8 +6659,8 @@ function generateThirdManInCSS(fontType, payload) {
     
     if (otherProps.length > 0) {
         // Apply size/weight only to body text elements, not headings or navigation
-        // Use maximum specificity to override Wikipedia's CSS (.mf-font-size-clientpref-small .mw-body p)
-        lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] p, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] span, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] td, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] th, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] li { ${otherProps.join('; ')}; }`);
+        // Use maximum specificity to override site CSS
+        lines.push(`html body p[data-affo-font-type="${fontType}"], html body span[data-affo-font-type="${fontType}"], html body td[data-affo-font-type="${fontType}"], html body th[data-affo-font-type="${fontType}"], html body li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`);
         
         // Add site-specific high-specificity rules
         // Use global currentTabHostname if available
@@ -6671,7 +6671,7 @@ function generateThirdManInCSS(fontType, payload) {
         }
         
         // Fallback: Generic high-specificity rules for other sites
-        lines.push(`html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] p, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] span, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] td, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] th, html[class] body[class] [data-affo-font-type="${fontType}"][data-affo-font-type="${fontType}"] li { ${otherProps.join('; ')}; }`);
+        lines.push(`html body p[data-affo-font-type="${fontType}"], html body span[data-affo-font-type="${fontType}"], html body td[data-affo-font-type="${fontType}"], html body th[data-affo-font-type="${fontType}"], html body li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`);
     }
 
     const css = lines.join('\n');
