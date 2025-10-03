@@ -1887,7 +1887,7 @@ function getPanelFontConfig(panelId) {
 }
 
 // Helper function to wait for controls to exist
-async function waitForControls(position, maxWaitMs = 2000) {
+async function waitForControls(position, maxWaitMs = 2000, config = null) {
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitMs) {
@@ -1896,6 +1896,14 @@ async function waitForControls(position, maxWaitMs = 2000) {
             document.getElementById(`${position}-line-height`),
             document.getElementById(`${position}-font-weight`)
         ];
+
+        // Also wait for variable axis controls if specified in config
+        if (config && config.variableAxes) {
+            for (const axis of Object.keys(config.variableAxes)) {
+                const axisControl = document.getElementById(`${position}-${axis}`);
+                controls.push(axisControl);
+            }
+        }
 
         // Check if all required controls exist
         if (controls.every(control => control !== null)) {
@@ -1936,7 +1944,7 @@ async function applyFontConfig(position, config) {
     }
 
     // Wait for font controls to be generated, then apply settings
-    await waitForControls(position);
+    await waitForControls(position, 2000, config);
 
     try {
         // Set basic controls
