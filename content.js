@@ -585,7 +585,7 @@
   function loadFont(fontConfig, fontType) {
     var fontName = fontConfig.fontName;
     if (!fontName) return Promise.resolve();
-    
+
     debugLog(`[AFFO Content] Loading font ${fontName} for ${fontType}, FontFace-only:`, shouldUseFontFaceOnly());
     debugLog(`[AFFO Content] Font config for ${fontName}:`, {
       fontName: fontConfig.fontName,
@@ -593,11 +593,11 @@
       fontFaceRuleLength: fontConfig.fontFaceRule ? fontConfig.fontFaceRule.length : 0,
       otherKeys: Object.keys(fontConfig).filter(k => k !== 'fontName' && k !== 'fontFaceRule')
     });
-    
+
     // If font has custom @font-face rule (non-Google font), handle it
     if (fontConfig.fontFaceRule) {
       debugLog(`[AFFO Content] Handling custom font ${fontName}`);
-      
+
       if (shouldUseFontFaceOnly()) {
         // On FontFace-only domains, download and load custom fonts via FontFace API
         debugLog(`[AFFO Content] Loading custom font ${fontName} via FontFace API for CSP bypass`);
@@ -617,26 +617,26 @@
     }
     // If Google font and not FontFace-only domain, load Google Fonts CSS
     else if (!fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
-      loadGoogleFontCSS(fontName);
+      loadGoogleFontCSS(fontConfig);
       return Promise.resolve();
     }
     // If Google font and FontFace-only domain, use FontFace API only
     else if (!fontConfig.fontFaceRule && shouldUseFontFaceOnly()) {
-      return tryFontFaceAPI(fontName);
+      return tryFontFaceAPI(fontConfig);
     }
-    
+
     return Promise.resolve();
   }
   
-  function loadGoogleFontCSS(fontName) {
+  function loadGoogleFontCSS(fontConfig) {
     try {
+      var fontName = fontConfig.fontName;
       var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
       if (document.getElementById(linkId)) return; // Already loaded
-      
-      // Use proper URL encoding for Google Fonts
-      var familyParam = encodeURIComponent(fontName);
-      var href = 'https://fonts.googleapis.com/css2?family=' + familyParam + '&display=swap';
-      
+
+      // Use pre-computed css2Url from popup.js if available, otherwise build it
+      var href = fontConfig.css2Url || buildGoogleFontUrl(fontConfig);
+
       var link = document.createElement('link');
       link.id = linkId;
       link.rel = 'stylesheet';
@@ -644,8 +644,21 @@
       document.head.appendChild(link);
       debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
     } catch (e) {
-      console.error(`[AFFO Content] Failed to load Google Font CSS ${fontName}:`, e);
+      console.error(`[AFFO Content] Failed to load Google Font CSS ${fontConfig.fontName}:`, e);
     }
+  }
+
+  function buildGoogleFontUrl(fontConfig) {
+    var fontName = fontConfig.fontName;
+    var familyParam = encodeURIComponent(fontName).replace(/%20/g, '+');
+
+    // FALLBACK: This should rarely be used - popup.js should always compute css2Url
+    // Use simple URL without variable axes to avoid MIME type errors
+    // If user needs variable axes, they should be getting css2Url from popup.js
+    var url = 'https://fonts.googleapis.com/css2?family=' + familyParam + '&display=swap';
+
+    debugLog(`[AFFO Content] Using fallback Google Font URL for ${fontName} (css2Url not available): ${url}`);
+    return url;
   }
   
   
@@ -786,19 +799,18 @@
     }
   }
 
-  function tryFontFaceAPI(fontName) {
+  function tryFontFaceAPI(fontConfig) {
+    var fontName = fontConfig.fontName;
     if (!window.FontFace || !document.fonts) {
       debugLog(`[AFFO Content] FontFace API not supported for ${fontName}`);
       return Promise.resolve();
     }
-    
+
     try {
       debugLog(`[AFFO Content] Downloading WOFF2 font data for ${fontName} via background script`);
-      
-      // Get Google Fonts CSS to extract the correct WOFF2 URL
-      // Include common subsets to ensure we get Latin characters
-      var fontParam = encodeURIComponent(fontName);
-      var cssUrl = `https://fonts.googleapis.com/css2?family=${fontParam}&subset=latin,latin-ext&display=swap`;
+
+      // Use pre-computed css2Url from popup.js if available, otherwise build it
+      var cssUrl = fontConfig.css2Url || buildGoogleFontUrl(fontConfig);
       
       return browser.runtime.sendMessage({
         type: 'affoFetch',

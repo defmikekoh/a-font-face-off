@@ -3168,10 +3168,10 @@ async function applyFontToPage(position, config) {
             console.log(`applyFontToPage: Allowing ${position} with properties but no fontName:`, config);
         }
 
-        // Build enriched payload with fontFaceRule
-        const payload = buildCurrentPayload(position, config);
+        // Build enriched payload with fontFaceRule and css2Url
+        const payload = await buildCurrentPayload(position, config);
 
-        // Save enriched payload to storage (includes fontFaceRule for custom fonts)
+        // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
         await saveApplyMapForOrigin(origin, genericKey, payload);
 
         // Check if this is an inline apply domain
@@ -3256,9 +3256,9 @@ async function unapplyFontFromPage(position) {
 }
 
 // Separate apply/unapply functions for Third Man In mode
-function applyThirdManInFont(fontType, config) {
+async function applyThirdManInFont(fontType, config) {
     console.log(`🟢 applyThirdManInFont: Applying ${fontType} with config:`, config);
-    return getActiveOrigin().then(origin => {
+    return getActiveOrigin().then(async origin => {
         if (!origin || !config) {
             console.log('applyThirdManInFont: Missing origin or config, returning false');
             return false;
@@ -3274,10 +3274,10 @@ function applyThirdManInFont(fontType, config) {
             console.log(`applyThirdManInFont: Allowing ${fontType} with properties but no fontName:`, config);
         }
 
-        // Build enriched payload with fontFaceRule
-        const payload = buildThirdManInPayload(fontType, config);
+        // Build enriched payload with fontFaceRule and css2Url
+        const payload = await buildThirdManInPayload(fontType, config);
 
-        // Save enriched payload to storage (includes fontFaceRule for custom fonts)
+        // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
             // Check if this is an inline apply domain (like x.com)
             if (shouldUseInlineApply(origin)) {
@@ -3288,33 +3288,29 @@ function applyThirdManInFont(fontType, config) {
 
             // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
+            const css2Url = payload.css2Url;
 
-            let fontLinkPromise = buildCss2Url(fontName).then(css2Url => {
-                if (css2Url) {
-                    const linkId = `a-font-face-off-style-${fontType}-link`;
-                    const linkScript = `
-                        (function() {
-                            var linkId = '${linkId}';
-                            var existingLink = document.getElementById(linkId);
-                            if (!existingLink) {
-                                var link = document.createElement('link');
-                                link.id = linkId;
-                                link.rel = 'stylesheet';
-                                link.href = '${css2Url}';
-                                document.head.appendChild(link);
-                                console.log('Third Man In: Added Google Fonts link for ${fontName}:', '${css2Url}');
-                            }
-                        })();
-                    `;
-                    return executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                        console.warn(`applyThirdManInFont: Font link injection failed:`, error);
-                    });
-                }
-                return Promise.resolve();
-            }).catch(error => {
-                console.warn(`applyThirdManInFont: buildCss2Url failed:`, error);
-                return Promise.resolve();
-            });
+            let fontLinkPromise = Promise.resolve();
+            if (css2Url) {
+                const linkId = `a-font-face-off-style-${fontType}-link`;
+                const linkScript = `
+                    (function() {
+                        var linkId = '${linkId}';
+                        var existingLink = document.getElementById(linkId);
+                        if (!existingLink) {
+                            var link = document.createElement('link');
+                            link.id = linkId;
+                            link.rel = 'stylesheet';
+                            link.href = '${css2Url}';
+                            document.head.appendChild(link);
+                            console.log('Third Man In: Added Google Fonts link for ${fontName}:', '${css2Url}');
+                        }
+                    })();
+                `;
+                fontLinkPromise = executeScriptInTargetTab({ code: linkScript }).catch(error => {
+                    console.warn(`applyThirdManInFont: Font link injection failed:`, error);
+                });
+            }
 
             return fontLinkPromise.then(() => {
                 // Run element walker script to mark elements with data-affo-font-type
@@ -3396,10 +3392,10 @@ function unapplyThirdManInFont(fontType) {
     });
 }
 
-function buildThirdManInPayload(fontType) {
-    console.log(`🔧 buildThirdManInPayload: Building payload for fontType: ${fontType}`);
-    const cfg = getCurrentUIConfig(fontType);
-    console.log(`🔧 buildThirdManInPayload: cfg from getCurrentUIConfig:`, cfg);
+async function buildThirdManInPayload(fontType, providedConfig = null) {
+    console.log(`🔧 buildThirdManInPayload: Building payload for fontType: ${fontType}`, providedConfig ? 'with provided config' : '');
+    const cfg = providedConfig || getCurrentUIConfig(fontType);
+    console.log(`🔧 buildThirdManInPayload: Using config:`, cfg);
     if (!cfg) {
         console.log(`🔧 buildThirdManInPayload: No config found, returning null`);
         return null;
@@ -3408,9 +3404,9 @@ function buildThirdManInPayload(fontType) {
     return buildThirdManInPayloadFromConfig(fontType, cfg);
 }
 
-function buildThirdManInPayloadFromConfig(fontType, cfg) {
+async function buildThirdManInPayloadFromConfig(fontType, cfg) {
     console.log(`🔧 buildThirdManInPayloadFromConfig: Building payload for fontType: ${fontType} with specific config:`, cfg);
-    
+
     if (!cfg) {
         console.log(`🔧 buildThirdManInPayloadFromConfig: No config provided, returning null`);
         return null;
@@ -3444,8 +3440,19 @@ function buildThirdManInPayloadFromConfig(fontType, cfg) {
     if (fontSize !== null && fontSize !== undefined) payload.fontSize = fontSize;
     if (lineHeight !== null && lineHeight !== undefined) payload.lineHeight = lineHeight;
     if (fontWeight !== null && fontWeight !== undefined) payload.fontWeight = fontWeight;
-    if (cfg.css2Url) payload.css2Url = cfg.css2Url;
     if (cfg.fontFaceRule) payload.fontFaceRule = cfg.fontFaceRule;
+
+    // Compute css2Url for Google Fonts (same logic as buildCurrentPayload)
+    if (cfg.css2Url) {
+        payload.css2Url = cfg.css2Url;
+    } else if (cfg.fontName && !cfg.fontFaceRule) {
+        // For Google Fonts (non-custom fonts), compute the css2Url
+        const css2Url = await buildCss2Url(cfg.fontName);
+        if (css2Url) {
+            payload.css2Url = css2Url;
+            console.log(`🔧 buildThirdManInPayloadFromConfig: Computed css2Url for ${cfg.fontName}:`, css2Url);
+        }
+    }
 
     console.log(`🔧 buildThirdManInPayloadFromConfig: Final payload:`, payload);
     return payload;
@@ -5717,16 +5724,16 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
                 // Restore saved top font for current mode
                 await applyFontConfig('top', currentModeState.topFont);
             } else {
-                // Use default top font
-                await loadFont('top', 'ABeeZee');
+                // Use default top font (suppress save during initialization)
+                await loadFont('top', 'ABeeZee', { suppressImmediateSave: true });
             }
 
             if (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) {
                 // Restore saved bottom font for current mode
                 await applyFontConfig('bottom', currentModeState.bottomFont);
             } else {
-                // Use default bottom font
-                await loadFont('bottom', 'Zilla Slab Highlight');
+                // Use default bottom font (suppress save during initialization)
+                await loadFont('bottom', 'Zilla Slab Highlight', { suppressImmediateSave: true });
             }
         }
     })();
@@ -6647,7 +6654,15 @@ function generateThirdManInCSS(fontType, payload) {
         lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${payload.fontName}" !important; }`);
     }
     
-    // Rule 2: Other properties apply only to body text elements (not headings, nav, etc.)
+    // Rule 2: Variable axes apply to ALL elements with this font type (including headings)
+    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
+        const variationSettings = Object.entries(payload.variableAxes)
+            .map(([axis, value]) => `"${axis}" ${value}`)
+            .join(', ');
+        lines.push(`[data-affo-font-type="${fontType}"] { font-variation-settings: ${variationSettings} !important; }`);
+    }
+
+    // Rule 3: Other properties apply only to body text elements (not headings, nav, etc.)
     const otherProps = [];
     if (payload.fontSize && isFinite(payload.fontSize)) {
         otherProps.push(`font-size: ${payload.fontSize}px !important`);
@@ -6658,13 +6673,7 @@ function generateThirdManInCSS(fontType, payload) {
     if (payload.fontWeight && isFinite(payload.fontWeight)) {
         otherProps.push(`font-weight: ${payload.fontWeight} !important`);
     }
-    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
-        const variationSettings = Object.entries(payload.variableAxes)
-            .map(([axis, value]) => `"${axis}" ${value}`)
-            .join(', ');
-        otherProps.push(`font-variation-settings: ${variationSettings} !important`);
-    }
-    
+
     if (otherProps.length > 0) {
         // Apply size/weight only to body text elements, not headings or navigation
         // Use maximum specificity to override site CSS
@@ -6836,7 +6845,7 @@ function generateBodyContactCleanupScript() {
 }
 
 // Build a payload from current UI config (used to detect dirty state)
-function buildCurrentPayload(position, providedConfig = null) {
+async function buildCurrentPayload(position, providedConfig = null) {
     console.log(`buildCurrentPayload called for position: ${position}`, providedConfig ? 'with provided config' : '');
     const cfg = providedConfig || getCurrentUIConfig(position);
     console.log(`buildCurrentPayload: Using config:`, cfg);
@@ -6903,10 +6912,24 @@ function buildCurrentPayload(position, providedConfig = null) {
         payload.fontFaceRule = fontDefinition.fontFaceRule;
     }
 
-    // Add css2Url for Google Fonts if available
+    // Add css2Url for Google Fonts if available (or compute it for variable fonts)
     if (fontDefinition && fontDefinition.css2Url) {
         payload.css2Url = fontDefinition.css2Url;
+    } else if (cfg.fontName && !fontDefinition?.fontFaceRule) {
+        // For Google Fonts (non-custom fonts), compute the css2Url
+        const css2Url = await buildCss2Url(cfg.fontName);
+        if (css2Url) {
+            payload.css2Url = css2Url;
+            console.log(`buildCurrentPayload: Computed css2Url for ${cfg.fontName}:`, css2Url);
+        }
     }
+
+    // Remove properties with null values to follow "no key" architecture
+    Object.keys(payload).forEach(key => {
+        if (payload[key] === null || payload[key] === undefined) {
+            delete payload[key];
+        }
+    });
 
     return payload;
 }
@@ -6931,7 +6954,7 @@ async function refreshApplyButtonsDirtyState() {
                 const r = document.getElementById('reset-top');
                 if (r) r.style.display = 'none';
             } else {
-                const current = buildCurrentPayload('top');
+                const current = await buildCurrentPayload('top');
                 const same = payloadEquals(saved, current);
                 btnTop.classList.toggle('active', same);
                 btnTop.textContent = same ? '✓' : 'Apply';
@@ -6948,7 +6971,7 @@ async function refreshApplyButtonsDirtyState() {
                 const r = document.getElementById('reset-bottom');
                 if (r) r.style.display = 'none';
             } else {
-                const current = buildCurrentPayload('bottom');
+                const current = await buildCurrentPayload('bottom');
                 const same = payloadEquals(saved, current);
                 btnBottom.classList.toggle('active', same);
                 btnBottom.textContent = same ? '✓' : 'Apply';
@@ -7702,14 +7725,44 @@ function applyAllThirdManInFonts() {
                 console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
             const cssPromises = cssJobs.map(job => {
-                return Promise.resolve().then(() => {
-                    // Element walker script - RUN BEFORE font loading to see original fonts
+                return Promise.resolve().then(async () => {
+                    // Build the payload to get css2Url
+                    const payload = await buildThirdManInPayloadFromConfig(job.type, job.config);
+                    if (!payload) {
+                        console.log(`applyAllThirdManInFonts: No payload for ${job.type}, skipping`);
+                        return false;
+                    }
+
+                    // Inject Google Fonts CSS link if needed (before element walker)
+                    const css2Url = payload.css2Url;
+                    if (css2Url) {
+                        const linkId = `a-font-face-off-style-${job.type}-link`;
+                        const linkScript = `
+                            (function() {
+                                var linkId = '${linkId}';
+                                var existingLink = document.getElementById(linkId);
+                                if (!existingLink) {
+                                    var link = document.createElement('link');
+                                    link.id = linkId;
+                                    link.rel = 'stylesheet';
+                                    link.href = '${css2Url}';
+                                    document.head.appendChild(link);
+                                    console.log('Third Man In: Added Google Fonts link for ${payload.fontName}:', '${css2Url}');
+                                }
+                            })();
+                        `;
+                        await executeScriptInTargetTab({ code: linkScript }).catch(error => {
+                            console.warn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
+                        });
+                    }
+
+                    // Element walker script - RUN AFTER font loading
                     const walkerScript = generateElementWalkerScript(job.type);
                     console.log(`applyAllThirdManInFonts: Running element walker script for ${job.type}`);
 
-                    return executeScriptInTargetTab({ code: walkerScript }).then(() => {
+                    return executeScriptInTargetTab({ code: walkerScript }).then(async () => {
                         // Verify what elements were marked
-                        return browser.tabs.executeScript({ 
+                        return browser.tabs.executeScript({
                             code: `
                                 (function() {
                                     const markedElements = document.querySelectorAll('[data-affo-font-type="${job.type}"]');
@@ -7721,26 +7774,23 @@ function applyAllThirdManInFonts() {
                                     }
                                     return markedElements.length;
                                 })();
-                            ` 
-                        }).then((result) => {
+                            `
+                        }).then(async (result) => {
                             console.log(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
-                            
-                            // Use the specific config that was collected during Apply All
-                            const payload = buildThirdManInPayloadFromConfig(job.type, job.config);
-                            if (payload) {
-                                const css = generateThirdManInCSS(job.type, payload);
-                                if (css) {
-                                    console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
-                                    console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
-                                    return insertCSSInTargetTab({ code: css }).then(() => {
-                                        console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
-                                        appliedCssActive[job.type] = css;
-                                        return true;
-                                    }).catch(error => {
-                                        console.error(`applyAllThirdManInFonts: insertCSS failed for ${job.type}:`, error);
-                                        return false;
-                                    });
-                                }
+
+                            // Use the payload that was already built earlier
+                            const css = generateThirdManInCSS(job.type, payload);
+                            if (css) {
+                                console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
+                                console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
+                                return insertCSSInTargetTab({ code: css }).then(() => {
+                                    console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
+                                    appliedCssActive[job.type] = css;
+                                    return true;
+                                }).catch(error => {
+                                    console.error(`applyAllThirdManInFonts: insertCSS failed for ${job.type}:`, error);
+                                    return false;
+                                });
                             }
                             return false;
                         });
