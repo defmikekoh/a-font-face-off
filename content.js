@@ -667,10 +667,27 @@
       debugLog(`[AFFO Content] FontFace API not supported for custom font ${fontName}`);
       return Promise.resolve();
     }
-    
+
     try {
+      // Check if font is already loaded in document.fonts
+      var fontAlreadyLoaded = false;
+      try {
+        document.fonts.forEach(function(fontFace) {
+          if (fontFace.family === fontName && fontFace.status === 'loaded') {
+            fontAlreadyLoaded = true;
+          }
+        });
+      } catch (e) {
+        debugLog(`[AFFO Content] Error checking document.fonts for custom font ${fontName}:`, e);
+      }
+
+      if (fontAlreadyLoaded) {
+        debugLog(`[AFFO Content] Custom font ${fontName} already loaded in document.fonts, skipping download`);
+        return Promise.resolve();
+      }
+
       debugLog(`[AFFO Content] Parsing custom @font-face rule for ${fontName}`);
-      
+
       // Parse @font-face rule to extract WOFF2 URLs and font descriptors
       var fontFaceBlocks = fontFaceRule.split('@font-face').filter(block => block.trim().length > 0);
       
@@ -807,6 +824,23 @@
     }
 
     try {
+      // Check if font is already loaded in document.fonts
+      var fontAlreadyLoaded = false;
+      try {
+        document.fonts.forEach(function(fontFace) {
+          if (fontFace.family === fontName && fontFace.status === 'loaded') {
+            fontAlreadyLoaded = true;
+          }
+        });
+      } catch (e) {
+        debugLog(`[AFFO Content] Error checking document.fonts for ${fontName}:`, e);
+      }
+
+      if (fontAlreadyLoaded) {
+        debugLog(`[AFFO Content] Font ${fontName} already loaded in document.fonts, skipping download`);
+        return Promise.resolve();
+      }
+
       debugLog(`[AFFO Content] Downloading WOFF2 font data for ${fontName} via background script`);
 
       // Use pre-computed css2Url from popup.js if available, otherwise build it
@@ -826,12 +860,17 @@
           
           if (woff2Matches && woff2Matches.length > 0) {
             debugLog(`[AFFO Content] Found ${woff2Matches.length} WOFF2 URLs in CSS (different subsets/styles)`);
-            
-            // Load all WOFF2 files to get all subsets (latin, latin-ext, etc.)
-            var loadPromises = woff2Matches.map(function(match, index) {
-              var woff2Url = match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
-              debugLog(`[AFFO Content] Found WOFF2 URL ${index + 1}: ${woff2Url}`);
-              
+
+            // Extract all WOFF2 URLs first
+            var woff2Urls = woff2Matches.map(function(match) {
+              return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
+            });
+            debugLog(`[AFFO Content] Starting parallel download of ${woff2Urls.length} WOFF2 files for ${fontName}`);
+
+            // Start all WOFF2 downloads in parallel immediately
+            var loadPromises = woff2Urls.map(function(woff2Url, index) {
+              debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${woff2Urls.length}: ${woff2Url}`);
+
               return browser.runtime.sendMessage({
                 type: 'affoFetch',
                 url: woff2Url,

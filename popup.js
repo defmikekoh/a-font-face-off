@@ -1568,6 +1568,17 @@ async function saveExtensionState() {
 
 // Save extension state to browser.storage.local
 async function saveExtensionStateImmediate() {
+    // Don't save if currentViewMode is not set yet
+    if (!currentViewMode) {
+        console.warn('saveExtensionStateImmediate: currentViewMode is not set, skipping save');
+        return;
+    }
+
+    // Ensure the current mode exists in extensionState
+    if (!extensionState[currentViewMode]) {
+        extensionState[currentViewMode] = {};
+    }
+
     if (currentViewMode === 'body-contact') {
         // Body Contact mode - save single panel
         const bodyConfig = getCurrentUIConfig('body');
@@ -5705,6 +5716,12 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
 
     // Async font restoration
     (async () => {
+        // Don't restore fonts if currentViewMode is not set yet
+        if (!currentViewMode) {
+            console.warn('Font restoration skipped: currentViewMode not set yet');
+            return;
+        }
+
         if (currentViewMode === 'third-man-in') {
             // Restore Third Man In mode fonts
             if (currentModeState && currentModeState.serifFont && currentModeState.serifFont.fontName) {
@@ -5718,7 +5735,7 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (currentModeState && currentModeState.monoFont && currentModeState.monoFont.fontName) {
                 await applyFontConfig('mono', currentModeState.monoFont);
             }
-        } else {
+        } else if (currentViewMode === 'faceoff') {
             // Face-off mode font restoration
             if (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) {
                 // Restore saved top font for current mode
@@ -7694,10 +7711,32 @@ function applyAllThirdManInFonts() {
                 return Promise.resolve();
             }
 
-            // Step 2: SINGLE batch storage write for all fonts
-            console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
+            // Step 2a: Compute css2Url for each config before saving to storage
+            // This is critical for inline apply domains (like x.com) where content.js loads fonts from storage
+            console.log('applyAllThirdManInFonts: Computing css2Url for configs before storage...');
+            const css2UrlPromises = Object.keys(fontConfigs).map(type => {
+                const config = fontConfigs[type];
+                if (!config || !config.fontName) {
+                    return Promise.resolve(); // Skip null configs or configs without fontName
+                }
 
-            return saveBatchApplyMapForOrigin(origin, fontConfigs).then(() => {
+                return buildCss2Url(config.fontName).then(css2Url => {
+                    if (css2Url) {
+                        console.log(`applyAllThirdManInFonts: Computed css2Url for ${type}:`, css2Url);
+                        fontConfigs[type].css2Url = css2Url;
+                    } else {
+                        console.log(`applyAllThirdManInFonts: No css2Url for ${type} (custom font or default)`);
+                    }
+                }).catch(error => {
+                    console.warn(`applyAllThirdManInFonts: Failed to compute css2Url for ${type}:`, error);
+                });
+            });
+
+            return Promise.all(css2UrlPromises).then(() => {
+                // Step 2b: SINGLE batch storage write for all fonts (now with css2Url included)
+                console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
+                return saveBatchApplyMapForOrigin(origin, fontConfigs);
+            }).then(() => {
             // Check if this is an inline apply domain (like x.com)
             if (shouldUseInlineApply(origin)) {
                 console.log(`applyAllThirdManInFonts: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
