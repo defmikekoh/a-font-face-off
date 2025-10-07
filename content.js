@@ -88,7 +88,7 @@
   var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
   var inlineApplyDomains = ['x.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
-  
+
   // Debug control - set to false to reduce logging
   var DEBUG_VERBOSE = false;
   var DEBUG_ELEMENTS = true; // Keep element application debugging
@@ -96,6 +96,23 @@
   // Global cleanup tracking to prevent flipping between settings
   var activeObservers = {}; // Track MutationObservers by fontType
   var activeTimers = {}; // Track timeout/interval IDs by fontType
+
+  // Known serif/sans font families for element walker classification
+  var knownSerifFonts = ['pt serif', 'mencken-std', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril'];
+  var knownSansFonts = [];
+
+  // Load user-defined serif/sans lists from storage
+  try {
+    browser.storage.local.get(['affoKnownSerif', 'affoKnownSans']).then(function(opt) {
+      if (Array.isArray(opt.affoKnownSerif)) {
+        knownSerifFonts = opt.affoKnownSerif.map(function(s) { return String(s || '').toLowerCase().trim(); });
+      }
+      if (Array.isArray(opt.affoKnownSans)) {
+        knownSansFonts = opt.affoKnownSans.map(function(s) { return String(s || '').toLowerCase().trim(); });
+      }
+      debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts);
+    }).catch(function() {});
+  } catch(_) {}
   
   function debugLog(message, ...args) {
     if (DEBUG_VERBOSE) debugLog(message, ...args);
@@ -987,6 +1004,19 @@
         if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
             console.log('SERIF FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
             return 'serif';
+        }
+
+        // Check if computed font matches known serif fonts
+        var computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+        for (var i = 0; i < computedParts.length; i++) {
+          if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
+            console.log('SERIF FOUND (known font):', element.tagName, 'computedFont:', computedFontFamily, 'matched:', computedParts[i]);
+            return 'serif';
+          }
+          if (knownSansFonts.indexOf(computedParts[i]) !== -1) {
+            console.log('SANS FOUND (known font):', element.tagName, 'computedFont:', computedFontFamily, 'matched:', computedParts[i]);
+            return 'sans';
+          }
         }
 
         // Check for serif (but not sans-serif) in class names and inline styles
