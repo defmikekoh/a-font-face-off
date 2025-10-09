@@ -2734,12 +2734,13 @@ function loadGoogleFont(fontName) {
 }
 
 // Build a css2 URL that includes axis tags when available (e.g., :ital,wdth,wght)
-function buildCss2Url(fontName) {
+// fontConfig parameter is optional but unused - kept for backward compatibility
+function buildCss2Url(fontName, fontConfig) {
     // Skip URL generation for default/empty font names
     if (!fontName || String(fontName).trim() === '' || String(fontName).toLowerCase() === 'default') {
         return Promise.resolve('');
     }
-    
+
     // Skip URL generation for custom fonts (they have their own @font-face rules)
     if (fontDefinitions[fontName] && fontDefinitions[fontName].fontFaceRule) {
         return Promise.resolve('');
@@ -2753,7 +2754,7 @@ function buildCss2Url(fontName) {
             // Include ALL axes present in data (ital + custom), but drop any tag lacking a numeric range
             const tagsRaw = entry.tags.slice();
             const filtered = tagsRaw.filter(tag => {
-                if (tag === 'ital') return true;
+                if (tag === 'ital') return true; // Always include ital for italicized text on page
                 const r = entry.ranges && entry.ranges[tag];
                 return Array.isArray(r) && r.length === 2 && isFinite(r[0]) && isFinite(r[1]);
             });
@@ -3458,7 +3459,7 @@ async function buildThirdManInPayloadFromConfig(fontType, cfg) {
         payload.css2Url = cfg.css2Url;
     } else if (cfg.fontName && !cfg.fontFaceRule) {
         // For Google Fonts (non-custom fonts), compute the css2Url
-        const css2Url = await buildCss2Url(cfg.fontName);
+        const css2Url = await buildCss2Url(cfg.fontName, cfg);
         if (css2Url) {
             payload.css2Url = css2Url;
             console.log(`🔧 buildThirdManInPayloadFromConfig: Computed css2Url for ${cfg.fontName}:`, css2Url);
@@ -6934,7 +6935,7 @@ async function buildCurrentPayload(position, providedConfig = null) {
         payload.css2Url = fontDefinition.css2Url;
     } else if (cfg.fontName && !fontDefinition?.fontFaceRule) {
         // For Google Fonts (non-custom fonts), compute the css2Url
-        const css2Url = await buildCss2Url(cfg.fontName);
+        const css2Url = await buildCss2Url(cfg.fontName, cfg);
         if (css2Url) {
             payload.css2Url = css2Url;
             console.log(`buildCurrentPayload: Computed css2Url for ${cfg.fontName}:`, css2Url);
@@ -7720,7 +7721,7 @@ function applyAllThirdManInFonts() {
                     return Promise.resolve(); // Skip null configs or configs without fontName
                 }
 
-                return buildCss2Url(config.fontName).then(css2Url => {
+                return buildCss2Url(config.fontName, config).then(css2Url => {
                     if (css2Url) {
                         console.log(`applyAllThirdManInFonts: Computed css2Url for ${type}:`, css2Url);
                         fontConfigs[type].css2Url = css2Url;

@@ -3,14 +3,43 @@ const FONT_CACHE_KEY = 'affoFontCache';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
 
+// Shared cache promise to avoid reading storage.local multiple times concurrently
+let cacheReadPromise = null;
+let cachedFontData = null;
+const CACHE_STALE_TIME = 5000; // 5 seconds
+
 async function getCachedFont(url) {
+  const startTime = performance.now();
   try {
-    const cache = await browser.storage.local.get(FONT_CACHE_KEY);
-    const fontCache = cache[FONT_CACHE_KEY] || {};
+    // If we have a recent cache read, use it
+    if (cachedFontData && Date.now() - cachedFontData.timestamp < CACHE_STALE_TIME) {
+      const entry = cachedFontData.cache[url];
+      if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(`[AFFO Background] Font cache HIT from memory (${duration}ms) for ${url}`);
+        return entry.data;
+      }
+    }
+
+    // If a cache read is already in progress, wait for it
+    if (!cacheReadPromise) {
+      cacheReadPromise = browser.storage.local.get(FONT_CACHE_KEY).then(result => {
+        const cache = result[FONT_CACHE_KEY] || {};
+        cachedFontData = {
+          cache: cache,
+          timestamp: Date.now()
+        };
+        cacheReadPromise = null;
+        return cache;
+      });
+    }
+
+    const fontCache = await cacheReadPromise;
     const entry = fontCache[url];
-    
+
     if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-      console.log(`[AFFO Background] Font cache HIT for ${url}`);
+      const duration = (performance.now() - startTime).toFixed(2);
+      console.log(`[AFFO Background] Font cache HIT (${duration}ms) for ${url}`);
       return entry.data;
     }
     console.log(`[AFFO Background] Font cache MISS for ${url}`);
@@ -25,37 +54,41 @@ async function setCachedFont(url, arrayBufferData) {
   try {
     const cache = await browser.storage.local.get(FONT_CACHE_KEY);
     let fontCache = cache[FONT_CACHE_KEY] || {};
-    
+
     // Calculate current cache size
     const entries = Object.entries(fontCache);
     const currentSize = entries.reduce((sum, [url, entry]) => sum + (entry.size || 0), 0);
-    
+
     // Clean up if cache is too large (by size only)
     if (currentSize + arrayBufferData.byteLength > MAX_CACHE_SIZE_BYTES) {
       // Sort by timestamp and keep only the newest entries that fit within size limit
       const sortedEntries = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
-      
+
       let newSize = arrayBufferData.byteLength;
       const keptEntries = [];
-      
+
       for (const [entryUrl, entry] of sortedEntries) {
         if (newSize + entry.size <= MAX_CACHE_SIZE_BYTES) {
           keptEntries.push([entryUrl, entry]);
           newSize += entry.size;
         }
       }
-      
+
       fontCache = Object.fromEntries(keptEntries);
       console.log(`[AFFO Background] Cleaned font cache: kept ${keptEntries.length} entries, ${(newSize / (1024 * 1024)).toFixed(2)}MB`);
     }
-    
+
     fontCache[url] = {
       data: Array.from(new Uint8Array(arrayBufferData)),
       timestamp: Date.now(),
       size: arrayBufferData.byteLength
     };
-    
+
     await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
+
+    // Invalidate in-memory cache so next read gets fresh data
+    cachedFontData = null;
+
     console.log(`[AFFO Background] Cached font ${url} (${arrayBufferData.byteLength} bytes)`);
   } catch (e) {
     console.error(`[AFFO Background] Error caching font:`, e);
@@ -85,8 +118,15 @@ async function clearExpiredCache() {
   }
 }
 
-// Clean expired cache entries on startup
-clearExpiredCache();
+// Clean expired cache entries on startup and log cache status
+clearExpiredCache().then(() => {
+  browser.storage.local.get(FONT_CACHE_KEY).then(cache => {
+    const fontCache = cache[FONT_CACHE_KEY] || {};
+    const count = Object.keys(fontCache).length;
+    const totalSize = Object.values(fontCache).reduce((sum, entry) => sum + (entry.size || 0), 0);
+    console.log(`[AFFO Background] Startup cache status: ${count} fonts cached, ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
+  });
+});
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
   try {

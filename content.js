@@ -1,53 +1,6 @@
 // Content script: cleanup and storage monitoring only
 // All font injection is now handled by popup.js using insertCSS
 
-// Inject Apercu Pro font definitions
-(function(){
-  var apercuFontCSS = `
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: normal;
-      font-weight: 400;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_pro.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: italic;
-      font-weight: 400;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_italic_pro.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: normal;
-      font-weight: 600;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_pro.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: italic;
-      font-weight: 600;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_italic_pro.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: normal;
-      font-weight: 700;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_pro.woff') format('woff');
-    }
-    @font-face {
-      font-family: 'Apercu Pro';
-      font-style: italic;
-      font-weight: 700;
-      src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_italic_pro.woff') format('woff');
-    }
-  `;
-
-  var apercuStyle = document.createElement('style');
-  apercuStyle.id = 'affo-apercu-font';
-  apercuStyle.textContent = apercuFontCSS;
-  (document.head || document.documentElement).appendChild(apercuStyle);
-})();
-
 (function(){
   // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
   try {
@@ -598,10 +551,19 @@
       debugLog(`[AFFO Content] Error restoring manipulated styles:`, e);
     }
   }
-  
+
+  // Track fonts currently being loaded to prevent duplicate concurrent loads
+  var fontsCurrentlyLoading = {};
+
   function loadFont(fontConfig, fontType) {
     var fontName = fontConfig.fontName;
     if (!fontName) return Promise.resolve();
+
+    // Prevent concurrent loads of the same font
+    if (fontsCurrentlyLoading[fontName]) {
+      debugLog(`[AFFO Content] Font ${fontName} is already loading, returning existing promise`);
+      return fontsCurrentlyLoading[fontName];
+    }
 
     debugLog(`[AFFO Content] Loading font ${fontName} for ${fontType}, FontFace-only:`, shouldUseFontFaceOnly());
     debugLog(`[AFFO Content] Font config for ${fontName}:`, {
@@ -611,6 +573,9 @@
       otherKeys: Object.keys(fontConfig).filter(k => k !== 'fontName' && k !== 'fontFaceRule')
     });
 
+    // Create the loading promise and track it
+    var loadingPromise;
+
     // If font has custom @font-face rule (non-Google font), handle it
     if (fontConfig.fontFaceRule) {
       debugLog(`[AFFO Content] Handling custom font ${fontName}`);
@@ -618,7 +583,7 @@
       if (shouldUseFontFaceOnly()) {
         // On FontFace-only domains, download and load custom fonts via FontFace API
         debugLog(`[AFFO Content] Loading custom font ${fontName} via FontFace API for CSP bypass`);
-        return tryCustomFontFaceAPI(fontName, fontConfig.fontFaceRule);
+        loadingPromise = tryCustomFontFaceAPI(fontName, fontConfig.fontFaceRule);
       } else {
         // On standard domains, inject @font-face CSS
         debugLog(`[AFFO Content] Injecting custom @font-face for ${fontName}`);
@@ -629,20 +594,32 @@
           fontFaceStyle.textContent = fontConfig.fontFaceRule;
           document.head.appendChild(fontFaceStyle);
         }
-        return Promise.resolve();
+        loadingPromise = Promise.resolve();
       }
     }
     // If Google font and not FontFace-only domain, load Google Fonts CSS
     else if (!fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
       loadGoogleFontCSS(fontConfig);
-      return Promise.resolve();
+      loadingPromise = Promise.resolve();
     }
     // If Google font and FontFace-only domain, use FontFace API only
     else if (!fontConfig.fontFaceRule && shouldUseFontFaceOnly()) {
-      return tryFontFaceAPI(fontConfig);
+      loadingPromise = tryFontFaceAPI(fontConfig);
+    } else {
+      loadingPromise = Promise.resolve();
     }
 
-    return Promise.resolve();
+    // Store the promise and clean up when done
+    fontsCurrentlyLoading[fontName] = loadingPromise;
+    loadingPromise.then(function() {
+      delete fontsCurrentlyLoading[fontName];
+      debugLog(`[AFFO Content] Font ${fontName} loading completed, removed from tracking`);
+    }).catch(function(e) {
+      delete fontsCurrentlyLoading[fontName];
+      debugLog(`[AFFO Content] Font ${fontName} loading failed, removed from tracking:`, e);
+    });
+
+    return loadingPromise;
   }
   
   function loadGoogleFontCSS(fontConfig) {
@@ -950,11 +927,23 @@
     }
   }
 
+  // Track which font types have been walked on this page to avoid redundant scans
+  var elementWalkerCompleted = {};
+
   // Element walker function for Third Man In mode
   function runElementWalker(fontType) {
     try {
+      // Skip if walker already completed for this font type on this page
+      if (elementWalkerCompleted[fontType]) {
+        console.log(`[AFFO Content] Element walker already completed for ${fontType}, skipping redundant scan`);
+        return;
+      }
+
+      console.log(`[AFFO Content] Starting element walker for ${fontType}`);
+
+      var startTime = performance.now();
       elementLog(`Running element walker for ${fontType}`);
-      
+
       // Clear only existing markers for this specific font type
       var existingMarked = document.querySelectorAll(`[data-affo-font-type="${fontType}"]`);
       elementLog(`Clearing ${existingMarked.length} existing ${fontType} markers`);
@@ -1052,7 +1041,9 @@
       var totalElements = 0;
       var markedElements = 0;
       var element;
-      
+
+      console.log(`[AFFO Content] Starting element scan for ${fontType}`);
+
       while (element = walker.nextNode()) {
         totalElements++;
         var detectedType = getElementFontType(element);
@@ -1060,9 +1051,22 @@
           element.setAttribute('data-affo-font-type', fontType);
           markedElements++;
         }
+
+        // Log progress every 500 elements to detect hangs
+        if (totalElements % 500 === 0) {
+          console.log(`[AFFO Content] Element walker progress: ${totalElements} elements scanned, ${markedElements} marked as ${fontType}`);
+        }
       }
 
-      elementLog(`Element walker completed: processed ${totalElements} elements, marked ${markedElements} as ${fontType}`);
+      console.log(`[AFFO Content] Element scan loop finished for ${fontType}`);
+
+      var endTime = performance.now();
+      var duration = (endTime - startTime).toFixed(2);
+      console.log(`[AFFO Content] ✅ Element walker completed in ${duration}ms: processed ${totalElements} elements, marked ${markedElements} as ${fontType}`);
+
+      // Mark this font type as completed to prevent redundant scans
+      elementWalkerCompleted[fontType] = true;
+      console.log(`[AFFO Content] Marked ${fontType} walker as completed`);
     } catch (e) {
       console.error(`[AFFO Content] Element walker failed for ${fontType}:`, e);
     }
