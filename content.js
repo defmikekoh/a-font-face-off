@@ -335,10 +335,11 @@
       // Initialize timers array for this fontType
       if (!activeTimers[fontType]) activeTimers[fontType] = [];
 
-      // Extended resiliency window for inline domains (10 minutes)
+      // Reduced resiliency window for inline domains (3 minutes)
+      // With fast caching, fonts apply almost instantly, so shorter window is sufficient
       var disconnectTimer = setTimeout(function() {
         try { mo.disconnect(); } catch(_) {}
-      }, 600000);
+      }, 180000); // 3 minutes (was 10 minutes)
       activeTimers[fontType].push(disconnectTimer);
       
       // Re-apply styles on SPA navigations (history API hooks)
@@ -400,15 +401,16 @@
         }, true);
       } catch(_) {}
       
-      // Enhanced monitoring with much more frequent checks for x.com
+      // Enhanced monitoring with reduced frequency now that fonts load instantly from cache
       var monitoringTimer = setTimeout(function() {
         try {
-          // On x.com, monitor every 1 second for the first 2 minutes, then every 5 seconds for 8 more minutes
+          // On x.com, monitor every 2 seconds for the first 30 seconds, then every 10 seconds for 2.5 more minutes
+          // With fast caching, fonts apply almost instantly, so we don't need aggressive polling
           var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-          var initialFrequency = isXCom ? 1000 : 5000; // 1 second for x.com, 5 seconds for others
-          var laterFrequency = 5000; // 5 seconds
-          var initialDuration = isXCom ? 120000 : 60000; // 2 minutes for x.com, 1 minute for others
-          var totalDuration = 600000; // 10 minutes total
+          var initialFrequency = isXCom ? 2000 : 5000; // 2 seconds for x.com (was 1s), 5 seconds for others
+          var laterFrequency = 10000; // 10 seconds (was 5s)
+          var initialDuration = isXCom ? 30000 : 60000; // 30 seconds for x.com (was 2 min), 1 minute for others
+          var totalDuration = 180000; // 3 minutes total (was 10 min)
           
           debugLog(`[AFFO Content] Starting enhanced monitoring for ${fontType} - initial: ${initialFrequency}ms, later: ${laterFrequency}ms`);
           
@@ -859,10 +861,24 @@
             var woff2Urls = woff2Matches.map(function(match) {
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
             });
-            debugLog(`[AFFO Content] Starting parallel download of ${woff2Urls.length} WOFF2 files for ${fontName}`);
 
-            // Start all WOFF2 downloads in parallel immediately
-            var loadPromises = woff2Urls.map(function(woff2Url, index) {
+            // Prioritize Latin subsets for faster initial render
+            var latinUrls = woff2Urls.filter(function(url) {
+              return url.includes('latin') && !url.includes('ext');
+            });
+            var latinExtUrls = woff2Urls.filter(function(url) {
+              return url.includes('latin-ext');
+            });
+            var otherUrls = woff2Urls.filter(function(url) {
+              return !url.includes('latin');
+            });
+
+            debugLog(`[AFFO Content] Prioritizing font loading: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets for ${fontName}`);
+
+            // Load Latin first (most critical), then others in parallel
+            var prioritizedUrls = latinUrls.concat(latinExtUrls).concat(otherUrls);
+
+            var loadPromises = prioritizedUrls.map(function(woff2Url, index) {
               debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${woff2Urls.length}: ${woff2Url}`);
 
               return browser.runtime.sendMessage({
