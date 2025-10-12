@@ -34,7 +34,12 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js", "jquery.js", "whatfont_core.js", "left-toolbar.js"],
+      "js": ["left-toolbar.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js", "jquery.js", "whatfont_core.js"],
       "run_at": "document_idle"
     }
   ],
