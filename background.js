@@ -50,21 +50,64 @@ async function getCachedFont(url) {
   }
 }
 
+// Pending cache writes - batch them to avoid storage thrashing
+let pendingCacheWrites = new Map();
+let cacheWriteTimer = null;
+const CACHE_WRITE_DEBOUNCE = 100; // Wait 100ms for more writes
+
 async function setCachedFont(url, arrayBufferData) {
   try {
+    // Add to pending writes (in-memory)
+    pendingCacheWrites.set(url, {
+      data: Array.from(new Uint8Array(arrayBufferData)),
+      timestamp: Date.now(),
+      size: arrayBufferData.byteLength
+    });
+
+    console.log(`[AFFO Background] Queued font for batch cache write: ${url} (${arrayBufferData.byteLength} bytes), ${pendingCacheWrites.size} pending`);
+
+    // Debounce: wait for more writes to come in
+    if (cacheWriteTimer) {
+      clearTimeout(cacheWriteTimer);
+    }
+
+    cacheWriteTimer = setTimeout(async () => {
+      await flushCacheWrites();
+    }, CACHE_WRITE_DEBOUNCE);
+
+  } catch (e) {
+    console.error(`[AFFO Background] Error queuing font cache:`, e);
+  }
+}
+
+async function flushCacheWrites() {
+  if (pendingCacheWrites.size === 0) return;
+
+  try {
+    console.log(`[AFFO Background] Flushing ${pendingCacheWrites.size} cached fonts to storage (batch write)...`);
+    const startTime = performance.now();
+
+    // Read cache once
     const cache = await browser.storage.local.get(FONT_CACHE_KEY);
     let fontCache = cache[FONT_CACHE_KEY] || {};
+
+    // Add all pending writes to cache
+    let totalSize = 0;
+    for (const [url, entry] of pendingCacheWrites.entries()) {
+      fontCache[url] = entry;
+      totalSize += entry.size;
+    }
 
     // Calculate current cache size
     const entries = Object.entries(fontCache);
     const currentSize = entries.reduce((sum, [url, entry]) => sum + (entry.size || 0), 0);
 
-    // Clean up if cache is too large (by size only)
-    if (currentSize + arrayBufferData.byteLength > MAX_CACHE_SIZE_BYTES) {
-      // Sort by timestamp and keep only the newest entries that fit within size limit
+    // Clean up if cache is too large
+    if (currentSize > MAX_CACHE_SIZE_BYTES) {
+      console.log(`[AFFO Background] Cache too large (${(currentSize / (1024 * 1024)).toFixed(2)}MB), cleaning...`);
       const sortedEntries = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
 
-      let newSize = arrayBufferData.byteLength;
+      let newSize = 0;
       const keptEntries = [];
 
       for (const [entryUrl, entry] of sortedEntries) {
@@ -78,20 +121,21 @@ async function setCachedFont(url, arrayBufferData) {
       console.log(`[AFFO Background] Cleaned font cache: kept ${keptEntries.length} entries, ${(newSize / (1024 * 1024)).toFixed(2)}MB`);
     }
 
-    fontCache[url] = {
-      data: Array.from(new Uint8Array(arrayBufferData)),
-      timestamp: Date.now(),
-      size: arrayBufferData.byteLength
-    };
-
+    // Write cache once
     await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
 
     // Invalidate in-memory cache so next read gets fresh data
     cachedFontData = null;
 
-    console.log(`[AFFO Background] Cached font ${url} (${arrayBufferData.byteLength} bytes)`);
+    const duration = (performance.now() - startTime).toFixed(2);
+    console.log(`[AFFO Background] Batch cached ${pendingCacheWrites.size} fonts (${(totalSize / (1024 * 1024)).toFixed(2)}MB) in ${duration}ms`);
+
+    // Clear pending writes
+    pendingCacheWrites.clear();
+    cacheWriteTimer = null;
+
   } catch (e) {
-    console.error(`[AFFO Background] Error caching font:`, e);
+    console.error(`[AFFO Background] Error flushing font cache:`, e);
   }
 }
 
@@ -130,6 +174,12 @@ clearExpiredCache().then(() => {
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
   try {
+    // Handle cache flush requests
+    if (msg.type === 'flushFontCache') {
+      await flushCacheWrites();
+      return { ok: true };
+    }
+
     // Handle toolbar options requests
     if (msg.type === 'getToolbarOptions') {
       try {

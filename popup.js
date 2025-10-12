@@ -2594,6 +2594,100 @@ async function selectFont(name) {
     });
 }
 
+// Preload all font subsets for a given font (used for eager caching on Apply All)
+async function preloadAllFontSubsets(fontName, css2Url) {
+    console.log(`[AFFO Preload] Starting preload for ${fontName} with css2Url:`, css2Url);
+
+    try {
+        // Step 1: Fetch the Google Fonts CSS to get all WOFF2 URLs
+        const cssResponse = await browser.runtime.sendMessage({
+            type: 'affoFetch',
+            url: css2Url,
+            binary: false
+        });
+
+        if (!cssResponse || !cssResponse.ok) {
+            throw new Error(`Failed to fetch CSS for ${fontName}`);
+        }
+
+        const css = cssResponse.data;
+
+        // Step 2: Extract all WOFF2 URLs from the CSS
+        const woff2Matches = css.match(/url\(([^)]+\.woff2[^)]*)\)/g);
+
+        if (!woff2Matches || woff2Matches.length === 0) {
+            console.warn(`[AFFO Preload] No WOFF2 URLs found in CSS for ${fontName}`);
+            return;
+        }
+
+        const woff2Urls = woff2Matches.map(match =>
+            match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2')
+        );
+
+        console.log(`[AFFO Preload] Found ${woff2Urls.length} WOFF2 files for ${fontName}`);
+
+        // Step 3: Prioritize Latin subsets first, then load others
+        const latinUrls = woff2Urls.filter(url =>
+            url.includes('latin') && !url.includes('ext')
+        );
+        const latinExtUrls = woff2Urls.filter(url =>
+            url.includes('latin-ext')
+        );
+        const otherUrls = woff2Urls.filter(url =>
+            !url.includes('latin')
+        );
+
+        console.log(`[AFFO Preload] ${fontName}: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets`);
+
+        // Step 4: Load Latin first (most critical), then Latin-ext, then others in background
+        const loadSubsets = async (urls, label) => {
+            const promises = urls.map(url =>
+                browser.runtime.sendMessage({
+                    type: 'affoFetch',
+                    url: url,
+                    binary: true
+                }).then(response => {
+                    if (response && response.ok) {
+                        const status = response.cached ? 'cached' : 'downloaded';
+                        console.log(`[AFFO Preload] ${fontName} ${label} subset ${status}:`, url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.')));
+                        return true;
+                    }
+                    return false;
+                }).catch(error => {
+                    console.warn(`[AFFO Preload] Failed to download ${label} subset:`, url, error);
+                    return false;
+                })
+            );
+            return Promise.all(promises);
+        };
+
+        // Load Latin subsets first (blocking)
+        await loadSubsets(latinUrls, 'Latin');
+
+        // Load Latin-ext in parallel (blocking)
+        await loadSubsets(latinExtUrls, 'Latin-ext');
+
+        // Flush the cache immediately to ensure fonts are written to storage
+        // This is critical - background.js batches writes with 100ms debounce
+        console.log(`[AFFO Preload] ${fontName} - Flushing cache to ensure fonts are persisted...`);
+        await browser.runtime.sendMessage({ type: 'flushFontCache' });
+        console.log(`[AFFO Preload] ${fontName} - Critical subsets cached and flushed to storage`);
+
+        // Load other subsets in background (non-blocking)
+        if (otherUrls.length > 0) {
+            loadSubsets(otherUrls, 'other').then(async () => {
+                console.log(`[AFFO Preload] ${fontName} - All subsets downloaded, flushing...`);
+                await browser.runtime.sendMessage({ type: 'flushFontCache' });
+                console.log(`[AFFO Preload] ${fontName} - All subsets cached and flushed`);
+            });
+        }
+
+    } catch (error) {
+        console.error(`[AFFO Preload] Error preloading ${fontName}:`, error);
+        throw error;
+    }
+}
+
 // Font loading and management functions
 async function loadFont(position, fontName, options = {}) {
     const { suppressImmediateApply = false, suppressImmediateSave = false } = options || {};
@@ -3289,12 +3383,27 @@ async function applyThirdManInFont(fontType, config) {
         // Build enriched payload with fontFaceRule and css2Url
         const payload = await buildThirdManInPayload(fontType, config);
 
+        // For inline apply domains (x.com), preload fonts BEFORE writing to storage
+        if (shouldUseInlineApply(origin)) {
+            console.log(`applyThirdManInFont: Inline apply domain ${origin} detected - preloading font BEFORE storage write`);
+
+            // Eagerly preload font subsets so they're cached before content.js needs them
+            if (payload.fontName && payload.css2Url) {
+                await preloadAllFontSubsets(payload.fontName, payload.css2Url).then(() => {
+                    console.log(`applyThirdManInFont: Preloading complete for ${fontType} - now writing to storage`);
+                }).catch(error => {
+                    console.warn(`applyThirdManInFont: Preloading failed (non-critical):`, error);
+                    // Continue anyway - content script will load fonts if cache misses
+                });
+            }
+        }
+
         // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
+        // For inline domains, fonts are already cached at this point
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
-            // Check if this is an inline apply domain (like x.com)
+            // For inline apply domains, return early - content script handles everything with cached fonts
             if (shouldUseInlineApply(origin)) {
-                console.log(`applyThirdManInFont: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
-                // For inline apply domains, don't load fonts in popup - content script handles all font loading
+                console.log(`applyThirdManInFont: Storage written - content script will use cached fonts`);
                 return true;
             }
 
@@ -7734,16 +7843,37 @@ function applyAllThirdManInFonts() {
             });
 
             return Promise.all(css2UrlPromises).then(() => {
+                // Step 2a.5: For inline apply domains, preload fonts BEFORE writing to storage
+                // This prevents race condition where content.js starts loading before cache is ready
+                if (shouldUseInlineApply(origin)) {
+                    console.log(`applyAllThirdManInFonts: Inline apply domain ${origin} detected - preloading fonts BEFORE storage write`);
+
+                    // Eagerly preload ALL font subsets so they're cached before content.js needs them
+                    const preloadPromises = Object.keys(fontConfigs).map(type => {
+                        const config = fontConfigs[type];
+                        if (!config || !config.fontName || !config.css2Url) {
+                            return Promise.resolve();
+                        }
+
+                        console.log(`applyAllThirdManInFonts: Preloading ${type} font ${config.fontName} with css2Url:`, config.css2Url);
+                        return preloadAllFontSubsets(config.fontName, config.css2Url);
+                    });
+
+                    // Wait for preloading to complete before writing to storage
+                    return Promise.all(preloadPromises).then(() => {
+                        console.log(`applyAllThirdManInFonts: Preloading complete - now writing to storage so content script can use cached fonts`);
+                    }).catch(error => {
+                        console.warn(`applyAllThirdManInFonts: Preloading failed (non-critical):`, error);
+                        // Continue anyway - content script will load fonts if cache misses
+                    });
+                }
+                return Promise.resolve();
+            }).then(() => {
                 // Step 2b: SINGLE batch storage write for all fonts (now with css2Url included)
+                // For inline domains, fonts are already cached at this point
                 console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
                 return saveBatchApplyMapForOrigin(origin, fontConfigs);
             }).then(() => {
-            // Check if this is an inline apply domain (like x.com)
-            if (shouldUseInlineApply(origin)) {
-                console.log(`applyAllThirdManInFonts: Skipping popup font loading for inline apply domain ${origin} - content script handles everything`);
-                // For inline apply domains, don't load fonts in popup - content script handles all font loading
-                return Promise.resolve();
-            }
 
             // Step 3: Clean up any existing CSS for all types before applying new CSS
             console.log('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
