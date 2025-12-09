@@ -45,7 +45,7 @@ const css = `
 // No @font-face needed - Google provides it via the link
 ```
 
-## Custom Fonts Loading Process (BBC Reith Serif, FK Roman Standard Trial, etc.)
+## Custom Fonts Loading Process (BBC Reith Serif, FK Roman Standard Trial, Graphik Trial, etc.)
 
 ### 1. Font Face Rule Inclusion
 ```javascript
@@ -179,9 +179,9 @@ buildCss2Url(fontName).then(css2Url => {
 
 **Custom Fonts (Both Modes):**
 ```javascript
-// Same fontFaceRule injection
-if (payload.fontFaceRule) {
-    lines.push(payload.fontFaceRule);  // BBC, FK Roman, etc.
+    // Same fontFaceRule injection
+    if (payload.fontFaceRule) {
+        lines.push(payload.fontFaceRule);  // BBC, FK Roman, Graphik, etc.
 }
 ```
 
@@ -212,4 +212,4 @@ if (payload.fontFaceRule) {
 - **Body Mode**: Applies one font to the entire `body` element
 - **Third Man In**: Applies different fonts to elements marked by the content script based on their semantic type (serif for articles, sans for UI, mono for code)
 
-Both modes use the same `fontFaceRule` system for custom fonts like BBC Reith Serif, FK Roman Standard Trial, ABC Ginto Normal Unlicensed Trial, and National.
+Both modes use the same `fontFaceRule` system for custom fonts like BBC Reith Serif, FK Roman Standard Trial, ABC Ginto Normal Unlicensed Trial, National, and Graphik Trial.

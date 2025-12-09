@@ -12,7 +12,7 @@ Compare fonts quickly and explore their variable axes directly in your browser. 
 - Only axes you “activate” get applied, so defaults stay true until you tweak them
 - Body Contact and Third Man In modes: Apply fonts to the current page (per‑origin) with Apply/Reset button states
 - Per‑panel favorites (save, load, edit) and persistent state across sessions (drag‑to‑reorder in Edit Favorites)
-- Custom font hosts supported (not bundled): BBC Reith Serif (static.files.bbci.co.uk), ABC Ginto Normal Unlicensed Trial (fonts.cdnfonts.com)
+- Custom font hosts supported (not bundled): BBC Reith Serif (static.files.bbci.co.uk), ABC Ginto Normal Unlicensed Trial (fonts.cdnfonts.com), Graphik Trial (fonts.cdnfonts.com)
 
 Note: No font files are packaged in the extension; all fonts are fetched at runtime from their original hosts.
 

@@ -17,6 +17,7 @@ Sources & Permissions
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
   - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
+  - Graphik Trial: full weight/italic set loaded via inline `@font-face` rules from `fonts.cdnfonts.com` (see `popup.js` custom font definitions).
 - Permissions: host permissions requested for cross-origin font fetching on FontFace-only domains.
 
 Font Caching System
@@ -135,7 +136,7 @@ File refs: `content.js:419-437`, `content.js:158-202`
   - Mono: `code, pre, span[style*="mono"], div[style*="mono"]`
 - **Enhanced monitoring frequency**: 1-second intervals for first 2 minutes, then 5-second intervals for 8 more minutes
 - **ArrayBuffer font loading**: WOFF2 files loaded as ArrayBuffer (not data URLs or blob URLs) to bypass CSP restrictions
-- **Custom font support**: All custom fonts (National, BBC Reith Serif, ABC Ginto, FK Roman, TiemposText) work on x.com via background script fetching
+- **Custom font support**: All custom fonts (National, BBC Reith Serif, ABC Ginto, FK Roman, TiemposText, Graphik Trial) work on x.com via background script fetching
 
 Notable Edge Cases
 ------------------

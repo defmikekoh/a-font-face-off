@@ -52,7 +52,7 @@ function determineGenericFontFamily(fontName) {
         }
 
         // Built-in serif patterns (excluding sans-serif)
-        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) || 
+        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) ||
             /\b(times|georgia|book|antiqua|roman|baskerville|caslon|garamond|minion|palatino|trajan)\b/i.test(name) ||
             /reith serif|noto serif|pt serif/i.test(name)) {
             return 'serif';
@@ -69,7 +69,7 @@ function determineGenericFontFamily(fontName) {
         if (/\bsans.serif\b/i.test(name) || /\bsans\b/i.test(name)) {
             return 'sans-serif';
         }
-        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) || 
+        if (/\bserif\b/i.test(name.replace(/sans.serif/gi, '')) ||
             /\b(times|georgia)\b/i.test(name) ||
             /reith serif|noto serif|pt serif/i.test(name)) {
             return 'serif';
@@ -85,7 +85,7 @@ function getSiteSpecificRules(fontType, otherProps, hostname = null) {
         // High-specificity Wikipedia rules that we know work
         return `html.mf-font-size-clientpref-small body.skin-minerva .content p[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content span[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`;
     }
-    
+
     // No site-specific rules for other sites yet
     return null;
 }
@@ -442,9 +442,9 @@ function getContextFromUrlParams() {
     const domain = urlParams.get('domain');
     const sourceTabId = urlParams.get('sourceTabId');
     console.log('[AFFO Popup] Context parameters from URL:', { domain, sourceTabId });
-    return { 
-        domain: domain, 
-        sourceTabId: sourceTabId ? parseInt(sourceTabId) : null 
+    return {
+        domain: domain,
+        sourceTabId: sourceTabId ? parseInt(sourceTabId) : null
     };
 }
 
@@ -711,6 +711,138 @@ const fontDefinitions = {
   font-style: italic;
   font-weight: 800;
   font-display: swap;
+}`
+    },
+    "Graphik Trial": {
+        axes: [],
+        defaults: {},
+        ranges: {},
+        steps: {},
+        fontFaceRule: `@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 400;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Regular-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 400;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-RegularItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 100;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Thin-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 100;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-ThinItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 200;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Extralight-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 200;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-ExtralightItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 300;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Light-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 300;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-LightItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 500;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Medium-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 500;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-MediumItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 600;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Semibold-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 600;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-SemiboldItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 700;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Bold-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 700;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-BoldItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 900;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Black-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 900;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-BlackItalic-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: normal;
+    font-weight: 1000;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Super-Trial.woff') format('woff');
+}
+@font-face {
+    font-family: 'Graphik Trial';
+    font-display: swap;
+    font-style: italic;
+    font-weight: 1000;
+    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-SuperItalic-Trial.woff') format('woff');
 }`
     },
     "FK Roman Standard Trial": {
@@ -996,6 +1128,7 @@ const CUSTOM_FONTS = [
     'GuardianTextEgyptian',
     'National',
     'BBC Reith Serif',
+    'Graphik Trial',
     'ABC Ginto Normal Unlicensed Trial',
     'FK Roman Standard Trial',
     'TiemposText',
@@ -4308,7 +4441,7 @@ function hideEditFavoritesModal() {
 // Drag-and-drop reordering for Edit Favorites
 function enableFavoritesReorder(container) {
     if (!container) return;
-    
+
     // Get all drag handles for event listeners
     const dragHandles = container.querySelectorAll('.drag-handle');
     let dropIndicator = null;
@@ -4333,20 +4466,20 @@ function enableFavoritesReorder(container) {
             console.log('Returning early, interval already exists');
             return;
         }
-        
+
         console.log('Creating new auto-scroll interval');
         autoScrollInterval = setInterval(() => {
             const containerRect = container.getBoundingClientRect();
             const scrollZone = 200; // pixels from edge to trigger scroll (very generous)
             const maxScrollSpeed = 200; // max pixels per second (reduced for better control)
-            
+
             // Allow scrolling when mouse is above/below container or within expanded scroll zones
             // More generous zones for easier triggering when reordering
             const shouldScrollUp = currentMouseY <= containerRect.top + scrollZone;
             const shouldScrollDown = currentMouseY >= containerRect.bottom - scrollZone;
-            
+
             console.log('Auto-scroll tick - mouseY:', currentMouseY, 'containerTop:', containerRect.top, 'containerBottom:', containerRect.bottom, 'shouldScrollUp:', shouldScrollUp, 'shouldScrollDown:', shouldScrollDown, 'scrollTop:', container.scrollTop, 'scrollHeight:', container.scrollHeight, 'clientHeight:', container.clientHeight);
-            
+
             // Find the actually scrollable container
             let scrollContainer = container;
             if (container.scrollHeight <= container.clientHeight) {
@@ -4360,7 +4493,7 @@ function enableFavoritesReorder(container) {
                     console.log('Using parent as scroll container:', parent.className, parent.tagName);
                 }
             }
-            
+
             if (shouldScrollUp && scrollContainer.scrollTop > 0) {
                 // Calculate scroll speed based on distance from edge (closer = faster)
                 // When above the container, use maximum speed
@@ -4422,17 +4555,17 @@ function enableFavoritesReorder(container) {
         const after = getDragAfterElement(container, e.clientY);
         const dragging = container.querySelector('.dragging');
         if (!dragging) return;
-        
+
         // Update auto-scroll position and start if needed
         if (!autoScrollInterval) {
             startAutoScroll(e.clientY);
         } else {
             updateAutoScroll(e.clientY);
         }
-        
+
         // Store the target position for when drop happens, but don't move the item yet
         dragging.dataset.dropAfter = after ? after.dataset.name : '';
-        
+
         // Only position drop indicator - don't actually move the item during drag
         const ind = ensureIndicator();
         const crect = container.getBoundingClientRect();
@@ -4450,12 +4583,12 @@ function enableFavoritesReorder(container) {
         }
         ind.style.top = `${Math.max(0, topPx)}px`;
     });
-    
+
     container.addEventListener('drop', (e) => {
         e.preventDefault();
         const dragging = container.querySelector('.dragging');
         if (!dragging) return;
-        
+
         // Now actually perform the reorder based on stored drop position
         const dropAfterName = dragging.dataset.dropAfter;
         if (dropAfterName === '') {
@@ -4468,7 +4601,7 @@ function enableFavoritesReorder(container) {
                 container.insertBefore(dragging, after);
             }
         }
-        
+
         // Clean up
         delete dragging.dataset.dropAfter;
     });
@@ -4481,23 +4614,23 @@ function enableFavoritesReorder(container) {
         if (!ptr.active || !ptr.container || !ptr.item) return;
         const after = getDragAfterElement(ptr.container, e.clientY);
         const dragging = ptr.item;
-        
+
         // Update proxy position
         if (proxy) {
             const y = e.clientY - startOffsetY;
             proxy.style.top = `${y}px`;
         }
-        
+
         // Update auto-scroll position and start if needed
         if (!autoScrollInterval) {
             startAutoScroll(e.clientY);
         } else {
             updateAutoScroll(e.clientY);
         }
-        
+
         // Store the target position for when drop happens, but don't move the item yet
         dragging.dataset.dropAfter = after ? after.dataset.name : '';
-        
+
         // Only show indicator - don't actually move the item during drag
         const ind = ensureIndicator();
         const crect = ptr.container.getBoundingClientRect();
@@ -4518,7 +4651,7 @@ function enableFavoritesReorder(container) {
     const onPointerUp = (e) => {
         if (!ptr.active) return;
         try { e.target.releasePointerCapture && e.target.releasePointerCapture(e.pointerId); } catch (_) {}
-        
+
         // Perform the actual reorder based on stored drop position
         const dragging = ptr.item;
         const dropAfterName = dragging.dataset.dropAfter;
@@ -4534,7 +4667,7 @@ function enableFavoritesReorder(container) {
                 }
             }
         }
-        
+
         // Clean up
         delete dragging.dataset.dropAfter;
         ptr.item.classList.remove('dragging');
@@ -4553,15 +4686,15 @@ function enableFavoritesReorder(container) {
         handle.addEventListener('pointerdown', (e) => {
             const item = e.target.closest('.edit-favorite-item');
             if (!item) return;
-            
+
             // Prevent default browser behavior (text selection, page scroll, etc.)
             e.preventDefault();
-            
+
             ptr = { active: true, item, container };
             item.classList.add('dragging');
             // Prevent page scroll while dragging
             try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
-            
+
             // Attach global listeners immediately
             document.addEventListener('pointermove', onPointerMove);
             document.addEventListener('pointerup', onPointerUp);
@@ -6529,38 +6662,38 @@ function determineInitialMode() {
 // Reset Third Man In UI to defaults before restoration
 function resetThirdManInUI() {
     console.log('🔄 resetThirdManInUI: Resetting Third Man In UI to defaults');
-    
+
     for (const fontType of ['serif', 'sans', 'mono']) {
         // Reset font name display
         const nameElement = document.getElementById(`${fontType}-font-name`);
         if (nameElement) nameElement.textContent = fontType.charAt(0).toUpperCase() + fontType.slice(1);
-        
+
         // Reset font display
         const displayElement = document.getElementById(`${fontType}-font-display`);
         if (displayElement) displayElement.textContent = 'Default';
-        
-        // Reset font selector  
+
+        // Reset font selector
         const selectElement = document.getElementById(`${fontType}-font-select`);
         if (selectElement) selectElement.value = 'Default';
-        
+
         // Reset controls to defaults
         const fontSizeSlider = document.getElementById(`${fontType}-font-size`);
         const fontSizeValue = document.getElementById(`${fontType}-font-size-value`);
         if (fontSizeSlider) fontSizeSlider.value = 17;
         if (fontSizeValue) fontSizeValue.textContent = '17px';
-        
+
         const fontWeightSlider = document.getElementById(`${fontType}-font-weight`);
         const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
         if (fontWeightSlider) fontWeightSlider.value = 400;
         if (fontWeightValue) fontWeightValue.textContent = '400';
-        
+
         const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
         const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
         const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
         if (lineHeightSlider) lineHeightSlider.value = 1.5;
         if (lineHeightValue) lineHeightValue.textContent = '1.5';
         if (lineHeightTextInput) lineHeightTextInput.value = 1.5;
-        
+
         // Reset color selector
         const colorSelect = document.getElementById(`${fontType}-font-color`);
         if (colorSelect) colorSelect.value = 'default';
@@ -6578,7 +6711,7 @@ function restoreUIFromDomainStorage() {
         }
 
         console.log('🔄 restoreUIFromDomainStorage: Origin:', origin);
-        
+
         // Reset UI to defaults before loading domain-specific settings
         resetThirdManInUI();
 
@@ -6775,12 +6908,12 @@ function generateThirdManInCSS(fontType, payload) {
 
     // Generate CSS with separate rules for font-family vs other properties
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-    
+
     // Rule 1: Font family applies to ALL marked elements
     if (payload.fontName) {
         lines.push(`[data-affo-font-type="${fontType}"] { font-family: "${payload.fontName}" !important; }`);
     }
-    
+
     // Rule 2: Variable axes apply to ALL elements with this font type (including headings)
     if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
         const variationSettings = Object.entries(payload.variableAxes)
@@ -6805,7 +6938,7 @@ function generateThirdManInCSS(fontType, payload) {
         // Apply size/weight only to body text elements, not headings or navigation
         // Use maximum specificity to override site CSS
         lines.push(`html body p[data-affo-font-type="${fontType}"], html body span[data-affo-font-type="${fontType}"], html body td[data-affo-font-type="${fontType}"], html body th[data-affo-font-type="${fontType}"], html body li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`);
-        
+
         // Add site-specific high-specificity rules
         // Use global currentTabHostname if available
         const hostname = window.currentTabHostname || null;
@@ -6813,7 +6946,7 @@ function generateThirdManInCSS(fontType, payload) {
         if (siteSpecificRules) {
             lines.push(siteSpecificRules);
         }
-        
+
         // Fallback: Generic high-specificity rules for other sites
         lines.push(`html body p[data-affo-font-type="${fontType}"], html body span[data-affo-font-type="${fontType}"], html body td[data-affo-font-type="${fontType}"], html body th[data-affo-font-type="${fontType}"], html body li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`);
     }
@@ -6859,14 +6992,14 @@ function generateElementWalkerScript(fontType) {
                     const classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
                     const styleText = style.toLowerCase();
                     const computedText = computedFontFamily.toLowerCase();
-                    
+
                     // Check for monospace keywords
                     if (/\\b(monospace|mono|code)\\b/.test(classText) ||
                         /\\b(monospace|mono)\\b/.test(styleText)) return 'mono';
-                    
+
                     // Check for sans-serif as complete phrase first
                     if (/\\bsans-serif\\b/.test(classText) || /\\bsans-serif\\b/.test(styleText)) return 'sans';
-                    
+
                     // Check for standalone sans (but not sans-serif)
                     if (/\\bsans\\b(?!-serif)/.test(classText) || /\\bsans\\b(?!-serif)/.test(styleText)) return 'sans';
 
@@ -6893,7 +7026,7 @@ function generateElementWalkerScript(fontType) {
                     if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
                     // Third Man In mode only finds explicit markers - no assumptions
-                    
+
                     // No explicit indicators found - don't mark this element
                     return null;
                 }
@@ -6905,7 +7038,7 @@ function generateElementWalkerScript(fontType) {
                 novemberElements.forEach((el, i) => {
                     console.log('🔍 Element', i+1, ':', el.tagName, el.className, 'text:', el.textContent.substring(0, 100));
                 });
-                
+
                 // Walk all text-containing elements
                 const walker = document.createTreeWalker(
                     document.body,
@@ -6936,7 +7069,7 @@ function generateElementWalkerScript(fontType) {
                         element.setAttribute('data-affo-font-type', '${fontType}');
                         markedElements++;
                         console.log('Marked ${fontType} element:', element.tagName, element.className, 'willGetSize:', ['P', 'SPAN', 'TD', 'TH', 'LI'].indexOf(element.tagName) !== -1, element.textContent.substring(0, 50));
-                        
+
                         // Debug specific "17 November" paragraph
                         if (element.textContent.includes('17 November')) {
                             console.log('🔍 FOUND "17 November" paragraph - marked as: ${fontType}');
@@ -7759,7 +7892,7 @@ function applyAllThirdManInFonts() {
         return browser.storage.local.get('affoApplyMap').then(data => {
             const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
             const domainData = applyMap[origin] || {};
-            
+
             types.forEach(type => {
                 const config = getPanelFontConfig(type);
                 const appliedConfig = domainData[type];
@@ -7776,7 +7909,7 @@ function applyAllThirdManInFonts() {
                         fontName: appliedConfig.fontName || null,
                         variableAxes: appliedConfig.variableAxes || {}
                     } : null;
-                    
+
                     if (appliedConfig && appliedForComparison) {
                         if (appliedConfig.fontSize) appliedForComparison.fontSize = appliedConfig.fontSize;
                         if (appliedConfig.lineHeight) appliedForComparison.lineHeight = appliedConfig.lineHeight;
@@ -7787,7 +7920,7 @@ function applyAllThirdManInFonts() {
 
                     // Only apply if config is different from what's already applied
                     const isDifferent = !configsEqual(config, appliedForComparison);
-                    
+
                     if (isDifferent) {
                         console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
                         console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
@@ -7889,7 +8022,7 @@ function applyAllThirdManInFonts() {
                     return Promise.resolve();
                 }
             });
-            
+
             return Promise.all(cleanupPromises).then(() => {
                 // Step 4: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
                 console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
@@ -8063,7 +8196,7 @@ function countThirdManInDifferences() {
                             fontName: applied.fontName || null,
                             variableAxes: applied.variableAxes || {}
                         } : null;
-                        
+
                         // Add flattened basic control properties (only if they exist)
                         if (applied && appliedConfig) {
                             if (applied.fontSize) appliedConfig.fontSize = applied.fontSize;
@@ -8246,7 +8379,7 @@ function togglePanel(panelId) {
 function updateFontComparisonLayout() {
     const fontComparison = document.getElementById('font-comparison');
     if (!fontComparison) return;
-    
+
     // Remove all layout classes
     fontComparison.classList.remove('top-panel-open', 'bottom-panel-open', 'both-panels-open');
 
@@ -8876,12 +9009,12 @@ function initializeNumericModal() {
         if (e.target.classList.contains('numeric-trigger')) {
             e.preventDefault();
             e.stopImmediatePropagation(); // Stop other handlers from firing
-            
+
             // Debug: Check control state before opening modal
             const controlGroup = e.target.closest('.control-group');
             const wasUnsetBeforeClick = controlGroup ? controlGroup.classList.contains('unset') : false;
             console.log('🖱️ Numeric input clicked, control was unset:', wasUnsetBeforeClick);
-            
+
             showNumericModal(e.target);
         }
     }, true); // Use capture phase to catch it before other handlers
@@ -8911,7 +9044,7 @@ function initializeNumericModal() {
                 const selStart = display.selectionStart;
                 const selEnd = display.selectionEnd;
                 const hasSelection = selStart !== selEnd;
-                
+
                 if (hasSelection) {
                     // Replace selected text with new value
                     display.value = value;
@@ -8922,7 +9055,7 @@ function initializeNumericModal() {
                     }
                     display.value += value;
                 }
-                
+
                 // Position cursor at end
                 setTimeout(() => {
                     display.setSelectionRange(display.value.length, display.value.length);
@@ -8973,12 +9106,12 @@ function showNumericModal(input) {
     const modal = document.getElementById('numeric-modal');
     const display = document.getElementById('numeric-input');
     const title = document.getElementById('numeric-modal-title');
-    
+
     currentNumericInput = input;
-    
+
     // Store original value and control state for cancel restoration
     originalValue = input.value.replace('px', '');
-    
+
     // Find the control group and store its active state
     const controlGroup = input.closest('.control-group');
     originalControlState = {
@@ -8986,12 +9119,12 @@ function showNumericModal(input) {
         controlGroup: controlGroup
     };
     console.log('💾 Stored original state:', { originalValue, originalControlState });
-    
+
     // Set modal title based on input type
     const type = input.getAttribute('data-type');
     const position = input.getAttribute('data-position');
     const axis = input.getAttribute('data-axis');
-    
+
     if (type === 'fontSize') {
         title.textContent = `Font Size (${position})`;
     } else if (type === 'lineHeight') {
@@ -9001,14 +9134,14 @@ function showNumericModal(input) {
     } else {
         title.textContent = 'Enter Value';
     }
-    
+
     // Set initial value (remove 'px' suffix if present)
     let initialValue = input.value.replace('px', '');
     display.value = initialValue;
-    
+
     // Show modal
     modal.classList.add('visible');
-    
+
     // Focus on the display input and select all text for easy replacement
     setTimeout(() => {
         display.focus();
@@ -9027,41 +9160,41 @@ function hideNumericModal() {
 
 function cancelNumericModal() {
     console.log('🚫 cancelNumericModal: Canceling without applying changes');
-    
+
     // On cancel: Don't change ANY values - just restore the original control state
     if (originalControlState && originalControlState.controlGroup) {
         console.log('🚫 Cancel: Only restoring control state, not changing any values');
-        
+
         if (originalControlState.wasUnset) {
             console.log('🔄 Restoring control to unset state');
             originalControlState.controlGroup.classList.add('unset');
             console.log('🔍 Control classes after adding unset:', originalControlState.controlGroup.className);
         } else {
-            console.log('🔄 Restoring control to active state');  
+            console.log('🔄 Restoring control to active state');
             originalControlState.controlGroup.classList.remove('unset');
             console.log('🔍 Control classes after removing unset:', originalControlState.controlGroup.className);
         }
     }
-    
+
     isApplying = false; // Explicitly set to false before hiding
     hideNumericModal();
 }
 
 function applyNumericValue(input, value) {
     console.log('🔧 applyNumericValue called with isApplying:', isApplying, 'value:', value);
-    
+
     // Only apply if we're actually applying (not canceling)
     if (!isApplying) {
         console.log('🚫 applyNumericValue: Skipping apply because isApplying is false');
         return;
     }
-    
+
     console.log('✅ applyNumericValue: Proceeding with apply');
-    
+
     const type = input.getAttribute('data-type');
     const position = input.getAttribute('data-position');
     const axis = input.getAttribute('data-axis');
-    
+
     // Update the input value
     if (type === 'fontSize') {
         input.value = value;
