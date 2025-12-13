@@ -812,6 +812,109 @@
     }
   }
 
+  // Parse @font-face blocks in a CSS sheet to map WOFF2 URLs to their unicode ranges
+  function extractFontFaceEntries(cssText) {
+    var entries = [];
+    try {
+      var faceRegex = /@font-face\s*{[^}]*}/gi;
+      var match;
+      while ((match = faceRegex.exec(cssText)) !== null) {
+        var block = match[0];
+        var urlMatch = block.match(/url\((['"]?)([^'")]+\.woff2[^'")]*)\1\)/i);
+        if (!urlMatch) continue;
+        var unicodeMatch = block.match(/unicode-range\s*:\s*([^;]+);/i);
+        entries.push({
+          url: urlMatch[2],
+          ranges: parseUnicodeRanges(unicodeMatch ? unicodeMatch[1] : '')
+        });
+      }
+    } catch (e) {
+      debugLog('[AFFO Content] Failed to parse font-face entries for unicode ranges:', e);
+    }
+    return entries;
+  }
+
+  // Turn a unicode-range string into numeric ranges
+  function parseUnicodeRanges(rangeStr) {
+    if (!rangeStr) return [];
+    return rangeStr.split(',')
+      .map(function(part) { return part.trim(); })
+      .filter(Boolean)
+      .map(function(part) {
+        var cleaned = part.replace(/u\+/i, '');
+        if (cleaned.indexOf('-') !== -1) {
+          var pieces = cleaned.split('-');
+          return [parseInt(pieces[0], 16), parseInt(pieces[1], 16)];
+        }
+        var val = parseInt(cleaned, 16);
+        return [val, val];
+      })
+      .filter(function(pair) { return isFinite(pair[0]) && isFinite(pair[1]); });
+  }
+
+  // Collect a snapshot of code points in the current document to choose subsets
+  function collectNeededCodePoints() {
+    var needed = new Set();
+    try {
+      var text = '';
+      if (document.body && typeof document.body.innerText === 'string') {
+        text = document.body.innerText || '';
+      }
+      var sample = text.slice(0, 50000); // avoid huge scans
+      for (var i = 0; i < sample.length; i++) {
+        needed.add(sample.charCodeAt(i));
+      }
+      // If nothing was captured (empty pages), bias toward basic Latin so pages still render
+      if (needed.size === 0) {
+        'Hello'.split('').forEach(function(ch) { needed.add(ch.charCodeAt(0)); });
+      }
+    } catch (e) {
+      debugLog('[AFFO Content] Failed to collect needed code points:', e);
+    }
+    return needed;
+  }
+
+  // Select only the font files whose unicode-range overlaps the page content
+  function filterUrlsByUnicodeRange(urls, entries, neededCodePoints) {
+    if (!urls || urls.length === 0) return [];
+    if (!entries || entries.length === 0 || !neededCodePoints || neededCodePoints.size === 0) {
+      return urls;
+    }
+
+    var urlToRanges = entries.reduce(function(map, entry) {
+      map[entry.url] = entry.ranges || [];
+      return map;
+    }, {});
+
+    var selected = [];
+
+    urls.forEach(function(url) {
+      var ranges = urlToRanges[url];
+      if (!ranges || ranges.length === 0) return;
+
+      var intersects = false;
+      neededCodePoints.forEach(function(cp) {
+        if (intersects) return;
+        for (var i = 0; i < ranges.length; i++) {
+          var r = ranges[i];
+          if (cp >= r[0] && cp <= r[1]) {
+            intersects = true;
+            break;
+          }
+        }
+      });
+
+      if (intersects) selected.push(url);
+    });
+
+    if (selected.length > 0) return selected;
+
+    // Fallback: prefer latin URLs if nothing matched, otherwise return original list
+    var latinFallback = urls.filter(function(url) { return url.includes('latin'); });
+    if (latinFallback.length > 0) return latinFallback;
+    return urls;
+  }
+
   function tryFontFaceAPI(fontConfig) {
     var fontName = fontConfig.fontName;
     if (!window.FontFace || !document.fonts) {
@@ -862,18 +965,23 @@
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
             });
 
+            // Build unicode-range map per URL so we can mimic browser subset selection
+            var fontFaceEntries = extractFontFaceEntries(css);
+            var neededCodePoints = collectNeededCodePoints();
+            var filteredUrls = filterUrlsByUnicodeRange(woff2Urls, fontFaceEntries, neededCodePoints);
+
             // Prioritize Latin subsets for faster initial render
-            var latinUrls = woff2Urls.filter(function(url) {
+            var latinUrls = filteredUrls.filter(function(url) {
               return url.includes('latin') && !url.includes('ext');
             });
-            var latinExtUrls = woff2Urls.filter(function(url) {
+            var latinExtUrls = filteredUrls.filter(function(url) {
               return url.includes('latin-ext');
             });
-            var otherUrls = woff2Urls.filter(function(url) {
+            var otherUrls = filteredUrls.filter(function(url) {
               return !url.includes('latin');
             });
 
-            debugLog(`[AFFO Content] Prioritizing font loading: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets for ${fontName}`);
+            debugLog(`[AFFO Content] Prioritizing font loading after unicode filtering: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets for ${fontName}`);
 
             // Load Latin first (most critical), then others in parallel
             var prioritizedUrls = latinUrls.concat(latinExtUrls).concat(otherUrls);

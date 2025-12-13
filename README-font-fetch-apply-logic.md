@@ -14,6 +14,7 @@ Sources & Permissions
   - CSS2: axis‑tag URL built from metadata (see "CSS2 Axis Map") and added via a `<link>` (standard domains).
   - FontFace-only domains (default: x.com): WOFF2 files fetched via background script and loaded through FontFace API to bypass CSP.
   - Font files: downloaded by the browser via css2 stylesheet (standard) or background script (FontFace-only).
+  - FontFace-only domains further parse css2 `unicode-range` and fetch only the subsets that overlap the current page text (sampled), defaulting to Latin if no match.
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
   - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
