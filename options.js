@@ -297,6 +297,32 @@
     }
   }
 
+  async function refreshGfMetadata(){
+    const statusEl = document.getElementById('status-gf-metadata');
+    try {
+      statusEl.textContent = 'Refreshing...';
+      const res = await fetch('https://fonts.google.com/metadata/fonts', { credentials: 'omit' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const json = text.replace(/^\)\]\}'\n?/, '');
+      let metadata;
+      try {
+        metadata = JSON.parse(json);
+      } catch (e) {
+        throw new Error('Failed to parse metadata: ' + e.message);
+      }
+      await browser.storage.local.set({
+        gfMetadataCache: metadata,
+        gfMetadataTimestamp: Date.now()
+      });
+      statusEl.textContent = 'Refreshed';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   async function saveToolbar(){
     try {
       const enabled = document.getElementById('toolbar-enabled').value === 'true';
@@ -430,6 +456,7 @@
     document.getElementById('pageup-longpress-overlap').addEventListener('input', updateToolbarValues);
     document.getElementById('clear-font-cache').addEventListener('click', clearFontCache);
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
+    document.getElementById('refresh-gf-metadata').addEventListener('click', refreshGfMetadata);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
 
     // Icon theme will only apply on save, not on change

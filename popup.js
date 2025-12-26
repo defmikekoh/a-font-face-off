@@ -5621,7 +5621,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (topLineHeightGroup) topLineHeightGroup.classList.remove('unset');
             const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
             const topLineHeightValue = document.getElementById('top-line-height-value');
+            const topLineHeightText = document.getElementById('top-line-height-text');
             if (topLineHeightValue) topLineHeightValue.textContent = v;
+            if (topLineHeightText) topLineHeightText.value = v;
             updateThirdManInPreview('top');
             // Save state after line-height change
             saveExtensionState();
@@ -5633,7 +5635,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             if (bottomLineHeightGroup) bottomLineHeightGroup.classList.remove('unset');
             const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
             const bottomLineHeightValue = document.getElementById('bottom-line-height-value');
+            const bottomLineHeightText = document.getElementById('bottom-line-height-text');
             if (bottomLineHeightValue) bottomLineHeightValue.textContent = v;
+            if (bottomLineHeightText) bottomLineHeightText.value = v;
             updateThirdManInPreview('bottom');
             // Save state after line-height change
             saveExtensionState();
