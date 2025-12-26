@@ -1232,27 +1232,45 @@ function ensureGfMetadata() {
         const now = Date.now();
         const cacheAge = now - (data.gfMetadataTimestamp || 0);
         const twentyFourHours = 24 * 60 * 60 * 1000;
+        const remoteUrl = 'https://fonts.google.com/metadata/fonts';
+
+        const parseMetadataText = text => {
+            const jsonLocal = text.replace(/^\)\]\}'\n?/, '');
+            return JSON.parse(jsonLocal);
+        };
+
+        const cacheMetadata = metadata => {
+            gfMetadata = metadata;
+            browser.storage.local.set({
+                gfMetadataCache: gfMetadata,
+                gfMetadataTimestamp: now
+            }).catch(e => console.warn('Failed to cache GF metadata:', e));
+            return gfMetadata;
+        };
+
+        const fetchRemoteMetadata = () => {
+            return fetch(remoteUrl, { credentials: 'omit' }).then(res => {
+                if (!res.ok) throw new Error(`Remote HTTP ${res.status}`);
+                return res.text();
+            }).then(parseMetadataText).then(cacheMetadata);
+        };
+
+        const fetchLocalMetadata = () => {
+            return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
+                if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+                return resLocal.text();
+            }).then(parseMetadataText).then(cacheMetadata);
+        };
 
         if (data.gfMetadataCache && cacheAge < twentyFourHours) {
             gfMetadata = data.gfMetadataCache;
             return gfMetadata;
         }
 
-        // Cache expired or missing, fetch fresh data
-        return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
-            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-            return resLocal.text();
-        }).then(textLocal => {
-            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
-            gfMetadata = JSON.parse(jsonLocal);
-
-            // Cache the metadata with timestamp
-            browser.storage.local.set({
-                gfMetadataCache: gfMetadata,
-                gfMetadataTimestamp: now
-            }).catch(e => console.warn('Failed to cache GF metadata:', e));
-
-            return gfMetadata;
+        // Cache expired or missing, fetch fresh data (remote first, then local fallback)
+        return fetchRemoteMetadata().catch(err => {
+            console.warn('Remote metadata load failed; falling back to local metadata', err);
+            return fetchLocalMetadata();
         }).catch(e2 => {
             console.warn('Local metadata load failed; proceeding with empty metadata', e2);
             gfMetadata = { familyMetadataList: [] };
@@ -1261,13 +1279,32 @@ function ensureGfMetadata() {
     }).catch(e => {
         console.warn('Storage access failed, loading fresh metadata:', e);
         // Fallback to original behavior if storage fails
-        return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
-            if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-            return resLocal.text();
-        }).then(textLocal => {
-            const jsonLocal = textLocal.replace(/^\)\]\}'\n?/, '');
-            gfMetadata = JSON.parse(jsonLocal);
+        const remoteUrl = 'https://fonts.google.com/metadata/fonts';
+        const parseMetadataText = text => {
+            const jsonLocal = text.replace(/^\)\]\}'\n?/, '');
+            return JSON.parse(jsonLocal);
+        };
+        const fetchRemoteMetadata = () => {
+            return fetch(remoteUrl, { credentials: 'omit' }).then(res => {
+                if (!res.ok) throw new Error(`Remote HTTP ${res.status}`);
+                return res.text();
+            }).then(parseMetadataText);
+        };
+        const fetchLocalMetadata = () => {
+            return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
+                if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
+                return resLocal.text();
+            }).then(parseMetadataText);
+        };
+        return fetchRemoteMetadata().then(metadata => {
+            gfMetadata = metadata;
             return gfMetadata;
+        }).catch(err => {
+            console.warn('Remote metadata load failed; falling back to local metadata', err);
+            return fetchLocalMetadata().then(metadata => {
+                gfMetadata = metadata;
+                return gfMetadata;
+            });
         }).catch(e2 => {
             console.warn('Local metadata load failed; proceeding with empty metadata', e2);
             gfMetadata = { familyMetadataList: [] };

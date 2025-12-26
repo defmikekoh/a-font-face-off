@@ -68,6 +68,8 @@ The extension uses a unified storage architecture with `browser.storage.local` f
 | `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
+| `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
+| `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 
 ## Mode Types
 
