@@ -842,6 +842,11 @@
       .filter(Boolean)
       .map(function(part) {
         var cleaned = part.replace(/u\+/i, '');
+        if (cleaned.indexOf('?') !== -1 && cleaned.indexOf('-') === -1) {
+          var startWildcard = cleaned.replace(/\?/g, '0');
+          var endWildcard = cleaned.replace(/\?/g, 'F');
+          return [parseInt(startWildcard, 16), parseInt(endWildcard, 16)];
+        }
         if (cleaned.indexOf('-') !== -1) {
           var pieces = cleaned.split('-');
           return [parseInt(pieces[0], 16), parseInt(pieces[1], 16)];
@@ -852,6 +857,35 @@
       .filter(function(pair) { return isFinite(pair[0]) && isFinite(pair[1]); });
   }
 
+  var FONTFACE_SUBSET_SAMPLE_LIMIT = 20000;
+  var FONTFACE_MAX_UNIQUE_CODEPOINTS = 2000;
+  var FONTFACE_MAX_SUBSET_DOWNLOADS = 16;
+  var FONTFACE_MAX_PARALLEL_DOWNLOADS = 4;
+
+  function dedupeUrls(urls) {
+    if (!urls || urls.length === 0) return [];
+    var seen = new Set();
+    var unique = [];
+    urls.forEach(function(url) {
+      if (!seen.has(url)) {
+        seen.add(url);
+        unique.push(url);
+      }
+    });
+    return unique;
+  }
+
+  function buildUrlToRanges(entries) {
+    return entries.reduce(function(map, entry) {
+      if (!entry || !entry.url) return map;
+      if (!map[entry.url]) map[entry.url] = [];
+      if (entry.ranges && entry.ranges.length) {
+        map[entry.url] = map[entry.url].concat(entry.ranges);
+      }
+      return map;
+    }, {});
+  }
+
   // Collect a snapshot of code points in the current document to choose subsets
   function collectNeededCodePoints() {
     var needed = new Set();
@@ -860,9 +894,12 @@
       if (document.body && typeof document.body.innerText === 'string') {
         text = document.body.innerText || '';
       }
-      var sample = text.slice(0, 50000); // avoid huge scans
+      var sample = text.slice(0, FONTFACE_SUBSET_SAMPLE_LIMIT); // avoid huge scans
       for (var i = 0; i < sample.length; i++) {
         needed.add(sample.charCodeAt(i));
+        if (FONTFACE_MAX_UNIQUE_CODEPOINTS && needed.size >= FONTFACE_MAX_UNIQUE_CODEPOINTS) {
+          break;
+        }
       }
       // If nothing was captured (empty pages), bias toward basic Latin so pages still render
       if (needed.size === 0) {
@@ -875,44 +912,90 @@
   }
 
   // Select only the font files whose unicode-range overlaps the page content
-  function filterUrlsByUnicodeRange(urls, entries, neededCodePoints) {
-    if (!urls || urls.length === 0) return [];
+  function selectUrlsByUnicodeRange(urls, entries, neededCodePoints, options) {
+    var opts = options || {};
+    var maxUrls = opts.maxUrls;
+
+    var uniqueUrls = dedupeUrls(urls);
+    if (uniqueUrls.length === 0) return [];
     if (!entries || entries.length === 0 || !neededCodePoints || neededCodePoints.size === 0) {
-      return urls;
+      if (maxUrls && uniqueUrls.length > maxUrls) return uniqueUrls.slice(0, maxUrls);
+      return uniqueUrls;
     }
 
-    var urlToRanges = entries.reduce(function(map, entry) {
-      map[entry.url] = entry.ranges || [];
-      return map;
-    }, {});
+    var urlToRanges = buildUrlToRanges(entries);
+    var neededList = Array.from(neededCodePoints);
 
-    var selected = [];
+    var scored = [];
 
-    urls.forEach(function(url) {
+    uniqueUrls.forEach(function(url, index) {
       var ranges = urlToRanges[url];
       if (!ranges || ranges.length === 0) return;
 
-      var intersects = false;
-      neededCodePoints.forEach(function(cp) {
-        if (intersects) return;
-        for (var i = 0; i < ranges.length; i++) {
-          var r = ranges[i];
+      var score = 0;
+      for (var i = 0; i < neededList.length; i++) {
+        var cp = neededList[i];
+        for (var j = 0; j < ranges.length; j++) {
+          var r = ranges[j];
           if (cp >= r[0] && cp <= r[1]) {
-            intersects = true;
+            score++;
             break;
           }
         }
-      });
+      }
 
-      if (intersects) selected.push(url);
+      if (score > 0) {
+        scored.push({ url: url, score: score, index: index });
+      }
     });
 
-    if (selected.length > 0) return selected;
+    if (scored.length === 0) {
+      var latinFallback = uniqueUrls.filter(function(url) { return url.includes('latin'); });
+      var fallbackUrls = latinFallback.length > 0 ? latinFallback : uniqueUrls;
+      if (maxUrls && fallbackUrls.length > maxUrls) return fallbackUrls.slice(0, maxUrls);
+      return fallbackUrls;
+    }
 
-    // Fallback: prefer latin URLs if nothing matched, otherwise return original list
-    var latinFallback = urls.filter(function(url) { return url.includes('latin'); });
-    if (latinFallback.length > 0) return latinFallback;
-    return urls;
+    scored.sort(function(a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.index - b.index;
+    });
+
+    var selectedUrls = scored.map(function(entry) { return entry.url; });
+    if (maxUrls && selectedUrls.length > maxUrls) {
+      selectedUrls = selectedUrls.slice(0, maxUrls);
+    }
+    return selectedUrls;
+  }
+
+  function runWithConcurrency(items, limit, handler) {
+    if (!Array.isArray(items) || items.length === 0) return Promise.resolve([]);
+    var results = new Array(items.length);
+    var nextIndex = 0;
+    var inFlight = 0;
+    var maxParallel = Math.max(1, limit || 1);
+
+    return new Promise(function(resolve) {
+      function launchNext() {
+        if (nextIndex >= items.length && inFlight === 0) {
+          resolve(results);
+          return;
+        }
+        while (inFlight < maxParallel && nextIndex < items.length) {
+          (function(index) {
+            inFlight++;
+            Promise.resolve(handler(items[index], index))
+              .then(function(result) { results[index] = result; })
+              .catch(function() { results[index] = false; })
+              .then(function() {
+                inFlight--;
+                launchNext();
+              });
+          })(nextIndex++);
+        }
+      }
+      launchNext();
+    });
   }
 
   function tryFontFaceAPI(fontConfig) {
@@ -964,11 +1047,19 @@
             var woff2Urls = woff2Matches.map(function(match) {
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
             });
+            var uniqueWoff2Urls = dedupeUrls(woff2Urls);
 
             // Build unicode-range map per URL so we can mimic browser subset selection
             var fontFaceEntries = extractFontFaceEntries(css);
             var neededCodePoints = collectNeededCodePoints();
-            var filteredUrls = filterUrlsByUnicodeRange(woff2Urls, fontFaceEntries, neededCodePoints);
+            var filteredUrls = selectUrlsByUnicodeRange(uniqueWoff2Urls, fontFaceEntries, neededCodePoints, {
+              maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS
+            });
+
+            if (FONTFACE_MAX_SUBSET_DOWNLOADS && uniqueWoff2Urls.length > filteredUrls.length &&
+                filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
+              console.warn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
+            }
 
             // Prioritize Latin subsets for faster initial render
             var latinUrls = filteredUrls.filter(function(url) {
@@ -986,8 +1077,13 @@
             // Load Latin first (most critical), then others in parallel
             var prioritizedUrls = latinUrls.concat(latinExtUrls).concat(otherUrls);
 
-            var loadPromises = prioritizedUrls.map(function(woff2Url, index) {
-              debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${woff2Urls.length}: ${woff2Url}`);
+            if (prioritizedUrls.length === 0) {
+              debugLog(`[AFFO Content] No WOFF2 URLs selected after unicode filtering for ${fontName}`);
+              return Promise.resolve();
+            }
+
+            return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function(woff2Url, index) {
+              debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${prioritizedUrls.length}: ${woff2Url}`);
 
               return browser.runtime.sendMessage({
                 type: 'affoFetch',
@@ -1023,10 +1119,7 @@
                 debugLog(`[AFFO Content] WOFF2 download ${index + 1} exception:`, e);
                 return false;
               });
-            });
-            
-            // Wait for all subsets to load
-            return Promise.all(loadPromises).then(function(results) {
+            }).then(function(results) {
               var successCount = results.filter(Boolean).length;
               debugLog(`[AFFO Content] Loaded ${successCount}/${results.length} font subsets for ${fontName}`);
               return results;
@@ -1734,7 +1827,20 @@
   // Message listener - handles cleanup, fonts applied by popup insertCSS
   try {
     browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-      if (message.type === 'applyFonts') {
+      if (message.type === 'affoFilterFontSubsets') {
+        try {
+          var cssText = typeof message.cssText === 'string' ? message.cssText : '';
+          var urls = Array.isArray(message.urls) ? message.urls.filter(function(url) { return typeof url === 'string'; }) : [];
+          var entries = extractFontFaceEntries(cssText);
+          var neededCodePoints = collectNeededCodePoints();
+          var maxUrls = (typeof message.maxUrls === 'number') ? message.maxUrls : undefined;
+          var filteredUrls = selectUrlsByUnicodeRange(urls, entries, neededCodePoints, { maxUrls: maxUrls });
+          sendResponse({ ok: true, urls: filteredUrls, total: urls.length });
+        } catch (error) {
+          console.error('[AFFO Content] Error filtering font subsets:', error);
+          sendResponse({ ok: false, error: error.message });
+        }
+      } else if (message.type === 'applyFonts') {
         // All font application is now handled by popup insertCSS
         debugLog('Content script received applyFonts message - fonts applied by popup insertCSS');
         sendResponse({success: true});

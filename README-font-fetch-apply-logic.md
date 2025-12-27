@@ -14,7 +14,8 @@ Sources & Permissions
   - CSS2: axis‑tag URL built from metadata (see "CSS2 Axis Map") and added via a `<link>` (standard domains).
   - FontFace-only domains (default: x.com): WOFF2 files fetched via background script and loaded through FontFace API to bypass CSP.
   - Font files: downloaded by the browser via css2 stylesheet (standard) or background script (FontFace-only).
-  - FontFace-only domains further parse css2 `unicode-range` and fetch only the subsets that overlap the current page text (sampled), defaulting to Latin if no match.
+  - FontFace-only domains further parse css2 `unicode-range` and fetch only the subsets that overlap the current page text (sampled); downloads are capped and concurrency-limited to avoid overload, defaulting to Latin if no match.
+  - Apply All preloading on inline apply domains uses the same page-text sampling and unicode-range filtering before caching subsets.
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
   - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
@@ -33,13 +34,14 @@ File ref: `background.js:1-125`
   - Manual cache clearing via options page
 - **Benefits**: Faster font loading on repeated visits, works across tabs/page reloads, reduces network usage.
 - **Persistence**: Cache survives browser restarts and works across all tabs visiting FontFace-only domains.
+- **Preload caps**: Apply All preloading caches Latin/Latin-ext and a capped set of other subsets; remaining subsets load on demand to avoid spikes on huge families.
 
 Selection → Load Flow
 ---------------------
 1) User opens the Font Picker modal and clicks a family.
 2) `loadFont(position, fontName)` applies the choice and kicks off loading:
    - Google families (standard domains): adds a `css2` `<link>`. If metadata provides axis information for the family, we request an axis‑tag css2 URL with exact ranges and all axes; otherwise we request the plain css2 URL.
-   - Google families (FontFace-only domains): uses background script to fetch WOFF2 files and loads via FontFace API to bypass CSP restrictions.
+   - Google families (FontFace-only domains): uses background script to fetch WOFF2 files and loads via FontFace API to bypass CSP restrictions (unicode-range filtered, capped subset count, throttled downloads).
    - ABC Ginto: injects the CDN stylesheet, then waits on `document.fonts.load('400 1em "ABC Ginto Normal Unlicensed Trial"')` before applying.
    - BBC Reith: relies on the static `@font-face` declarations in CSS.
 

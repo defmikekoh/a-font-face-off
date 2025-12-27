@@ -2169,8 +2169,10 @@ async function applyFontConfig(position, config) {
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
         if (fsVal) fsVal.textContent = (config.fontSize || 17) + 'px';
-        document.getElementById(`${position}-line-height-value`).textContent = config.lineHeight || 1.5;
-        document.getElementById(`${position}-font-weight-value`).textContent = config.fontWeight || 400;
+        const lhVal = document.getElementById(`${position}-line-height-value`);
+        if (lhVal) lhVal.textContent = config.lineHeight || 1.5;
+        const fwVal = document.getElementById(`${position}-font-weight-value`);
+        if (fwVal) fwVal.textContent = config.fontWeight || 400;
 
         // Restore active controls state from flattened config
         const activeControlsFromConfig = getActiveControlsFromConfig(config);
@@ -2764,6 +2766,77 @@ async function selectFont(name) {
     });
 }
 
+const PRELOAD_MAX_OTHER_SUBSETS = 6;
+const PRELOAD_MAX_CONCURRENT_DOWNLOADS = 4;
+const PRELOAD_MAX_SUBSET_DOWNLOADS = 16;
+
+function dedupeUrls(urls) {
+    if (!Array.isArray(urls) || urls.length === 0) return [];
+    const seen = new Set();
+    const unique = [];
+    urls.forEach((url) => {
+        if (!seen.has(url)) {
+            seen.add(url);
+            unique.push(url);
+        }
+    });
+    return unique;
+}
+
+function runWithConcurrency(items, limit, handler) {
+    if (!Array.isArray(items) || items.length === 0) return Promise.resolve([]);
+    const results = new Array(items.length);
+    let nextIndex = 0;
+    let inFlight = 0;
+    const maxParallel = Math.max(1, limit || 1);
+
+    return new Promise((resolve) => {
+        const launchNext = () => {
+            if (nextIndex >= items.length && inFlight === 0) {
+                resolve(results);
+                return;
+            }
+            while (inFlight < maxParallel && nextIndex < items.length) {
+                const currentIndex = nextIndex++;
+                inFlight++;
+                Promise.resolve(handler(items[currentIndex], currentIndex))
+                    .then((result) => { results[currentIndex] = result; })
+                    .catch(() => { results[currentIndex] = false; })
+                    .then(() => {
+                        inFlight--;
+                        launchNext();
+                    });
+            }
+        };
+        launchNext();
+    });
+}
+
+async function filterFontSubsetsForActivePage(fontName, cssText, urls) {
+    if (!urls.length) return urls;
+    try {
+        const response = await sendMessageToTargetTab({
+            type: 'affoFilterFontSubsets',
+            fontName,
+            cssText,
+            urls,
+            maxUrls: PRELOAD_MAX_SUBSET_DOWNLOADS
+        });
+        if (response && response.ok && Array.isArray(response.urls) && response.urls.length) {
+            if (response.urls.length !== urls.length) {
+                console.log(`[AFFO Preload] ${fontName}: Using ${response.urls.length}/${urls.length} subsets based on page text`);
+            }
+            return response.urls;
+        }
+        if (response && response.ok && Array.isArray(response.urls)) {
+            console.log(`[AFFO Preload] ${fontName}: Page text filter returned 0 subsets, falling back to full list`);
+        }
+    } catch (error) {
+        console.warn(`[AFFO Preload] ${fontName}: Page text filter unavailable, using full list`, error);
+    }
+    return urls;
+}
+
 // Preload all font subsets for a given font (used for eager caching on Apply All)
 async function preloadAllFontSubsets(fontName, css2Url) {
     console.log(`[AFFO Preload] Starting preload for ${fontName} with css2Url:`, css2Url);
@@ -2794,41 +2867,53 @@ async function preloadAllFontSubsets(fontName, css2Url) {
             match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2')
         );
 
-        console.log(`[AFFO Preload] Found ${woff2Urls.length} WOFF2 files for ${fontName}`);
+        const uniqueWoff2Urls = dedupeUrls(woff2Urls);
+        const filteredWoff2Urls = await filterFontSubsetsForActivePage(fontName, css, uniqueWoff2Urls);
+        const subsetUrls = Array.isArray(filteredWoff2Urls) && filteredWoff2Urls.length
+            ? filteredWoff2Urls
+            : uniqueWoff2Urls;
+
+        console.log(`[AFFO Preload] Found ${subsetUrls.length} WOFF2 files for ${fontName}`);
 
         // Step 3: Prioritize Latin subsets first, then load others
-        const latinUrls = woff2Urls.filter(url =>
+        const latinUrls = subsetUrls.filter(url =>
             url.includes('latin') && !url.includes('ext')
         );
-        const latinExtUrls = woff2Urls.filter(url =>
+        const latinExtUrls = subsetUrls.filter(url =>
             url.includes('latin-ext')
         );
-        const otherUrls = woff2Urls.filter(url =>
+        const otherUrls = subsetUrls.filter(url =>
             !url.includes('latin')
         );
 
-        console.log(`[AFFO Preload] ${fontName}: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets`);
+        const limitedOtherUrls = otherUrls.slice(0, PRELOAD_MAX_OTHER_SUBSETS);
+        if (otherUrls.length > limitedOtherUrls.length) {
+            console.log(`[AFFO Preload] Limiting other subsets for ${fontName} to ${limitedOtherUrls.length}/${otherUrls.length} to avoid overload`);
+        }
+
+        console.log(`[AFFO Preload] ${fontName}: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${limitedOtherUrls.length}/${otherUrls.length} other subsets`);
 
         // Step 4: Load Latin first (most critical), then Latin-ext, then others in background
         const loadSubsets = async (urls, label) => {
-            const promises = urls.map(url =>
-                browser.runtime.sendMessage({
-                    type: 'affoFetch',
-                    url: url,
-                    binary: true
-                }).then(response => {
+            if (!urls.length) return [];
+            return runWithConcurrency(urls, PRELOAD_MAX_CONCURRENT_DOWNLOADS, async (url) => {
+                try {
+                    const response = await browser.runtime.sendMessage({
+                        type: 'affoFetch',
+                        url: url,
+                        binary: true
+                    });
                     if (response && response.ok) {
                         const status = response.cached ? 'cached' : 'downloaded';
                         console.log(`[AFFO Preload] ${fontName} ${label} subset ${status}:`, url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.')));
                         return true;
                     }
                     return false;
-                }).catch(error => {
+                } catch (error) {
                     console.warn(`[AFFO Preload] Failed to download ${label} subset:`, url, error);
                     return false;
-                })
-            );
-            return Promise.all(promises);
+                }
+            });
         };
 
         // Load Latin subsets first (blocking)
@@ -2844,8 +2929,8 @@ async function preloadAllFontSubsets(fontName, css2Url) {
         console.log(`[AFFO Preload] ${fontName} - Critical subsets cached and flushed to storage`);
 
         // Load other subsets in background (non-blocking)
-        if (otherUrls.length > 0) {
-            loadSubsets(otherUrls, 'other').then(async () => {
+        if (limitedOtherUrls.length > 0) {
+            loadSubsets(limitedOtherUrls, 'other').then(async () => {
                 console.log(`[AFFO Preload] ${fontName} - All subsets downloaded, flushing...`);
                 await browser.runtime.sendMessage({ type: 'flushFontCache' });
                 console.log(`[AFFO Preload] ${fontName} - All subsets cached and flushed`);
@@ -5800,9 +5885,9 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
             const lineHeightValue = document.getElementById(`${position}-line-height-value`);
 
-            if (lineHeightControl && lineHeightValue) {
+            if (lineHeightControl) {
                 lineHeightControl.value = 1.5;
-                lineHeightValue.textContent = '1.5';
+                if (lineHeightValue) lineHeightValue.textContent = '1.5';
                 if (lineHeightTextInput) {
                     lineHeightTextInput.value = 1.5;
                 }
@@ -6379,8 +6464,10 @@ function resetTopFont() {
 
     // Reset display values
     (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('top-line-height-value').textContent = '1.5';
-    document.getElementById('top-font-weight-value').textContent = '400';
+    const topLineHeightValue = document.getElementById('top-line-height-value');
+    if (topLineHeightValue) topLineHeightValue.textContent = '1.5';
+    const topFontWeightValue = document.getElementById('top-font-weight-value');
+    if (topFontWeightValue) topFontWeightValue.textContent = '400';
 
     // Reset weight control to unset/dimmed state
     const weightControl = document.querySelector('#top-font-controls .control-group[data-control="weight"]');
@@ -6435,8 +6522,10 @@ function resetBottomFont() {
 
     // Reset display values
     (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
-    document.getElementById('bottom-line-height-value').textContent = '1.5';
-    document.getElementById('bottom-font-weight-value').textContent = '400';
+    const bottomLineHeightValue = document.getElementById('bottom-line-height-value');
+    if (bottomLineHeightValue) bottomLineHeightValue.textContent = '1.5';
+    const bottomFontWeightValue = document.getElementById('bottom-font-weight-value');
+    if (bottomFontWeightValue) bottomFontWeightValue.textContent = '400';
 
     // Reset weight control to unset/dimmed state
     const weightControl = document.querySelector('#bottom-font-controls .control-group[data-control="weight"]');
