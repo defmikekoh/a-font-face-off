@@ -1,5 +1,6 @@
 // View mode: 'body-contact', 'faceoff', or 'third-man-in' (facade mode removed)
 let currentViewMode = null; // Start modeless to avoid warnings when switching to appropriate mode
+let suppressUiStateSave = false;
 
 // Panel state tracking across mode switches
 // On mobile (narrow screens), faceoff panels should start hidden
@@ -346,29 +347,36 @@ async function loadModeSettings() {
         }
     } else if (currentViewMode === 'faceoff') {
         // Face-off mode (existing behavior)
-        // Load top font - face-off mode always needs a font family
-        if (modeState.topFont && modeState.topFont.fontName) {
-            await applyFontConfig('top', modeState.topFont);
-        } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.fontWeight || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
-            // Has saved settings but no custom font - load default font then apply settings
-            await loadFont('top', 'ABeeZee');
-            await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
-        } else {
-            // Use default font for this mode
-            loadFont('top', 'ABeeZee');
-        }
+        const priorSuppressUiStateSave = suppressUiStateSave;
+        suppressUiStateSave = true;
+        try {
+            // Load top font - face-off mode always needs a font family
+            if (modeState.topFont && modeState.topFont.fontName) {
+                await applyFontConfig('top', modeState.topFont);
+            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.fontWeight || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
+                // Has saved settings but no custom font - load default font then apply settings
+                await loadFont('top', 'ABeeZee');
+                await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
+            } else {
+                // Use default font for this mode
+                loadFont('top', 'ABeeZee');
+            }
 
-        // Load bottom font - face-off mode always needs a font family
-        if (modeState.bottomFont && modeState.bottomFont.fontName) {
-            await applyFontConfig('bottom', modeState.bottomFont);
-        } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.fontWeight || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
-            // Has saved settings but no custom font - load default font then apply settings
-            await loadFont('bottom', 'Zilla Slab Highlight');
-            await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
-        } else {
-            // Use default font for this mode
-            loadFont('bottom', 'Zilla Slab Highlight');
+            // Load bottom font - face-off mode always needs a font family
+            if (modeState.bottomFont && modeState.bottomFont.fontName) {
+                await applyFontConfig('bottom', modeState.bottomFont);
+            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.fontWeight || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
+                // Has saved settings but no custom font - load default font then apply settings
+                await loadFont('bottom', 'Zilla Slab Highlight');
+                await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
+            } else {
+                // Use default font for this mode
+                loadFont('bottom', 'Zilla Slab Highlight');
+            }
+        } finally {
+            suppressUiStateSave = priorSuppressUiStateSave;
         }
+        await saveExtensionState();
     }
     // Note: Other modes like 'body-contact' and 'third-man-in' are handled above
 }
@@ -1373,8 +1381,16 @@ async function saveExtensionStateImmediate() {
         }
     } else {
         // Face-off mode
-        const topConfig = getCurrentUIConfig('top');
-        const bottomConfig = getCurrentUIConfig('bottom');
+        const getFaceoffFallbackConfig = (position) => {
+            const display = document.getElementById(`${position}-font-display`);
+            const name = display ? String(display.textContent || '').trim() : '';
+            if (!name || name.toLowerCase() === 'default') return undefined;
+            return { fontName: name, variableAxes: {} };
+        };
+
+        const topConfig = getCurrentUIConfig('top') || getFaceoffFallbackConfig('top');
+        const bottomConfig = getCurrentUIConfig('bottom') || getFaceoffFallbackConfig('bottom');
+        console.log('saveExtensionStateImmediate: faceoff configs', { topConfig, bottomConfig });
 
         if (topConfig) {
             extensionState[currentViewMode].topFont = topConfig;
@@ -3828,8 +3844,10 @@ function applyFont(position) {
         }
     }
 
-    // Save state after applying font changes
-    saveExtensionState();
+    // Save state after applying font changes (skip during restoration)
+    if (!suppressUiStateSave) {
+        saveExtensionState();
+    }
 }
 
 // updateBasicControls function removed - event listeners are now set up in DOMContentLoaded
@@ -4040,6 +4058,11 @@ function showFavoritesPopup(position) {
                             await updateBodyButtons();
                         } else if (currentViewMode === 'third-man-in') {
                             await updateAllThirdManInButtons();
+                        } else if (currentViewMode === 'faceoff') {
+                            saveExtensionState();
+                            try {
+                                refreshApplyButtonsDirtyState();
+                            } catch (_) {}
                         }
 
                         // Only hide popup after everything is complete
