@@ -511,6 +511,30 @@
     </div>
 
     <div class="section">
+      <div class="section-title">WebDAV Custom Fonts Sync</div>
+      <label for="webdav-url">WebDAV Server URL</label>
+      <input id="webdav-url" type="text" placeholder="https://example.com/remote.php/dav/files/you/">
+      <label>
+        <input id="webdav-anon" type="checkbox"> Anonymous (no auth)
+      </label>
+      <label for="webdav-username">Username</label>
+      <input id="webdav-username" type="text" placeholder="username">
+      <label for="webdav-password">Password</label>
+      <input id="webdav-password" type="password" placeholder="password">
+      <div class="row">
+        <button id="save-webdav">Save WebDAV Settings</button>
+        <span id="status-webdav" class="status"></span>
+      </div>
+      <div class="row">
+        <button id="webdav-pull" class="purple">Pull Custom Fonts</button>
+        <button id="webdav-push">Push Custom Fonts</button>
+        <button id="webdav-clear-local" class="danger">Clear Local Override</button>
+        <span id="status-webdav-sync" class="status"></span>
+      </div>
+      <div class="hint">Syncs `custom-fonts.css` with your WebDAV server at `/a-font-face-off/custom-fonts.css`.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Font Cache Management</div>
       <div class="row">
         <button id="clear-font-cache" class="purple">Clear Font Cache</button>

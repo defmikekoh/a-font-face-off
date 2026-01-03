@@ -1,0 +1,171 @@
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Md.woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Bd.woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_ExBd.woff2");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_LtIt.woff2");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_It.woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_MdIt.woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_BdIt.woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Serif";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_ExBdIt.woff2");
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Rg.woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Md.woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Bd.woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_ExBd.woff2");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_LtIt.woff2");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_It.woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_MdIt.woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_BdIt.woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "BBC Reith Sans";
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_ExBdIt.woff2");
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+}
+
+
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Regular.woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-RegularItalic.woff2');
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Bold.woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-BoldItalic.woff2');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}

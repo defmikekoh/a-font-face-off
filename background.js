@@ -2,11 +2,114 @@
 const FONT_CACHE_KEY = 'affoFontCache';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
+const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';
+const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
+const WEBDAV_DIR = 'a-font-face-off';
+const CUSTOM_FONTS_CSS_FILENAME = 'custom-fonts.css';
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
 let cachedFontData = null;
 const CACHE_STALE_TIME = 5000; // 5 seconds
+
+function normalizeWebDavUrl(url) {
+  let cleaned = String(url || '').trim();
+  if (!cleaned) throw new Error('WebDAV server URL is required');
+  if (!cleaned.includes('://')) cleaned = `http://${cleaned}`;
+  if (!cleaned.endsWith('/')) cleaned += '/';
+  return cleaned;
+}
+
+function buildWebDavBaseUrl(config) {
+  const root = normalizeWebDavUrl(config.serverUrl);
+  return `${root}${WEBDAV_DIR}/`;
+}
+
+function getWebDavHeaders(config) {
+  const headers = {};
+  if (config.anonymous) return headers;
+  const username = String(config.username || '').trim();
+  const password = String(config.password || '');
+  if (!username || !password) {
+    throw new Error('WebDAV username and password are required');
+  }
+  headers.Authorization = `Basic ${btoa(`${username}:${password}`)}`;
+  return headers;
+}
+
+async function ensureWebDavDir(baseUrl, headers) {
+  const response = await fetch(baseUrl, {
+    method: 'PROPFIND',
+    headers: Object.assign({ Depth: '0' }, headers),
+    credentials: 'omit'
+  });
+  if (response.status === 404) {
+    const mkcol = await fetch(baseUrl, {
+      method: 'MKCOL',
+      headers,
+      credentials: 'omit'
+    });
+    if (!mkcol.ok && mkcol.status !== 405) {
+      throw new Error(`WebDAV MKCOL failed: ${mkcol.status}`);
+    }
+    return;
+  }
+  if (!response.ok) {
+    throw new Error(`WebDAV PROPFIND failed: ${response.status}`);
+  }
+}
+
+async function webDavGetFile(baseUrl, headers, filename) {
+  const response = await fetch(baseUrl + filename, {
+    method: 'GET',
+    headers,
+    credentials: 'omit'
+  });
+  if (response.status === 404) throw new Error('WebDAV file not found');
+  if (!response.ok) throw new Error(`WebDAV GET failed: ${response.status}`);
+  return response.text();
+}
+
+async function webDavPutFile(baseUrl, headers, filename, body) {
+  const response = await fetch(baseUrl + filename, {
+    method: 'PUT',
+    headers: Object.assign({ 'Content-Type': 'text/css' }, headers),
+    body,
+    credentials: 'omit'
+  });
+  if (!response.ok) throw new Error(`WebDAV PUT failed: ${response.status}`);
+}
+
+async function getWebDavConfig() {
+  const data = await browser.storage.local.get(WEBDAV_CONFIG_KEY);
+  return data[WEBDAV_CONFIG_KEY] || {};
+}
+
+async function pullCustomFontsFromWebDav() {
+  const config = await getWebDavConfig();
+  const headers = getWebDavHeaders(config);
+  const baseUrl = buildWebDavBaseUrl(config);
+  await ensureWebDavDir(baseUrl, headers);
+  const cssText = await webDavGetFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME);
+  await browser.storage.local.set({ [CUSTOM_FONTS_CSS_KEY]: cssText });
+  return { ok: true };
+}
+
+async function pushCustomFontsToWebDav() {
+  const config = await getWebDavConfig();
+  const headers = getWebDavHeaders(config);
+  const baseUrl = buildWebDavBaseUrl(config);
+  await ensureWebDavDir(baseUrl, headers);
+  const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
+  let cssText = stored[CUSTOM_FONTS_CSS_KEY];
+  if (!cssText) {
+    const url = browser.runtime.getURL('custom-fonts.css');
+    const response = await fetch(url);
+    cssText = await response.text();
+  }
+  await webDavPutFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME, cssText || '');
+  return { ok: true };
+}
 
 async function getCachedFont(url) {
   const startTime = performance.now();
@@ -178,6 +281,22 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     if (msg.type === 'flushFontCache') {
       await flushCacheWrites();
       return { ok: true };
+    }
+
+    if (msg.type === 'affoWebDavPull') {
+      try {
+        return await pullCustomFontsFromWebDav();
+      } catch (e) {
+        return { ok: false, error: e.message || String(e) };
+      }
+    }
+
+    if (msg.type === 'affoWebDavPush') {
+      try {
+        return await pushCustomFontsToWebDav();
+      } catch (e) {
+        return { ok: false, error: e.message || String(e) };
+      }
     }
 
     // Handle toolbar options requests

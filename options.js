@@ -132,7 +132,8 @@
         'affoToolbarGap',
         'affoPageUpScrollOverlap',
         'affoPageUpLongpressOverlap',
-        'affoIconTheme'
+        'affoIconTheme',
+        'affoWebDavConfig'
       ]);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
@@ -179,6 +180,12 @@
       // Apply icon theme and add click behaviors
       applyIconThemeToPreview();
       addPreviewClickBehaviors();
+
+      const webdav = data.affoWebDavConfig || {};
+      document.getElementById('webdav-url').value = webdav.serverUrl || '';
+      document.getElementById('webdav-anon').checked = !!webdav.anonymous;
+      document.getElementById('webdav-username').value = webdav.username || '';
+      document.getElementById('webdav-password').value = webdav.password || '';
     } catch (e) {}
   }
 
@@ -359,6 +366,66 @@
     }
   }
 
+  async function saveWebDav() {
+    try {
+      const config = {
+        serverUrl: document.getElementById('webdav-url').value.trim(),
+        anonymous: document.getElementById('webdav-anon').checked,
+        username: document.getElementById('webdav-username').value.trim(),
+        password: document.getElementById('webdav-password').value
+      };
+      await browser.storage.local.set({ affoWebDavConfig: config });
+      const s = document.getElementById('status-webdav');
+      s.textContent = 'Saved';
+      setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {
+      const s = document.getElementById('status-webdav');
+      s.textContent = 'Error: ' + e.message;
+      setTimeout(() => { s.textContent = ''; }, 3000);
+    }
+  }
+
+  async function webDavPull() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Pulling...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPull' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV pull failed');
+      statusEl.textContent = 'Pulled';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function webDavPush() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Pushing...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPush' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV push failed');
+      statusEl.textContent = 'Pushed';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function clearCustomFontsOverride() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Clearing...';
+      await browser.storage.local.remove('affoCustomFontsCss');
+      statusEl.textContent = 'Cleared';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
   function updateToolbarValues() {
     const width = document.getElementById('toolbar-width').value;
     const height = document.getElementById('toolbar-height').value;
@@ -458,6 +525,10 @@
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('refresh-gf-metadata').addEventListener('click', refreshGfMetadata);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
+    document.getElementById('save-webdav').addEventListener('click', saveWebDav);
+    document.getElementById('webdav-pull').addEventListener('click', webDavPull);
+    document.getElementById('webdav-push').addEventListener('click', webDavPush);
+    document.getElementById('webdav-clear-local').addEventListener('click', clearCustomFontsOverride);
 
     // Icon theme will only apply on save, not on change
   });

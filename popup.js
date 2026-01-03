@@ -635,467 +635,72 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
     }
 }
 
-// Font definitions - Custom fonts only (Google Fonts loaded dynamically from gf-axis-registry.json)
-const fontDefinitions = {
-    "BBC Reith Serif": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Md.woff2");
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Bd.woff2");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_ExBd.woff2");
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_LtIt.woff2");
-  font-style: italic;
-  font-weight: 300;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_It.woff2");
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_MdIt.woff2");
-  font-style: italic;
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_BdIt.woff2");
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_ExBdIt.woff2");
-  font-style: italic;
-  font-weight: 800;
-  font-display: swap;
-}`
-    },
-    "Graphik Trial": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 400;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Regular-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 400;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-RegularItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 100;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Thin-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 100;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-ThinItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 200;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Extralight-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 200;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-ExtralightItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 300;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Light-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 300;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-LightItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 500;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Medium-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 500;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-MediumItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 600;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Semibold-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 600;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-SemiboldItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 700;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Bold-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 700;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-BoldItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 900;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Black-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 900;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-BlackItalic-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: normal;
-    font-weight: 1000;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-Super-Trial.woff') format('woff');
-}
-@font-face {
-    font-family: 'Graphik Trial';
-    font-display: swap;
-    font-style: italic;
-    font-weight: 1000;
-    src: url('https://fonts.cdnfonts.com/s/86956/Graphik-SuperItalic-Trial.woff') format('woff');
-}`
-    },
-    "FK Roman Standard Trial": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-  font-family: "FK Roman Standard Trial";
-  src: url("https://db.onlinewebfonts.com/t/a2a38c80cf0357178a43afdc8e95e869.woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "FK Roman Standard Trial";
-  src: url("https://db.onlinewebfonts.com/t/beb784012d429b8921e66081b20406b8.woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "FK Roman Standard Trial";
-  src: url("https://db.onlinewebfonts.com/t/5b2e01844093ec2a8881f8caec25ea5e.woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "FK Roman Standard Trial";
-  src: url("https://db.onlinewebfonts.com/t/b4a6d90ef7316c4bf2f7f0c2ff8ff26e.woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "FK Roman Standard Trial";
-  src: url("https://db.onlinewebfonts.com/t/834183e3bc6e87253115df38c19ca08a.woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}`
-    },
-    "ABC Ginto Normal Unlicensed Trial": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 400;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-Regular-Trial-BF651b7b7846685.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 400;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-RegularItalic-Trial-BF651b7b781613c.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 200;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-Thin-Trial-BF651b7b784060c.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 200;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-ThinItalic-Trial-BF651b7b7837e74.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 300;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-Light-Trial-BF651b7b783c2cd.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 300;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-LightItalic-Trial-BF651b7b7805454.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 500;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-Medium-Trial-BF651b7b785204a.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 500;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-MediumItalic-Trial-BF651b7b784a1b6.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 600;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-SemiBold-Trial-BF651b7b784067b.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 600;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-SemiBoldItalic-Trial-BF651b7b784f7b7.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: normal;
-    font-weight: 700;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-Bold-Trial-BF651b7b78552c0.woff') format('woff');
-}
-@font-face {
-    font-family: 'ABC Ginto Normal Unlicensed Trial';
-    font-style: italic;
-    font-weight: 700;
-    src: url('https://fonts.cdnfonts.com/s/105003/ABCGintoNormal-BoldItalic-Trial-BF651b7b7811ccf.woff') format('woff');
-}`
-    },
-    "National": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-  font-family: "National";
-  src: url("https://db.onlinewebfonts.com/t/8150a6fabd9c173b12f255940a062865.woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "National";
-  src: url("https://db.onlinewebfonts.com/t/2328622962a16f35eac898c70d890668.woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "National";
-  src: url("https://db.onlinewebfonts.com/t/42dcc182be94e2c780f2f7f2b1fbd259.woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "National";
-  src: url("https://db.onlinewebfonts.com/t/5fe505101637e5dd959e45d03463112f.woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}`
-    },
-    "GuardianTextEgyptian": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-	font-family: 'GuardianTextEgyptian';
-	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Regular.woff2');
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-@font-face {
-	font-family: 'GuardianTextEgyptian';
-	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-RegularItalic.woff2');
-	font-weight: 400;
-	font-style: italic;
-	font-display: swap;
-}
-@font-face {
-	font-family: 'GuardianTextEgyptian';
-	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Bold.woff2');
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
-}
-@font-face {
-	font-family: 'GuardianTextEgyptian';
-	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-BoldItalic.woff2');
-	font-weight: 700;
-	font-style: italic;
-	font-display: swap;
-}`
-    },
-    "TiemposText": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-  font-family: "TiemposText";
-  src: url("https://db.onlinewebfonts.com/t/37b29158c68de167677fa4a3087d7188.woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TiemposText";
-  src: url("https://db.onlinewebfonts.com/t/5a0f655e9b491e4ed02d0ea75b213bca.woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}`
-    },
-    "Apercu Pro": {
-        axes: [],
-        defaults: {},
-        ranges: {},
-        steps: {},
-        fontFaceRule: `@font-face {
-  font-family: 'Apercu Pro';
-  font-style: normal;
-  font-weight: 400;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_pro.woff') format('woff');
-}
-@font-face {
-  font-family: 'Apercu Pro';
-  font-style: italic;
-  font-weight: 400;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_regular_italic_pro.woff') format('woff');
-}
-@font-face {
-  font-family: 'Apercu Pro';
-  font-style: normal;
-  font-weight: 600;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_pro.woff') format('woff');
-}
-@font-face {
-  font-family: 'Apercu Pro';
-  font-style: italic;
-  font-weight: 600;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_medium_italic_pro.woff') format('woff');
-}
-@font-face {
-  font-family: 'Apercu Pro';
-  font-style: normal;
-  font-weight: 700;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_pro.woff') format('woff');
-}
-@font-face {
-  font-family: 'Apercu Pro';
-  font-style: italic;
-  font-weight: 700;
-  src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_italic_pro.woff') format('woff');
-}`
-    }
-};
+// Custom font definitions are loaded from custom-fonts.css.
+let CUSTOM_FONTS = [];
+let fontDefinitions = {};
+let customFontsCssText = '';
+let customFontsLoaded = false;
+let customFontsPromise = null;
 
+function parseCustomFontsFromCss(cssText) {
+    const blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
+    const names = [];
+    const byName = new Map();
+
+    blocks.forEach(block => {
+        const match = block.match(/font-family\s*:\s*(['"]?)([^;'"]+)\1\s*;/i);
+        if (!match) return;
+        const name = match[2].trim();
+        if (!name) return;
+        if (!byName.has(name)) {
+            byName.set(name, []);
+            names.push(name);
+        }
+        byName.get(name).push(block);
+    });
+
+    const defs = {};
+    names.forEach(name => {
+        defs[name] = {
+            axes: [],
+            defaults: {},
+            ranges: {},
+            steps: {},
+            fontFaceRule: byName.get(name).join('\n')
+        };
+    });
+
+    return { names, defs };
+}
+
+async function ensureCustomFontsLoaded() {
+    if (customFontsLoaded) return;
+    if (!customFontsPromise) {
+        customFontsPromise = (async () => {
+            try {
+                const stored = await browser.storage.local.get('affoCustomFontsCss');
+                let cssText = stored.affoCustomFontsCss;
+                if (!cssText) {
+                    const url = browser.runtime.getURL('custom-fonts.css');
+                    const response = await fetch(url);
+                    cssText = await response.text();
+                }
+                customFontsCssText = cssText || '';
+                const parsed = parseCustomFontsFromCss(customFontsCssText);
+                CUSTOM_FONTS = parsed.names;
+                fontDefinitions = parsed.defs;
+                customFontsLoaded = true;
+            } catch (e) {
+                console.warn('Failed to load custom fonts CSS:', e);
+                CUSTOM_FONTS = [];
+                fontDefinitions = {};
+                customFontsCssText = '';
+                customFontsLoaded = true;
+            }
+        })();
+    }
+    await customFontsPromise;
+}
 // Google Fonts metadata cache
 let gfMetadata = null;
 let css2AxisRanges = null; // built from Google Fonts metadata at runtime
@@ -1121,18 +726,6 @@ const AXIS_DEFAULTS = {
     slnt: 0,
     ital: 0
 };
-
-// Custom fonts not in Google Fonts that we support
-const CUSTOM_FONTS = [
-    'Apercu Pro',
-    'GuardianTextEgyptian',
-    'National',
-    'BBC Reith Serif',
-    'Graphik Trial',
-    'ABC Ginto Normal Unlicensed Trial',
-    'FK Roman Standard Trial',
-    'TiemposText',
-];
 
 // Attempt to build a font definition for any Google Font at runtime
 async function getOrCreateFontDefinition(fontName) {
@@ -2358,6 +1951,7 @@ function getFamiliesFromMetadata(md) {
 async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
     try {
         await ensureGfMetadata();
+        await ensureCustomFontsLoaded();
         // Start from Google families
         let families = getFamiliesFromMetadata(gfMetadata);
         // Ensure favorites are included
@@ -2463,6 +2057,7 @@ function setupFontPicker() {
     async function open(position) {
         currentPosition = position;
         titleEl.textContent = `Select ${getPanelLabel(position)} Font`;
+        await ensureCustomFontsLoaded();
         // Build family list (custom pinned + google)
         if (!gfMetadata) {
             try { await ensureGfMetadata(); } catch (e) { console.warn('GF metadata load failed:', e); }
@@ -2948,6 +2543,7 @@ async function loadFont(position, fontName, options = {}) {
     const { suppressImmediateApply = false, suppressImmediateSave = false } = options || {};
 
     try {
+        await ensureCustomFontsLoaded();
         // Save current font settings before switching
         const fontNameElement = document.getElementById(`${position}-font-name`) || document.getElementById(`${position}-font-display`);
         const currentFontName = fontNameElement ? fontNameElement.textContent : null;
@@ -4931,31 +4527,26 @@ let topPanelOpen = false;
 let bottomPanelOpen = false;
 
 // Inject custom font @font-face rules into the popup's head
-function injectCustomFonts() {
-    const customFontNames = CUSTOM_FONTS;
-    const styles = [];
+async function injectCustomFonts() {
+    await ensureCustomFontsLoaded();
+    if (!customFontsCssText) return;
 
-    customFontNames.forEach(fontName => {
-        const fontDefinition = fontDefinitions[fontName];
-        if (fontDefinition && fontDefinition.fontFaceRule) {
-            styles.push(fontDefinition.fontFaceRule);
-        }
-    });
-
-    if (styles.length > 0) {
-        const styleElement = document.createElement('style');
-        styleElement.id = 'affo-custom-fonts';
-        styleElement.textContent = styles.join('\n');
+    const styleId = 'affo-custom-fonts';
+    let styleElement = document.getElementById(styleId);
+    if (!styleElement) {
+        styleElement = document.createElement('style');
+        styleElement.id = styleId;
         document.head.appendChild(styleElement);
-        console.log('Injected custom font @font-face rules for:', customFontNames);
     }
+    styleElement.textContent = customFontsCssText;
+    console.log('Injected custom font @font-face rules for:', CUSTOM_FONTS);
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
 
     // Inject custom fonts first, before any font previews
-    injectCustomFonts();
+    await injectCustomFonts();
 
     // Get current tab hostname and context for site-specific CSS rules
     try {
