@@ -78,14 +78,14 @@
 }
 @font-face {
   font-family: "BBC Reith Sans";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Lt.woff2");
   font-style: normal;
   font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: "BBC Reith Sans";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Md.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Md.woff2");
   font-style: normal;
   font-weight: 500;
   font-display: swap;
