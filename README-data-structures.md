@@ -114,7 +114,6 @@ Pinned custom font family names, parsed from the effective CSS (override or pack
   "National",
   "BBC Reith Serif",
   "Graphik Trial",
-  "ABC Ginto Normal Unlicensed Trial",
   "FK Roman Standard Trial",
   "TiemposText"
 ]

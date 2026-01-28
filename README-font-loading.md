@@ -212,4 +212,4 @@ buildCss2Url(fontName).then(css2Url => {
 - **Body Mode**: Applies one font to the entire `body` element
 - **Third Man In**: Applies different fonts to elements marked by the content script based on their semantic type (serif for articles, sans for UI, mono for code)
 
-Both modes use the same `fontFaceRule` system for custom fonts like BBC Reith Serif, FK Roman Standard Trial, ABC Ginto Normal Unlicensed Trial, National, and Graphik Trial.
+Both modes use the same `fontFaceRule` system for custom fonts like BBC Reith Serif, FK Roman Standard Trial, National, and Graphik Trial.

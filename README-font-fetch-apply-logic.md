@@ -18,7 +18,6 @@ Sources & Permissions
   - Apply All preloading on inline apply domains uses the same page-text sampling and unicode-range filtering before caching subsets.
 - Custom fonts:
   - BBC Reith Serif: loaded via `@font-face` rules in `popup.css`.
-  - ABC Ginto Normal Unlicensed Trial: stylesheet injected from `fonts.cdnfonts.com` and activation checked via `document.fonts.load()`.
   - Graphik Trial: full weight/italic set loaded via inline `@font-face` rules from `fonts.cdnfonts.com` (see `popup.js` custom font definitions).
 - Permissions: host permissions requested for cross-origin font fetching on FontFace-only domains.
 
@@ -42,7 +41,6 @@ Selection → Load Flow
 2) `loadFont(position, fontName)` applies the choice and kicks off loading:
    - Google families (standard domains): adds a `css2` `<link>`. If metadata provides axis information for the family, we request an axis‑tag css2 URL with exact ranges and all axes; otherwise we request the plain css2 URL.
    - Google families (FontFace-only domains): uses background script to fetch WOFF2 files and loads via FontFace API to bypass CSP restrictions (unicode-range filtered, capped subset count, throttled downloads).
-   - ABC Ginto: injects the CDN stylesheet, then waits on `document.fonts.load('400 1em "ABC Ginto Normal Unlicensed Trial"')` before applying.
    - BBC Reith: relies on the static `@font-face` declarations in CSS.
 
 Axis Discovery (getOrCreateFontDefinition)
@@ -114,7 +112,7 @@ Persistence
 Font Picker Modal
 -----------------
 File refs: `popup.js:720` (setup), `popup.html` (modal markup), `popup.css` (styles)
-- Lists “Custom Fonts” (BBC Reith, ABC Ginto) first, then optional “Favorites”, then A–Z sections.
+- Lists “Custom Fonts” (BBC Reith, Graphik Trial) first, then optional “Favorites”, then A–Z sections.
 - Search filters the list; A–Z rail jumps within the scrollable list (title bar and rail remain fixed).
 - Opens by clicking the Font Family field; closes via X, overlay click, or Esc.
 
@@ -139,14 +137,13 @@ File refs: `content.js:419-437`, `content.js:158-202`
   - Mono: `code, pre, span[style*="mono"], div[style*="mono"]`
 - **Enhanced monitoring frequency**: 1-second intervals for first 2 minutes, then 5-second intervals for 8 more minutes
 - **ArrayBuffer font loading**: WOFF2 files loaded as ArrayBuffer (not data URLs or blob URLs) to bypass CSP restrictions
-- **Custom font support**: All custom fonts (National, BBC Reith Serif, ABC Ginto, FK Roman, TiemposText, Graphik Trial) work on x.com via background script fetching
+- **Custom font support**: All custom fonts (National, BBC Reith Serif, FK Roman, TiemposText, Graphik Trial) work on x.com via background script fetching
 
 Notable Edge Cases
 ------------------
 - css2 family param must preserve `+` between words (don’t over‑encode after replacing spaces).
 - Only list axes that have numeric ranges in tuples; ital is handled as 0/1.
 - If a family serves only WOFF2, the decoder is required for exact custom axis sliders; otherwise only registered axes may be shown.
-- ABC Ginto is static; weight is available at specific steps. It’s activated deterministically by waiting on `document.fonts`.
 - BBC Reith loads via CSS @font‑face; CSP + server CORS enable use within the extension.
 
 Logging

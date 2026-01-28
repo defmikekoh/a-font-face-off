@@ -1,15 +1,15 @@
 @font-face {
   font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: "BBC Reith Serif";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Lt.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSerif_W_Rg.woff2");
   font-style: normal;
-  font-weight: 300;
+  font-weight: 400;
   font-display: swap;
 }
 @font-face {
@@ -71,16 +71,16 @@
 
 @font-face {
   font-family: "BBC Reith Sans";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Rg.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Lt.woff2");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: "BBC Reith Sans";
-  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Lt.woff2");
+  src: url("https://static.files.bbci.co.uk/fonts/reith/2.512/BBCReithSans_W_Rg.woff2");
   font-style: normal;
-  font-weight: 300;
+  font-weight: 400;
   font-display: swap;
 }
 @font-face {
@@ -140,6 +140,20 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Atiza Text";
+  src: local('Atiza Text'), url("https://static.axios.com/fonts/axios-site/atiza/atizatext-regular-webfont.woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atiza Text";
+  src: local('Atiza Text'), url("https://static.axios.com/fonts/axios-site/atiza/atizatext-bold-webfont.woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @font-face {
 	font-family: 'GuardianTextEgyptian';
@@ -168,4 +182,371 @@
 	font-weight: 700;
 	font-style: italic;
 	font-display: swap;
+}
+
+
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Regular.woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-RegularItalic.woff2');
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Medium.woff2.woff2');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-MediumItalic.woff2');
+	font-weight: 500;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-Bold.woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'GuardianTextEgyptian m';
+	src: url('https://assets.guim.co.uk/static/frontend/fonts/guardian-textegyptian/noalts-not-hinted/GuardianTextEgyptian-BoldItalic.woff2');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+
+@font-face {
+  font-family: "TisaWeb W03";
+  src: url("https://db.onlinewebfonts.com/t/aef726001a07788d4c639a835fa10360.woff2")format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+  }
+@font-face {
+  font-family: "TisaWeb W03";
+  src: url("https://db.onlinewebfonts.com/t/140f703a818a6f412e0fa63c95d99e5c.woff2")format("woff2");
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'TisaWeb W03';
+	src: url('https://db.onlinewebfonts.com/t/74c449841df665e304f04a15e754520d.woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'TisaWeb W03';
+	src: url('https://db.onlinewebfonts.com/t/32b6e8070454e0837bb024880c8ff6ab.woff2');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/2183effd2063479d3413d4322b00c80f.woff2")format("woff2");
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+  }
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/e30c058a22bbb9fde88d38182da63c85.woff2")format("woff2");
+	font-weight: 300;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/aef726001a07788d4c639a835fa10360.woff2")format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+  }
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/140f703a818a6f412e0fa63c95d99e5c.woff2")format("woff2");
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/c55dfc1912478914dc8efcf66c0053d5.woff2")format("woff2");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+  }
+@font-face {
+  font-family: "TisaWeb W03 m";
+  src: url("https://db.onlinewebfonts.com/t/dbca44e649739e137f06a5ffa04a7c7d.woff2")format("woff2");
+	font-weight: 500;
+	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'TisaWeb W03 m';
+	src: url('https://db.onlinewebfonts.com/t/74c449841df665e304f04a15e754520d.woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'TisaWeb W03 m';
+	src: url('https://db.onlinewebfonts.com/t/32b6e8070454e0837bb024880c8ff6ab.woff2');
+	font-weight: 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+
+
+
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 401;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Regular-BF64a61d0d482a0.woff') format('woff');
+	  font-display: swap;
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 401;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Italic-BF64a61d0d4d66f.woff') format('woff');
+	  font-display: swap;
+  }
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 100;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Thin-BF64a61d0d3e426.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 100;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Thin-Italic-BF64a61d0d28c50.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 200;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraLight-BF64a61d0d3e6d0.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 200;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraLight-Italic-BF64a61d0d0daba.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 300;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Light-BF64a61d0d2407b.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 300;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Light-Italic-BF64a61d0d2cdb7.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 400;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Normal-BF64a61d0d56ffe.woff') format('woff');
+	  font-display: swap;
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 400;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Normal-Italic-BF64a61d0d1e34c.woff') format('woff');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 500;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Medium-BF64a61d0d4a7d5.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 500;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Medium-Italic-BF64a61d0d2e8c8.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 600;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-DemiBold-BF64a61d0d4be25.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 600;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-DemiBold-Italic-BF64a61d0d13d59.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 700;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Bold-BF64a61d0d42644.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 700;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Bold-Italic-BF64a61d0c50d0e.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 800;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraBold-BF64a61d0d3295d.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 800;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraBold-Italic-BF64a61d0d42be9.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 900;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Black-BF64a61d0d06f9b.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 900;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-Black-Italic-BF64a61d0d592c1.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: normal;
+    font-weight: 950;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraBlack-BF64a61d0d4020d.woff') format('woff');
+}
+@font-face {
+    font-family: 'TT Norms Pro Serif Trl';
+    font-style: italic;
+    font-weight: 950;
+	  font-display: swap;
+    src: local('TT Norms Pro Serif Trl'), url('https://fonts.cdnfonts.com/s/100469/TT-Norms-Pro-Serif-Trial-ExtraBlack-Italic-BF64a61d0d312a3.woff') format('woff');
+}
+
+
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/37b29158c68de167677fa4a3087d7188.woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/9489c2285072c56380eb69ea879c91e3.woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/5a0f655e9b491e4ed02d0ea75b213bca.woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/69bf911052e89f61c8082860125328d5.woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/37b29158c68de167677fa4a3087d7188.woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/9489c2285072c56380eb69ea879c91e3.woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/2f284401b2057179c369b475dd90387d.woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/45e641b5b8046d1345a2d2151beeaae9.woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/22b044be38a057a10bf4b457c31a1729.woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText";
+  src: url("https://db.onlinewebfonts.com/t/00d643cedc535f0dc7a7221953fa7b32.woff2");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/5a0f655e9b491e4ed02d0ea75b213bca.woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TiemposText m";
+  src: url("https://db.onlinewebfonts.com/t/69bf911052e89f61c8082860125328d5.woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
 }
