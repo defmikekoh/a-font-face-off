@@ -88,7 +88,13 @@ The extension uses a unified storage architecture with `browser.storage.local` f
 ## Configuration Objects
 
 ### Font Configuration Structure ("No Key" Architecture)
-Used throughout the system for font settings. The "no key" approach only stores properties with actual values - no null, undefined, or empty properties.
+Used throughout the system for font settings. The "no key" approach only stores properties with actual values - no null, undefined, or string placeholders like 'default'.
+
+**Mixed Approach:**
+- **Primitive properties** (fontSize, fontColor, etc.): Only stored when set (omitted when unset)
+- **Nested objects** (variableAxes): Always present as empty `{}` even when no axes are active
+
+This eliminates defensive `|| {}` checks throughout the codebase while keeping storage minimal for primitives.
 
 **Unset State:**
 ```javascript
@@ -142,8 +148,8 @@ Map of custom font family name → definition object. All custom font definition
   "fontSize": 16,                     // Font size in px (only if set)
   "lineHeight": 1.5,                  // Line height (only if set)
   "fontWeight": 400,                  // Font weight (only if set)
-  "fontColor": "#333333",             // Font color (only if set, not 'default')
-  "variableAxes": {                   // Variable font axes (only if axes are set)
+  "fontColor": "#333333",             // Font color (only if set, NOT 'default')
+  "variableAxes": {                   // ALWAYS present (even if empty {})
     "wght": 400,                      // Weight axis (only if modified from default)
     "ital": 1                         // Italic axis (only if modified)
   }
@@ -153,9 +159,16 @@ Map of custom font family name → definition object. All custom font definition
 **Font Selected with No Settings:**
 ```javascript
 {
-  "fontName": "Comic Neue"            // Font family name only
+  "fontName": "Comic Neue",           // Font family name only
+  "variableAxes": {}                  // Always present (even when empty)
 }
 ```
+
+**What NEVER gets stored:**
+- String `'default'` for color (omit the property instead)
+- String `'null'` or `'undefined'` (never use these strings)
+- Explicit `null` or `undefined` values for primitives
+- Empty arrays `[]` (N/A in current schema)
 
 ### Domain Storage Structure (Consistent Format)
 Domain storage uses the same "no key" format as UI state for consistency. Both UI state and domain storage use identical object structures, making comparisons simple.
@@ -244,20 +257,28 @@ After consolidation, all modes now use the same storage system:
 - `saveApplyMapForOrigin()`: **Domain storage only** - No UI changes
 
 #### "No Key" Architecture Summary
-**Core Principle**: Only store properties with meaningful values - no null, undefined, empty arrays, or placeholder objects.
+**Core Principle**: Only store properties with meaningful values - no null, undefined, or string placeholders like 'default'.
+
+**Mixed Approach (Updated):**
+- **Primitive properties**: Only stored when set (fontSize, fontColor, etc. omitted when unset)
+- **Nested objects**: Always present even when empty (`variableAxes: {}` always exists)
+- **Rationale**: Eliminates defensive `|| {}` checks (7+ instances) while keeping storage minimal
 
 **Key Changes Made:**
 - **Flattened Structure**: Removed `basicControls` wrapper - font properties stored directly on config object
 - **Eliminated Redundant Arrays**: Removed `activeControls` and `activeAxes` arrays - active state derived from data presence
 - **Consistent Format**: Both UI state and domain storage use identical object structures
-- **Null-Free Storage**: Only properties with actual values are stored (no null/undefined properties)
+- **Null-Free Storage**: Only properties with actual values are stored (no null/undefined/string 'default')
 - **Unified Storage**: All persistence uses `browser.storage.local` (migrated from localStorage)
 - **Simplified Comparisons**: Direct object comparison between UI state and domain storage
+- **Always-Present Containers**: `variableAxes: {}` always present for simpler, safer access
 
 **Technical Implementation:**
-- `getCurrentUIConfig()`: Returns flattened config or `undefined` when no font selected
-- `configsEqual()`: Uses helper functions `getActiveControlsFromConfig()` to derive active state
+- `getCurrentUIConfig()`: Returns flattened config with `variableAxes: {}` always present, or `undefined` when no font selected
+- `getActiveControlsFromConfig()`: Derives active state from property presence (fontColor presence = active)
+- `configsEqual()`: Uses helper functions to derive active state from data
 - Button logic: `undefined` vs `undefined` = no changes = no button shown
+- Access patterns: Safe to use `config.variableAxes.wght` without checking if variableAxes exists first
 - `saveExtensionStateImmediate()`: Uses `delete` to remove unset fonts from state
 - Extension state initialization: Uses empty objects `{}` for clean initialization
 

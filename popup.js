@@ -1173,11 +1173,11 @@ function configsEqual(config1, config2) {
     }
 
     // Compare variable axes
-    const currentAxes = config1.variableAxes || {};
+    const currentAxes = config1.variableAxes;
     const currentActiveAxes = getActiveAxesFromVariableAxes(currentAxes);
 
     // Compare variable axes (using variableAxes format only)
-    const appliedAxes = config2.variableAxes || {};
+    const appliedAxes = config2.variableAxes;
     const appliedActiveAxes = getActiveAxesFromVariableAxes(appliedAxes);
 
 
@@ -1414,12 +1414,12 @@ function getActiveControlsFromConfig(config) {
     if (config && config.fontSize !== null && config.fontSize !== undefined) active.add('font-size');
     if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
     if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
-    if (config && config.fontColor) active.add('color');
+    if (config && config.fontColor && config.fontColor !== 'default') active.add('color');
     return active;
 }
 
 function getActiveAxesFromVariableAxes(variableAxes) {
-    return new Set(Object.keys(variableAxes || {}));
+    return new Set(Object.keys(variableAxes));
 }
 
 function getActiveControlsFromUI(position) {
@@ -1573,6 +1573,7 @@ function getCurrentUIConfig(position) {
 
 
     // Return UI config with only currently active controls (flattened structure)
+    // Note: variableAxes always present as empty object (even if no axes) to simplify access patterns
     const config = {
         fontName: fontName,
         variableAxes: {}
@@ -1590,7 +1591,7 @@ function getCurrentUIConfig(position) {
     if (activeFontSize) config.fontSize = parseFloat(fontSize);
     if (activeLineHeight) config.lineHeight = parseFloat(lineHeight);
     if (activeWeight) config.fontWeight = parseInt(fontWeight);
-    if (activeColor) config.fontColor = fontColor;
+    if (activeColor && fontColor !== 'default') config.fontColor = fontColor;
 
     // Get variable axis values (only for active/modified axes)
     const activeAxes = getActiveAxes(position);
@@ -1614,7 +1615,7 @@ function savedEntryToConfig(savedEntry) {
 
     const config = {
         fontName: savedEntry.fontName || null,
-        variableAxes: savedEntry.variableAxes || {}
+        variableAxes: savedEntry.variableAxes || {}  // Keep fallback here as savedEntry comes from old storage
     };
 
     // Only include properties that have values (no key approach)
@@ -1752,10 +1753,10 @@ async function applyFontConfig(position, config) {
             lineHeightControl.setAttribute('value', lineHeightValue);
         }
         if (fontWeightControl) fontWeightControl.value = config.fontWeight || 400;
-        if (config.fontColor && fontColorControl) {
-            fontColorControl.value = config.fontColor;
+        if (fontColorControl) {
+            // Set to saved color if present, otherwise set to 'default' to clear any stale values
+            fontColorControl.value = config.fontColor || 'default';
         }
-        // When no color is saved, leave the input at its default - it will be marked as unset anyway
 
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
@@ -3574,19 +3575,24 @@ function saveFontSettings(position, fontName) {
     const fontWeightEl = document.getElementById(`${position}-font-weight`);
     const fontColorEl = document.getElementById(`${position}-font-color`);
 
+    // Note: variableAxes always present as empty object (even if no axes) to simplify access patterns
     const settings = {
-        fontSize: fontSizeEl ? fontSizeEl.value : null,
-        lineHeight: lineHeightEl ? lineHeightEl.value : null,
-        fontWeight: fontWeightEl ? fontWeightEl.value : null,
-        fontColor: fontColorEl ? fontColorEl.value : null,
         variableAxes: {}
     };
 
+    // Only include primitive properties that have values (No Key architecture)
+    if (fontSizeEl && fontSizeEl.value) settings.fontSize = fontSizeEl.value;
+    if (lineHeightEl && lineHeightEl.value) settings.lineHeight = lineHeightEl.value;
+    if (fontWeightEl && fontWeightEl.value) settings.fontWeight = fontWeightEl.value;
+    if (fontColorEl && fontColorEl.value && fontColorEl.value !== 'default') {
+        settings.fontColor = fontColorEl.value;
+    }
+
     // Save variable axis values
-    if (fontDef && fontDef.axes) {
+    if (fontDef && fontDef.axes && fontDef.axes.length > 0) {
         fontDef.axes.forEach(axis => {
             const control = document.getElementById(`${position}-${axis}`);
-            if (control) {
+            if (control && control.value) {
                 settings.variableAxes[axis] = control.value;
             }
         });
@@ -3612,7 +3618,11 @@ function restoreFontSettings(position, fontName) {
     document.getElementById(`${position}-font-size`).value = saved.fontSize;
     document.getElementById(`${position}-line-height`).value = saved.lineHeight;
     document.getElementById(`${position}-font-weight`).value = saved.fontWeight;
-    document.getElementById(`${position}-font-color`).value = saved.fontColor;
+    const colorControl = document.getElementById(`${position}-font-color`);
+    if (colorControl) {
+        // Set to saved color if present, otherwise set to 'default'
+        colorControl.value = saved.fontColor || 'default';
+    }
 
     // Restore variable axis values
     const fontDef = getEffectiveFontDefinition(fontName);
@@ -4784,6 +4794,89 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    // Third Man In color reset buttons
+    const serifColorResetBtn = document.getElementById('serif-color-reset');
+    if (serifColorResetBtn) {
+        serifColorResetBtn.addEventListener('click', function() {
+            const serifFontColorSelect = document.getElementById('serif-font-color');
+            const serifColorGroup = serifFontColorSelect && serifFontColorSelect.closest('.control-group');
+            if (serifFontColorSelect) {
+                serifFontColorSelect.value = 'default';
+            }
+            if (serifColorGroup) {
+                serifColorGroup.classList.add('unset');
+            }
+            updateThirdManInPreview('serif');
+            updateAllThirdManInButtons();
+            saveExtensionState();
+        });
+    }
+
+    const sansColorResetBtn = document.getElementById('sans-color-reset');
+    if (sansColorResetBtn) {
+        sansColorResetBtn.addEventListener('click', function() {
+            const sansFontColorSelect = document.getElementById('sans-font-color');
+            const sansColorGroup = sansFontColorSelect && sansFontColorSelect.closest('.control-group');
+            if (sansFontColorSelect) {
+                sansFontColorSelect.value = 'default';
+            }
+            if (sansColorGroup) {
+                sansColorGroup.classList.add('unset');
+            }
+            updateThirdManInPreview('sans');
+            updateAllThirdManInButtons();
+            saveExtensionState();
+        });
+    }
+
+    const monoColorResetBtn = document.getElementById('mono-color-reset');
+    if (monoColorResetBtn) {
+        monoColorResetBtn.addEventListener('click', function() {
+            const monoFontColorSelect = document.getElementById('mono-font-color');
+            const monoColorGroup = monoFontColorSelect && monoFontColorSelect.closest('.control-group');
+            if (monoFontColorSelect) {
+                monoFontColorSelect.value = 'default';
+            }
+            if (monoColorGroup) {
+                monoColorGroup.classList.add('unset');
+            }
+            updateThirdManInPreview('mono');
+            updateAllThirdManInButtons();
+            saveExtensionState();
+        });
+    }
+
+    // Face-off mode color reset buttons
+    const topColorResetBtn = document.getElementById('top-color-reset');
+    if (topColorResetBtn) {
+        topColorResetBtn.addEventListener('click', function() {
+            const topFontColorSelect = document.getElementById('top-font-color');
+            const topColorGroup = topFontColorSelect && topFontColorSelect.closest('.control-group');
+            if (topFontColorSelect) {
+                topFontColorSelect.value = 'default';
+            }
+            if (topColorGroup) {
+                topColorGroup.classList.add('unset');
+            }
+            applyFont('top');
+        });
+    }
+
+    const bottomColorResetBtn = document.getElementById('bottom-color-reset');
+    if (bottomColorResetBtn) {
+        bottomColorResetBtn.addEventListener('click', function() {
+            const bottomFontColorSelect = document.getElementById('bottom-font-color');
+            const bottomColorGroup = bottomFontColorSelect && bottomFontColorSelect.closest('.control-group');
+            if (bottomFontColorSelect) {
+                bottomFontColorSelect.value = 'default';
+            }
+            if (bottomColorGroup) {
+                bottomColorGroup.classList.add('unset');
+            }
+            applyFont('bottom');
+        });
+    }
+
 
 
     const topSizeSlider = document.getElementById('top-font-size');
@@ -5355,6 +5448,30 @@ function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) ret
             updateThirdManInPreview('bottom');
             // Save state after weight change
             saveExtensionState();
+        });
+    }
+
+    // Face-off Mode Font Color Controls
+    const topFontColorSelect = document.getElementById('top-font-color');
+    const bottomFontColorSelect = document.getElementById('bottom-font-color');
+    const topColorGroup = topFontColorSelect ? topFontColorSelect.closest('.control-group') : null;
+    const bottomColorGroup = bottomFontColorSelect ? bottomFontColorSelect.closest('.control-group') : null;
+
+    if (topFontColorSelect) {
+        topFontColorSelect.addEventListener('change', function() {
+            if (topColorGroup && this.value !== 'default') {
+                topColorGroup.classList.remove('unset');
+            }
+            applyFont('top');
+        });
+    }
+
+    if (bottomFontColorSelect) {
+        bottomFontColorSelect.addEventListener('change', function() {
+            if (bottomColorGroup && this.value !== 'default') {
+                bottomColorGroup.classList.remove('unset');
+            }
+            applyFont('bottom');
         });
     }
 
@@ -6217,8 +6334,8 @@ function payloadEquals(a, b) {
     if (!numEq(a.italVal, b.italVal)) return false;
     if (a.fontColor !== b.fontColor) return false;
     // Compare variableAxes
-    const aAxes = a.variableAxes || {};
-    const bAxes = b.variableAxes || {};
+    const aAxes = a.variableAxes;
+    const bAxes = b.variableAxes;
     const aKeys = Object.keys(aAxes);
     const bKeys = Object.keys(bAxes);
     if (aKeys.length !== bKeys.length) return false;
@@ -6855,7 +6972,7 @@ async function buildCurrentPayload(position, providedConfig = null) {
     }
     const activeAxes = new Set(cfg.activeAxes || []);
     let wdthVal = null, slntVal = null, italVal = null;
-    Object.entries(cfg.variableAxes || {}).forEach(([axis, value]) => {
+    Object.entries(cfg.variableAxes).forEach(([axis, value]) => {
         const num = Number(value);
         if (!activeAxes.has(axis) || !isFinite(num)) return;
         if (axis === 'wdth') wdthVal = num;
@@ -6888,7 +7005,7 @@ async function buildCurrentPayload(position, providedConfig = null) {
     const fontDefinition = fontDefinitions[cfg.fontName];
     const payload = {
         fontName: cfg.fontName,
-        variableAxes: cfg.variableAxes || {},
+        variableAxes: cfg.variableAxes,
         wdthVal,
         slntVal,
         italVal,
@@ -7638,7 +7755,7 @@ function applyAllThirdManInFonts() {
                     // Convert applied config to same format for comparison
                     const appliedForComparison = appliedConfig ? {
                         fontName: appliedConfig.fontName || null,
-                        variableAxes: appliedConfig.variableAxes || {}
+                        variableAxes: appliedConfig.variableAxes || {}  // Keep fallback for old storage
                     } : null;
 
                     if (appliedConfig && appliedForComparison) {
@@ -7899,7 +8016,7 @@ function countThirdManInDifferences() {
                         // Convert applied payload back to flattened config format for comparison
                         const appliedConfig = applied ? {
                             fontName: applied.fontName || null,
-                            variableAxes: applied.variableAxes || {}
+                            variableAxes: applied.variableAxes || {}  // Keep fallback for old storage
                         } : null;
 
                         // Add flattened basic control properties (only if they exist)
@@ -8377,8 +8494,8 @@ function configsMatch(config1, config2) {
     // Compare variable axes - only compare axes that were actually modified from defaults
     const activeAxes1 = new Set(config1.activeAxes || []);
     const activeAxes2 = new Set(config2.activeAxes || []);
-    const axes1 = config1.variableAxes || {};
-    const axes2 = config2.variableAxes || {};
+    const axes1 = config1.variableAxes;
+    const axes2 = config2.variableAxes;
     console.log('Variable axes comparison:', {axes1, axes2, activeAxes1: [...activeAxes1], activeAxes2: [...activeAxes2]});
 
     // Only compare axes that are active in either config
