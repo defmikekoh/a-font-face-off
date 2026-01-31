@@ -4,6 +4,8 @@
 
  - Fetches https://fonts.google.com/metadata/fonts
  - Strips XSSI prefix ")]}'\n" if present
+ - Removes unused fields (popularity, trending, defaultSort)
+ - Sorts classifications arrays for stable git diffs
  - Writes pretty-printed JSON to data/gf-axis-registry.json
 */
 
@@ -28,10 +30,32 @@ async function main() {
       throw new Error('Failed to parse JSON from Google Fonts metadata: ' + e.message);
     }
 
+    // Strip unused fields to reduce file size
+    const fieldsToRemove = ['popularity', 'trending', 'defaultSort'];
+    let strippedCount = 0;
+
+    if (obj.familyMetadataList && Array.isArray(obj.familyMetadataList)) {
+      obj.familyMetadataList.forEach(font => {
+        // Remove unused fields
+        fieldsToRemove.forEach(field => {
+          if (field in font) {
+            delete font[field];
+            strippedCount++;
+          }
+        });
+
+        // Sort classifications array to prevent ordering changes in git diffs
+        if (Array.isArray(font.classifications)) {
+          font.classifications.sort();
+        }
+      });
+    }
+
     if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
     const pretty = JSON.stringify(obj, null, 2) + '\n';
     fs.writeFileSync(OUT_FILE, pretty);
     console.log(`Wrote ${OUT_FILE} (${pretty.length} bytes) from ${SRC_URL}`);
+    console.log(`Stripped ${strippedCount} unused fields (${fieldsToRemove.join(', ')})`);
   } catch (err) {
     console.error('Failed to update local GF metadata:', err.message || err);
     process.exit(1);
