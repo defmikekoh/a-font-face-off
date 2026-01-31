@@ -3250,27 +3250,14 @@ async function applyThirdManInFont(fontType, config) {
         // Build enriched payload with fontFaceRule and css2Url
         const payload = await buildThirdManInPayload(fontType, config);
 
-        // For inline apply domains (x.com), preload fonts BEFORE writing to storage
-        if (shouldUseInlineApply(origin)) {
-            console.log(`applyThirdManInFont: Inline apply domain ${origin} detected - preloading font BEFORE storage write`);
-
-            // Eagerly preload font subsets so they're cached before content.js needs them
-            if (payload.fontName && payload.css2Url) {
-                await preloadAllFontSubsets(payload.fontName, payload.css2Url).then(() => {
-                    console.log(`applyThirdManInFont: Preloading complete for ${fontType} - now writing to storage`);
-                }).catch(error => {
-                    console.warn(`applyThirdManInFont: Preloading failed (non-critical):`, error);
-                    // Continue anyway - content script will load fonts if cache misses
-                });
-            }
-        }
+        // For inline apply domains (x.com), content script handles font loading
+        // No preloading needed - content script already downloads via background script with progressive loading
 
         // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
-        // For inline domains, fonts are already cached at this point
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
-            // For inline apply domains, return early - content script handles everything with cached fonts
+            // For inline apply domains, return early - content script handles font loading
             if (shouldUseInlineApply(origin)) {
-                console.log(`applyThirdManInFont: Storage written - content script will use cached fonts`);
+                console.log(`applyThirdManInFont: Storage written - content script will load fonts progressively`);
                 return true;
             }
 
@@ -7720,34 +7707,8 @@ function applyAllThirdManInFonts() {
             });
 
             return Promise.all(css2UrlPromises).then(() => {
-                // Step 2a.5: For inline apply domains, preload fonts BEFORE writing to storage
-                // This prevents race condition where content.js starts loading before cache is ready
-                if (shouldUseInlineApply(origin)) {
-                    console.log(`applyAllThirdManInFonts: Inline apply domain ${origin} detected - preloading fonts BEFORE storage write`);
-
-                    // Eagerly preload ALL font subsets so they're cached before content.js needs them
-                    const preloadPromises = Object.keys(fontConfigs).map(type => {
-                        const config = fontConfigs[type];
-                        if (!config || !config.fontName || !config.css2Url) {
-                            return Promise.resolve();
-                        }
-
-                        console.log(`applyAllThirdManInFonts: Preloading ${type} font ${config.fontName} with css2Url:`, config.css2Url);
-                        return preloadAllFontSubsets(config.fontName, config.css2Url);
-                    });
-
-                    // Wait for preloading to complete before writing to storage
-                    return Promise.all(preloadPromises).then(() => {
-                        console.log(`applyAllThirdManInFonts: Preloading complete - now writing to storage so content script can use cached fonts`);
-                    }).catch(error => {
-                        console.warn(`applyAllThirdManInFonts: Preloading failed (non-critical):`, error);
-                        // Continue anyway - content script will load fonts if cache misses
-                    });
-                }
-                return Promise.resolve();
-            }).then(() => {
                 // Step 2b: SINGLE batch storage write for all fonts (now with css2Url included)
-                // For inline domains, fonts are already cached at this point
+                // For inline apply domains, content script handles font loading with progressive loading
                 console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
                 return saveBatchApplyMapForOrigin(origin, fontConfigs);
             }).then(() => {
