@@ -6826,10 +6826,13 @@ function generateElementWalkerScript(fontType) {
                     const style = element.style.fontFamily || '';
 
                     // Exclude pure UI elements (but not headings)
-                    if (['nav', 'header', 'footer', 'aside'].indexOf(tagName) !== -1) return null;
+                    if (['nav', 'header', 'footer', 'aside', 'figcaption'].indexOf(tagName) !== -1) return null;
+
+                    // Exclude children of figcaption (captions contain multiple spans/elements)
+                    if (element.closest && element.closest('figcaption')) return null;
 
                     // Exclude navigation and UI class names
-                    if (className && /\\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb)\\b/i.test(className)) return null;
+                    if (className && /\\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\\b/i.test(className)) return null;
 
                     // Get computed font-family (what WhatFont sees)
                     const computedStyle = window.getComputedStyle(element);

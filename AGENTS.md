@@ -1,5 +1,7 @@
 README.md generally describes the Firefox Extension.
 
-README-data-structures.md should be a point a reference and updated accordingly.
+docs/architecture/DATA_STRUCTURES.md should be a point a reference and updated accordingly.
 
-fontonic-firefox-android/ is another font changing extension that may occasionally be used as a point of reference.
+zothercode/fontonic-firefox-android/ is another font changing extension that may occasionally be used as a point of reference.
+
+Generally, don't create fallbacks to fix errors unless specifically told to.
