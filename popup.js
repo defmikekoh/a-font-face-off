@@ -3037,36 +3037,45 @@ function formatAxisValue(axis, value) {
 
 
 
-// Shared CSS helpers for weight and variable axis handling.
-// Used by generateBodyCSS, generateBodyContactCSS, and generateThirdManInCSS.
+// Shared CSS helpers for weight/axis handling.
+// Registered axes use high-level CSS properties (font-weight, font-stretch, font-style).
+// Only custom/unregistered axes go into font-variation-settings.
+const REGISTERED_AXES = new Set(['wght', 'wdth', 'slnt', 'ital', 'opsz']);
 
-// Returns effective weight as Number, or null. Checks fontWeight first, falls back to variableAxes.wght.
 function getEffectiveWeight(payload) {
-    if (payload.fontWeight != null && isFinite(Number(payload.fontWeight))) {
-        return Number(payload.fontWeight);
-    }
-    if (payload.variableAxes && payload.variableAxes.wght != null && isFinite(Number(payload.variableAxes.wght))) {
-        return Number(payload.variableAxes.wght);
-    }
+    if (payload.fontWeight != null && isFinite(Number(payload.fontWeight))) return Number(payload.fontWeight);
+    if (payload.variableAxes && payload.variableAxes.wght != null && isFinite(Number(payload.variableAxes.wght))) return Number(payload.variableAxes.wght);
     return null;
 }
 
-// Returns array of '"axis" value' strings for all non-weight variable axes.
-// Collects from variableAxes object, plus top-level wdthVal/slntVal/italVal (with dedup).
-function buildNonWeightAxes(payload) {
+function getEffectiveWidth(payload) {
+    if (payload.wdthVal != null && isFinite(Number(payload.wdthVal))) return Number(payload.wdthVal);
+    if (payload.variableAxes && payload.variableAxes.wdth != null && isFinite(Number(payload.variableAxes.wdth))) return Number(payload.variableAxes.wdth);
+    return null;
+}
+
+function getEffectiveSlant(payload) {
+    if (payload.slntVal != null && isFinite(Number(payload.slntVal))) return Number(payload.slntVal);
+    if (payload.variableAxes && payload.variableAxes.slnt != null && isFinite(Number(payload.variableAxes.slnt))) return Number(payload.variableAxes.slnt);
+    return null;
+}
+
+function getEffectiveItalic(payload) {
+    if (payload.italVal != null && isFinite(Number(payload.italVal))) return Number(payload.italVal);
+    if (payload.variableAxes && payload.variableAxes.ital != null && isFinite(Number(payload.variableAxes.ital))) return Number(payload.variableAxes.ital);
+    return null;
+}
+
+// Returns array of '"axis" value' strings for CUSTOM (unregistered) axes only.
+function buildCustomAxisSettings(payload) {
     const settings = [];
-    const seen = new Set();
     if (payload.variableAxes) {
         Object.entries(payload.variableAxes).forEach(([axis, value]) => {
-            if (axis !== 'wght' && isFinite(Number(value))) {
+            if (!REGISTERED_AXES.has(axis) && isFinite(Number(value))) {
                 settings.push(`"${axis}" ${value}`);
-                seen.add(axis);
             }
         });
     }
-    if (!seen.has('wdth') && payload.wdthVal && isFinite(payload.wdthVal)) settings.push(`"wdth" ${payload.wdthVal}`);
-    if (!seen.has('slnt') && payload.slntVal && isFinite(payload.slntVal)) settings.push(`"slnt" ${payload.slntVal}`);
-    if (!seen.has('ital') && payload.italVal && isFinite(payload.italVal)) settings.push(`"ital" ${payload.italVal}`);
     return settings;
 }
 
@@ -3109,38 +3118,42 @@ function generateBodyCSS(payload, position) {
     if (payload.fontColor) {
         decl.push(`color:${payload.fontColor} !important`);
     }
-    if (payload.wdthVal !== null && payload.wdthVal !== undefined) {
-        decl.push(`font-stretch:${payload.wdthVal}% !important`);
+    // Registered axes → high-level CSS properties
+    const effectiveWdth = getEffectiveWidth(payload);
+    if (effectiveWdth !== null) {
+        decl.push(`font-stretch:${effectiveWdth}% !important`);
     }
-    if (payload.italVal !== null && payload.italVal !== undefined && payload.italVal >= 1) {
+    const effectiveItal = getEffectiveItalic(payload);
+    const effectiveSlnt = getEffectiveSlant(payload);
+    if (effectiveItal !== null && effectiveItal >= 1) {
         decl.push('font-style:italic !important');
-    } else if (payload.slntVal !== null && payload.slntVal !== undefined && payload.slntVal !== 0) {
-        decl.push(`font-style:oblique ${payload.slntVal}deg !important`);
+    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
+        decl.push(`font-style:oblique ${effectiveSlnt}deg !important`);
     }
-    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
-        // Exclude wght from general decl — weight is applied separately via weightSel
-        // so that bold elements can be overridden independently
-        const nonWeightAxes = Object.entries(payload.variableAxes).filter(pair => pair[0] !== 'wght');
-        if (nonWeightAxes.length > 0) {
-            const v = nonWeightAxes.map(pair => `"${pair[0]}" ${pair[1]}`).join(', ');
-            decl.push(`font-variation-settings:${v} !important`);
-        }
+    // Custom axes only in font-variation-settings
+    const customAxes = buildCustomAxisSettings(payload);
+    if (customAxes.length > 0) {
+        decl.push(`font-variation-settings:${customAxes.join(', ')} !important`);
     }
 
     let css = `${sel}{${decl.join('; ')};}`;
 
     const effectiveWt = getEffectiveWeight(payload);
     if (effectiveWt !== null) {
-        // Build var settings including wght along with any other per-axis values
-        const axes = Object.assign({}, payload.variableAxes || {});
-        axes.wght = effectiveWt;
-        const vstr = Object.entries(axes).map(pair => `"${pair[0]}" ${pair[1]}`).join(', ');
-        css += '\n' + weightSel + `{font-weight:${effectiveWt} !important; font-variation-settings:${vstr} !important;}`;
+        let weightRule = `font-weight:${effectiveWt} !important`;
+        if (customAxes.length > 0) {
+            weightRule += `; font-variation-settings:${customAxes.join(', ')} !important`;
+        }
+        css += '\n' + weightSel + `{${weightRule};}`;
     }
 
-    // Override rule for bold elements — keep the custom font but ensure a heavier weight
+    // Bold override — font-weight only; stretch/style inherit from parent
     if (effectiveWt !== null) {
-        css += '\nbody strong, body b, html body strong, html body b { font-weight: 700 !important; font-variation-settings: "wght" 700 !important; }';
+        let boldRule = 'font-weight: 700 !important';
+        if (customAxes.length > 0) {
+            boldRule += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+        }
+        css += `\nbody strong, body b, html body strong, html body b { ${boldRule}; }`;
     }
 
     return css;
@@ -6736,19 +6749,22 @@ function generateBodyContactCSS(payload) {
         styleRule += ` color: ${payload.fontColor} !important;`;
     }
 
-    // Handle width, slant, italic axes
-    if (payload.slntVal && isFinite(payload.slntVal) && payload.slntVal !== 0) {
-        styleRule += ` font-style: oblique ${payload.slntVal}deg !important;`;
+    // Registered axes → high-level CSS properties
+    const effectiveWdth = getEffectiveWidth(payload);
+    if (effectiveWdth !== null) {
+        styleRule += ` font-stretch: ${effectiveWdth}% !important;`;
     }
-    if (payload.italVal && payload.italVal >= 1) {
+    const effectiveItal = getEffectiveItalic(payload);
+    const effectiveSlnt = getEffectiveSlant(payload);
+    if (effectiveItal !== null && effectiveItal >= 1) {
         styleRule += ` font-style: italic !important;`;
+    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
+        styleRule += ` font-style: oblique ${effectiveSlnt}deg !important;`;
     }
-
-    // Build non-weight variation settings
-    const nonWeightAxes = buildNonWeightAxes(payload);
-
-    if (nonWeightAxes.length > 0) {
-        styleRule += ` font-variation-settings: ${nonWeightAxes.join(', ')} !important;`;
+    // Custom axes only in font-variation-settings
+    const customAxes = buildCustomAxisSettings(payload);
+    if (customAxes.length > 0) {
+        styleRule += ` font-variation-settings: ${customAxes.join(', ')} !important;`;
     }
 
     styleRule += ' }';
@@ -6757,10 +6773,17 @@ function generateBodyContactCSS(payload) {
     // Weight rule — applied via weightSelector which excludes strong/b
     const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {
-        const weightVariationSettings = [...nonWeightAxes, `"wght" ${effectiveWeight}`];
-        lines.push(`${weightSelector} { font-weight: ${effectiveWeight} !important; font-variation-settings: ${weightVariationSettings.join(', ')} !important; }`);
-        // Bold override — strong/b stay in the custom font but at weight 700
-        lines.push(`body strong, body b { font-weight: 700 !important; font-variation-settings: ${[...nonWeightAxes, '"wght" 700'].join(', ')} !important; }`);
+        let weightProps = `font-weight: ${effectiveWeight} !important`;
+        if (customAxes.length > 0) {
+            weightProps += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+        }
+        lines.push(`${weightSelector} { ${weightProps}; }`);
+        // Bold override — font-weight only; stretch/style inherit from parent
+        let boldProps = 'font-weight: 700 !important';
+        if (customAxes.length > 0) {
+            boldProps += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+        }
+        lines.push(`body strong, body b { ${boldProps}; }`);
     }
 
     return lines.join('\n');
@@ -6779,8 +6802,7 @@ function generateThirdManInCSS(fontType, payload) {
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
     const ft = fontType; // shorthand for template strings
 
-    const nonWeightAxes = buildNonWeightAxes(payload);
-    const nonWeightVarStr = nonWeightAxes.join(', ');
+    const customAxes = buildCustomAxisSettings(payload);
     const effectiveWeight = getEffectiveWeight(payload);
 
     // Comprehensive rule for non-bold marked elements
@@ -6788,22 +6810,35 @@ function generateThirdManInCSS(fontType, payload) {
     if (payload.fontName) nonBoldProps.push(`font-family: "${payload.fontName}" !important`);
     if (effectiveWeight) {
         nonBoldProps.push(`font-weight: ${effectiveWeight} !important`);
-        const allAxesStr = [...nonWeightAxes, `"wght" ${effectiveWeight}`].join(', ');
-        nonBoldProps.push(`font-variation-settings: ${allAxesStr} !important`);
-    } else if (nonWeightVarStr) {
-        nonBoldProps.push(`font-variation-settings: ${nonWeightVarStr} !important`);
+    }
+    // Registered axes → high-level CSS properties
+    const effectiveWdth = getEffectiveWidth(payload);
+    if (effectiveWdth !== null) {
+        nonBoldProps.push(`font-stretch: ${effectiveWdth}% !important`);
+    }
+    const effectiveItal = getEffectiveItalic(payload);
+    const effectiveSlnt = getEffectiveSlant(payload);
+    if (effectiveItal !== null && effectiveItal >= 1) {
+        nonBoldProps.push('font-style: italic !important');
+    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
+        nonBoldProps.push(`font-style: oblique ${effectiveSlnt}deg !important`);
+    }
+    // Custom axes only in font-variation-settings
+    if (customAxes.length > 0) {
+        nonBoldProps.push(`font-variation-settings: ${customAxes.join(', ')} !important`);
     }
     if (nonBoldProps.length > 0) {
         lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b) { ${nonBoldProps.join('; ')}; }`);
     }
 
-    // Comprehensive rule for bold elements (strong/b) — same font, weight 700
+    // Bold rule — font-weight 700; stretch/style inherit from parent
     if (payload.fontName || effectiveWeight) {
         const boldProps = [];
         if (payload.fontName) boldProps.push(`font-family: "${payload.fontName}" !important`);
         boldProps.push('font-weight: 700 !important');
-        const boldAxesStr = [...nonWeightAxes, '"wght" 700'].join(', ');
-        boldProps.push(`font-variation-settings: ${boldAxesStr} !important`);
+        if (customAxes.length > 0) {
+            boldProps.push(`font-variation-settings: ${customAxes.join(', ')} !important`);
+        }
         lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
 

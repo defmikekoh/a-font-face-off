@@ -143,9 +143,10 @@
       cssPropsObject['font-size'] = `${fontConfig.fontSize}px`;
     }
     
-    // Include other font properties if present
-    if (fontConfig.fontWeight) {
-      cssPropsObject['font-weight'] = fontConfig.fontWeight;
+    // Registered axes → high-level CSS properties
+    var inlineEffectiveWeight = getEffectiveWeight(fontConfig);
+    if (inlineEffectiveWeight !== null) {
+      cssPropsObject['font-weight'] = inlineEffectiveWeight;
     }
     if (fontConfig.lineHeight) {
       cssPropsObject['line-height'] = fontConfig.lineHeight;
@@ -153,50 +154,22 @@
     if (fontConfig.fontColor) {
       cssPropsObject['color'] = fontConfig.fontColor;
     }
-    
-    // Handle font axes (slant, italic, width)
-    if (fontConfig.slntVal && fontConfig.slntVal !== 0) {
-      cssPropsObject['font-style'] = `oblique ${fontConfig.slntVal}deg`;
+    var inlineEffectiveWdth = getEffectiveWidth(fontConfig);
+    if (inlineEffectiveWdth !== null) {
+      cssPropsObject['font-stretch'] = inlineEffectiveWdth + '%';
     }
-    if (fontConfig.italVal && fontConfig.italVal >= 1) {
+    var inlineEffectiveItal = getEffectiveItalic(fontConfig);
+    var inlineEffectiveSlnt = getEffectiveSlant(fontConfig);
+    if (inlineEffectiveItal !== null && inlineEffectiveItal >= 1) {
       cssPropsObject['font-style'] = 'italic';
+    } else if (inlineEffectiveSlnt !== null && inlineEffectiveSlnt !== 0) {
+      cssPropsObject['font-style'] = 'oblique ' + inlineEffectiveSlnt + 'deg';
     }
-    
-    // Build font-variation-settings from all axes
-    var variationSettings = [];
-    
-    // Include weight axis if present
-    if (fontConfig.fontWeight) {
-      variationSettings.push(`"wght" ${fontConfig.fontWeight}`);
-    }
-    
-    // Include width axis if present
-    if (fontConfig.wdthVal && isFinite(fontConfig.wdthVal)) {
-      variationSettings.push(`"wdth" ${fontConfig.wdthVal}`);
-    }
-    
-    // Include slant axis if present
-    if (fontConfig.slntVal && isFinite(fontConfig.slntVal)) {
-      variationSettings.push(`"slnt" ${fontConfig.slntVal}`);
-    }
-    
-    // Include italic axis if present
-    if (fontConfig.italVal && isFinite(fontConfig.italVal)) {
-      variationSettings.push(`"ital" ${fontConfig.italVal}`);
-    }
-    
-    // Include any other variable axes
-    if (fontConfig.variableAxes) {
-      Object.entries(fontConfig.variableAxes).forEach(function([axis, value]) {
-        if (isFinite(Number(value))) {
-          variationSettings.push(`"${axis}" ${value}`);
-        }
-      });
-    }
-    
-    // Apply font-variation-settings if any axes are present
-    if (variationSettings.length > 0) {
-      cssPropsObject['font-variation-settings'] = variationSettings.join(', ');
+
+    // Custom axes only in font-variation-settings
+    var inlineCustomAxes = buildCustomAxisSettings(fontConfig);
+    if (inlineCustomAxes.length > 0) {
+      cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
     
     // Apply styles to elements based on font type
@@ -210,11 +183,13 @@
           });
         });
         // Override bold elements to preserve visual boldness in the custom font
-        if (fontConfig.fontWeight) {
+        if (inlineEffectiveWeight !== null) {
           var boldElements = document.querySelectorAll('body strong, body b');
           boldElements.forEach(function(el) {
             el.style.setProperty('font-weight', '700', 'important');
-            el.style.setProperty('font-variation-settings', '"wght" 700', 'important');
+            if (inlineCustomAxes.length > 0) {
+              el.style.setProperty('font-variation-settings', inlineCustomAxes.join(', '), 'important');
+            }
           });
         }
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
@@ -505,35 +480,45 @@
     }
   }
   
-  // Shared CSS helpers for weight and variable axis handling.
+  // Shared CSS helpers for weight/axis handling.
+  // Registered axes use high-level CSS properties (font-weight, font-stretch, font-style).
+  // Only custom/unregistered axes go into font-variation-settings.
+  var REGISTERED_AXES = { wght: true, wdth: true, slnt: true, ital: true, opsz: true };
 
-  // Returns effective weight as Number, or null. Checks fontWeight first, falls back to variableAxes.wght.
   function getEffectiveWeight(config) {
-    if (config.fontWeight != null && isFinite(Number(config.fontWeight))) {
-      return Number(config.fontWeight);
-    }
-    if (config.variableAxes && config.variableAxes.wght != null && isFinite(Number(config.variableAxes.wght))) {
-      return Number(config.variableAxes.wght);
-    }
+    if (config.fontWeight != null && isFinite(Number(config.fontWeight))) return Number(config.fontWeight);
+    if (config.variableAxes && config.variableAxes.wght != null && isFinite(Number(config.variableAxes.wght))) return Number(config.variableAxes.wght);
     return null;
   }
 
-  // Returns array of '"axis" value' strings for all non-weight variable axes.
-  // Collects from variableAxes object, plus top-level wdthVal/slntVal/italVal (with dedup).
-  function buildNonWeightAxes(config) {
+  function getEffectiveWidth(config) {
+    if (config.wdthVal != null && isFinite(Number(config.wdthVal))) return Number(config.wdthVal);
+    if (config.variableAxes && config.variableAxes.wdth != null && isFinite(Number(config.variableAxes.wdth))) return Number(config.variableAxes.wdth);
+    return null;
+  }
+
+  function getEffectiveSlant(config) {
+    if (config.slntVal != null && isFinite(Number(config.slntVal))) return Number(config.slntVal);
+    if (config.variableAxes && config.variableAxes.slnt != null && isFinite(Number(config.variableAxes.slnt))) return Number(config.variableAxes.slnt);
+    return null;
+  }
+
+  function getEffectiveItalic(config) {
+    if (config.italVal != null && isFinite(Number(config.italVal))) return Number(config.italVal);
+    if (config.variableAxes && config.variableAxes.ital != null && isFinite(Number(config.variableAxes.ital))) return Number(config.variableAxes.ital);
+    return null;
+  }
+
+  // Returns array of '"axis" value' strings for CUSTOM (unregistered) axes only.
+  function buildCustomAxisSettings(config) {
     var settings = [];
-    var seen = {};
     if (config.variableAxes) {
       Object.entries(config.variableAxes).forEach(function([axis, value]) {
-        if (axis !== 'wght' && isFinite(Number(value))) {
+        if (!REGISTERED_AXES[axis] && isFinite(Number(value))) {
           settings.push('"' + axis + '" ' + value);
-          seen[axis] = true;
         }
       });
     }
-    if (!seen.wdth && config.wdthVal && isFinite(config.wdthVal)) settings.push('"wdth" ' + config.wdthVal);
-    if (!seen.slnt && config.slntVal && isFinite(config.slntVal)) settings.push('"slnt" ' + config.slntVal);
-    if (!seen.ital && config.italVal && isFinite(config.italVal)) settings.push('"ital" ' + config.italVal);
     return settings;
   }
 
@@ -542,8 +527,11 @@
   function generateCSSLines(fontConfig, fontType) {
     var lines = [];
 
-    var nonWeightVarSettings = buildNonWeightAxes(fontConfig);
+    var customAxes = buildCustomAxisSettings(fontConfig);
     var effectiveWeight = getEffectiveWeight(fontConfig);
+    var effectiveWdth = getEffectiveWidth(fontConfig);
+    var effectiveSlnt = getEffectiveSlant(fontConfig);
+    var effectiveItal = getEffectiveItalic(fontConfig);
 
     if (fontType === 'body') {
       var generalSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="__whatfont_"])';
@@ -551,23 +539,36 @@
 
       var cssProps = [];
       if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
-        cssProps.push(`font-family: "${fontConfig.fontName}", serif !important`);
+        cssProps.push('font-family: "' + fontConfig.fontName + '", serif !important');
       }
-      if (fontConfig.fontSize) cssProps.push(`font-size: ${fontConfig.fontSize}px !important`);
-      if (fontConfig.lineHeight) cssProps.push(`line-height: ${fontConfig.lineHeight} !important`);
-      if (fontConfig.fontColor) cssProps.push(`color: ${fontConfig.fontColor} !important`);
-      if (fontConfig.slntVal && fontConfig.slntVal !== 0) cssProps.push(`font-style: oblique ${fontConfig.slntVal}deg !important`);
-      if (fontConfig.italVal && fontConfig.italVal >= 1) cssProps.push(`font-style: italic !important`);
-      if (nonWeightVarSettings.length > 0) {
-        cssProps.push(`font-variation-settings: ${nonWeightVarSettings.join(', ')} !important`);
+      if (fontConfig.fontSize) cssProps.push('font-size: ' + fontConfig.fontSize + 'px !important');
+      if (fontConfig.lineHeight) cssProps.push('line-height: ' + fontConfig.lineHeight + ' !important');
+      if (fontConfig.fontColor) cssProps.push('color: ' + fontConfig.fontColor + ' !important');
+      // Registered axes → high-level CSS properties
+      if (effectiveWdth !== null) cssProps.push('font-stretch: ' + effectiveWdth + '% !important');
+      if (effectiveItal !== null && effectiveItal >= 1) {
+        cssProps.push('font-style: italic !important');
+      } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
+        cssProps.push('font-style: oblique ' + effectiveSlnt + 'deg !important');
       }
-      lines.push(`${generalSelector} { ${cssProps.join('; ')}; }`);
+      // Custom axes only in font-variation-settings
+      if (customAxes.length > 0) {
+        cssProps.push('font-variation-settings: ' + customAxes.join(', ') + ' !important');
+      }
+      lines.push(generalSelector + ' { ' + cssProps.join('; ') + '; }');
 
       if (effectiveWeight) {
-        var weightVarSettings = nonWeightVarSettings.concat([`"wght" ${effectiveWeight}`]);
-        lines.push(`${weightSelector} { font-weight: ${effectiveWeight} !important; font-variation-settings: ${weightVarSettings.join(', ')} !important; }`);
-        var boldVarSettings = nonWeightVarSettings.concat(['"wght" 700']);
-        lines.push(`body strong, body b { font-weight: 700 !important; font-variation-settings: ${boldVarSettings.join(', ')} !important; }`);
+        var weightRule = 'font-weight: ' + effectiveWeight + ' !important';
+        if (customAxes.length > 0) {
+          weightRule += '; font-variation-settings: ' + customAxes.join(', ') + ' !important';
+        }
+        lines.push(weightSelector + ' { ' + weightRule + '; }');
+        // Bold override — font-weight only; stretch/style inherit from parent
+        var boldRule = 'font-weight: 700 !important';
+        if (customAxes.length > 0) {
+          boldRule += '; font-variation-settings: ' + customAxes.join(', ') + ' !important';
+        }
+        lines.push('body strong, body b { ' + boldRule + '; }');
       }
     } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
       var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
@@ -575,40 +576,46 @@
       // Comprehensive rule for non-bold marked elements
       var nonBoldProps = [];
       if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
-        nonBoldProps.push(`font-family: "${fontConfig.fontName}", ${generic} !important`);
+        nonBoldProps.push('font-family: "' + fontConfig.fontName + '", ' + generic + ' !important');
       }
       if (effectiveWeight) {
-        nonBoldProps.push(`font-weight: ${effectiveWeight} !important`);
-        var allAxesStr = nonWeightVarSettings.concat([`"wght" ${effectiveWeight}`]).join(', ');
-        nonBoldProps.push(`font-variation-settings: ${allAxesStr} !important`);
-      } else if (nonWeightVarSettings.length > 0) {
-        nonBoldProps.push(`font-variation-settings: ${nonWeightVarSettings.join(', ')} !important`);
+        nonBoldProps.push('font-weight: ' + effectiveWeight + ' !important');
+      }
+      // Registered axes → high-level CSS properties
+      if (effectiveWdth !== null) nonBoldProps.push('font-stretch: ' + effectiveWdth + '% !important');
+      if (effectiveItal !== null && effectiveItal >= 1) {
+        nonBoldProps.push('font-style: italic !important');
+      } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
+        nonBoldProps.push('font-style: oblique ' + effectiveSlnt + 'deg !important');
+      }
+      // Custom axes only in font-variation-settings
+      if (customAxes.length > 0) {
+        nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + ' !important');
       }
       if (nonBoldProps.length > 0) {
-        lines.push(`[data-affo-font-type="${fontType}"]:not(strong):not(b) { ${nonBoldProps.join('; ')}; }`);
+        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b) { ' + nonBoldProps.join('; ') + '; }');
       }
 
-      // Comprehensive rule for bold elements — same font, weight 700
+      // Bold rule — font-weight 700; stretch/style inherit from parent
       if ((fontConfig.fontName && fontConfig.fontName !== 'undefined') || effectiveWeight) {
         var boldProps = [];
         if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
-          boldProps.push(`font-family: "${fontConfig.fontName}", ${generic} !important`);
+          boldProps.push('font-family: "' + fontConfig.fontName + '", ' + generic + ' !important');
         }
         boldProps.push('font-weight: 700 !important');
-        var boldAxesStr = nonWeightVarSettings.concat(['"wght" 700']).join(', ');
-        boldProps.push(`font-variation-settings: ${boldAxesStr} !important`);
-        lines.push(`strong[data-affo-font-type="${fontType}"], b[data-affo-font-type="${fontType}"], [data-affo-font-type="${fontType}"] strong, [data-affo-font-type="${fontType}"] b { ${boldProps.join('; ')}; }`);
+        if (customAxes.length > 0) {
+          boldProps.push('font-variation-settings: ' + customAxes.join(', ') + ' !important');
+        }
+        lines.push('strong[data-affo-font-type="' + fontType + '"], b[data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"] strong, [data-affo-font-type="' + fontType + '"] b { ' + boldProps.join('; ') + '; }');
       }
 
       // Other properties apply to body text elements
       var otherProps = [];
-      if (fontConfig.fontSize) otherProps.push(`font-size: ${fontConfig.fontSize}px !important`);
-      if (fontConfig.lineHeight) otherProps.push(`line-height: ${fontConfig.lineHeight} !important`);
-      if (fontConfig.fontColor) otherProps.push(`color: ${fontConfig.fontColor} !important`);
-      if (fontConfig.slntVal && fontConfig.slntVal !== 0) otherProps.push(`font-style: oblique ${fontConfig.slntVal}deg !important`);
-      if (fontConfig.italVal && fontConfig.italVal >= 1) otherProps.push(`font-style: italic !important`);
+      if (fontConfig.fontSize) otherProps.push('font-size: ' + fontConfig.fontSize + 'px !important');
+      if (fontConfig.lineHeight) otherProps.push('line-height: ' + fontConfig.lineHeight + ' !important');
+      if (fontConfig.fontColor) otherProps.push('color: ' + fontConfig.fontColor + ' !important');
       if (otherProps.length > 0) {
-        lines.push(`html body p[data-affo-font-type="${fontType}"], html body span[data-affo-font-type="${fontType}"], html body td[data-affo-font-type="${fontType}"], html body th[data-affo-font-type="${fontType}"], html body li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`);
+        lines.push('html body p[data-affo-font-type="' + fontType + '"], html body span[data-affo-font-type="' + fontType + '"], html body td[data-affo-font-type="' + fontType + '"], html body th[data-affo-font-type="' + fontType + '"], html body li[data-affo-font-type="' + fontType + '"] { ' + otherProps.join('; ') + '; }');
       }
     }
 

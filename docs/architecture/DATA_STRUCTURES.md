@@ -311,6 +311,35 @@ After consolidation, all modes now use the same storage system:
 - Cleaner console logging showing batch operations
 - Scales efficiently as more font types are added
 
+## CSS Generation Helpers
+
+Shared helper functions used by all CSS generation paths (popup.js and content.js each have their own copies since they run in different contexts).
+
+### Registered vs Custom Axes
+
+Registered OpenType axes have corresponding high-level CSS properties and should NOT be placed in `font-variation-settings`. Only custom/unregistered axes use `font-variation-settings`.
+
+| Axis | CSS Property | Example |
+|------|-------------|---------|
+| `wght` | `font-weight` | `font-weight: 380` |
+| `wdth` | `font-stretch` | `font-stretch: 90%` |
+| `slnt` | `font-style` | `font-style: oblique -12deg` |
+| `ital` | `font-style` | `font-style: italic` |
+| `opsz` | `font-optical-sizing` | `font-optical-sizing: auto` |
+| `GRAD`, `CASL`, etc. | `font-variation-settings` | `font-variation-settings: "GRAD" 150` |
+
+### Helper Functions
+
+- **`getEffectiveWeight(config)`** — Returns numeric weight or `null`. Checks `config.fontWeight` first (basic weight control), falls back to `config.variableAxes.wght` (variable axis slider).
+- **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`.
+- **`getEffectiveSlant(config)`** — Same pattern for slnt.
+- **`getEffectiveItalic(config)`** — Same pattern for ital.
+- **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
+
+### Bold Override Strategy
+
+Bold elements (`<strong>`, `<b>`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist.
+
 ## Storage Schema
 
 - **Current (`affoApplyMap`)**: Unified schema used by all modes
