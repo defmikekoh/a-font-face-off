@@ -1,3 +1,18 @@
+// Dev-mode logging: silence console in signed builds, keep for web-ext run
+(function() {
+  var noop = function() {};
+  try {
+    browser.management.getSelf().then(function(info) {
+      if (info.installType !== 'development') {
+        console.log = noop;
+        console.warn = noop;
+      } else {
+        console.log('[AFFO Popup] Dev mode enabled (temporary add-on)');
+      }
+    }).catch(function() {});
+  } catch(_) {}
+})();
+
 // View mode: 'body-contact', 'faceoff', or 'third-man-in' (facade mode removed)
 let currentViewMode = null; // Start modeless to avoid warnings when switching to appropriate mode
 let suppressUiStateSave = false;

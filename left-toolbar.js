@@ -1,7 +1,18 @@
 // Left toolbar content script - based on essential-buttons-toolbar approach
 (function() {
     'use strict';
-    
+
+    // Dev-mode logging: silence console in signed builds, keep for web-ext run
+    var _noop = function() {};
+    try {
+      browser.management.getSelf().then(function(info) {
+        if (info.installType !== 'development') {
+          console.log = _noop;
+          console.warn = _noop;
+        }
+      }).catch(function() {});
+    } catch(_) {}
+
     // Prevent multiple injections
     if (window.affoLeftToolbarInjected) {
         return;

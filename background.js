@@ -1,3 +1,16 @@
+// Dev-mode logging: silence console in signed builds, keep for web-ext run
+(function() {
+  var noop = function() {};
+  try {
+    browser.management.getSelf().then(function(info) {
+      if (info.installType !== 'development') {
+        console.log = noop;
+        console.warn = noop;
+      }
+    }).catch(function() {});
+  } catch(_) {}
+})();
+
 // Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
 const FONT_CACHE_KEY = 'affoFontCache';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year

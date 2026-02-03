@@ -42,9 +42,21 @@
   var inlineApplyDomains = ['x.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
 
-  // Debug control - set to false to reduce logging
-  var DEBUG_VERBOSE = false;
-  var DEBUG_ELEMENTS = true; // Keep element application debugging
+  // Dev-mode logging: silence console in signed builds, keep for web-ext run
+  var _noop = function() {};
+  try {
+    browser.management.getSelf().then(function(info) {
+      if (info.installType !== 'development') {
+        console.log = _noop;
+        console.warn = _noop;
+      } else {
+        console.log('[AFFO Content] Dev mode enabled (temporary add-on)');
+      }
+    }).catch(function() {});
+  } catch(_) {}
+
+  function debugLog() { console.log.apply(console, arguments); }
+  function elementLog() { console.log.apply(console, arguments); }
 
   // Global cleanup tracking to prevent flipping between settings
   var activeObservers = {}; // Track MutationObservers by fontType
@@ -66,14 +78,6 @@
       debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts);
     }).catch(function() {});
   } catch(_) {}
-  
-  function debugLog(message, ...args) {
-    if (DEBUG_VERBOSE) debugLog(message, ...args);
-  }
-  
-  function elementLog(message, ...args) {
-    if (DEBUG_ELEMENTS) debugLog(`🎯 ${message}`, ...args);
-  }
   
   // Load FontFace-only domains from storage
   try {
