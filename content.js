@@ -505,26 +505,45 @@
     }
   }
   
+  // Shared CSS helpers for weight and variable axis handling.
+
+  // Returns effective weight as Number, or null. Checks fontWeight first, falls back to variableAxes.wght.
+  function getEffectiveWeight(config) {
+    if (config.fontWeight != null && isFinite(Number(config.fontWeight))) {
+      return Number(config.fontWeight);
+    }
+    if (config.variableAxes && config.variableAxes.wght != null && isFinite(Number(config.variableAxes.wght))) {
+      return Number(config.variableAxes.wght);
+    }
+    return null;
+  }
+
+  // Returns array of '"axis" value' strings for all non-weight variable axes.
+  // Collects from variableAxes object, plus top-level wdthVal/slntVal/italVal (with dedup).
+  function buildNonWeightAxes(config) {
+    var settings = [];
+    var seen = {};
+    if (config.variableAxes) {
+      Object.entries(config.variableAxes).forEach(function([axis, value]) {
+        if (axis !== 'wght' && isFinite(Number(value))) {
+          settings.push('"' + axis + '" ' + value);
+          seen[axis] = true;
+        }
+      });
+    }
+    if (!seen.wdth && config.wdthVal && isFinite(config.wdthVal)) settings.push('"wdth" ' + config.wdthVal);
+    if (!seen.slnt && config.slntVal && isFinite(config.slntVal)) settings.push('"slnt" ' + config.slntVal);
+    if (!seen.ital && config.italVal && isFinite(config.italVal)) settings.push('"ital" ' + config.italVal);
+    return settings;
+  }
+
   // Shared CSS generation for body and Third Man In modes.
   // Returns an array of CSS rule strings. Used by both reapplyStoredFontsFromEntry and reapplyStoredFonts.
   function generateCSSLines(fontConfig, fontType) {
     var lines = [];
 
-    // Build non-weight variation settings (shared by body and TMI modes)
-    var nonWeightVarSettings = [];
-    if (fontConfig.wdthVal && isFinite(fontConfig.wdthVal)) nonWeightVarSettings.push(`"wdth" ${fontConfig.wdthVal}`);
-    if (fontConfig.slntVal && isFinite(fontConfig.slntVal)) nonWeightVarSettings.push(`"slnt" ${fontConfig.slntVal}`);
-    if (fontConfig.italVal && isFinite(fontConfig.italVal)) nonWeightVarSettings.push(`"ital" ${fontConfig.italVal}`);
-    if (fontConfig.variableAxes) {
-      Object.entries(fontConfig.variableAxes).forEach(function([axis, value]) {
-        if (axis !== 'wght' && isFinite(Number(value))) {
-          nonWeightVarSettings.push(`"${axis}" ${value}`);
-        }
-      });
-    }
-
-    // Effective weight: fontWeight takes priority, fall back to variableAxes.wght
-    var effectiveWeight = fontConfig.fontWeight || (fontConfig.variableAxes && fontConfig.variableAxes.wght && isFinite(Number(fontConfig.variableAxes.wght)) ? Number(fontConfig.variableAxes.wght) : null);
+    var nonWeightVarSettings = buildNonWeightAxes(fontConfig);
+    var effectiveWeight = getEffectiveWeight(fontConfig);
 
     if (fontType === 'body') {
       var generalSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="__whatfont_"])';

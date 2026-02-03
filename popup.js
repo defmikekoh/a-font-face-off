@@ -3037,6 +3037,39 @@ function formatAxisValue(axis, value) {
 
 
 
+// Shared CSS helpers for weight and variable axis handling.
+// Used by generateBodyCSS, generateBodyContactCSS, and generateThirdManInCSS.
+
+// Returns effective weight as Number, or null. Checks fontWeight first, falls back to variableAxes.wght.
+function getEffectiveWeight(payload) {
+    if (payload.fontWeight != null && isFinite(Number(payload.fontWeight))) {
+        return Number(payload.fontWeight);
+    }
+    if (payload.variableAxes && payload.variableAxes.wght != null && isFinite(Number(payload.variableAxes.wght))) {
+        return Number(payload.variableAxes.wght);
+    }
+    return null;
+}
+
+// Returns array of '"axis" value' strings for all non-weight variable axes.
+// Collects from variableAxes object, plus top-level wdthVal/slntVal/italVal (with dedup).
+function buildNonWeightAxes(payload) {
+    const settings = [];
+    const seen = new Set();
+    if (payload.variableAxes) {
+        Object.entries(payload.variableAxes).forEach(([axis, value]) => {
+            if (axis !== 'wght' && isFinite(Number(value))) {
+                settings.push(`"${axis}" ${value}`);
+                seen.add(axis);
+            }
+        });
+    }
+    if (!seen.has('wdth') && payload.wdthVal && isFinite(payload.wdthVal)) settings.push(`"wdth" ${payload.wdthVal}`);
+    if (!seen.has('slnt') && payload.slntVal && isFinite(payload.slntVal)) settings.push(`"slnt" ${payload.slntVal}`);
+    if (!seen.has('ital') && payload.italVal && isFinite(payload.italVal)) settings.push(`"ital" ${payload.italVal}`);
+    return settings;
+}
+
 // Generate CSS string from payload object for body mode
 function generateBodyCSS(payload, position) {
     if (!payload) return '';
@@ -3096,18 +3129,17 @@ function generateBodyCSS(payload, position) {
 
     let css = `${sel}{${decl.join('; ')};}`;
 
-    // Effective weight: fontWeight control takes priority, fall back to variableAxes.wght
-    const faceoffEffectiveWeight = (payload.fontWeight !== null && payload.fontWeight !== undefined) ? payload.fontWeight : (payload.variableAxes && payload.variableAxes.wght !== null && payload.variableAxes.wght !== undefined && isFinite(Number(payload.variableAxes.wght))) ? Number(payload.variableAxes.wght) : null;
-    if (faceoffEffectiveWeight !== null) {
+    const effectiveWt = getEffectiveWeight(payload);
+    if (effectiveWt !== null) {
         // Build var settings including wght along with any other per-axis values
         const axes = Object.assign({}, payload.variableAxes || {});
-        axes.wght = Number(faceoffEffectiveWeight);
+        axes.wght = effectiveWt;
         const vstr = Object.entries(axes).map(pair => `"${pair[0]}" ${pair[1]}`).join(', ');
-        css += '\n' + weightSel + `{font-weight:${faceoffEffectiveWeight} !important; font-variation-settings:${vstr} !important;}`;
+        css += '\n' + weightSel + `{font-weight:${effectiveWt} !important; font-variation-settings:${vstr} !important;}`;
     }
 
     // Override rule for bold elements — keep the custom font but ensure a heavier weight
-    if (faceoffEffectiveWeight !== null) {
+    if (effectiveWt !== null) {
         css += '\nbody strong, body b, html body strong, html body b { font-weight: 700 !important; font-variation-settings: "wght" 700 !important; }';
     }
 
@@ -6712,43 +6744,23 @@ function generateBodyContactCSS(payload) {
         styleRule += ` font-style: italic !important;`;
     }
 
-    // Handle variable axes
-    const variableAxes = payload.variableAxes || {};
-    const axisEntries = Object.entries(variableAxes);
+    // Build non-weight variation settings
+    const nonWeightAxes = buildNonWeightAxes(payload);
 
-    // Build font-variation-settings for general selector (exclude wght — handled in weight rule)
-    const generalVariationSettings = [];
-    axisEntries.forEach(([axis, value]) => {
-        if (axis !== 'wght' && isFinite(Number(value))) {
-            generalVariationSettings.push(`"${axis}" ${value}`);
-        }
-    });
-
-    if (payload.wdthVal && isFinite(payload.wdthVal)) {
-        generalVariationSettings.push(`"wdth" ${payload.wdthVal}`);
-    }
-    if (payload.slntVal && isFinite(payload.slntVal)) {
-        generalVariationSettings.push(`"slnt" ${payload.slntVal}`);
-    }
-    if (payload.italVal && isFinite(payload.italVal)) {
-        generalVariationSettings.push(`"ital" ${payload.italVal}`);
-    }
-
-    if (generalVariationSettings.length > 0) {
-        styleRule += ` font-variation-settings: ${generalVariationSettings.join(', ')} !important;`;
+    if (nonWeightAxes.length > 0) {
+        styleRule += ` font-variation-settings: ${nonWeightAxes.join(', ')} !important;`;
     }
 
     styleRule += ' }';
     lines.push(styleRule);
 
     // Weight rule — applied via weightSelector which excludes strong/b
-    // Effective weight: fontWeight control takes priority, fall back to variableAxes.wght
-    const effectiveWeight = (payload.fontWeight && isFinite(payload.fontWeight)) ? payload.fontWeight : (variableAxes.wght && isFinite(Number(variableAxes.wght))) ? Number(variableAxes.wght) : null;
+    const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {
-        const weightVariationSettings = [...generalVariationSettings, `"wght" ${effectiveWeight}`];
+        const weightVariationSettings = [...nonWeightAxes, `"wght" ${effectiveWeight}`];
         lines.push(`${weightSelector} { font-weight: ${effectiveWeight} !important; font-variation-settings: ${weightVariationSettings.join(', ')} !important; }`);
         // Bold override — strong/b stay in the custom font but at weight 700
-        lines.push(`body strong, body b { font-weight: 700 !important; font-variation-settings: ${[...generalVariationSettings, '"wght" 700'].join(', ')} !important; }`);
+        lines.push(`body strong, body b { font-weight: 700 !important; font-variation-settings: ${[...nonWeightAxes, '"wght" 700'].join(', ')} !important; }`);
     }
 
     return lines.join('\n');
@@ -6767,18 +6779,16 @@ function generateThirdManInCSS(fontType, payload) {
     const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
     const ft = fontType; // shorthand for template strings
 
-    // Build non-weight variation settings
-    const nonWeightAxes = payload.variableAxes ? Object.entries(payload.variableAxes).filter(([axis]) => axis !== 'wght') : [];
-    const nonWeightVarStr = nonWeightAxes.map(([axis, value]) => `"${axis}" ${value}`).join(', ');
-    // Effective weight: fontWeight control takes priority, fall back to variableAxes.wght
-    const effectiveWeight = (payload.fontWeight && isFinite(payload.fontWeight)) ? payload.fontWeight : (payload.variableAxes && payload.variableAxes.wght && isFinite(payload.variableAxes.wght)) ? payload.variableAxes.wght : null;
+    const nonWeightAxes = buildNonWeightAxes(payload);
+    const nonWeightVarStr = nonWeightAxes.join(', ');
+    const effectiveWeight = getEffectiveWeight(payload);
 
     // Comprehensive rule for non-bold marked elements
     const nonBoldProps = [];
     if (payload.fontName) nonBoldProps.push(`font-family: "${payload.fontName}" !important`);
     if (effectiveWeight) {
         nonBoldProps.push(`font-weight: ${effectiveWeight} !important`);
-        const allAxesStr = [...nonWeightAxes.map(([a,v]) => `"${a}" ${v}`), `"wght" ${effectiveWeight}`].join(', ');
+        const allAxesStr = [...nonWeightAxes, `"wght" ${effectiveWeight}`].join(', ');
         nonBoldProps.push(`font-variation-settings: ${allAxesStr} !important`);
     } else if (nonWeightVarStr) {
         nonBoldProps.push(`font-variation-settings: ${nonWeightVarStr} !important`);
@@ -6792,7 +6802,7 @@ function generateThirdManInCSS(fontType, payload) {
         const boldProps = [];
         if (payload.fontName) boldProps.push(`font-family: "${payload.fontName}" !important`);
         boldProps.push('font-weight: 700 !important');
-        const boldAxesStr = [...nonWeightAxes.map(([a,v]) => `"${a}" ${v}`), '"wght" 700'].join(', ');
+        const boldAxesStr = [...nonWeightAxes, '"wght" 700'].join(', ');
         boldProps.push(`font-variation-settings: ${boldAxesStr} !important`);
         lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
