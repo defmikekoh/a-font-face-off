@@ -336,9 +336,19 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 - **`getEffectiveItalic(config)`** — Same pattern for ital.
 - **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
 
+### Inline-Apply Helpers (content.js module-level)
+
+These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, and the MutationObserver/reapply logic. They live at module level so all inline-apply code paths share them.
+
+- **`BODY_EXCLUDE`** — Constant: `:not(h1):not(h2)...:not(.no-affo)`. The base exclusion chain for body-mode selectors.
+- **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com.
+- **`getAffoSelector(fontType)`** — Returns the CSS selector for a given font type. Body mode uses `BODY_EXCLUDE`; TMI mode uses `getHybridSelector()` on x.com or `[data-affo-font-type]` elsewhere.
+- **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience.
+- **`applyTmiProtection(el, propsObj, effectiveWeight)`** — Wraps `applyAffoProtection` with bold detection. Checks tag name, `data-affo-was-bold` marker, or computed `fontWeight >= 700` before applying, then restores weight to 700 for bold elements.
+
 ### Bold Override Strategy
 
-Bold elements (`<strong>`, `<b>`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist.
+Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. In the inline-apply path, bold elements are marked with `data-affo-was-bold="true"` so subsequent reapply cycles can detect them without relying on computed style.
 
 ## Storage Schema
 
