@@ -6859,8 +6859,6 @@ function generateThirdManInCSS(fontType, payload) {
         if (siteSpecificRules) {
             lines.push(siteSpecificRules);
         }
-
-        lines.push(`html body p[data-affo-font-type="${ft}"], html body span[data-affo-font-type="${ft}"], html body td[data-affo-font-type="${ft}"], html body th[data-affo-font-type="${ft}"], html body li[data-affo-font-type="${ft}"] { ${otherProps.join('; ')}; }`);
     }
 
     const css = lines.join('\n');

@@ -172,11 +172,58 @@
       cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
     
+    // --- Shared helpers for selector building and per-element application ---
+    var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
+
+    function getAffoSelector(ft) {
+      if (ft === 'body') {
+        return 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)';
+      }
+      return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]';
+    }
+
+    function applyAffoProtection(el, propsObj) {
+      Object.entries(propsObj).forEach(function([prop, value]) {
+        el.style.setProperty(prop, value, 'important');
+        el.style.setProperty('--affo-' + prop, value, 'important');
+        el.setAttribute('data-affo-' + prop, value);
+      });
+      el.setAttribute('data-affo-protected', 'true');
+      el.setAttribute('data-affo-font-name', propsObj['font-family']);
+    }
+
+    // TMI-aware wrapper: detects bold elements before overwriting, preserves weight 700
+    function applyTmiProtection(el, propsObj) {
+      // Detect bold BEFORE applying — check tag, prior-run marker, or computed style
+      var isBold = false;
+      try {
+        var tag = el.tagName && el.tagName.toLowerCase();
+        if (tag === 'strong' || tag === 'b') {
+          isBold = true;
+        } else if (el.getAttribute('data-affo-was-bold') === 'true') {
+          isBold = true;
+        } else {
+          var cw = window.getComputedStyle(el).fontWeight;
+          isBold = cw && Number(cw) >= 700;
+        }
+      } catch(_) {}
+
+      applyAffoProtection(el, propsObj);
+
+      // Restore bold weight so it isn't flattened to the custom weight
+      if (isBold && inlineEffectiveWeight !== null) {
+        el.style.setProperty('font-weight', '700', 'important');
+        el.style.setProperty('--affo-font-weight', '700', 'important');
+        el.setAttribute('data-affo-font-weight', '700');
+        el.setAttribute('data-affo-was-bold', 'true');
+      }
+    }
+
     // Apply styles to elements based on font type
     try {
       if (fontType === 'body') {
         // Apply to body and most descendants (excluding headers for Third Man In mode)
-        var bodyElements = document.querySelectorAll('body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)');
+        var bodyElements = document.querySelectorAll('body, ' + getAffoSelector('body'));
         bodyElements.forEach(function(el) {
           Object.entries(cssPropsObject).forEach(function([prop, value]) {
             el.style.setProperty(prop, value, 'important');
@@ -194,51 +241,11 @@
         }
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
       } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-        // For Third Man In mode, use hybrid approach for x.com
-        var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-        
-        if (isXCom) {
-          // On x.com, apply to broad selector like body mode for better coverage
-          var hybridSelector = getHybridSelector(fontType);
-          var hybridElements = document.querySelectorAll(hybridSelector);
-          hybridElements.forEach(function(el) {
-            Object.entries(cssPropsObject).forEach(function([prop, value]) {
-              // Apply the style with !important
-              el.style.setProperty(prop, value, 'important');
-              
-              // Also set as a CSS custom property for additional resilience
-              el.style.setProperty(`--affo-${prop}`, value, 'important');
-              
-              // Set a data attribute as backup
-              el.setAttribute(`data-affo-${prop}`, value);
-            });
-            
-            // Mark element as protected
-            el.setAttribute('data-affo-protected', 'true');
-            el.setAttribute('data-affo-font-name', cssPropsObject['font-family']);
-          });
-          elementLog(`Applied hybrid inline styles to ${hybridElements.length} ${fontType} elements`);
-        } else {
-          // On other sites, use normal Third Man In mode with marked elements
-          var targetElements = document.querySelectorAll(`[data-affo-font-type="${fontType}"]`);
-          targetElements.forEach(function(el) {
-            Object.entries(cssPropsObject).forEach(function([prop, value]) {
-              // Apply the style with !important
-              el.style.setProperty(prop, value, 'important');
-              
-              // Also set as a CSS custom property for additional resilience
-              el.style.setProperty(`--affo-${prop}`, value, 'important');
-              
-              // Set a data attribute as backup
-              el.setAttribute(`data-affo-${prop}`, value);
-            });
-            
-            // Mark element as protected
-            el.setAttribute('data-affo-protected', 'true');
-            el.setAttribute('data-affo-font-name', cssPropsObject['font-family']);
-          });
-          elementLog(`Applied enhanced inline styles to ${targetElements.length} ${fontType} elements`);
-        }
+        var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
+        tmiElements.forEach(function(el) {
+          applyTmiProtection(el, cssPropsObject);
+        });
+        elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
       }
     } catch (e) {
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
@@ -255,49 +262,22 @@
             try {
               if (n && n.nodeType === 1) {
                 var newElements = [];
-                
-                // Check if the node itself matches our selector
-                if (fontType === 'body') {
-                  var bodySelector = 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)';
-                  try {
-                    if (n.matches && n.matches(bodySelector)) newElements.push(n);
-                  } catch(_) {}
-                  try {
-                    if (n.querySelectorAll) {
-                      newElements = newElements.concat(Array.from(n.querySelectorAll(bodySelector)));
-                    }
-                  } catch(_) {}
-                } else {
-                  // For Third Man In mode, use hybrid selector on x.com
-                  var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-                  var thirdManSelector = isXCom ? getHybridSelector(fontType) : `[data-affo-font-type="${fontType}"]`;
-                  try {
-                    if (n.matches && n.matches(thirdManSelector)) newElements.push(n);
-                  } catch(_) {}
-                  try {
-                    if (n.querySelectorAll) {
-                      newElements = newElements.concat(Array.from(n.querySelectorAll(thirdManSelector)));
-                    }
-                  } catch(_) {}
-                }
-                
+                var sel = getAffoSelector(fontType);
+
+                try {
+                  if (n.matches && n.matches(sel)) newElements.push(n);
+                } catch(_) {}
+                try {
+                  if (n.querySelectorAll) {
+                    newElements = newElements.concat(Array.from(n.querySelectorAll(sel)));
+                  }
+                } catch(_) {}
+
                 // Apply enhanced protection to new elements
+                var applyFn = (fontType === 'body') ? applyAffoProtection : applyTmiProtection;
                 newElements.forEach(function(el) {
                   try {
-                    Object.entries(cssPropsObject).forEach(function([prop, value]) {
-                      // Apply the style with !important
-                      el.style.setProperty(prop, value, 'important');
-                      
-                      // Also set as a CSS custom property for additional resilience
-                      el.style.setProperty(`--affo-${prop}`, value, 'important');
-                      
-                      // Set a data attribute as backup
-                      el.setAttribute(`data-affo-${prop}`, value);
-                    });
-                    
-                    // Mark element as protected
-                    el.setAttribute('data-affo-protected', 'true');
-                    el.setAttribute('data-affo-font-name', cssPropsObject['font-family']);
+                    applyFn(el, cssPropsObject);
                   } catch(_) {}
                 });
                 
@@ -326,34 +306,13 @@
       activeTimers[fontType].push(disconnectTimer);
       
       // Re-apply styles on SPA navigations (history API hooks)
+      var reapplyFn = (fontType === 'body') ? applyAffoProtection : applyTmiProtection;
       function reapplyInlineStyles() {
         try {
-          if (fontType === 'body') {
-            var elements = document.querySelectorAll('body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)');
-          } else {
-            // Use hybrid selector on x.com for better coverage
-            var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-            var selector = isXCom ? getHybridSelector(fontType) : `[data-affo-font-type="${fontType}"]`;
-            var elements = document.querySelectorAll(selector);
-          }
-          
+          var elements = document.querySelectorAll(getAffoSelector(fontType));
           elements.forEach(function(el) {
-            Object.entries(cssPropsObject).forEach(function([prop, value]) {
-              // Apply the style with !important
-              el.style.setProperty(prop, value, 'important');
-              
-              // Also set as a CSS custom property for additional resilience
-              el.style.setProperty(`--affo-${prop}`, value, 'important');
-              
-              // Set a data attribute as backup
-              el.setAttribute(`data-affo-${prop}`, value);
-            });
-            
-            // Mark element as protected
-            el.setAttribute('data-affo-protected', 'true');
-            el.setAttribute('data-affo-font-name', cssPropsObject['font-family']);
+            reapplyFn(el, cssPropsObject);
           });
-          
           elementLog(`Re-applied inline styles to ${elements.length} ${fontType} elements after SPA navigation`);
         } catch(e) {
           debugLog(`[AFFO Content] Error re-applying inline styles after SPA navigation:`, e);
@@ -389,7 +348,6 @@
         try {
           // On x.com, monitor every 2 seconds for the first 30 seconds, then every 10 seconds for 2.5 more minutes
           // With fast caching, fonts apply almost instantly, so we don't need aggressive polling
-          var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
           var initialFrequency = isXCom ? 2000 : 5000; // 2 seconds for x.com (was 1s), 5 seconds for others
           var laterFrequency = 10000; // 10 seconds (was 5s)
           var initialDuration = isXCom ? 30000 : 60000; // 30 seconds for x.com (was 2 min), 1 minute for others
@@ -664,9 +622,17 @@
             el.style.setProperty(`--affo-${prop}`, value, 'important');
             el.setAttribute(`data-affo-${prop}`, value);
           });
-          
+
           el.setAttribute('data-affo-protected', 'true');
           el.setAttribute('data-affo-font-name', expectedFontFamily);
+
+          // Preserve bold weight for elements marked as bold by applyTmiProtection
+          if (el.getAttribute('data-affo-was-bold') === 'true') {
+            el.style.setProperty('font-weight', '700', 'important');
+            el.style.setProperty('--affo-font-weight', '700', 'important');
+            el.setAttribute('data-affo-font-weight', '700');
+          }
+
           restoredCount++;
         }
       });
