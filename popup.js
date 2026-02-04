@@ -1043,11 +1043,6 @@ async function updateBodyButtons() {
     }
 }
 
-// Helper function to get current panel font configuration
-function getPanelFontConfig(panelId) {
-    return getCurrentUIConfig(panelId);
-}
-
 // Function to update body apply/reset button visibility
 // Shared button state decision logic for body-contact and third-man-in modes.
 // Returns { action: 'apply'|'reset'|'none', changeCount }
@@ -1077,7 +1072,7 @@ async function updateBodyButtonsImmediate() {
         }
 
         // Get current control values
-        const currentConfig = getPanelFontConfig('body');
+        const currentConfig = getCurrentUIConfig('body');
         console.log('Current config:', currentConfig);
 
         // Get applied state from domain storage
@@ -1651,15 +1646,6 @@ function mergeConfigsForApply(uiConfig, appliedConfig) {
     if (uiConfig.fontColor !== undefined) merged.fontColor = uiConfig.fontColor;
 
     return merged;
-}
-
-// Get current font configuration for new panel-based modes
-function getPanelFontConfig(panelId) {
-    // Use direct position mapping for cleaner architecture
-    if (['body', 'serif', 'sans', 'mono'].includes(panelId)) {
-        return getCurrentUIConfig(panelId);
-    }
-    return null;
 }
 
 // Helper function to wait for controls to exist
@@ -3067,20 +3053,12 @@ function buildCustomAxisSettings(payload) {
 }
 
 // Generate CSS string from payload object for body mode
-function generateBodyCSS(payload, position) {
+function generateBodyCSS(payload) {
     if (!payload) return '';
 
     // Check if there's anything meaningful to apply
     const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.fontWeight || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
     if (!hasAnyProperties) return '';
-
-    // Determine generic family based on position
-    let generic;
-    if (position === 'body') {
-        generic = 'serif';
-    } else {
-        generic = (position === 'top') ? 'serif' : 'sans-serif';
-    }
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const sel = 'body, ' +
@@ -3205,7 +3183,7 @@ async function applyFontToPage(position, config) {
                 css = generateBodyContactCSS(payload);
             } else {
                 // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload, position);
+                css = generateBodyCSS(payload);
             }
 
             if (css) {
@@ -4612,19 +4590,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Get font selectors
     // Font selection now handled by font picker interface, no dropdowns needed
 
-    // Get text elements
-    const topFontText = document.getElementById('top-font-text');
-    const topFontSection = document.getElementById('top-font-section');
-    const bottomFontText = document.getElementById('bottom-font-text');
-    const bottomFontSection = document.getElementById('bottom-font-section');
-
     // Get control panels and UI elements
     const topFontControls = document.getElementById('top-font-controls');
     const bottomFontControls = document.getElementById('bottom-font-controls');
     const panelOverlay = document.getElementById('panel-overlay');
     const topFontGrip = document.getElementById('top-font-grip');
     const bottomFontGrip = document.getElementById('bottom-font-grip');
-    const fontComparison = document.getElementById('font-comparison');
 
     // Load saved state first, then continue initialization INSIDE the callback
     console.log('Loading extension state before initialization');
@@ -4886,17 +4857,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             element.classList.add('default');
         }
     });
-
-    // Helper function to update font display styling based on content
-    function updateFontDisplayStyling(element) {
-        if (element) {
-            if (element.textContent === 'Default') {
-                element.classList.add('default');
-            } else {
-                element.classList.remove('default');
-            }
-        }
-    }
 
     // Family reset handlers removed - no longer needed
 
@@ -6099,7 +6059,6 @@ function generateThirdManInCSS(fontType, payload) {
         lines.push(payload.fontFaceRule);
     }
 
-    const generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
     const ft = fontType; // shorthand for template strings
 
     const customAxes = buildCustomAxisSettings(payload);
@@ -6939,7 +6898,7 @@ function handleApply(panelId) {
         })();
     } else {
         // Body Contact and Face-off modes: single panel apply
-        const config = getPanelFontConfig(panelId);
+        const config = getCurrentUIConfig(panelId);
         applyPromise = applyPanelConfiguration(panelId, config).then(() => {
             // Handle body mode specially - update buttons after successful apply
             if (panelId === 'body') {
@@ -6989,7 +6948,7 @@ function applyAllThirdManInFonts() {
             const domainData = rawDomainData || {};
 
             types.forEach(type => {
-                const config = getPanelFontConfig(type);
+                const config = getCurrentUIConfig(type);
                 const appliedConfig = domainData[type];
 
                 console.log(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
@@ -7239,7 +7198,7 @@ function countThirdManInDifferences() {
             let currentHasNonDefaults = false;
 
             for (const type of types) {
-                const current = getPanelFontConfig(type);
+                const current = getCurrentUIConfig(type);
                 const applied = domainData ? domainData[type] : null;
 
                 // Font is considered default/unset if config is missing or has no meaningful properties
@@ -7306,7 +7265,7 @@ function countThirdManInDifferences() {
         console.error('Error counting differences:', error);
         // Fallback to simple logic
         for (const type of types) {
-            const current = getPanelFontConfig(type);
+            const current = getCurrentUIConfig(type);
 
             // Font is considered default/unset if config is missing or has no meaningful properties
             const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && !current.fontColor);
@@ -7551,251 +7510,6 @@ async function updateAllThirdManInButtons(triggeringPanel = null) {
             resetBtn.style.display = 'none';
         }
     }));
-}
-
-// TODO: Third Man In implementation only - do not use for Body Contact mode!
-// Body Contact mode uses updateBodyButtons() for proper button management.
-// This function is specifically for Third Man In mode panels (serif, sans, mono).
-function updateThirdManInButtons(panelId) {
-    // Safety check: prevent body mode from using this function
-    if (panelId === 'body') {
-        console.warn('updateThirdManInButtons called with body panelId - this should use updateBodyButtons instead');
-        return Promise.resolve();
-    }
-
-    const applyBtn = document.getElementById(`apply-${panelId}`);
-    const resetBtn = document.getElementById(`reset-${panelId}`);
-    console.log('Found buttons - apply:', !!applyBtn, 'reset:', !!resetBtn);
-
-    if (!applyBtn || !resetBtn) return Promise.resolve();
-
-    // Third Man In mode: Apply All/Reset All logic
-    if (currentViewMode === 'third-man-in') {
-        return countThirdManInDifferences().then(async changeCount => {
-            const allDefaults = !getCurrentUIConfig('serif') && !getCurrentUIConfig('sans') && !getCurrentUIConfig('mono');
-
-            let domainHasFonts = false;
-            if (changeCount === 0) {
-                const origin = await getActiveOrigin();
-                const domainData = await getApplyMapForOrigin(origin);
-                domainHasFonts = !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
-            }
-
-            const state = determineButtonState(changeCount, allDefaults, domainHasFonts);
-
-            if (state.action === 'apply') {
-                applyBtn.style.display = 'block';
-                applyBtn.textContent = state.changeCount > 1 ? `Apply All (${state.changeCount})` : 'Apply All';
-                resetBtn.style.display = 'none';
-            } else if (state.action === 'reset') {
-                applyBtn.style.display = 'none';
-                resetBtn.style.display = 'block';
-                resetBtn.textContent = 'Reset All';
-            } else {
-                applyBtn.style.display = 'none';
-                resetBtn.style.display = 'none';
-            }
-        });
-    }
-
-    // Get current panel configuration
-    const currentConfig = getPanelFontConfig(panelId);
-    console.log('Current config:', currentConfig);
-
-    // Get applied configuration for this domain
-    return getActiveOrigin().then(origin => {
-        return getAppliedConfigForDomain(origin, panelId).then(appliedConfig => {
-                console.log('Applied config for origin:', origin, appliedConfig);
-
-                // Check if current panel has any settings
-                const panelHasSettings = configHasAnySettings(currentConfig);
-                const domainHasSettings = configHasAnySettings(appliedConfig);
-                console.log('Panel has settings:', panelHasSettings, 'Domain has settings:', domainHasSettings);
-
-                // State 1: No button visible - both panel and domain are completely unset
-                if (!panelHasSettings && !domainHasSettings) {
-                    console.log('State 1: No button visible - both unset');
-                    applyBtn.style.display = 'none';
-                    resetBtn.style.display = 'none';
-                    return;
-                }
-
-                // Check if configurations match
-                const configsEqual = configsMatch(currentConfig, appliedConfig);
-                console.log('Configs match:', configsEqual);
-
-                // State 2: Reset button - panel matches domain AND domain has settings
-                if (domainHasSettings && configsEqual) {
-                    console.log('State 2: Reset button - configs match and domain has settings');
-                    console.log('Showing RESET button for panelId:', panelId);
-                    applyBtn.style.display = 'none';
-                    resetBtn.style.display = 'inline-flex';
-                    resetBtn.textContent = 'Reset';
-                    return;
-                }
-
-                // State 3: Apply button - panel doesn't match domain
-                console.log('State 3: Apply button - configs do not match');
-                applyBtn.style.display = 'inline-flex';
-                resetBtn.style.display = 'none';
-                applyBtn.textContent = 'Apply';
-            });
-    }).catch(error => {
-        console.error('Error updating apply/reset button:', error);
-        // Fallback to showing Apply button
-        applyBtn.style.display = 'inline-flex';
-        resetBtn.style.display = 'none';
-        applyBtn.textContent = 'Apply';
-    });
-}
-
-// Helper function to check if a config has any settings
-function configHasAnySettings(config) {
-    if (!config) return false;
-
-    // Check if font family is set (not null/undefined/default)
-    if (config.fontName && config.fontName.toLowerCase() !== 'default') return true;
-
-    // Check basic controls (flattened "No Key" architecture - properties directly on config)
-    if (config.fontSize !== null && config.fontSize !== undefined) return true;
-    if (config.lineHeight !== null && config.lineHeight !== undefined) return true;
-    if (config.fontWeight !== null && config.fontWeight !== undefined) return true;
-    if (config.fontColor !== null && config.fontColor !== undefined) return true;
-
-    // Check variable axes
-    if (config.variableAxes && Object.keys(config.variableAxes).length > 0) return true;
-
-    return false;
-}
-
-// Helper function to check if two configs match
-function configsMatch(config1, config2) {
-    console.log('Comparing configs:', {config1, config2});
-
-    if (!config1 && !config2) return true;
-    if (!config1 || !config2) {
-        console.log('One config is null/undefined');
-        return false;
-    }
-
-    // Compare font names
-    if (config1.fontName !== config2.fontName) {
-        console.log('Font names differ:', config1.fontName, 'vs', config2.fontName);
-        return false;
-    }
-
-    // Compare basic controls
-    const basic1 = config1.basicControls || {};
-    const basic2 = config2.basicControls || {};
-
-    if (basic1.fontSize !== basic2.fontSize) {
-        console.log('Font sizes differ:', basic1.fontSize, 'vs', basic2.fontSize);
-        return false;
-    }
-    if (basic1.lineHeight !== basic2.lineHeight) {
-        console.log('Line heights differ:', basic1.lineHeight, 'vs', basic2.lineHeight);
-        return false;
-    }
-    if (basic1.fontWeight !== basic2.fontWeight) {
-        console.log('Font weights differ:', basic1.fontWeight, 'vs', basic2.fontWeight);
-        return false;
-    }
-    if (basic1.fontColor !== basic2.fontColor) {
-        console.log('Font colors differ:', basic1.fontColor, 'vs', basic2.fontColor);
-        return false;
-    }
-
-    // Compare variable axes - only compare axes that were actually modified from defaults
-    const activeAxes1 = new Set(config1.activeAxes || []);
-    const activeAxes2 = new Set(config2.activeAxes || []);
-    const axes1 = config1.variableAxes;
-    const axes2 = config2.variableAxes;
-    console.log('Variable axes comparison:', {axes1, axes2, activeAxes1: [...activeAxes1], activeAxes2: [...activeAxes2]});
-
-    // Only compare axes that are active in either config
-    const allActiveAxes = new Set([...activeAxes1, ...activeAxes2]);
-    for (const axis of allActiveAxes) {
-        const value1 = activeAxes1.has(axis) ? axes1[axis] : undefined;
-        const value2 = activeAxes2.has(axis) ? axes2[axis] : undefined;
-        console.log(`Comparing axis ${axis}: ${value1} vs ${value2} (active1: ${activeAxes1.has(axis)}, active2: ${activeAxes2.has(axis)})`);
-
-        // If only one side has the axis active, they don't match
-        if (activeAxes1.has(axis) !== activeAxes2.has(axis)) {
-            console.log(`Active state differs for axis ${axis}`);
-            return false;
-        }
-
-        // If both have it active, values must match
-        if (activeAxes1.has(axis) && activeAxes2.has(axis) && value1 !== value2) {
-            console.log(`Values differ for active axis ${axis}: ${value1} vs ${value2}`);
-            return false;
-        }
-    }
-
-    console.log('Configs match!');
-    return true;
-}
-
-// Helper function to get applied config for domain
-function getAppliedConfigForDomain(origin, panelId) {
-    if (!origin || !panelId) return Promise.resolve(null);
-
-    // Use correct storage based on panel type
-    if (panelId === 'body') {
-        // Body mode uses consolidated affoApplyMap
-        return browser.storage.local.get('affoApplyMap').then(data => {
-            const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-            // Using origin directly (hostname)
-            const entry = map[origin] || {};
-            const payload = entry.body;
-
-            if (!payload) return null;
-
-            return convertPayloadToConfig(payload);
-        });
-    } else if (['serif', 'sans', 'mono'].includes(panelId)) {
-        // Third Man In mode now uses consolidated affoApplyMap
-        return getApplyMapForOrigin(origin, panelId).then(payload => {
-
-            if (!payload) return null;
-
-            return convertPayloadToConfig(payload);
-        });
-    }
-
-    return Promise.resolve(null);
-}
-
-function convertPayloadToConfig(payload) {
-    // Convert payload back to config format
-    // Reconstruct active controls based on what was set in the payload
-    const activeControls = [];
-    if (payload.fontSize !== null && payload.fontSize !== undefined) {
-        activeControls.push('font-size');
-    }
-    if (payload.lineHeight !== null && payload.lineHeight !== undefined) {
-        activeControls.push('line-height');
-    }
-    if (payload.fontWeight !== null && payload.fontWeight !== undefined) {
-        activeControls.push('weight');
-    }
-
-    // Use variableAxes directly
-    const variableAxes = payload.variableAxes || {};
-    const activeAxes = Object.keys(variableAxes);
-
-    return {
-        fontName: payload.fontName,
-        basicControls: {
-            fontSize: payload.fontSizePx,
-            lineHeight: payload.lineHeight,
-            fontWeight: payload.fontWeight,
-            fontColor: payload.fontColor || null
-        },
-        variableAxes,
-        activeAxes,
-        activeControls
-    };
 }
 
 // Show loading state on Apply button
