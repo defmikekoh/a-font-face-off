@@ -197,7 +197,7 @@ const panelStates = {
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 #### Inline Storage Access
-- **popup.js**: ~14 inline `browser.storage.local.get('affoApplyMap')` calls bypass the centralized functions, mostly in UI state/button update functions (`updateBodyButtons`, `syncThirdManInButtons`, `isModeApplied`, `refreshApplyButtonsDirtyState`, etc.)
+- **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Only the write functions (`saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`) and `getAppliedConfigForDomain` access `browser.storage.local.get('affoApplyMap')` directly (read-modify-write pattern).
 - **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations; all writes are in popup.js.
 
 ### Config Conversion & Payload Building
@@ -240,6 +240,31 @@ Per-panel font setting history, not persisted to storage. Remembers axis/control
 #### Functions that modify ONLY Domain Storage
 - `clearApplyMapForOrigin()`: No UI changes
 - `saveApplyMapForOrigin()`: No UI changes
+
+### Mode Configuration
+
+#### `MODE_CONFIG` constant
+Data-driven mode metadata used by `saveExtensionStateImmediate`, `performModeSwitch`, and `modeHasAppliedSettings` instead of per-mode if/else branches.
+```javascript
+{
+    'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
+    'faceoff': { positions: ['top', 'bottom'], stateKeys: { top: 'topFont', bottom: 'bottomFont' }, useDomain: false },
+    'third-man-in': { positions: ['serif', 'sans', 'mono'], stateKeys: { serif: 'serifFont', sans: 'sansFont', mono: 'monoFont' }, useDomain: true }
+}
+```
+
+### Button State Logic
+
+#### `determineButtonState(changeCount, allDefaults, domainHasApplied)`
+Pure function returning `{ action: 'apply'|'reset'|'none', changeCount }`. Shared by `updateBodyButtonsImmediate`, `updateAllThirdManInButtons`, and `updateThirdManInButtons` (TMI branch). Each caller maps the result to its own button text ("Apply" vs "Apply All (3)").
+
+### UI Control Factories
+
+#### `getPositionCallbacks(position)`
+Returns `{ preview, buttons, save }` callbacks appropriate for a panel position. Body calls `updateBodyPreview` + `updateBodyButtons`; TMI calls `updateThirdManInPreview` + `updateAllThirdManInButtons`; face-off calls `applyFont`.
+
+#### `setupSliderControl(position, controlId, options?)`
+Generic factory for slider input, text keydown/blur, and value display handlers. Used for font-size, line-height, and font-weight across all 6 positions. Options: `{ format, suffix, clampMin, clampMax }`.
 
 ### Font Application
 - `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyMapForOrigin()` (1 storage write instead of N) with parallel CSS application

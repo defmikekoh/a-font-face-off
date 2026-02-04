@@ -20,6 +20,12 @@ const panelStates = {
 
 console.log('🔧 Initial panelStates:', panelStates);
 
+const MODE_CONFIG = {
+    'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
+    'faceoff': { positions: ['top', 'bottom'], stateKeys: { top: 'topFont', bottom: 'bottomFont' }, useDomain: false },
+    'third-man-in': { positions: ['serif', 'sans', 'mono'], stateKeys: { serif: 'serifFont', sans: 'sansFont', mono: 'monoFont' }, useDomain: true }
+};
+
 function getPanelLabel(position) {
     if (position === 'body') return 'Body';
     if (position === 'top') return 'Top';
@@ -1043,6 +1049,19 @@ function getPanelFontConfig(panelId) {
 }
 
 // Function to update body apply/reset button visibility
+// Shared button state decision logic for body-contact and third-man-in modes.
+// Returns { action: 'apply'|'reset'|'none', changeCount }
+function determineButtonState(changeCount, allDefaults, domainHasApplied) {
+    if (changeCount > 0) {
+        return allDefaults
+            ? { action: 'reset', changeCount: 0 }
+            : { action: 'apply', changeCount };
+    }
+    return domainHasApplied
+        ? { action: 'reset', changeCount: 0 }
+        : { action: 'none', changeCount: 0 };
+}
+
 async function updateBodyButtonsImmediate() {
     console.log('updateBodyButtons called');
     const applyBtn = document.getElementById('apply-body');
@@ -1062,13 +1081,8 @@ async function updateBodyButtonsImmediate() {
         console.log('Current config:', currentConfig);
 
         // Get applied state from domain storage
-        const data = await browser.storage.local.get('affoApplyMap');
-        const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        const entry = map[origin];
-        const appliedConfig = entry && entry['body'];
+        const appliedConfig = await getApplyMapForOrigin(origin, 'body');
         console.log('Applied config:', appliedConfig);
-        console.log('DEBUG: Full storage data:', data);
-        console.log('DEBUG: Map for origin:', origin, 'entry:', entry);
 
         // Compare current vs applied state
         const changeCount = !configsEqual(currentConfig, appliedConfig) ? 1 : 0;
@@ -1084,42 +1098,18 @@ async function updateBodyButtonsImmediate() {
             appliedConfigType: typeof appliedConfig
         });
 
-        if (changeCount > 0) {
-            // Check if all UI changes are actually defaults (Reset case)
-            const allDefaults = !currentConfig; // currentConfig is undefined when UI shows "Default"
+        const allDefaults = !currentConfig; // currentConfig is undefined when UI shows "Default"
+        const state = determineButtonState(changeCount, allDefaults, domainHasAppliedState);
 
-            if (allDefaults) {
-                // Special case: changeCount > 0 but UI is default - show Reset
-                if (applyBtn) applyBtn.style.display = 'none';
-                if (resetBtn) {
-                    resetBtn.style.display = 'block';
-                    resetBtn.textContent = 'Reset';
-                    resetBtn.disabled = false;
-                }
-            } else {
-                // Normal case: UI differs from applied - show Apply button
-                if (applyBtn) {
-                    applyBtn.style.display = 'block';
-                    applyBtn.textContent = 'Apply';
-                    applyBtn.disabled = false;
-                }
-                if (resetBtn) resetBtn.style.display = 'none';
-            }
+        if (state.action === 'apply') {
+            if (applyBtn) { applyBtn.style.display = 'block'; applyBtn.textContent = 'Apply'; applyBtn.disabled = false; }
+            if (resetBtn) resetBtn.style.display = 'none';
+        } else if (state.action === 'reset') {
+            if (applyBtn) applyBtn.style.display = 'none';
+            if (resetBtn) { resetBtn.style.display = 'block'; resetBtn.textContent = 'Reset'; resetBtn.disabled = false; }
         } else {
-            // changeCount === 0 - check if domain has applied state
-            if (domainHasAppliedState) {
-                // No changes but domain has applied state - show Reset button
-                if (applyBtn) applyBtn.style.display = 'none';
-                if (resetBtn) {
-                    resetBtn.style.display = 'block';
-                    resetBtn.textContent = 'Reset';
-                    resetBtn.disabled = false;
-                }
-            } else {
-                // No changes and no applied state - hide both buttons
-                if (applyBtn) applyBtn.style.display = 'none';
-                if (resetBtn) resetBtn.style.display = 'none';
-            }
+            if (applyBtn) applyBtn.style.display = 'none';
+            if (resetBtn) resetBtn.style.display = 'none';
         }
     } catch (e) {
         console.error('Error in updateBodyButtons:', e);
@@ -1363,57 +1353,25 @@ async function saveExtensionStateImmediate() {
         extensionState[currentViewMode] = {};
     }
 
-    if (currentViewMode === 'body-contact') {
-        // Body Contact mode - save single panel
-        const bodyConfig = getCurrentUIConfig('body');
-        if (bodyConfig) {
-            extensionState[currentViewMode].bodyFont = bodyConfig;
-        } else {
-            delete extensionState[currentViewMode].bodyFont;
-        }
-    } else if (currentViewMode === 'third-man-in') {
-        // Third Man In mode - save multiple panels
-        const serifConfig = getCurrentUIConfig('serif');
-        const sansConfig = getCurrentUIConfig('sans');
-        const monoConfig = getCurrentUIConfig('mono');
+    const modeConfig = MODE_CONFIG[currentViewMode];
 
-        if (serifConfig) {
-            extensionState[currentViewMode].serifFont = serifConfig;
-        } else {
-            delete extensionState[currentViewMode].serifFont;
-        }
-        if (sansConfig) {
-            extensionState[currentViewMode].sansFont = sansConfig;
-        } else {
-            delete extensionState[currentViewMode].sansFont;
-        }
-        if (monoConfig) {
-            extensionState[currentViewMode].monoFont = monoConfig;
-        } else {
-            delete extensionState[currentViewMode].monoFont;
-        }
-    } else {
-        // Face-off mode
-        const getFaceoffFallbackConfig = (position) => {
-            const display = document.getElementById(`${position}-font-display`);
-            const name = display ? String(display.textContent || '').trim() : '';
-            if (!name || name.toLowerCase() === 'default') return undefined;
-            return { fontName: name, variableAxes: {} };
-        };
+    // Face-off fallback: when UI controls aren't active but a font name is displayed
+    const getFallbackConfig = (currentViewMode === 'faceoff') ? (position) => {
+        const display = document.getElementById(`${position}-font-display`);
+        const name = display ? String(display.textContent || '').trim() : '';
+        if (!name || name.toLowerCase() === 'default') return undefined;
+        return { fontName: name, variableAxes: {} };
+    } : null;
 
-        const topConfig = getCurrentUIConfig('top') || getFaceoffFallbackConfig('top');
-        const bottomConfig = getCurrentUIConfig('bottom') || getFaceoffFallbackConfig('bottom');
-        console.log('saveExtensionStateImmediate: faceoff configs', { topConfig, bottomConfig });
-
-        if (topConfig) {
-            extensionState[currentViewMode].topFont = topConfig;
-        } else {
-            delete extensionState[currentViewMode].topFont;
+    for (const [position, stateKey] of Object.entries(modeConfig.stateKeys)) {
+        let config = getCurrentUIConfig(position);
+        if (!config && getFallbackConfig) {
+            config = getFallbackConfig(position);
         }
-        if (bottomConfig) {
-            extensionState[currentViewMode].bottomFont = bottomConfig;
+        if (config) {
+            extensionState[currentViewMode][stateKey] = config;
         } else {
-            delete extensionState[currentViewMode].bottomFont;
+            delete extensionState[currentViewMode][stateKey];
         }
     }
 
@@ -3569,9 +3527,8 @@ function syncApplyButtonsForOrigin() {
     return getActiveOrigin().then(origin => {
         if (!origin) return;
 
-        return browser.storage.local.get('affoApplyMap').then(data => {
-            const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-            const entry = map[origin] || {};
+        return getApplyMapForOrigin(origin).then(domainData => {
+            const entry = domainData || {};
 
             if (applyTopBtn) {
                 const on = !!entry.serif;
@@ -3997,6 +3954,12 @@ function hideSaveModal() {
 }
 
 // Favorites Popup functionality
+function getOrderedFavoriteNames() {
+    return (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
+        ? savedFavoritesOrder.filter(n => savedFavorites[n])
+        : Object.keys(savedFavorites);
+}
+
 function showFavoritesPopup(position) {
     console.log('showFavoritesPopup called for position:', position);
     const popup = document.getElementById('favorites-popup');
@@ -4008,9 +3971,7 @@ function showFavoritesPopup(position) {
     listContainer.innerHTML = '';
 
     // Check if there are any favorites
-    const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
-        ? savedFavoritesOrder.filter(n => savedFavorites[n])
-        : Object.keys(savedFavorites);
+    const names = getOrderedFavoriteNames();
     console.log('savedFavorites:', savedFavorites);
     console.log('savedFavoritesOrder:', savedFavoritesOrder);
     console.log('Favorite names to show:', names);
@@ -4102,9 +4063,7 @@ function showEditFavoritesModal() {
     listContainer.innerHTML = '';
 
     // Check if there are any favorites
-    const names = (Array.isArray(savedFavoritesOrder) && savedFavoritesOrder.length)
-        ? savedFavoritesOrder.filter(n => savedFavorites[n])
-        : Object.keys(savedFavorites);
+    const names = getOrderedFavoriteNames();
     if (names.length === 0) {
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
@@ -4571,6 +4530,20 @@ async function injectCustomFonts() {
     console.log('Injected custom font @font-face rules for:', CUSTOM_FONTS);
 }
 
+// Returns mode-appropriate preview/button callbacks for a panel position
+function getPositionCallbacks(position) {
+    if (position === 'body') {
+        return { preview: () => updateBodyPreview(), buttons: () => updateBodyButtons(), save: true };
+    }
+    if (['serif', 'sans', 'mono'].includes(position)) {
+        return { preview: () => updateThirdManInPreview(position), buttons: () => updateAllThirdManInButtons(position), save: true };
+    }
+    if (['top', 'bottom'].includes(position)) {
+        return { preview: () => applyFont(position), buttons: null, save: false };
+    }
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
 
@@ -4785,704 +4758,106 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Body color reset button
-    const bodyColorResetBtn = document.getElementById('body-color-reset');
-    if (bodyColorResetBtn) {
-        bodyColorResetBtn.addEventListener('click', function() {
-            const bodyFontColorSelect = document.getElementById('body-font-color');
-            const bodyColorGroup = bodyFontColorSelect && bodyFontColorSelect.closest('.control-group');
-            if (bodyFontColorSelect) {
-                bodyFontColorSelect.value = 'default';
-            }
-            if (bodyColorGroup) {
-                bodyColorGroup.classList.add('unset');
-            }
-            // Update preview and buttons
-            updateBodyPreview();
-            updateBodyButtons();
-            saveExtensionState();
+    // Color reset buttons — factory for all positions
+    ['body', 'serif', 'sans', 'mono', 'top', 'bottom'].forEach(position => {
+        const btn = document.getElementById(`${position}-color-reset`);
+        if (!btn) return;
+        const callbacks = getPositionCallbacks(position);
+        if (!callbacks) return;
+        btn.addEventListener('click', function() {
+            const colorSelect = document.getElementById(`${position}-font-color`);
+            const colorGroup = colorSelect && colorSelect.closest('.control-group');
+            if (colorSelect) colorSelect.value = 'default';
+            if (colorGroup) colorGroup.classList.add('unset');
+            callbacks.preview();
+            if (callbacks.buttons) callbacks.buttons();
+            if (callbacks.save) saveExtensionState();
         });
-    }
-
-    // Third Man In color reset buttons
-    const serifColorResetBtn = document.getElementById('serif-color-reset');
-    if (serifColorResetBtn) {
-        serifColorResetBtn.addEventListener('click', function() {
-            const serifFontColorSelect = document.getElementById('serif-font-color');
-            const serifColorGroup = serifFontColorSelect && serifFontColorSelect.closest('.control-group');
-            if (serifFontColorSelect) {
-                serifFontColorSelect.value = 'default';
-            }
-            if (serifColorGroup) {
-                serifColorGroup.classList.add('unset');
-            }
-            updateThirdManInPreview('serif');
-            updateAllThirdManInButtons();
-            saveExtensionState();
-        });
-    }
-
-    const sansColorResetBtn = document.getElementById('sans-color-reset');
-    if (sansColorResetBtn) {
-        sansColorResetBtn.addEventListener('click', function() {
-            const sansFontColorSelect = document.getElementById('sans-font-color');
-            const sansColorGroup = sansFontColorSelect && sansFontColorSelect.closest('.control-group');
-            if (sansFontColorSelect) {
-                sansFontColorSelect.value = 'default';
-            }
-            if (sansColorGroup) {
-                sansColorGroup.classList.add('unset');
-            }
-            updateThirdManInPreview('sans');
-            updateAllThirdManInButtons();
-            saveExtensionState();
-        });
-    }
-
-    const monoColorResetBtn = document.getElementById('mono-color-reset');
-    if (monoColorResetBtn) {
-        monoColorResetBtn.addEventListener('click', function() {
-            const monoFontColorSelect = document.getElementById('mono-font-color');
-            const monoColorGroup = monoFontColorSelect && monoFontColorSelect.closest('.control-group');
-            if (monoFontColorSelect) {
-                monoFontColorSelect.value = 'default';
-            }
-            if (monoColorGroup) {
-                monoColorGroup.classList.add('unset');
-            }
-            updateThirdManInPreview('mono');
-            updateAllThirdManInButtons();
-            saveExtensionState();
-        });
-    }
-
-    // Face-off mode color reset buttons
-    const topColorResetBtn = document.getElementById('top-color-reset');
-    if (topColorResetBtn) {
-        topColorResetBtn.addEventListener('click', function() {
-            const topFontColorSelect = document.getElementById('top-font-color');
-            const topColorGroup = topFontColorSelect && topFontColorSelect.closest('.control-group');
-            if (topFontColorSelect) {
-                topFontColorSelect.value = 'default';
-            }
-            if (topColorGroup) {
-                topColorGroup.classList.add('unset');
-            }
-            applyFont('top');
-        });
-    }
-
-    const bottomColorResetBtn = document.getElementById('bottom-color-reset');
-    if (bottomColorResetBtn) {
-        bottomColorResetBtn.addEventListener('click', function() {
-            const bottomFontColorSelect = document.getElementById('bottom-font-color');
-            const bottomColorGroup = bottomFontColorSelect && bottomFontColorSelect.closest('.control-group');
-            if (bottomFontColorSelect) {
-                bottomFontColorSelect.value = 'default';
-            }
-            if (bottomColorGroup) {
-                bottomColorGroup.classList.add('unset');
-            }
-            applyFont('bottom');
-        });
-    }
+    });
 
 
 
-    const topSizeSlider = document.getElementById('top-font-size');
-    const bottomSizeSlider = document.getElementById('bottom-font-size');
-    const bodySizeSlider = document.getElementById('body-font-size');
-    const topSizeText = document.getElementById('top-font-size-text');
-    const bottomSizeText = document.getElementById('bottom-font-size-text');
-    const bodySizeText = document.getElementById('body-font-size-text');
-    const topSizeGroup = document.querySelector('#top-font-controls .control-group[data-control="font-size"]');
-    const bottomSizeGroup = document.querySelector('#bottom-font-controls .control-group[data-control="font-size"]');
-    const bodySizeGroup = document.querySelector('#body-font-controls .control-group[data-control="font-size"]');
-    if (topSizeSlider) {
-        topSizeSlider.addEventListener('input', function() {
-            if (topSizeGroup) topSizeGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (topSizeText) topSizeText.value = v;
-            applyFont('top');
-        });
-    }
-    if (bottomSizeSlider) {
-        bottomSizeSlider.addEventListener('input', function() {
-            if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (bottomSizeText) bottomSizeText.value = v;
-            applyFont('bottom');
-        });
-    }
-    if (bodySizeSlider) {
-        bodySizeSlider.addEventListener('input', function() {
-            if (bodySizeGroup) bodySizeGroup.classList.remove('unset');
-            updateBodyButtons(); // Note: not awaiting to avoid blocking UI
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (bodySizeText) bodySizeText.value = v;
-            const bodySizeValue = document.getElementById('body-font-size-value');
-            if (bodySizeValue) bodySizeValue.textContent = v + 'px';
-            updateBodyPreview();
-            // Save state after font-size change
-            saveExtensionState();
-        });
-    }
     function parseSizeVal(v){
-    if (v == null) return null;
-    const str = String(v).trim();
-    if (!str) return null;
-    const m = str.match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*(px)?\s*$/i);
-    if (!m) return null;
-    return Number(m[1]);
-}
-function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) return null; return Math.min(max, Math.max(min, v)); }
-    if (topSizeText) {
-        topSizeText.addEventListener('keydown', function(e){
-            if (e.key === 'Enter') {
-                const min = Number(topSizeSlider?.min || 10), max = Number(topSizeSlider?.max || 72);
+        if (v == null) return null;
+        const str = String(v).trim();
+        if (!str) return null;
+        const m = str.match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*(px)?\s*$/i);
+        if (!m) return null;
+        return Number(m[1]);
+    }
+    function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) return null; return Math.min(max, Math.max(min, v)); }
+
+    // Generic slider control factory — handles slider input, text keydown/blur, value display
+    // options: { format(v), suffix, clampMin, clampMax }
+    function setupSliderControl(position, controlId, options = {}) {
+        const slider = document.getElementById(`${position}-${controlId}`);
+        if (!slider) return;
+        const callbacks = getPositionCallbacks(position);
+        if (!callbacks) return;
+        const group = slider.closest('.control-group');
+        const textInput = document.getElementById(`${position}-${controlId}-text`);
+        const valueDisplay = document.getElementById(`${position}-${controlId}-value`);
+        const formatVal = options.format || (v => v);
+        const suffix = options.suffix || '';
+
+        slider.addEventListener('input', function() {
+            if (group) group.classList.remove('unset');
+            const v = formatVal(this.value);
+            if (textInput) textInput.value = v;
+            if (valueDisplay) valueDisplay.textContent = v + suffix;
+            if (callbacks.buttons) callbacks.buttons();
+            callbacks.preview();
+            if (callbacks.save) saveExtensionState();
+        });
+
+        if (textInput && options.clampMin != null) {
+            const applyTextValue = function() {
+                const min = Number(slider.min || options.clampMin);
+                const max = Number(slider.max || options.clampMax);
                 const vv = clamp(this.value, min, max);
                 if (vv !== null) {
-                    if (topSizeGroup) topSizeGroup.classList.remove('unset');
-                    if (topSizeSlider) topSizeSlider.value = String(vv);
+                    if (group) group.classList.remove('unset');
+                    slider.value = String(vv);
                     this.value = String(vv);
-                    applyFont('top');
+                    if (valueDisplay) valueDisplay.textContent = vv + suffix;
+                    if (callbacks.buttons) callbacks.buttons();
+                    callbacks.preview();
+                    if (callbacks.save) saveExtensionState();
                 }
-                this.blur();
-            }
-        });
-        topSizeText.addEventListener('blur', function(){
-            const min = Number(topSizeSlider?.min || 10), max = Number(topSizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (topSizeGroup) topSizeGroup.classList.remove('unset');
-                if (topSizeSlider) topSizeSlider.value = String(vv);
-                this.value = String(vv);
-                applyFont('top');
-            }
-        });
-    }
-    if (bottomSizeText) {
-        bottomSizeText.addEventListener('keydown', function(e){
-            if (e.key === 'Enter') {
-                const min = Number(bottomSizeSlider?.min || 10), max = Number(bottomSizeSlider?.max || 72);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                    if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
-                    if (bottomSizeSlider) bottomSizeSlider.value = String(vv);
-                    this.value = String(vv);
-                    applyFont('bottom');
-                }
-                this.blur();
-            }
-        });
-        bottomSizeText.addEventListener('blur', function(){
-            const min = Number(bottomSizeSlider?.min || 10), max = Number(bottomSizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (bottomSizeGroup) bottomSizeGroup.classList.remove('unset');
-                if (bottomSizeSlider) bottomSizeSlider.value = String(vv);
-                this.value = String(vv);
-                applyFont('bottom');
-            }
-        });
-    }
-    if (bodySizeText) {
-        bodySizeText.addEventListener('keydown', function(e){
-            if (e.key === 'Enter') {
-                const min = Number(bodySizeSlider?.min || 10), max = Number(bodySizeSlider?.max || 72);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                    if (bodySizeGroup) bodySizeGroup.classList.remove('unset');
-                    updateBodyButtons();
-                    if (bodySizeSlider) bodySizeSlider.value = String(vv);
-                    this.value = String(vv);
-                    const bodySizeValue = document.getElementById('body-font-size-value');
-                    if (bodySizeValue) bodySizeValue.textContent = vv + 'px';
-                    updateBodyPreview();
-                    // Save state after font-size change
-                    saveExtensionState();
-                }
-                this.blur();
-            }
-        });
-        bodySizeText.addEventListener('blur', function(){
-            const min = Number(bodySizeSlider?.min || 10), max = Number(bodySizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (bodySizeGroup) bodySizeGroup.classList.remove('unset');
-                updateBodyButtons();
-                if (bodySizeSlider) bodySizeSlider.value = String(vv);
-                this.value = String(vv);
-                const bodySizeValue = document.getElementById('body-font-size-value');
-                if (bodySizeValue) bodySizeValue.textContent = vv + 'px';
-                updateBodyPreview();
-                // Save state after font-size change
-                saveExtensionState();
-            }
-        });
+            };
+            textInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { applyTextValue.call(this); this.blur(); }
+            });
+            textInput.addEventListener('blur', function() { applyTextValue.call(this); });
+        }
     }
 
-    // Third Man In Font Size Controls
-    const serifSizeSlider = document.getElementById('serif-font-size');
-    const serifSizeText = document.getElementById('serif-font-size-text');
-    const serifSizeGroup = document.querySelector('#serif-font-controls .control-group[data-control="font-size"]');
-    if (serifSizeSlider) {
-        serifSizeSlider.addEventListener('input', function() {
-            if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (serifSizeText) serifSizeText.value = v;
-            const serifSizeValue = document.getElementById('serif-font-size-value');
-            if (serifSizeValue) serifSizeValue.textContent = v + 'px';
-            updateThirdManInPreview('serif');
-            updateAllThirdManInButtons('serif');
-            // Save state after font-size change
-            saveExtensionState();
+    const decimalFormat = v => Number(v).toFixed(2).replace(/\.00$/, '');
+    const ALL_POSITIONS = ['top', 'bottom', 'body', 'serif', 'sans', 'mono'];
+
+    // Font-size slider + text input handlers
+    ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'font-size', { format: decimalFormat, suffix: 'px', clampMin: 10, clampMax: 72 }));
+
+    // Line-height slider + text input handlers
+    ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'line-height', { format: decimalFormat, clampMin: 0.8, clampMax: 2.5 }));
+
+    // Font-weight slider handlers (no text input)
+    ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'font-weight'));
+
+    // Font color change handlers
+    ALL_POSITIONS.forEach(position => {
+        const colorSelect = document.getElementById(`${position}-font-color`);
+        if (!colorSelect) return;
+        const callbacks = getPositionCallbacks(position);
+        if (!callbacks) return;
+        const colorGroup = colorSelect.closest('.control-group');
+        colorSelect.addEventListener('change', function() {
+            if (colorGroup && this.value !== 'default') colorGroup.classList.remove('unset');
+            if (callbacks.buttons) callbacks.buttons();
+            callbacks.preview();
+            if (callbacks.save) saveExtensionState();
         });
-    }
-    if (serifSizeText) {
-        serifSizeText.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const min = Number(serifSizeSlider?.min || 10), max = Number(serifSizeSlider?.max || 72);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                    if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
-                    if (serifSizeSlider) serifSizeSlider.value = String(vv);
-                    this.value = String(vv);
-                    const serifSizeValue = document.getElementById('serif-font-size-value');
-                    if (serifSizeValue) serifSizeValue.textContent = vv + 'px';
-                    updateThirdManInPreview('serif');
-                    updateAllThirdManInButtons('serif');
-                    // Save state after font-size change
-                    saveExtensionState();
-                }
-                this.blur();
-            }
-        });
-        serifSizeText.addEventListener('blur', function() {
-            const min = Number(serifSizeSlider?.min || 10), max = Number(serifSizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (serifSizeGroup) serifSizeGroup.classList.remove('unset');
-                if (serifSizeSlider) serifSizeSlider.value = String(vv);
-                this.value = String(vv);
-                const serifSizeValue = document.getElementById('serif-font-size-value');
-                if (serifSizeValue) serifSizeValue.textContent = vv + 'px';
-                updateThirdManInPreview('serif');
-                updateAllThirdManInButtons('serif');
-                // Save state after font-size change
-                saveExtensionState();
-            }
-        });
-    }
-
-    const sansSizeSlider = document.getElementById('sans-font-size');
-    const sansSizeText = document.getElementById('sans-font-size-text');
-    const sansSizeGroup = document.querySelector('#sans-font-controls .control-group[data-control="font-size"]');
-    if (sansSizeSlider) {
-        sansSizeSlider.addEventListener('input', function() {
-            if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (sansSizeText) sansSizeText.value = v;
-            const sansSizeValue = document.getElementById('sans-font-size-value');
-            if (sansSizeValue) sansSizeValue.textContent = v + 'px';
-            updateThirdManInPreview('sans');
-            updateAllThirdManInButtons('sans');
-            // Save state after font-size change
-            saveExtensionState();
-        });
-    }
-    if (sansSizeText) {
-        sansSizeText.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const min = Number(sansSizeSlider?.min || 10), max = Number(sansSizeSlider?.max || 72);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                    if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
-                    if (sansSizeSlider) sansSizeSlider.value = String(vv);
-                    this.value = String(vv);
-                    const sansSizeValue = document.getElementById('sans-font-size-value');
-                    if (sansSizeValue) sansSizeValue.textContent = vv + 'px';
-                    updateThirdManInPreview('sans');
-                    updateAllThirdManInButtons('sans');
-                    // Save state after font-size change
-                    saveExtensionState();
-                }
-                this.blur();
-            }
-        });
-        sansSizeText.addEventListener('blur', function() {
-            const min = Number(sansSizeSlider?.min || 10), max = Number(sansSizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (sansSizeGroup) sansSizeGroup.classList.remove('unset');
-                if (sansSizeSlider) sansSizeSlider.value = String(vv);
-                this.value = String(vv);
-                const sansSizeValue = document.getElementById('sans-font-size-value');
-                if (sansSizeValue) sansSizeValue.textContent = vv + 'px';
-                updateThirdManInPreview('sans');
-                updateAllThirdManInButtons('sans');
-                // Save state after font-size change
-                saveExtensionState();
-            }
-        });
-    }
-
-    const monoSizeSlider = document.getElementById('mono-font-size');
-    const monoSizeText = document.getElementById('mono-font-size-text');
-    const monoSizeGroup = document.querySelector('#mono-font-controls .control-group[data-control="font-size"]');
-    if (monoSizeSlider) {
-        monoSizeSlider.addEventListener('input', function() {
-            if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (monoSizeText) monoSizeText.value = v;
-            const monoSizeValue = document.getElementById('mono-font-size-value');
-            if (monoSizeValue) monoSizeValue.textContent = v + 'px';
-            updateThirdManInPreview('mono');
-            updateAllThirdManInButtons('mono');
-            // Save state after font-size change
-            saveExtensionState();
-        });
-    }
-    if (monoSizeText) {
-        monoSizeText.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const min = Number(monoSizeSlider?.min || 10), max = Number(monoSizeSlider?.max || 72);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                    if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
-                    if (monoSizeSlider) monoSizeSlider.value = String(vv);
-                    this.value = String(vv);
-                    const monoSizeValue = document.getElementById('mono-font-size-value');
-                    if (monoSizeValue) monoSizeValue.textContent = vv + 'px';
-                    updateThirdManInPreview('mono');
-                    updateAllThirdManInButtons('mono');
-                    // Save state after font-size change
-                    saveExtensionState();
-                }
-                this.blur();
-            }
-        });
-        monoSizeText.addEventListener('blur', function() {
-            const min = Number(monoSizeSlider?.min || 10), max = Number(monoSizeSlider?.max || 72);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                if (monoSizeGroup) monoSizeGroup.classList.remove('unset');
-                if (monoSizeSlider) monoSizeSlider.value = String(vv);
-                this.value = String(vv);
-                const monoSizeValue = document.getElementById('mono-font-size-value');
-                if (monoSizeValue) monoSizeValue.textContent = vv + 'px';
-                updateThirdManInPreview('mono');
-                updateAllThirdManInButtons('mono');
-                // Save state after font-size change
-                saveExtensionState();
-            }
-        });
-    }
-
-    // Third Man In Line Height Controls
-    const serifLineHeightSlider = document.getElementById('serif-line-height');
-    const serifLineHeightText = document.getElementById('serif-line-height-text');
-    const serifLineHeightGroup = serifLineHeightSlider ? serifLineHeightSlider.closest('.control-group') : null;
-
-    if (serifLineHeightSlider) {
-        serifLineHeightSlider.addEventListener('input', function() {
-            if (serifLineHeightGroup) serifLineHeightGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (serifLineHeightText) serifLineHeightText.value = v;
-            const serifLineHeightValue = document.getElementById('serif-line-height-value');
-            if (serifLineHeightValue) serifLineHeightValue.textContent = v;
-            updateThirdManInPreview('serif');
-            updateAllThirdManInButtons('serif');
-            saveExtensionState();
-        });
-    }
-
-    const sansLineHeightSlider = document.getElementById('sans-line-height');
-    const sansLineHeightText = document.getElementById('sans-line-height-text');
-    const sansLineHeightGroup = sansLineHeightSlider ? sansLineHeightSlider.closest('.control-group') : null;
-
-    if (sansLineHeightSlider) {
-        sansLineHeightSlider.addEventListener('input', function() {
-            if (sansLineHeightGroup) sansLineHeightGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (sansLineHeightText) sansLineHeightText.value = v;
-            const sansLineHeightValue = document.getElementById('sans-line-height-value');
-            if (sansLineHeightValue) sansLineHeightValue.textContent = v;
-            updateThirdManInPreview('sans');
-            updateAllThirdManInButtons('sans');
-            saveExtensionState();
-        });
-    }
-
-    const monoLineHeightSlider = document.getElementById('mono-line-height');
-    const monoLineHeightText = document.getElementById('mono-line-height-text');
-    const monoLineHeightGroup = monoLineHeightSlider ? monoLineHeightSlider.closest('.control-group') : null;
-
-    if (monoLineHeightSlider) {
-        monoLineHeightSlider.addEventListener('input', function() {
-            if (monoLineHeightGroup) monoLineHeightGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (monoLineHeightText) monoLineHeightText.value = v;
-            const monoLineHeightValue = document.getElementById('mono-line-height-value');
-            if (monoLineHeightValue) monoLineHeightValue.textContent = v;
-            updateThirdManInPreview('mono');
-            updateAllThirdManInButtons('mono');
-            saveExtensionState();
-        });
-    }
-
-    // Third Man In Font Weight Controls
-    const serifFontWeightSlider = document.getElementById('serif-font-weight');
-    const serifFontWeightGroup = serifFontWeightSlider ? serifFontWeightSlider.closest('.control-group') : null;
-
-    if (serifFontWeightSlider) {
-        serifFontWeightSlider.addEventListener('input', function() {
-            if (serifFontWeightGroup) serifFontWeightGroup.classList.remove('unset');
-            const v = this.value;
-            const serifFontWeightValue = document.getElementById('serif-font-weight-value');
-            if (serifFontWeightValue) serifFontWeightValue.textContent = v;
-            updateThirdManInPreview('serif');
-            updateAllThirdManInButtons('serif');
-            saveExtensionState();
-        });
-    }
-
-    const sansFontWeightSlider = document.getElementById('sans-font-weight');
-    const sansFontWeightGroup = sansFontWeightSlider ? sansFontWeightSlider.closest('.control-group') : null;
-
-    if (sansFontWeightSlider) {
-        sansFontWeightSlider.addEventListener('input', function() {
-            if (sansFontWeightGroup) sansFontWeightGroup.classList.remove('unset');
-            const v = this.value;
-            const sansFontWeightValue = document.getElementById('sans-font-weight-value');
-            if (sansFontWeightValue) sansFontWeightValue.textContent = v;
-            updateThirdManInPreview('sans');
-            updateAllThirdManInButtons('sans');
-            saveExtensionState();
-        });
-    }
-
-    const monoFontWeightSlider = document.getElementById('mono-font-weight');
-    const monoFontWeightGroup = monoFontWeightSlider ? monoFontWeightSlider.closest('.control-group') : null;
-
-    if (monoFontWeightSlider) {
-        monoFontWeightSlider.addEventListener('input', function() {
-            if (monoFontWeightGroup) monoFontWeightGroup.classList.remove('unset');
-            const v = this.value;
-            const monoFontWeightValue = document.getElementById('mono-font-weight-value');
-            if (monoFontWeightValue) monoFontWeightValue.textContent = v;
-            updateThirdManInPreview('mono');
-            updateAllThirdManInButtons('mono');
-            saveExtensionState();
-        });
-    }
-
-    // Third Man In Color Controls
-    const serifColorSelect = document.getElementById('serif-font-color');
-    const serifColorGroup = serifColorSelect ? serifColorSelect.closest('.control-group') : null;
-
-    if (serifColorSelect) {
-        serifColorSelect.addEventListener('change', function() {
-            if (serifColorGroup) serifColorGroup.classList.remove('unset');
-            updateThirdManInPreview('serif');
-            updateAllThirdManInButtons('serif');
-            saveExtensionState();
-        });
-    }
-
-    const sansColorSelect = document.getElementById('sans-font-color');
-    const sansColorGroup = sansColorSelect ? sansColorSelect.closest('.control-group') : null;
-
-    if (sansColorSelect) {
-        sansColorSelect.addEventListener('change', function() {
-            if (sansColorGroup) sansColorGroup.classList.remove('unset');
-            updateThirdManInPreview('sans');
-            updateAllThirdManInButtons('sans');
-            saveExtensionState();
-        });
-    }
-
-    const monoColorSelect = document.getElementById('mono-font-color');
-    const monoColorGroup = monoColorSelect ? monoColorSelect.closest('.control-group') : null;
-
-    if (monoColorSelect) {
-        monoColorSelect.addEventListener('change', function() {
-            if (monoColorGroup) monoColorGroup.classList.remove('unset');
-            updateThirdManInPreview('mono');
-            updateAllThirdManInButtons('mono');
-            saveExtensionState();
-        });
-    }
-
-    // Body Line Height Controls
-    const bodyLineHeightSlider = document.getElementById('body-line-height');
-    const bodyLineHeightText = document.getElementById('body-line-height-text');
-    const bodyLineHeightGroup = bodyLineHeightSlider ? bodyLineHeightSlider.closest('.control-group') : null;
-
-    if (bodyLineHeightSlider) {
-        bodyLineHeightSlider.addEventListener('input', function() {
-            if (bodyLineHeightGroup) bodyLineHeightGroup.classList.remove('unset');
-            updateBodyButtons();
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            if (bodyLineHeightText) bodyLineHeightText.value = v;
-            const bodyLineHeightValue = document.getElementById('body-line-height-value');
-            if (bodyLineHeightValue) bodyLineHeightValue.textContent = v;
-            updateBodyPreview();
-            // Save state after line-height change
-            saveExtensionState();
-        });
-    }
-
-    if (bodyLineHeightText) {
-        bodyLineHeightText.addEventListener('keydown', function(e){
-            if (e.key === 'Enter') {
-                const min = Number(bodyLineHeightSlider?.min || 0.8), max = Number(bodyLineHeightSlider?.max || 2.5);
-                const vv = clamp(this.value, min, max);
-                if (vv !== null) {
-                            if (bodyLineHeightGroup) bodyLineHeightGroup.classList.remove('unset');
-                    updateBodyButtons();
-                    if (bodyLineHeightSlider) bodyLineHeightSlider.value = String(vv);
-                    this.value = String(vv);
-                    const bodyLineHeightValue = document.getElementById('body-line-height-value');
-                    if (bodyLineHeightValue) bodyLineHeightValue.textContent = vv;
-                    updateBodyPreview();
-                    // Save state after line-height change
-                    saveExtensionState();
-                }
-                this.blur();
-            }
-        });
-        bodyLineHeightText.addEventListener('blur', function(){
-            const min = Number(bodyLineHeightSlider?.min || 0.8), max = Number(bodyLineHeightSlider?.max || 2.5);
-            const vv = clamp(this.value, min, max);
-            if (vv !== null) {
-                    if (bodyLineHeightGroup) bodyLineHeightGroup.classList.remove('unset');
-                updateBodyButtons();
-                if (bodyLineHeightSlider) bodyLineHeightSlider.value = String(vv);
-                this.value = String(vv);
-                const bodyLineHeightValue = document.getElementById('body-line-height-value');
-                if (bodyLineHeightValue) bodyLineHeightValue.textContent = vv;
-                updateBodyPreview();
-                // Save state after line-height change
-                saveExtensionState();
-            }
-        });
-    }
-
-    // Body Font Color Control - copied from working font size pattern
-    const bodyFontColorSelect = document.getElementById('body-font-color');
-    const bodyColorGroup = bodyFontColorSelect ? bodyFontColorSelect.closest('.control-group') : null;
-
-    if (bodyFontColorSelect) {
-        bodyFontColorSelect.addEventListener('change', function() {
-            if (bodyColorGroup) bodyColorGroup.classList.remove('unset');
-            updateBodyButtons(); // Note: not awaiting to avoid blocking UI
-            updateBodyPreview();
-            // Save state after color change
-            saveExtensionState();
-        });
-    }
-
-    // Body Font Weight Control - copied from working font size pattern
-    const bodyFontWeightSlider = document.getElementById('body-font-weight');
-    const bodyWeightGroup = bodyFontWeightSlider ? bodyFontWeightSlider.closest('.control-group') : null;
-
-    if (bodyFontWeightSlider) {
-        bodyFontWeightSlider.addEventListener('input', function() {
-            if (bodyWeightGroup) bodyWeightGroup.classList.remove('unset');
-            updateBodyButtons();
-            const bodyFontWeightValue = document.getElementById('body-font-weight-value');
-            if (bodyFontWeightValue) bodyFontWeightValue.textContent = this.value;
-            updateBodyPreview();
-            // Save state after weight change
-            saveExtensionState();
-        });
-    }
-
-    // Face-off Mode Line Height Controls
-    const topLineHeightSlider = document.getElementById('top-line-height');
-    const bottomLineHeightSlider = document.getElementById('bottom-line-height');
-    const topLineHeightGroup = topLineHeightSlider ? topLineHeightSlider.closest('.control-group') : null;
-    const bottomLineHeightGroup = bottomLineHeightSlider ? bottomLineHeightSlider.closest('.control-group') : null;
-
-    if (topLineHeightSlider) {
-        topLineHeightSlider.addEventListener('input', function() {
-            if (topLineHeightGroup) topLineHeightGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            const topLineHeightValue = document.getElementById('top-line-height-value');
-            const topLineHeightText = document.getElementById('top-line-height-text');
-            if (topLineHeightValue) topLineHeightValue.textContent = v;
-            if (topLineHeightText) topLineHeightText.value = v;
-            updateThirdManInPreview('top');
-            // Save state after line-height change
-            saveExtensionState();
-        });
-    }
-
-    if (bottomLineHeightSlider) {
-        bottomLineHeightSlider.addEventListener('input', function() {
-            if (bottomLineHeightGroup) bottomLineHeightGroup.classList.remove('unset');
-            const v = Number(this.value).toFixed(2).replace(/\.00$/, '');
-            const bottomLineHeightValue = document.getElementById('bottom-line-height-value');
-            const bottomLineHeightText = document.getElementById('bottom-line-height-text');
-            if (bottomLineHeightValue) bottomLineHeightValue.textContent = v;
-            if (bottomLineHeightText) bottomLineHeightText.value = v;
-            updateThirdManInPreview('bottom');
-            // Save state after line-height change
-            saveExtensionState();
-        });
-    }
-
-    // Face-off Mode Font Weight Controls
-    const topFontWeightSlider = document.getElementById('top-font-weight');
-    const bottomFontWeightSlider = document.getElementById('bottom-font-weight');
-    const topWeightGroup = topFontWeightSlider ? topFontWeightSlider.closest('.control-group') : null;
-    const bottomWeightGroup = bottomFontWeightSlider ? bottomFontWeightSlider.closest('.control-group') : null;
-
-    if (topFontWeightSlider) {
-        topFontWeightSlider.addEventListener('input', function() {
-            if (topWeightGroup) topWeightGroup.classList.remove('unset');
-            const topFontWeightValue = document.getElementById('top-font-weight-value');
-            if (topFontWeightValue) topFontWeightValue.textContent = this.value;
-            updateThirdManInPreview('top');
-            // Save state after weight change
-            saveExtensionState();
-        });
-    }
-
-    if (bottomFontWeightSlider) {
-        bottomFontWeightSlider.addEventListener('input', function() {
-            if (bottomWeightGroup) bottomWeightGroup.classList.remove('unset');
-            const bottomFontWeightValue = document.getElementById('bottom-font-weight-value');
-            if (bottomFontWeightValue) bottomFontWeightValue.textContent = this.value;
-            updateThirdManInPreview('bottom');
-            // Save state after weight change
-            saveExtensionState();
-        });
-    }
-
-    // Face-off Mode Font Color Controls
-    const topFontColorSelect = document.getElementById('top-font-color');
-    const bottomFontColorSelect = document.getElementById('bottom-font-color');
-    const topColorGroup = topFontColorSelect ? topFontColorSelect.closest('.control-group') : null;
-    const bottomColorGroup = bottomFontColorSelect ? bottomFontColorSelect.closest('.control-group') : null;
-
-    if (topFontColorSelect) {
-        topFontColorSelect.addEventListener('change', function() {
-            if (topColorGroup && this.value !== 'default') {
-                topColorGroup.classList.remove('unset');
-            }
-            applyFont('top');
-        });
-    }
-
-    if (bottomFontColorSelect) {
-        bottomFontColorSelect.addEventListener('change', function() {
-            if (bottomColorGroup && this.value !== 'default') {
-                bottomColorGroup.classList.remove('unset');
-            }
-            applyFont('bottom');
-        });
-    }
+    });
 
     // Font Picker wiring
     setupFontPicker();
@@ -6946,10 +6321,7 @@ function generateBodyContactCleanupScript() {
 async function refreshApplyButtonsDirtyState() {
     try {
         const origin = await getActiveOrigin();
-        const data = await browser.storage.local.get('affoApplyMap');
-        const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        const originKey = origin ? origin : '';
-        const entry = originKey ? (map[originKey] || {}) : {};
+        const entry = origin ? (await getApplyMapForOrigin(origin) || {}) : {};
 
         const btnTop = document.getElementById('apply-top');
         const btnBottom = document.getElementById('apply-bottom');
@@ -6995,26 +6367,16 @@ async function refreshApplyButtonsDirtyState() {
 // Mode switching functionality
 // Check if a mode has applied settings for the current domain
 function modeHasAppliedSettings(mode) {
+    const modeConfig = MODE_CONFIG[mode];
+    if (!modeConfig || !modeConfig.useDomain) return Promise.resolve(false);
+
     return getActiveOrigin().then(origin => {
         if (!origin) return false;
 
-        if (mode === 'body-contact') {
-            return browser.storage.local.get('affoApplyMap').then(data => {
-                const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-                return !!(map[origin] && map[origin].body);
-            });
-        } else if (mode === 'third-man-in') {
-            return browser.storage.local.get('affoApplyMap').then(data => {
-                const map = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-                // Using origin directly (hostname)
-                const domainData = map[origin];
-                return !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
-            });
-        } else if (mode === 'faceoff') {
-            // Faceoff mode never saves domain settings - it's preview-only
-            return false;
-        }
-        return false;
+        return getApplyMapForOrigin(origin).then(domainData => {
+            if (!domainData) return false;
+            return modeConfig.positions.some(pos => !!domainData[pos]);
+        });
     }).catch(() => false);
 }
 
@@ -7090,21 +6452,10 @@ function clearAllDomainSettings() {
     return getActiveOrigin().then(origin => {
         if (!origin) return;
 
-        // Clear consolidated storage settings
-        // Using origin directly (hostname)
-        return browser.storage.local.get('affoApplyMap').then(bodyData => {
-            const bodyMap = (bodyData && bodyData.affoApplyMap) ? bodyData.affoApplyMap : {};
-            const bodyPromise = bodyMap[origin] ?
-                (delete bodyMap[origin], browser.storage.local.set({ affoApplyMap: bodyMap })) :
-                Promise.resolve();
-
-            // Clear all font settings (already done in bodyPromise since storage is consolidated)
-            return bodyPromise.then(() => {
-                // Send message to content script to restore original page
-                sendMessageToTargetTab({
-                    action: 'restoreOriginal',
-                    origin: origin
-                });
+        return clearApplyMapForOrigin(origin).then(() => {
+            sendMessageToTargetTab({
+                action: 'restoreOriginal',
+                origin: origin
             });
         });
     }).catch(error => {
@@ -7189,16 +6540,13 @@ async function performModeSwitch(newMode) {
     document.body.classList.add('mode-switching');
     try {
         // Save current mode panel states before switching (but only if we're actually switching between different modes)
-        if (currentViewMode !== newMode) {
-            if (currentViewMode === 'faceoff') {
-                panelStates.faceoff.top = document.getElementById('top-font-controls').classList.contains('visible');
-                panelStates.faceoff.bottom = document.getElementById('bottom-font-controls').classList.contains('visible');
-            } else if (currentViewMode === 'body-contact') {
-                panelStates['body-contact'].body = document.getElementById('body-font-controls').classList.contains('visible');
-            } else if (currentViewMode === 'third-man-in') {
-                panelStates['third-man-in'].serif = document.getElementById('serif-font-controls').classList.contains('visible');
-                panelStates['third-man-in'].sans = document.getElementById('sans-font-controls').classList.contains('visible');
-                panelStates['third-man-in'].mono = document.getElementById('mono-font-controls').classList.contains('visible');
+        if (currentViewMode !== newMode && currentViewMode) {
+            const oldConfig = MODE_CONFIG[currentViewMode];
+            if (oldConfig) {
+                for (const position of oldConfig.positions) {
+                    const el = document.getElementById(`${position}-font-controls`);
+                    if (el) panelStates[currentViewMode][position] = el.classList.contains('visible');
+                }
             }
         }
 
@@ -7637,9 +6985,8 @@ function applyAllThirdManInFonts() {
         console.log('applyAllThirdManInFonts: Collecting font configurations');
 
         // Get current applied state for comparison
-        return browser.storage.local.get('affoApplyMap').then(data => {
-            const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-            const domainData = applyMap[origin] || {};
+        return getApplyMapForOrigin(origin).then(rawDomainData => {
+            const domainData = rawDomainData || {};
 
             types.forEach(type => {
                 const config = getPanelFontConfig(type);
@@ -8180,40 +7527,28 @@ async function updateAllThirdManInButtons(triggeringPanel = null) {
 
         // Show buttons in the last changed panel based on state
         const changeCount = await countThirdManInDifferences();
-        if (changeCount > 0) {
-            // Check if all UI changes are actually defaults (Reset All case)
-            const serifConfig = getCurrentUIConfig('serif');
-            const sansConfig = getCurrentUIConfig('sans');
-            const monoConfig = getCurrentUIConfig('mono');
-            const allDefaults = !serifConfig && !sansConfig && !monoConfig;
+        const allDefaults = !getCurrentUIConfig('serif') && !getCurrentUIConfig('sans') && !getCurrentUIConfig('mono');
 
-            if (allDefaults) {
-                // Special case: changeCount > 0 but all UI is defaults - show Reset All
-                applyBtn.style.display = 'none';
-                resetBtn.style.display = 'block';
-                resetBtn.textContent = 'Reset All';
-            } else {
-                // Normal case: UI differs from storage - show Apply All
-                applyBtn.style.display = 'block';
-                applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
-                resetBtn.style.display = 'none';
-            }
-        } else {
-            // UI matches storage - check if domain has any applied fonts
+        let domainHasFonts = false;
+        if (changeCount === 0) {
             const origin = await getActiveOrigin();
             const domainData = await getApplyMapForOrigin(origin);
-            const domainHasFonts = domainData && (domainData.serif || domainData.sans || domainData.mono);
+            domainHasFonts = !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
+        }
 
-            if (domainHasFonts) {
-                // Domain has fonts and UI matches - show Reset All
-                applyBtn.style.display = 'none';
-                resetBtn.style.display = 'block';
-                resetBtn.textContent = 'Reset All';
-            } else {
-                // Domain has no fonts - hide both buttons
-                applyBtn.style.display = 'none';
-                resetBtn.style.display = 'none';
-            }
+        const state = determineButtonState(changeCount, allDefaults, domainHasFonts);
+
+        if (state.action === 'apply') {
+            applyBtn.style.display = 'block';
+            applyBtn.textContent = state.changeCount > 1 ? `Apply All (${state.changeCount})` : 'Apply All';
+            resetBtn.style.display = 'none';
+        } else if (state.action === 'reset') {
+            applyBtn.style.display = 'none';
+            resetBtn.style.display = 'block';
+            resetBtn.textContent = 'Reset All';
+        } else {
+            applyBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
         }
     }));
 }
@@ -8236,43 +7571,29 @@ function updateThirdManInButtons(panelId) {
 
     // Third Man In mode: Apply All/Reset All logic
     if (currentViewMode === 'third-man-in') {
-        return countThirdManInDifferences().then(changeCount => {
-            if (changeCount > 0) {
-                // Check if all UI changes are actually defaults (Reset All case)
-                const serifConfig = getCurrentUIConfig('serif');
-                const sansConfig = getCurrentUIConfig('sans');
-                const monoConfig = getCurrentUIConfig('mono');
-                const allDefaults = !serifConfig && !sansConfig && !monoConfig;
+        return countThirdManInDifferences().then(async changeCount => {
+            const allDefaults = !getCurrentUIConfig('serif') && !getCurrentUIConfig('sans') && !getCurrentUIConfig('mono');
 
-                if (allDefaults) {
-                    // Special case: changeCount > 0 but all UI is defaults - show Reset All
-                    applyBtn.style.display = 'none';
-                    resetBtn.style.display = 'block';
-                    resetBtn.textContent = 'Reset All';
-                } else {
-                    // Normal case: UI differs from storage - show Apply All
-                    applyBtn.style.display = 'block';
-                    applyBtn.textContent = changeCount > 1 ? `Apply All (${changeCount})` : 'Apply All';
-                    resetBtn.style.display = 'none';
-                }
+            let domainHasFonts = false;
+            if (changeCount === 0) {
+                const origin = await getActiveOrigin();
+                const domainData = await getApplyMapForOrigin(origin);
+                domainHasFonts = !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
+            }
+
+            const state = determineButtonState(changeCount, allDefaults, domainHasFonts);
+
+            if (state.action === 'apply') {
+                applyBtn.style.display = 'block';
+                applyBtn.textContent = state.changeCount > 1 ? `Apply All (${state.changeCount})` : 'Apply All';
+                resetBtn.style.display = 'none';
+            } else if (state.action === 'reset') {
+                applyBtn.style.display = 'none';
+                resetBtn.style.display = 'block';
+                resetBtn.textContent = 'Reset All';
             } else {
-                // No differences - check if domain has any applied fonts
-                return getActiveOrigin().then(origin => {
-                    return getApplyMapForOrigin(origin).then(domainData => {
-                        const domainHasFonts = domainData && (domainData.serif || domainData.sans || domainData.mono);
-
-                        if (domainHasFonts) {
-                            // Domain has fonts - show Reset All
-                            applyBtn.style.display = 'none';
-                            resetBtn.style.display = 'block';
-                            resetBtn.textContent = 'Reset All';
-                        } else {
-                            // Domain has no fonts - hide both buttons
-                            applyBtn.style.display = 'none';
-                            resetBtn.style.display = 'none';
-                        }
-                    });
-                });
+                applyBtn.style.display = 'none';
+                resetBtn.style.display = 'none';
             }
         });
     }
@@ -8283,13 +7604,7 @@ function updateThirdManInButtons(panelId) {
 
     // Get applied configuration for this domain
     return getActiveOrigin().then(origin => {
-        // Debug: let's see what's actually in storage
-        return browser.storage.local.get('affoApplyMap').then(debugData => {
-            const debugMap = (debugData && debugData.affoApplyMap) ? debugData.affoApplyMap : {};
-            console.log('Full storage map:', debugMap);
-            console.log('Entry for origin:', origin, ':', debugMap[origin]);
-
-            return getAppliedConfigForDomain(origin, panelId).then(appliedConfig => {
+        return getAppliedConfigForDomain(origin, panelId).then(appliedConfig => {
                 console.log('Applied config for origin:', origin, appliedConfig);
 
                 // Check if current panel has any settings
@@ -8325,7 +7640,6 @@ function updateThirdManInButtons(panelId) {
                 resetBtn.style.display = 'none';
                 applyBtn.textContent = 'Apply';
             });
-        });
     }).catch(error => {
         console.error('Error updating apply/reset button:', error);
         // Fallback to showing Apply button

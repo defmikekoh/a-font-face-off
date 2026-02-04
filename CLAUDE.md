@@ -58,6 +58,10 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 - `normalizeConfig(raw)` — converts any external data (favorites, domain storage, legacy formats) into canonical config
 - `buildPayload(position, config?)` — builds enriched payload (adds `css2Url`, `styleId`, `fontFaceRule`) for domain storage / content.js
 - `getFontMemory(position)` — returns runtime font memory object for a panel position
+- `MODE_CONFIG` — data-driven mode metadata (positions, stateKeys, useDomain) used by save/switch/applied-check functions
+- `determineButtonState(changeCount, allDefaults, domainHasApplied)` — shared apply/reset/hide decision logic
+- `getPositionCallbacks(position)` — returns mode-appropriate preview/button/save callbacks for a panel position
+- `setupSliderControl(position, controlId, options?)` — generic factory for slider + text input handlers
 
 ### Variable Font Axes
 
