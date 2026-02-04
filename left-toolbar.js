@@ -2,16 +2,12 @@
 (function() {
     'use strict';
 
-    // Dev-mode logging: silence console in signed builds, keep for web-ext run
-    var _noop = function() {};
-    try {
-      browser.management.getSelf().then(function(info) {
-        if (info.installType !== 'development') {
-          console.log = _noop;
-          console.warn = _noop;
-        }
-      }).catch(function() {});
-    } catch(_) {}
+    // Dev-mode logging: build step sets AFFO_DEBUG = false for production
+    var AFFO_DEBUG = true;
+    if (!AFFO_DEBUG) {
+      console.log = function() {};
+      console.warn = function() {};
+    }
 
     // Prevent multiple injections
     if (window.affoLeftToolbarInjected) {

@@ -1,15 +1,9 @@
-// Dev-mode logging: silence console in signed builds, keep for web-ext run
-(function() {
-  var noop = function() {};
-  try {
-    browser.management.getSelf().then(function(info) {
-      if (info.installType !== 'development') {
-        console.log = noop;
-        console.warn = noop;
-      }
-    }).catch(function() {});
-  } catch(_) {}
-})();
+// Dev-mode logging: build step sets AFFO_DEBUG = false for production
+var AFFO_DEBUG = true;
+if (!AFFO_DEBUG) {
+  console.log = function() {};
+  console.warn = function() {};
+}
 
 // Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
 const FONT_CACHE_KEY = 'affoFontCache';

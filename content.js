@@ -42,18 +42,12 @@
   var inlineApplyDomains = ['x.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
 
-  // Dev-mode logging: silence console in signed builds, keep for web-ext run
-  var _noop = function() {};
-  try {
-    browser.management.getSelf().then(function(info) {
-      if (info.installType !== 'development') {
-        console.log = _noop;
-        console.warn = _noop;
-      } else {
-        console.log('[AFFO Content] Dev mode enabled (temporary add-on)');
-      }
-    }).catch(function() {});
-  } catch(_) {}
+  // Dev-mode logging: build step sets AFFO_DEBUG = false for production
+  var AFFO_DEBUG = true;
+  if (!AFFO_DEBUG) {
+    console.log = function() {};
+    console.warn = function() {};
+  }
 
   function debugLog() { console.log.apply(console, arguments); }
   function elementLog() { console.log.apply(console, arguments); }

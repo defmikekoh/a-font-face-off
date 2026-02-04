@@ -4,27 +4,24 @@ This document outlines the key data structures used in the A Font Face-off brows
 
 ## Storage Systems
 
-The extension uses a unified storage architecture with `browser.storage.local` for all persistence:
+The extension uses `browser.storage.local` for all persistence.
 
-### 1. Unified Domain Storage (`affoApplyMap`)
+### Domain Storage (`affoApplyMap`)
 **Purpose**: Stores fonts applied to specific domains across all modes (Body Contact, Third Man In)
-**Storage Location**: `browser.storage.local`  
-**Key**: `affoApplyMap` (consolidated from previous dual V1/V2 system)
+**Key**: `affoApplyMap`
 
 ```javascript
 {
   "example.com": {
     "body": {
       "fontName": "Roboto"
-      // ... similar structure to Third Man In
     }
   }
 }
 ```
 
-### 3. UI State Storage (browser.storage.local)
+### UI State Storage (`affoUIState`)
 **Purpose**: Stores current UI state and font selections
-**Storage Location**: `browser.storage.local`
 **Key**: `affoUIState`
 
 **Unset state (no fonts configured):**
@@ -56,9 +53,7 @@ The extension uses a unified storage architecture with `browser.storage.local` f
 }
 ```
 
-### 4. Other Storage Keys (browser.storage.local)
-**Purpose**: Additional extension settings and state
-**Storage Location**: `browser.storage.local`
+### Other Storage Keys
 
 | Key | Purpose | Example Value |
 |-----|---------|---------------|
@@ -66,6 +61,7 @@ The extension uses a unified storage architecture with `browser.storage.local` f
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
 | `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |
+| `affoInlineApplyDomains` | Domains requiring inline style application | `["x.com"]` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
@@ -88,57 +84,15 @@ The extension uses a unified storage architecture with `browser.storage.local` f
 ## Configuration Objects
 
 ### Font Configuration Structure ("No Key" Architecture)
-Used throughout the system for font settings. The "no key" approach only stores properties with actual values - no null, undefined, or string placeholders like 'default'.
+Only store properties with actual values — no null, undefined, or string placeholders like 'default'.
 
-**Mixed Approach:**
 - **Primitive properties** (fontSize, fontColor, etc.): Only stored when set (omitted when unset)
 - **Nested objects** (variableAxes): Always present as empty `{}` even when no axes are active
-
-This eliminates defensive `|| {}` checks throughout the codebase while keeping storage minimal for primitives.
+- **Rationale**: Eliminates defensive `|| {}` checks while keeping storage minimal for primitives
 
 **Unset State:**
 ```javascript
 undefined  // No font configured (not null or empty object)
-```
-
-## Custom Font Definitions
-
-Custom fonts are defined in `custom-fonts.css`. All detected `font-family` values are treated as pinned custom fonts.
-
-### Storage override (optional)
-
-If present, `affoCustomFontsCss` in `browser.storage.local` overrides the packaged `custom-fonts.css` contents.
-
-### CUSTOM_FONTS
-
-Pinned custom font family names, parsed from the effective CSS (override or packaged file).
-
-```javascript
-[
-  "Apercu Pro",
-  "GuardianTextEgyptian",
-  "National",
-  "BBC Reith Serif",
-  "Graphik Trial",
-  "FK Roman Standard Trial",
-  "TiemposText"
-]
-```
-
-### fontDefinitions (custom only)
-
-Map of custom font family name → definition object. All custom font definitions are non-variable and use empty axis metadata.
-
-```javascript
-{
-  "Apercu Pro": {
-    "axes": [],
-    "defaults": {},
-    "ranges": {},
-    "steps": {},
-    "fontFaceRule": "@font-face { ... }"
-  }
-}
 ```
 
 **Font Selected with Settings:**
@@ -170,45 +124,61 @@ Map of custom font family name → definition object. All custom font definition
 - Explicit `null` or `undefined` values for primitives
 - Empty arrays `[]` (N/A in current schema)
 
-### Domain Storage Structure (Consistent Format)
-Domain storage uses the same "no key" format as UI state for consistency. Both UI state and domain storage use identical object structures, making comparisons simple.
+### Domain Storage Structure
+Domain storage uses the same "no key" format as UI state. Both use identical object structures, enabling direct comparison via `configsEqual()`.
 
-**Basic Font (No Settings):**
+## Custom Font Definitions
+
+Custom fonts are defined in `custom-fonts.css`. All detected `font-family` values are treated as pinned custom fonts.
+
+### Storage override (optional)
+
+If present, `affoCustomFontsCss` in `browser.storage.local` overrides the packaged `custom-fonts.css` contents.
+
+### CUSTOM_FONTS
+
+Pinned custom font family names, parsed from the effective CSS (override or packaged file).
+
 ```javascript
-{
-  "fontName": "Comic Neue"
-}
+[
+  "Apercu Pro",
+  "GuardianTextEgyptian",
+  "National",
+  "BBC Reith Serif",
+  "Graphik Trial",
+  "FK Roman Standard Trial",
+  "TiemposText"
+]
 ```
 
-**Font with Settings:**
+### fontDefinitions (custom only)
+
+Map of custom font family name to definition object. All custom font definitions are non-variable and use empty axis metadata.
+
 ```javascript
 {
-  "fontName": "Comic Neue",
-  "fontSize": 16,                     // Applied font size (only if set)
-  "lineHeight": 1.5,                  // Applied line height (only if set)  
-  "fontWeight": 400,                  // Applied font weight (only if set)
-  "fontColor": "#333333",             // Applied font color (only if set)
-  "variableAxes": {"wght": 400, "ital": 1} // Variable font axes (only if configured)
+  "Apercu Pro": {
+    "axes": [],
+    "defaults": {},
+    "ranges": {},
+    "steps": {},
+    "fontFaceRule": "@font-face { ... }"
+  }
 }
 ```
-
-**Comparison Benefits:**
-- UI state and domain storage use identical object structures
-- Direct object comparison possible (no format conversion needed)
-- Simplified `configsEqual()` logic
 
 ## Panel State Tracking
 
 ```javascript
 const panelStates = {
-  'faceoff': { 
+  'faceoff': {
     top: false,      // Top panel open/closed
     bottom: false    // Bottom panel open/closed
   },
-  'body-contact': { 
+  'body-contact': {
     body: false      // Body panel open/closed
   },
-  'third-man-in': { 
+  'third-man-in': {
     serif: false,    // Serif panel open/closed
     sans: false,     // Sans panel open/closed
     mono: false      // Mono panel open/closed
@@ -220,96 +190,36 @@ const panelStates = {
 
 ### Storage Operations
 
-#### Third Man In Mode (Centralized Storage Functions)
-- `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` - single read gets all domain fonts or specific font type
-- `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap` 
-- `saveBatchApplyMapForOrigin(origin, fontConfigs)`: **OPTIMIZED** - Batch save multiple font types in single storage write (used by Apply All)
-- `clearApplyMapForOrigin(origin, fontType?)`: **Domain storage only** - Clear specific font type or all fonts from `affoApplyMap`
-- `clearAllThirdManInFonts(origin)`: **Domain storage only** - Helper to clear all Third Man In fonts (serif, sans, mono) at once
+#### Centralized Storage Functions (popup.js only)
+- `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
+- `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
+- `saveBatchApplyMapForOrigin(origin, fontConfigs)`: Batch save multiple font types in single storage write (used by Apply All)
+- `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
-#### Body Mode (Mixed Storage Approach)
-- Uses both centralized helper functions (`saveApplyMapForOrigin`, `getApplyMapForOrigin`, `clearApplyMapForOrigin`)
-- Also has some inline `browser.storage.local.get('affoApplyMap')` and `browser.storage.local.set({ affoApplyMap: applyMap })` operations
-- Mix of centralized functions and embedded storage logic
-
-#### Unified Storage Architecture 
-
-After consolidation, all modes now use the same storage system:
-- **Storage Key**: `affoApplyMap` (single unified system)
-- **Data Structure**: `domain → fontType → config` (flattened from previous nested structure)  
-- **Storage Method**: Mix of centralized functions (Third Man In) and inline code (Body Contact)
-- **Font Types Supported**: `body`, `serif`, `sans`, `mono`
-- **Benefits**: Eliminated data duplication, simplified storage queries, consistent data format
+#### Inline Storage Access
+- **popup.js**: ~14 inline `browser.storage.local.get('affoApplyMap')` calls bypass the centralized functions, mostly in UI state/button update functions (`updateBodyButtons`, `syncThirdManInButtons`, `isModeApplied`, `refreshApplyButtonsDirtyState`, etc.)
+- **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations; all writes are in popup.js.
 
 ### State Management
 
-#### UI State (browser.storage.local) Functions
-- `loadExtensionState()`: **UI state only** - Load from `affoUIState` key in browser.storage.local
-- `saveExtensionState()`: **UI state only** - Save to `affoUIState` key in browser.storage.local
-- `getCurrentUIConfig(position)`: **UI state only** - Get current font configuration from UI
+#### UI State Functions
+- `loadExtensionState()`: Load from `affoUIState`
+- `saveExtensionState()`: Save to `affoUIState`
+- `getCurrentUIConfig(position)`: Get current font configuration from UI controls
+- `getActiveControlsFromConfig(config)`: Derives active controls as a Set from property presence
+- `getActiveAxes(position)`: Derives active variable axes from UI slider state
+- `configsEqual(config1, config2)`: Compares two configs using derived active state
 
 #### Functions that modify BOTH Domain Storage AND UI State
 - `resetAllThirdManInFonts()`: Clears domain storage + resets UI to `null` state
 - `applyUnsetSettings(panelId)`: Clears domain storage + resets UI to `null` state
 
 #### Functions that modify ONLY Domain Storage
-- `clearApplyMapForOrigin()`: **Domain storage only** - No UI changes
-- `saveApplyMapForOrigin()`: **Domain storage only** - No UI changes
-
-#### "No Key" Architecture Summary
-**Core Principle**: Only store properties with meaningful values - no null, undefined, or string placeholders like 'default'.
-
-**Mixed Approach (Updated):**
-- **Primitive properties**: Only stored when set (fontSize, fontColor, etc. omitted when unset)
-- **Nested objects**: Always present even when empty (`variableAxes: {}` always exists)
-- **Rationale**: Eliminates defensive `|| {}` checks (7+ instances) while keeping storage minimal
-
-**Key Changes Made:**
-- **Flattened Structure**: Removed `basicControls` wrapper - font properties stored directly on config object
-- **Eliminated Redundant Arrays**: Removed `activeControls` and `activeAxes` arrays - active state derived from data presence
-- **Consistent Format**: Both UI state and domain storage use identical object structures
-- **Null-Free Storage**: Only properties with actual values are stored (no null/undefined/string 'default')
-- **Unified Storage**: All persistence uses `browser.storage.local` (migrated from localStorage)
-- **Simplified Comparisons**: Direct object comparison between UI state and domain storage
-- **Always-Present Containers**: `variableAxes: {}` always present for simpler, safer access
-
-**Technical Implementation:**
-- `getCurrentUIConfig()`: Returns flattened config with `variableAxes: {}` always present, or `undefined` when no font selected
-- `getActiveControlsFromConfig()`: Derives active state from property presence (fontColor presence = active)
-- `configsEqual()`: Uses helper functions to derive active state from data
-- Button logic: `undefined` vs `undefined` = no changes = no button shown
-- Access patterns: Safe to use `config.variableAxes.wght` without checking if variableAxes exists first
-- `saveExtensionStateImmediate()`: Uses `delete` to remove unset fonts from state
-- Extension state initialization: Uses empty objects `{}` for clean initialization
-
-**Benefits:**
-- Reduced storage footprint (no redundant metadata)
-- Simplified comparison logic between UI and domain storage
-- Cleaner data structures throughout codebase
-- Consistent format eliminates need for data transformation
+- `clearApplyMapForOrigin()`: No UI changes
+- `saveApplyMapForOrigin()`: No UI changes
 
 ### Font Application
-- `applyAllThirdManInFonts()`: **OPTIMIZED** - Apply all Third Man In font changes using batch storage (1 write instead of N writes)
-
-### Apply All Storage Optimization
-
-**Problem**: Previously, applying multiple fonts (e.g., serif + sans + mono) resulted in multiple storage writes:
-- Serif font applied → `saveApplyMapForOrigin()` → 1 storage write
-- Sans font applied → `saveApplyMapForOrigin()` → 1 storage write  
-- Mono font applied → `saveApplyMapForOrigin()` → 1 storage write
-- **Result**: 3 separate storage operations with potential race conditions
-
-**Solution**: Batch optimization collects all font changes and performs single storage write:
-1. **Collect** all font configurations that need to be applied
-2. **Single batch write** using `saveBatchApplyMapForOrigin(origin, fontConfigs)`
-3. **Parallel CSS application** for all fonts simultaneously
-4. **Result**: 1 storage write regardless of number of fonts changed
-
-**Benefits**:
-- Faster performance with fewer storage operations
-- Eliminates race conditions between rapid storage writes
-- Cleaner console logging showing batch operations
-- Scales efficiently as more font types are added
+- `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyMapForOrigin()` (1 storage write instead of N) with parallel CSS application
 
 ## CSS Generation Helpers
 
@@ -341,7 +251,7 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, and the MutationObserver/reapply logic. They live at module level so all inline-apply code paths share them.
 
 - **`BODY_EXCLUDE`** — Constant: `:not(h1):not(h2)...:not(.no-affo)`. The base exclusion chain for body-mode selectors.
-- **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com.
+- **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com. Controls hybrid selector only; polling/restore behavior uses `shouldUseInlineApply()`.
 - **`getAffoSelector(fontType)`** — Returns the CSS selector for a given font type. Body mode uses `BODY_EXCLUDE`; TMI mode uses `getHybridSelector()` on x.com or `[data-affo-font-type]` elsewhere.
 - **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience.
 - **`applyTmiProtection(el, propsObj, effectiveWeight)`** — Wraps `applyAffoProtection` with bold detection. Checks tag name, `data-affo-was-bold` marker, or computed `fontWeight >= 700` before applying, then restores weight to 700 for bold elements.
@@ -350,21 +260,27 @@ These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, a
 
 Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. In the inline-apply path, bold elements are marked with `data-affo-was-bold="true"` so subsequent reapply cycles can detect them without relying on computed style.
 
-## Storage Schema
+### Dev-Mode Logging
 
-- **Current (`affoApplyMap`)**: Unified schema used by all modes
-  - Supports all font types: `body`, `serif`, `sans`, `mono`
-  - Flattened data structure: `domain → fontType → config`
-  - Single storage key eliminates complexity and data duplication
-  - Optimized with batch write operations for Apply All functionality
+All JS files (popup.js, content.js, background.js, left-toolbar.js) declare `var AFFO_DEBUG = true;` in source. When `false`, `console.log` and `console.warn` are replaced with no-ops synchronously. `console.error` is always active. The `npm run build` step automatically sets the flag to `false` via `scripts/set-debug.js` (prebuild) and restores it to `true` (postbuild), so production packages are silent and local `web-ext run` has full logging with no manual toggling.
+
+## Async Architecture
+
+All async operations use Promise-based flow with `async`/`await`:
+
+```javascript
+await applyFontConfig(position, config);  // DOM updates complete
+await updateButtons(position);           // Guaranteed fresh state
+hideFavoritesPopup();                   // UI state is consistent
+```
+
+Key async functions: `applyFontConfig()`, `loadFont()`, `selectFont()`, `updateBodyButtons()`, `updateAllThirdManInButtons()`, `switchMode()`, `loadModeSettings()`, `applyFontToPage()`, and all storage operations.
 
 ## Example Domain Storage Data
 
 ### Body Mode Example
-**Scenario**: Body mode with Merriweather 16px applied to `example.com` (protocol stripped)
-
 ```javascript
-// Storage key: affoApplyMap
+// affoApplyMap
 {
   "example.com": {
     "body": {
@@ -375,11 +291,9 @@ Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`
 }
 ```
 
-### Third Man In Mode Example  
-**Scenario**: Third Man In mode with Noto Sans 17px and Noto Serif 18px applied to `example.com` (protocol stripped)
-
+### Third Man In Mode Example
 ```javascript
-// Storage key: affoApplyMap (unified)
+// affoApplyMap
 {
   "example.com": {
     "sans": {
@@ -395,10 +309,8 @@ Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`
 ```
 
 ### Multiple Domains Example
-**Scenario**: Different fonts applied to multiple websites
-
 ```javascript
-// Storage key: affoApplyMap (unified)  
+// affoApplyMap
 {
   "example.com": {
     "sans": {
@@ -424,69 +336,7 @@ Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`
 }
 ```
 
-## Migration Notes
-
-### Storage Format Evolution
-The extension has evolved through several storage format improvements:
-
-1. **Original Format**: Mixed localStorage and browser.storage.local with nested `basicControls` objects
-2. **Flattened Format**: Removed `basicControls` wrapper, eliminated redundant `activeControls`/`activeAxes` arrays
-3. **Unified Format**: Migrated all storage to browser.storage.local with consistent object structures
-4. **"No Key" Format**: Only store properties with actual values, no null/undefined properties
-
-
-
-## Async Initialization Architecture
-
-### Promise-based Flow Architecture ✅ **CURRENT SYSTEM**
-
-The extension now uses a comprehensive Promise-based Flow architecture that eliminates race conditions throughout the entire codebase.
-
-**Previous Problem (setTimeout-based timing):**
-```javascript
-// PROBLEMATIC - Race conditions throughout codebase
-applyFontConfig(position, config);
-setTimeout(() => updateButtons(), 50); // Hope DOM is ready
-updateBodyButtons(); // Called immediately - reads stale state
-```
-
-**Current Solution (Promise-based Flow):**
-```javascript
-// SAFE - Explicit dependencies and sequential execution
-await applyFontConfig(position, config);  // DOM updates complete
-await updateButtons(position);           // Guaranteed fresh state
-hideFavoritesPopup();                   // UI state is consistent
-```
-
-**Key Architectural Changes (2024 Promise Refactor):**
-1. **Explicit Dependencies**: Every async operation returns a Promise
-2. **Sequential Flow**: Related operations await their dependencies
-3. **Atomic Operations**: CSS injection and font loading are awaitable
-4. **Eliminated setTimeout Hacks**: All timing-based coordination removed
-5. **Predictable State**: State changes happen in known, awaitable steps
-
-**Core Functions Refactored:**
-- ✅ `applyFontConfig()` - Clean async function with proper DOM waiting
-- ✅ `loadFont()` and `selectFont()` - Full async/await conversion
-- ✅ `updateBodyButtons()` and `updateAllThirdManInButtons()` - Async button state management
-- ✅ `switchMode()` and `loadModeSettings()` - Coordinated mode transitions
-- ✅ `applyFontToPage()` and CSS injection - Atomic page operations
-- ✅ Storage operations - First-class Promise integration
-
-**Race Condition Fixed:**
-The original issue where reset buttons appeared inconsistently for different favorite types is now resolved:
-- ✅ `applyFontConfig()` completes fully before `updateButtons()` functions run
-- ✅ Control group state is read only after DOM updates are complete
-- ✅ Favorites loading is atomic and sequential
-
-**Benefits:**
-- ✅ No race conditions possible by design
-- ✅ User sees correct state immediately with no flicker
-- ✅ Predictable, maintainable execution flow
-- ✅ New features can be added without timing concerns
-
-
-### Troubleshooting Storage Issues
+## Troubleshooting Storage Issues
 If the extension behaves unexpectedly, clear stored data:
 1. **UI State**: Clear `affoUIState` from browser.storage.local
 2. **Domain Storage**: Clear `affoApplyMap` from browser.storage.local
