@@ -1738,7 +1738,9 @@ async function applyFontConfig(position, config) {
         if (group) group.classList.remove('unset');
 
         // Suppress immediate apply/save during restore; we'll apply after values are set
-        loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
+        // Must await so generateFontControls replaces any stale axis controls
+        // before waitForControls checks for them (avoids setting values on old elements)
+        await loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
     }
 
     // Wait for font controls to be generated, then apply settings
