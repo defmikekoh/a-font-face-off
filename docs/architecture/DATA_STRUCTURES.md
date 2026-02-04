@@ -200,6 +200,23 @@ const panelStates = {
 - **popup.js**: ~14 inline `browser.storage.local.get('affoApplyMap')` calls bypass the centralized functions, mostly in UI state/button update functions (`updateBodyButtons`, `syncThirdManInButtons`, `isModeApplied`, `refreshApplyButtonsDirtyState`, etc.)
 - **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations; all writes are in popup.js.
 
+### Config Conversion & Payload Building
+
+#### `normalizeConfig(raw)`
+Single entry point for converting any external config (favorites, domain storage, legacy formats) into canonical format. Handles:
+- `fontSizePx` → `fontSize` legacy rename
+- Coercion to `Number` for all numeric properties
+- `fontFaceRule` passthrough for custom fonts
+- Legacy axis props (`wdthVal`, `slntVal`, `italVal`) folded into `variableAxes`
+
+Used when loading from: favorites, domain storage (`affoApplyMap`), any external source.
+
+#### `buildPayload(position, providedConfig?)`
+Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Adds transport properties (`css2Url`, `styleId`) and resolves `fontFaceRule` from `fontDefinitions` if needed. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
+
+#### `getCurrentUIConfig(position)`
+Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. This is the canonical "read from UI" function.
+
 ### State Management
 
 #### UI State Functions
@@ -209,6 +226,12 @@ const panelStates = {
 - `getActiveControlsFromConfig(config)`: Derives active controls as a Set from property presence
 - `getActiveAxes(position)`: Derives active variable axes from UI slider state
 - `configsEqual(config1, config2)`: Compares two configs using derived active state
+
+#### Font Memory (Runtime Only)
+Per-panel font setting history, not persisted to storage. Remembers axis/control values when switching fonts within a panel.
+- `getFontMemory(position)`: Returns the memory object for a position (`top`, `bottom`, `body`, `serif`, `sans`, `mono`)
+- `saveFontSettings(position, fontName)`: Saves current UI config (via `getCurrentUIConfig`) into font memory — only stores active controls
+- `restoreFontSettings(position, fontName)`: Restores saved settings from font memory — only activates controls that were previously saved
 
 #### Functions that modify BOTH Domain Storage AND UI State
 - `resetAllThirdManInFonts()`: Clears domain storage + resets UI to `null` state
@@ -241,9 +264,9 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 ### Helper Functions
 
 - **`getEffectiveWeight(config)`** — Returns numeric weight or `null`. Checks `config.fontWeight` first (basic weight control), falls back to `config.variableAxes.wght` (variable axis slider).
-- **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`.
-- **`getEffectiveSlant(config)`** — Same pattern for slnt.
-- **`getEffectiveItalic(config)`** — Same pattern for ital.
+- **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`. (Legacy `wdthVal` only exists in old stored domain data; new payloads use `variableAxes` exclusively.)
+- **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
+- **`getEffectiveItalic(config)`** — Same pattern for ital. (Legacy `italVal` — same note as wdth.)
 - **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
 
 ### Inline-Apply Helpers (content.js module-level)

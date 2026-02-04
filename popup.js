@@ -203,7 +203,7 @@ async function loadModeSettings() {
                 if (config) {
                     // Domain has applied settings - use those (ignore UI state)
                     console.log('DOMAIN-FIRST: Found applied body state for origin:', origin, config);
-                    const builtConfig = buildConfigFromPayload('body', config);
+                    const builtConfig = normalizeConfig(config);
                     console.log('Built config:', builtConfig);
 
                     await applyFontConfig('body', builtConfig);
@@ -297,7 +297,7 @@ async function loadModeSettings() {
                     for (const type of types) {
                         if (domainData[type]) {
                             console.log(`DOMAIN-FIRST: Loading ${type} font:`, domainData[type]);
-                            const config = buildConfigFromPayload(type, domainData[type]);
+                            const config = normalizeConfig(domainData[type]);
                             console.log(`Built ${type} config:`, config);
                             applyPromises.push(applyFontConfig(type, config));
 
@@ -1258,6 +1258,12 @@ let serifFontMemory = {};
 let sansFontMemory = {};
 let monoFontMemory = {};
 
+function getFontMemory(position) {
+    const map = { top: topFontMemory, bottom: bottomFontMemory, body: bodyFontMemory,
+                  serif: serifFontMemory, sans: sansFontMemory, mono: monoFontMemory };
+    return map[position] || null;
+}
+
 // Favorites storage
 let savedFavorites = {};
 let savedFavoritesOrder = [];
@@ -1617,21 +1623,35 @@ function getCurrentUIConfig(position) {
 }
 
 // Convert savedEntry (storage format) to config format
-function savedEntryToConfig(savedEntry) {
-    if (!savedEntry) return null;
+// Normalize any raw config (from favorites, domain storage, or legacy formats) into
+// the canonical config format. Replaces both savedEntryToConfig and buildConfigFromPayload.
+function normalizeConfig(raw) {
+    if (!raw) return null;
 
     const config = {
-        fontName: savedEntry.fontName || null,
-        variableAxes: savedEntry.variableAxes || {}  // Keep fallback here as savedEntry comes from old storage
+        fontName: raw.fontName || null,
+        variableAxes: {}
     };
 
-    // Only include properties that have values (no key approach)
-    // Handle both fontSizePx and fontSize property names for compatibility
-    const savedFontSize = savedEntry.fontSizePx !== null && savedEntry.fontSizePx !== undefined ? savedEntry.fontSizePx : savedEntry.fontSize;
-    if (savedFontSize !== null && savedFontSize !== undefined) config.fontSize = savedFontSize;
-    if (savedEntry.lineHeight !== null && savedEntry.lineHeight !== undefined) config.lineHeight = savedEntry.lineHeight;
-    if (savedEntry.fontWeight !== null && savedEntry.fontWeight !== undefined) config.fontWeight = savedEntry.fontWeight;
-    if (savedEntry.fontColor !== null && savedEntry.fontColor !== undefined) config.fontColor = savedEntry.fontColor;
+    // Coerce numeric properties (handles both string and number inputs)
+    // Legacy compat: fontSizePx was the old property name
+    const rawFontSize = raw.fontSizePx != null ? raw.fontSizePx : raw.fontSize;
+    if (rawFontSize != null) config.fontSize = Number(rawFontSize);
+    if (raw.lineHeight != null) config.lineHeight = Number(raw.lineHeight);
+    if (raw.fontWeight != null) config.fontWeight = Number(raw.fontWeight);
+    if (raw.fontColor && raw.fontColor !== 'default') config.fontColor = raw.fontColor;
+    if (raw.fontFaceRule) config.fontFaceRule = raw.fontFaceRule;
+
+    // Copy variable axes with Number coercion
+    if (raw.variableAxes && typeof raw.variableAxes === 'object') {
+        Object.entries(raw.variableAxes).forEach(([axis, value]) => {
+            config.variableAxes[axis] = Number(value);
+        });
+    }
+    // Legacy compat: fold wdthVal/slntVal/italVal into variableAxes
+    if (raw.wdthVal != null && !('wdth' in config.variableAxes)) config.variableAxes.wdth = Number(raw.wdthVal);
+    if (raw.slntVal != null && !('slnt' in config.variableAxes)) config.variableAxes.slnt = Number(raw.slntVal);
+    if (raw.italVal != null && !('ital' in config.variableAxes)) config.variableAxes.ital = Number(raw.italVal);
 
     return config;
 }
@@ -3209,7 +3229,7 @@ async function applyFontToPage(position, config) {
         }
 
         // Build enriched payload with fontFaceRule and css2Url
-        const payload = await buildCurrentPayload(position, config);
+        const payload = await buildPayload(position, config);
 
         // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
         await saveApplyMapForOrigin(origin, genericKey, payload);
@@ -3315,7 +3335,7 @@ async function applyThirdManInFont(fontType, config) {
         }
 
         // Build enriched payload with fontFaceRule and css2Url
-        const payload = await buildThirdManInPayload(fontType, config);
+        const payload = await buildPayload(fontType, config);
 
         // For inline apply domains (x.com), content script handles font loading
         // No preloading needed - content script already downloads via background script with progressive loading
@@ -3434,69 +3454,45 @@ function unapplyThirdManInFont(fontType) {
     });
 }
 
-async function buildThirdManInPayload(fontType, providedConfig = null) {
-    console.log(`🔧 buildThirdManInPayload: Building payload for fontType: ${fontType}`, providedConfig ? 'with provided config' : '');
-    const cfg = providedConfig || getCurrentUIConfig(fontType);
-    console.log(`🔧 buildThirdManInPayload: Using config:`, cfg);
-    if (!cfg) {
-        console.log(`🔧 buildThirdManInPayload: No config found, returning null`);
-        return null;
-    }
+// Unified payload builder — enriches a canonical config with transport properties
+// (css2Url, styleId) for domain storage and content script consumption.
+async function buildPayload(position, providedConfig = null) {
+    const cfg = providedConfig || getCurrentUIConfig(position);
+    if (!cfg) return null;
 
-    return buildThirdManInPayloadFromConfig(fontType, cfg);
-}
+    const payload = { fontName: cfg.fontName };
 
-async function buildThirdManInPayloadFromConfig(fontType, cfg) {
-    console.log(`🔧 buildThirdManInPayloadFromConfig: Building payload for fontType: ${fontType} with specific config:`, cfg);
-
-    if (!cfg) {
-        console.log(`🔧 buildThirdManInPayloadFromConfig: No config provided, returning null`);
-        return null;
-    }
-
-    // Determine generic based on font type
-    let generic;
-    switch(fontType) {
-        case 'serif': generic = 'serif'; break;
-        case 'sans': generic = 'sans-serif'; break;
-        case 'mono': generic = 'monospace'; break;
-        default: return null;
-    }
-
-    const weightActive = cfg.fontWeight !== null && cfg.fontWeight !== undefined;
-    const fontWeight = weightActive ? Number(cfg.fontWeight) : null;
-    const fontSizeActive = cfg.fontSize !== null && cfg.fontSize !== undefined;
-    const fontSize = fontSizeActive ? Number(cfg.fontSize) : null;
-    const lineHeightActive = cfg.lineHeight !== null && cfg.lineHeight !== undefined;
-    const lineHeight = lineHeightActive ? Number(cfg.lineHeight) : null;
-
-    const payload = {
-        fontName: cfg.fontName,
-        styleId: `a-font-face-off-style-${fontType}`
-    };
-
-    // Only include properties that have actual values (no null properties)
+    // Copy canonical config properties (No Key — only those with values)
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
         payload.variableAxes = cfg.variableAxes;
     }
-    if (fontSize !== null && fontSize !== undefined) payload.fontSize = fontSize;
-    if (lineHeight !== null && lineHeight !== undefined) payload.lineHeight = lineHeight;
-    if (fontWeight !== null && fontWeight !== undefined) payload.fontWeight = fontWeight;
+    if (cfg.fontSize != null) payload.fontSize = Number(cfg.fontSize);
+    if (cfg.lineHeight != null) payload.lineHeight = Number(cfg.lineHeight);
+    if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
+    if (cfg.fontColor) payload.fontColor = cfg.fontColor;
     if (cfg.fontFaceRule) payload.fontFaceRule = cfg.fontFaceRule;
 
-    // Compute css2Url for Google Fonts (same logic as buildCurrentPayload)
-    if (cfg.css2Url) {
-        payload.css2Url = cfg.css2Url;
-    } else if (cfg.fontName && !cfg.fontFaceRule) {
-        // For Google Fonts (non-custom fonts), compute the css2Url
-        const css2Url = await buildCss2Url(cfg.fontName, cfg);
-        if (css2Url) {
-            payload.css2Url = css2Url;
-            console.log(`🔧 buildThirdManInPayloadFromConfig: Computed css2Url for ${cfg.fontName}:`, css2Url);
+    // Add styleId for TMI positions
+    if (['serif', 'sans', 'mono'].includes(position)) {
+        payload.styleId = `a-font-face-off-style-${position}`;
+    }
+
+    // Add fontFaceRule from static definitions if not already on config (custom fonts)
+    if (!payload.fontFaceRule && cfg.fontName) {
+        const fontDef = fontDefinitions[cfg.fontName];
+        if (fontDef && fontDef.fontFaceRule) {
+            payload.fontFaceRule = fontDef.fontFaceRule;
         }
     }
 
-    console.log(`🔧 buildThirdManInPayloadFromConfig: Final payload:`, payload);
+    // Compute css2Url for Google Fonts
+    if (cfg.css2Url) {
+        payload.css2Url = cfg.css2Url;
+    } else if (cfg.fontName && !payload.fontFaceRule) {
+        const css2Url = await buildCss2Url(cfg.fontName, cfg);
+        if (css2Url) payload.css2Url = css2Url;
+    }
+
     return payload;
 }
 
@@ -3624,119 +3620,66 @@ function syncThirdManInButtons() {
 }
 
 function saveFontSettings(position, fontName) {
-    let memory;
-    if (position === 'top') memory = topFontMemory;
-    else if (position === 'bottom') memory = bottomFontMemory;
-    else if (position === 'body') memory = bodyFontMemory;
-    else if (position === 'serif') memory = serifFontMemory;
-    else if (position === 'sans') memory = sansFontMemory;
-    else if (position === 'mono') memory = monoFontMemory;
-    else return; // unsupported position
-    const activeAxes = getActiveAxes(position);
-    const activeControls = getActiveControls(position);
-    const fontDef = getEffectiveFontDefinition(fontName);
+    const memory = getFontMemory(position);
+    if (!memory) return;
 
-    const fontSizeEl = document.getElementById(`${position}-font-size`);
-    const lineHeightEl = document.getElementById(`${position}-line-height`);
-    const fontWeightEl = document.getElementById(`${position}-font-weight`);
-    const fontColorEl = document.getElementById(`${position}-font-color`);
-
-    // Note: variableAxes always present as empty object (even if no axes) to simplify access patterns
-    const settings = {
-        variableAxes: {}
-    };
-
-    // Only include primitive properties that have values (No Key architecture)
-    if (fontSizeEl && fontSizeEl.value) settings.fontSize = fontSizeEl.value;
-    if (lineHeightEl && lineHeightEl.value) settings.lineHeight = lineHeightEl.value;
-    if (fontWeightEl && fontWeightEl.value) settings.fontWeight = fontWeightEl.value;
-    if (fontColorEl && fontColorEl.value && fontColorEl.value !== 'default') {
-        settings.fontColor = fontColorEl.value;
+    const config = getCurrentUIConfig(position);
+    if (!config) {
+        delete memory[fontName];
+        return;
     }
 
-    // Save variable axis values
-    if (fontDef && fontDef.axes && fontDef.axes.length > 0) {
-        fontDef.axes.forEach(axis => {
-            const control = document.getElementById(`${position}-${axis}`);
-            if (control && control.value) {
-                settings.variableAxes[axis] = control.value;
-            }
-        });
-    }
-
+    // Store canonical config (already respects unset state, uses numeric types)
+    // Strip fontName and fontFaceRule — keyed externally by fontName
+    const { fontName: _fn, fontFaceRule: _ffr, ...settings } = config;
     memory[fontName] = settings;
 }
 
 function restoreFontSettings(position, fontName) {
-    let memory;
-    if (position === 'top') memory = topFontMemory;
-    else if (position === 'bottom') memory = bottomFontMemory;
-    else if (position === 'body') memory = bodyFontMemory;
-    else if (position === 'serif') memory = serifFontMemory;
-    else if (position === 'sans') memory = sansFontMemory;
-    else if (position === 'mono') memory = monoFontMemory;
-    else return; // unsupported position
+    const memory = getFontMemory(position);
+    if (!memory) return;
     const saved = memory[fontName];
+    if (!saved) return;
 
-    if (!saved) return; // No saved settings for this font
+    // Restore basic controls — only set and activate controls present in saved config
+    const basicControls = [
+        { key: 'fontSize', controlId: `${position}-font-size`, textId: `${position}-font-size-text`, dataControl: 'font-size' },
+        { key: 'lineHeight', controlId: `${position}-line-height`, textId: `${position}-line-height-text`, dataControl: 'line-height' },
+        { key: 'fontWeight', controlId: `${position}-font-weight`, textId: null, dataControl: 'weight' },
+    ];
 
-    // Restore basic controls
-    document.getElementById(`${position}-font-size`).value = saved.fontSize;
-    document.getElementById(`${position}-line-height`).value = saved.lineHeight;
-    document.getElementById(`${position}-font-weight`).value = saved.fontWeight;
+    basicControls.forEach(({ key, controlId, textId, dataControl }) => {
+        if (saved[key] === undefined) return;
+        const control = document.getElementById(controlId);
+        if (control) control.value = saved[key];
+        if (textId) {
+            const textControl = document.getElementById(textId);
+            if (textControl) textControl.value = saved[key];
+        }
+        const group = document.querySelector(`#${position}-font-controls .control-group[data-control="${dataControl}"]`);
+        if (group) group.classList.remove('unset');
+    });
+
+    // Restore color (select element, defaults to 'default' when absent)
     const colorControl = document.getElementById(`${position}-font-color`);
     if (colorControl) {
-        // Set to saved color if present, otherwise set to 'default'
         colorControl.value = saved.fontColor || 'default';
     }
-
-    // Restore variable axis values
-    const fontDef = getEffectiveFontDefinition(fontName);
-    if (fontDef && fontDef.axes && saved.variableAxes) {
-        fontDef.axes.forEach(axis => {
-            if (saved.variableAxes[axis] !== undefined) {
-                const control = document.getElementById(`${position}-${axis}`);
-                const textControl = document.getElementById(`${position}-${axis}-text`);
-                const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
-
-                if (control && textControl) {
-                    const value = saved.variableAxes[axis];
-                    control.value = value;
-                    textControl.value = value;
-
-                    // Activate the axis since it has a value
-                    if (controlGroup) {
-                        controlGroup.classList.remove('unset');
-                    }
-                }
-            }
-        });
-    }
-
-    // Restore basic control activation states based on saved values
-    if (saved.fontWeight) {
-        const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
-        if (weightControl) {
-            weightControl.classList.remove('unset');
-        }
-    }
-    if (saved.fontSize) {
-        const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
-        if (sizeControl) {
-            sizeControl.classList.remove('unset');
-        }
-    }
-    if (saved.lineHeight) {
-        const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
-        if (lineHeightControl) {
-            lineHeightControl.classList.remove('unset');
-        }
-    }
     if (saved.fontColor) {
-        const colorControl = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-        if (colorControl) {
-            colorControl.classList.remove('unset');
-        }
+        const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
+        if (colorGroup) colorGroup.classList.remove('unset');
+    }
+
+    // Restore variable axes — only axes present in saved config
+    if (saved.variableAxes) {
+        Object.entries(saved.variableAxes).forEach(([axis, value]) => {
+            const control = document.getElementById(`${position}-${axis}`);
+            const textControl = document.getElementById(`${position}-${axis}-text`);
+            const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
+            if (control) control.value = value;
+            if (textControl) textControl.value = value;
+            if (controlGroup) controlGroup.classList.remove('unset');
+        });
     }
 }
 
@@ -4107,7 +4050,7 @@ function showFavoritesPopup(position) {
                 const favoriteName = this.getAttribute('data-favorite-name');
                 const rawConfig = savedFavorites[favoriteName];
                 console.log('Loading favorite - raw config:', JSON.stringify(rawConfig, null, 2));
-                const config = savedEntryToConfig(rawConfig);
+                const config = normalizeConfig(rawConfig);
                 console.log('Loading favorite - processed config:', JSON.stringify(config, null, 2));
 
                 if (config) {
@@ -6351,57 +6294,30 @@ function resetBottomFont() {
 // (apply buttons listeners are bound in the primary DOMContentLoaded block above)
 
 
-// Build a UI config from a persisted per-origin payload (serif/sans)
-function buildConfigFromPayload(position, payload) {
-    console.log(`buildConfigFromPayload: position=${position}, payload:`, payload);
-    const config = {
-        fontName: payload.fontName,
-        variableAxes: {}
-    };
-
-    // Only include properties with actual values (no null properties)
-    if (payload.fontSize !== null && payload.fontSize !== undefined) {
-        config.fontSize = Number(payload.fontSize);
-    }
-    if (payload.lineHeight !== null && payload.lineHeight !== undefined) {
-        config.lineHeight = Number(payload.lineHeight);
-    }
-    if (payload.fontWeight !== null && payload.fontWeight !== undefined) {
-        config.fontWeight = Number(payload.fontWeight);
-    }
-    if (payload.fontColor !== null && payload.fontColor !== undefined) {
-        config.fontColor = payload.fontColor;
-    }
-
-    // Handle variable axes (new object format)
-    if (payload.variableAxes && typeof payload.variableAxes === 'object') {
-        Object.entries(payload.variableAxes).forEach(([axis, value]) => {
-            config.variableAxes[axis] = Number(value);
-        });
-    }
-
-    console.log(`buildConfigFromPayload: Built config:`, config);
-    return config;
-}
-
 // Facade mode completely removed
 
 
-// Compare two apply payloads for equality (font + axes + weight)
+// Compare two apply payloads for equality (font + axes + basic controls).
+// Handles backward compat: old stored payloads may have wdthVal/slntVal/italVal
+// instead of (or alongside) variableAxes entries.
 function payloadEquals(a, b) {
     if (!a || !b) return false;
     if (a.fontName !== b.fontName) return false;
-    const numEq = (x, y) => (x === null || x === undefined) && (y === null || y === undefined) ? true : Number(x) === Number(y);
+    const numEq = (x, y) => (x == null) && (y == null) ? true : Number(x) === Number(y);
     if (!numEq(a.fontWeight, b.fontWeight)) return false;
     if (!numEq(a.fontSize, b.fontSize)) return false;
     if (!numEq(a.lineHeight, b.lineHeight)) return false;
-    if (!numEq(a.wdthVal, b.wdthVal)) return false;
-    if (!numEq(a.slntVal, b.slntVal)) return false;
-    if (!numEq(a.italVal, b.italVal)) return false;
     if (a.fontColor !== b.fontColor) return false;
-    // Compare variableAxes
-    const aAxes = a.variableAxes;
-    const bAxes = b.variableAxes;
+    // Normalize axes: fold legacy wdthVal/slntVal/italVal into variableAxes for comparison
+    const normalize = (obj) => {
+        const axes = { ...(obj.variableAxes || {}) };
+        if (obj.wdthVal != null && !('wdth' in axes)) axes.wdth = Number(obj.wdthVal);
+        if (obj.slntVal != null && !('slnt' in axes)) axes.slnt = Number(obj.slntVal);
+        if (obj.italVal != null && !('ital' in axes)) axes.ital = Number(obj.italVal);
+        return axes;
+    };
+    const aAxes = normalize(a);
+    const bAxes = normalize(b);
     const aKeys = Object.keys(aAxes);
     const bKeys = Object.keys(bAxes);
     if (aKeys.length !== bKeys.length) return false;
@@ -7026,96 +6942,6 @@ function generateBodyContactCleanupScript() {
     `;
 }
 
-// Build a payload from current UI config (used to detect dirty state)
-async function buildCurrentPayload(position, providedConfig = null) {
-    console.log(`buildCurrentPayload called for position: ${position}`, providedConfig ? 'with provided config' : '');
-    const cfg = providedConfig || getCurrentUIConfig(position);
-    console.log(`buildCurrentPayload: Using config:`, cfg);
-    if (!cfg) {
-        console.log(`buildCurrentPayload: No config found, returning null`);
-        return null;
-    }
-
-
-    // Determine generic font family based on position
-    let genericKey;
-    if (position === 'body') {
-        genericKey = 'body';
-    } else {
-        genericKey = (position === 'top') ? 'serif' : 'sans';
-    }
-    const activeAxes = new Set(cfg.activeAxes || []);
-    let wdthVal = null, slntVal = null, italVal = null;
-    Object.entries(cfg.variableAxes).forEach(([axis, value]) => {
-        const num = Number(value);
-        if (!activeAxes.has(axis) || !isFinite(num)) return;
-        if (axis === 'wdth') wdthVal = num;
-        if (axis === 'slnt') slntVal = num;
-        if (axis === 'ital') italVal = num;
-    });
-    // Determine which controls are active by checking if control group is not "unset" (user has interacted with them)
-    const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
-    const weightActive = weightGroup && !weightGroup.classList.contains('unset');
-    const fontWeight = weightActive ? Number(cfg.fontWeight) : null;
-    console.log(`buildCurrentPayload: Weight - group:`, weightGroup, 'active:', weightActive, 'value:', fontWeight);
-
-    const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
-    const fontSizeActive = sizeGroup && !sizeGroup.classList.contains('unset');
-    const fontSize = fontSizeActive ? Number(cfg.fontSize) : null;
-    console.log(`buildCurrentPayload: Font size - group:`, sizeGroup, 'active:', fontSizeActive, 'value:', fontSize);
-
-    const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
-    const lineHeightActive = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
-    const lineHeight = lineHeightActive ? Number(cfg.lineHeight) : null;
-    console.log(`buildCurrentPayload: Line height - group:`, lineHeightGroup, 'active:', lineHeightActive, 'raw cfg.lineHeight:', cfg.lineHeight, 'Number() result:', lineHeight);
-
-    // Check if color is active (not "unset")
-    const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-    const colorActive = colorGroup && !colorGroup.classList.contains('unset');
-    const fontColor = colorActive ? cfg.fontColor : null;
-    console.log(`buildCurrentPayload: Color - group:`, colorGroup, 'active:', colorActive, 'value:', fontColor);
-
-    // Get font definition to include fontFaceRule if it's a custom font
-    const fontDefinition = fontDefinitions[cfg.fontName];
-    const payload = {
-        fontName: cfg.fontName,
-        variableAxes: cfg.variableAxes,
-        wdthVal,
-        slntVal,
-        italVal,
-        fontWeight,
-        fontSize,
-        lineHeight,
-        fontColor
-    };
-
-    // Add fontFaceRule for custom fonts
-    if (fontDefinition && fontDefinition.fontFaceRule) {
-        payload.fontFaceRule = fontDefinition.fontFaceRule;
-    }
-
-    // Add css2Url for Google Fonts if available (or compute it for variable fonts)
-    if (fontDefinition && fontDefinition.css2Url) {
-        payload.css2Url = fontDefinition.css2Url;
-    } else if (cfg.fontName && !fontDefinition?.fontFaceRule) {
-        // For Google Fonts (non-custom fonts), compute the css2Url
-        const css2Url = await buildCss2Url(cfg.fontName, cfg);
-        if (css2Url) {
-            payload.css2Url = css2Url;
-            console.log(`buildCurrentPayload: Computed css2Url for ${cfg.fontName}:`, css2Url);
-        }
-    }
-
-    // Remove properties with null values to follow "no key" architecture
-    Object.keys(payload).forEach(key => {
-        if (payload[key] === null || payload[key] === undefined) {
-            delete payload[key];
-        }
-    });
-
-    return payload;
-}
-
 // Reflect button labels based on saved vs current (Applied/Update/Apply)
 async function refreshApplyButtonsDirtyState() {
     try {
@@ -7136,7 +6962,7 @@ async function refreshApplyButtonsDirtyState() {
                 const r = document.getElementById('reset-top');
                 if (r) r.style.display = 'none';
             } else {
-                const current = await buildCurrentPayload('top');
+                const current = await buildPayload('top');
                 const same = payloadEquals(saved, current);
                 btnTop.classList.toggle('active', same);
                 btnTop.textContent = same ? '✓' : 'Apply';
@@ -7153,7 +6979,7 @@ async function refreshApplyButtonsDirtyState() {
                 const r = document.getElementById('reset-bottom');
                 if (r) r.style.display = 'none';
             } else {
-                const current = await buildCurrentPayload('bottom');
+                const current = await buildPayload('bottom');
                 const same = payloadEquals(saved, current);
                 btnBottom.classList.toggle('active', same);
                 btnBottom.textContent = same ? '✓' : 'Apply';
@@ -7926,7 +7752,7 @@ function applyAllThirdManInFonts() {
             const cssPromises = cssJobs.map(job => {
                 return Promise.resolve().then(async () => {
                     // Build the payload to get css2Url
-                    const payload = await buildThirdManInPayloadFromConfig(job.type, job.config);
+                    const payload = await buildPayload(job.type, job.config);
                     if (!payload) {
                         console.log(`applyAllThirdManInFonts: No payload for ${job.type}, skipping`);
                         return false;

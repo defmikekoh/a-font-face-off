@@ -52,6 +52,13 @@ Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state
 
 Only store properties with actual values — no nulls, no defaults. `fontName` is always present when configured; `variableAxes` is always an object (even if empty `{}`). Primitive properties like `fontSize`, `fontColor` only appear when explicitly set.
 
+### Key Config Functions (popup.js)
+
+- `getCurrentUIConfig(position)` — reads current UI state into canonical config (respects active/unset controls)
+- `normalizeConfig(raw)` — converts any external data (favorites, domain storage, legacy formats) into canonical config
+- `buildPayload(position, config?)` — builds enriched payload (adds `css2Url`, `styleId`, `fontFaceRule`) for domain storage / content.js
+- `getFontMemory(position)` — returns runtime font memory object for a panel position
+
 ### Variable Font Axes
 
 Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to CSS properties. Custom axes use `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`.
