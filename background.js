@@ -210,7 +210,7 @@ async function flushCacheWrites() {
 
     // Calculate current cache size
     const entries = Object.entries(fontCache);
-    const currentSize = entries.reduce((sum, [url, entry]) => sum + (entry.size || 0), 0);
+    const currentSize = entries.reduce((sum, [_url, entry]) => sum + (entry.size || 0), 0);
 
     // Clean up if cache is too large
     if (currentSize > MAX_CACHE_SIZE_BYTES) {
@@ -282,7 +282,7 @@ clearExpiredCache().then(() => {
   });
 });
 
-browser.runtime.onMessage.addListener(async (msg, sender) => {
+browser.runtime.onMessage.addListener(async (msg, _sender) => {
   try {
     // Handle cache flush requests
     if (msg.type === 'flushFontCache') {

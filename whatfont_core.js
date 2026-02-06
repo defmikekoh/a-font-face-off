@@ -1,5 +1,5 @@
 /*jslint browser: true, regexp: true, white: true, newcap: false, nomen: true, plusplus: true, vars: true */
-/*global window, jQuery, $ */
+/*global jQuery, $ */
 
 function _whatFont() {
     // Base Settings

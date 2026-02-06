@@ -23,8 +23,11 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Local tooling
+# Dev tooling
 .claude/
+eslint.config.js
+tests/
+scripts/
 
 # Maps and misc
 *.map

@@ -11,8 +11,9 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - `npm run build` — Build extension with web-ext (toggles AFFO_DEBUG to false, builds, toggles back to true)
 - `npm run build:latest` — Build and copy to `web-ext-artifacts/latest.xpi`
 - `npm run gf:update` — Update Google Fonts metadata into `data/gf-axis-registry.json`
+- `npm run lint` — Run ESLint across all source files
 
-There are no tests or linting configured.
+- `npm test` — Run unit tests (Node's built-in test runner, `node:test`)
 
 ## Development Guidelines
 
@@ -27,6 +28,7 @@ There are no tests or linting configured.
 
 | File | Role |
 |---|---|
+| `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers) — shared between popup.js and Node tests |
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
 | `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience |

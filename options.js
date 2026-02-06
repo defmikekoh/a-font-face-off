@@ -287,10 +287,10 @@
         return;
       }
       
-      const totalSize = entries.reduce((sum, [url, entry]) => sum + (entry.size || 0), 0);
+      const totalSize = entries.reduce((sum, [_url, entry]) => sum + (entry.size || 0), 0);
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-      const oldestEntry = Math.min(...entries.map(([url, entry]) => entry.timestamp));
-      const newestEntry = Math.max(...entries.map(([url, entry]) => entry.timestamp));
+      const oldestEntry = Math.min(...entries.map(([_url, entry]) => entry.timestamp));
+      Math.max(...entries.map(([_url, entry]) => entry.timestamp));
       const ageHours = ((Date.now() - oldestEntry) / (1000 * 60 * 60)).toFixed(1);
       
       const info = `Cache: ${entries.length} fonts, ${totalSizeMB}MB, oldest: ${ageHours}h ago`;

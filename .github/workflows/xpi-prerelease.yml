@@ -30,9 +30,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq unzip
 
-      - name: Install deps and build
+      - name: Install deps, lint, test, and build
         run: |
           npm ci
+          npm run lint
+          npm test
           npm run build
 
       - name: Locate build ZIP

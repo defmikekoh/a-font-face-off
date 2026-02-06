@@ -159,7 +159,7 @@
             
             // Handle longpress if callback provided
             if (longPressCallback) {
-                button.addEventListener('mousedown', function(e) {
+                button.addEventListener('mousedown', function(_e) {
                     isLongPress = false;
                     pressTimer = setTimeout(() => {
                         isLongPress = true;
@@ -171,24 +171,24 @@
                         }, 100);
                     }, 500); // 500ms for longpress
                 });
-                
-                button.addEventListener('mouseup', function(e) {
+
+                button.addEventListener('mouseup', function(_e) {
                     if (pressTimer) {
                         clearTimeout(pressTimer);
                         pressTimer = null;
                     }
                 });
-                
-                button.addEventListener('mouseleave', function(e) {
+
+                button.addEventListener('mouseleave', function(_e) {
                     if (pressTimer) {
                         clearTimeout(pressTimer);
                         pressTimer = null;
                     }
                     isLongPress = false;
                 });
-                
+
                 // Touch events for mobile
-                button.addEventListener('touchstart', function(e) {
+                button.addEventListener('touchstart', function(_e) {
                     isLongPress = false;
                     pressTimer = setTimeout(() => {
                         isLongPress = true;
@@ -200,15 +200,15 @@
                         }, 100);
                     }, 500);
                 });
-                
-                button.addEventListener('touchend', function(e) {
+
+                button.addEventListener('touchend', function(_e) {
                     if (pressTimer) {
                         clearTimeout(pressTimer);
                         pressTimer = null;
                     }
                 });
-                
-                button.addEventListener('touchcancel', function(e) {
+
+                button.addEventListener('touchcancel', function(_e) {
                     if (pressTimer) {
                         clearTimeout(pressTimer);
                         pressTimer = null;

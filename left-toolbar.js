@@ -49,13 +49,17 @@
         leftToolbarIframe.id = 'affo-left-toolbar-iframe';
         
         // Use essential-buttons-toolbar's exact approach: vh units and CSS positioning
-        const containerHeight = `${options.height}vh`; // Use vh units directly like essential
+        const _containerHeight = `${options.height}vh`; // Use vh units directly like essential
         const useTransformCentering = options.height < 100; // Center if not full height
-        const topPosition = useTransformCentering ? `${options.position}%` : '0';
+        const _topPosition = useTransformCentering ? `${options.position}%` : '0';
         
-        // Use Essential's EXACT initial iframe styling - visible but height 0 to prevent flash
-        leftToolbarIframe.style = 
-            'display: block !important; height: 0; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset; max-height: unset; min-width: unset; max-width: unset; border: 0; background: transparent; color-scheme: light; border-radius: 0';
+        // Initial iframe styling — include width upfront so the iframe is never
+        // unconstrained.  min-width/max-width need !important because sites
+        // like today.com set `iframe { min-width: 100% !important }` in their
+        // stylesheets, which overrides non-important inline min-width.
+        const initialWidth = Math.floor(options.width / (window.visualViewport ? window.visualViewport.scale : 1));
+        leftToolbarIframe.style =
+            `display: block !important; height: 0; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset !important; max-height: unset !important; min-width: unset !important; max-width: unset !important; border: 0; background: transparent; color-scheme: light; border-radius: 0; width: ${initialWidth}px !important; left: 0px`;
         leftToolbarIframe.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('left-toolbar-iframe.html');
         
         
@@ -311,7 +315,7 @@
                         type: 'openPopupFallback', 
                         domain: currentDomain,
                         sourceTabId: currentTabId
-                    }).then(function(response) {
+                    }).then(function(_response) {
                     }).catch(function(e) {
                         console.error('[Left Toolbar] Error opening fallback popup:', e);
                     });
@@ -609,7 +613,7 @@
     try {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         if (browserAPI && browserAPI.runtime) {
-            browserAPI.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+            browserAPI.runtime.onMessage.addListener(function(message, _sender, _sendResponse) {
                 
                 if (message.type === 'toolbarOptionsChanged') {
                     

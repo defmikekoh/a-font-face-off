@@ -252,7 +252,7 @@
     
     // Add SPA resilience for x.com and other dynamic sites
     try {
-      var fontFamily = cssPropsObject['font-family'];
+      var _fontFamily = cssPropsObject['font-family'];
       
       // MutationObserver to re-apply styles to newly added elements
       var mo = new MutationObserver(function(muts) {
@@ -406,12 +406,14 @@
               clearInterval(laterInterval);
               debugLog(`[AFFO Content] Stopped style monitoring for ${fontType} after ${totalDuration/1000} seconds (${checkCount} total checks)`);
             }, totalDuration - initialDuration);
-            
+
+            // Track the stop timer for cleanup (must be inside switchTimer callback where stopTimer is scoped)
+            activeTimers[fontType].push(stopTimer);
+
           }, initialDuration);
 
-          // Track the switch and stop timers for cleanup
+          // Track the switch timer for cleanup
           activeTimers[fontType].push(switchTimer);
-          activeTimers[fontType].push(stopTimer);
           
         } catch(e) {
           debugLog(`[AFFO Content] Error setting up enhanced monitoring for ${fontType}:`, e);
