@@ -335,3 +335,47 @@
   font-weight: 700;
   src: url('https://fonts.cdnfonts.com/s/67152/apercu_bold_italic_pro.woff') format('woff');
 }
+
+@font-face {
+  font-family: "AP Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-Condensed.a2e7de2f933a2cfb561ebf918445be8c.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AP Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-CondensedMedium.7d3bf8cec74522a6b6277567408b3cac.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AP Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-CondensedBold.6e5f3d10491d025b55a82beebf812af9.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "AP Semi Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-SemiCondensed.d6d1dd4cf415654d766572b8828ac316.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AP Semi Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-SemiCondensedMedium.0146527a4261c5e15db1af66f0fc0b28.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AP Semi Condensed";
+  src: url("https://assets.apnews.com/resource/00000188-2a81-d28a-a1fd-7bfb6ccb0000/assets/fonts/APCustomFont/APW05-SemiCondensedBold.fcbedb6a106dddd6fdfef5877e011259.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

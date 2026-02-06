@@ -24,8 +24,9 @@ Thumbs.db
 .vscode/
 
 # Dev tooling
+.beads/
 .claude/
-eslint.config.js
+eslint.config.mjs
 tests/
 scripts/
 
@@ -35,3 +36,5 @@ scripts/
 # other junk
 zoutput.txt
 zothercode
+ztemp
+

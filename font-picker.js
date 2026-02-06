@@ -7,7 +7,7 @@
  *                        CUSTOM_FONTS, getPanelLabel, loadFont, applyFont,
  *                        getCurrentUIConfig, updateBodyButtons,
  *                        updateAllThirdManInButtons, refreshApplyButtonsDirtyState,
- *                        currentViewMode, initializationComplete, saveFontSettings)
+ *                        currentViewMode, saveFontSettings)
  *
  * In the browser this file is loaded as a plain <script> before popup.js.
  * In Node (test runner) we export pure helpers via module.exports.
@@ -262,12 +262,6 @@ function setupFontPicker() {
     }
 
 async function selectFont(name) {
-    // Prevent font selection during initialization
-    if (!initializationComplete) {
-        console.log(`selectFont: Ignoring font selection "${name}" - initialization still in progress`);
-        return;
-    }
-
     console.log(`selectFont: Selecting "${name}" for position "${currentPosition}"`);
 
     try {

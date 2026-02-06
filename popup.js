@@ -536,12 +536,28 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
     }
 }
 
-// Custom font definitions are loaded from custom-fonts.css.
+// Custom font definitions are loaded from custom-fonts.css and ap-fonts.css.
+// ap-fonts.css contains base64-embedded AP fonts (large) and is only injected
+// into the popup DOM when an AP font is actually selected for preview.
 let CUSTOM_FONTS = [];
 let fontDefinitions = {};
 let customFontsCssText = '';
+let apFontsCssText = '';
 let customFontsLoaded = false;
 let customFontsPromise = null;
+
+// Font families defined in ap-fonts.css (loaded lazily into popup DOM)
+const AP_FONT_FAMILIES = ['AP', 'APVar'];
+
+// Manual axis metadata for custom variable fonts (from fvar table inspection).
+// Static custom fonts don't need entries here — they get empty axes by default.
+const CUSTOM_FONT_AXES = {
+    'APVar': {
+        axes: ['wght', 'wdth'],
+        defaults: { wght: 400, wdth: 100 },
+        ranges:   { wght: [100, 900], wdth: [35, 100] },
+    },
+};
 
 function parseCustomFontsFromCss(cssText) {
     const blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
@@ -562,13 +578,17 @@ function parseCustomFontsFromCss(cssText) {
 
     const defs = {};
     names.forEach(name => {
-        defs[name] = {
-            axes: [],
-            defaults: {},
-            ranges: {},
-            steps: {},
-            fontFaceRule: byName.get(name).join('\n')
-        };
+        const meta = CUSTOM_FONT_AXES[name];
+        const axes = meta ? meta.axes : [];
+        const defaults = meta ? meta.defaults : {};
+        const ranges = meta ? meta.ranges : {};
+        const steps = {};
+        if (meta) {
+            axes.forEach(axis => {
+                steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
+            });
+        }
+        defs[name] = { axes, defaults, ranges, steps, fontFaceRule: byName.get(name).join('\n') };
     });
 
     return { names, defs };
@@ -587,15 +607,28 @@ async function ensureCustomFontsLoaded() {
                     cssText = await response.text();
                 }
                 customFontsCssText = cssText || '';
+
+                // Also load AP fonts (base64-embedded, separate file for size)
+                try {
+                    const apUrl = browser.runtime.getURL('ap-fonts.css');
+                    const apResponse = await fetch(apUrl);
+                    apFontsCssText = await apResponse.text();
+                } catch (_e) {
+                    apFontsCssText = '';
+                }
+
+                // Parse both files and merge definitions
                 const parsed = parseCustomFontsFromCss(customFontsCssText);
-                CUSTOM_FONTS = parsed.names;
-                fontDefinitions = parsed.defs;
+                const apParsed = parseCustomFontsFromCss(apFontsCssText);
+                CUSTOM_FONTS = [...parsed.names, ...apParsed.names];
+                fontDefinitions = { ...parsed.defs, ...apParsed.defs };
                 customFontsLoaded = true;
             } catch (e) {
                 console.warn('Failed to load custom fonts CSS:', e);
                 CUSTOM_FONTS = [];
                 fontDefinitions = {};
                 customFontsCssText = '';
+                apFontsCssText = '';
                 customFontsLoaded = true;
             }
         })();
@@ -1686,6 +1719,8 @@ async function loadFont(position, fontName, options = {}) {
             }
         } else {
             // Custom fonts are already loaded via CSS @font-face declarations
+            // AP fonts need lazy injection (base64-embedded, separate file)
+            if (AP_FONT_FAMILIES.includes(fontName)) injectApFonts();
             // Generate controls for this font (if not already done)
             generateFontControls(position, fontName);
             restoreFontSettings(position, fontName);
@@ -2611,14 +2646,13 @@ function applyFont(position) {
 // generateFavoritePreview, generateDetailedFavoritePreview) are now in favorites.js
 
 // Font control functionality
-// Flag to prevent font selection during initialization
-let initializationComplete = false;
 
 // Panel state variables (used across different functions)
 let topPanelOpen = false;
 let bottomPanelOpen = false;
 
-// Inject custom font @font-face rules into the popup's head
+// Inject custom font @font-face rules into the popup's head.
+// AP fonts (large, base64-embedded) are injected lazily via injectApFonts().
 async function injectCustomFonts() {
     await ensureCustomFontsLoaded();
     if (!customFontsCssText) return;
@@ -2632,6 +2666,23 @@ async function injectCustomFonts() {
     }
     styleElement.textContent = customFontsCssText;
     console.log('Injected custom font @font-face rules for:', CUSTOM_FONTS);
+}
+
+// Lazily inject AP font @font-face rules (base64-embedded, ~390KB).
+// Called when an AP font is first selected for preview.
+let apFontsInjected = false;
+function injectApFonts() {
+    if (apFontsInjected) return;
+    if (!apFontsCssText) {
+        console.warn('injectApFonts: apFontsCssText is empty, cannot inject');
+        return;
+    }
+    const styleElement = document.createElement('style');
+    styleElement.id = 'affo-ap-fonts';
+    document.head.appendChild(styleElement);
+    styleElement.textContent = apFontsCssText;
+    apFontsInjected = true;
+    console.log('Injected AP font @font-face rules, CSS length:', apFontsCssText.length);
 }
 
 // Returns mode-appropriate preview/button callbacks for a panel position
@@ -2675,7 +2726,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Hide all settings until domain initialization is complete
-    initializationComplete = false;
+
     document.body.style.visibility = 'hidden';
     console.log('🔒 Hiding UI until domain initialization completes');
 
@@ -2738,7 +2789,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Domain storage restoration completed');
 
         // ONLY NOW show UI and allow interactions - everything is ready
-        initializationComplete = true;
+
         document.body.style.visibility = 'visible';
         console.log('✅ UI is now visible and ready for user interaction');
 
@@ -2746,7 +2797,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.error('Initialization failed:', error);
         // Show UI anyway to prevent blank popup
         document.body.style.visibility = 'visible';
-        initializationComplete = true;
+
     });
 
 

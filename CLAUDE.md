@@ -18,7 +18,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 ## Development Guidelines
 
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
-- Since you can't inspect and control the results of `web-ext run`, don't run it yourself — tell the user to run it instead.
+- Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - `zothercode/fontonic-firefox-android/` is another font changing extension that may occasionally be used as a point of reference.
 

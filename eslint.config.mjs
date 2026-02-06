@@ -185,6 +185,7 @@ export default [
     },
 
     // favorites.js — depends on config-utils.js, css-generators.js, popup.js globals
+    // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
     {
         files: ["favorites.js"],
         ...js.configs.recommended,
@@ -220,16 +221,13 @@ export default [
         },
         rules: {
             "no-undef": "error",
-            "no-unused-vars": ["warn", {
-                argsIgnorePattern: "^_",
-                varsIgnorePattern: "^_",
-                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
-            }],
+            "no-unused-vars": "off",
             "no-console": "off",
         },
     },
 
     // font-picker.js — font picker modal, Google Fonts init, family resolution
+    // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
     {
         files: ["font-picker.js"],
         ...js.configs.recommended,
@@ -261,17 +259,12 @@ export default [
                 updateAllThirdManInButtons: "readonly",
                 refreshApplyButtonsDirtyState: "readonly",
                 currentViewMode: "readonly",
-                initializationComplete: "readonly",
                 saveFontSettings: "readonly",
             },
         },
         rules: {
             "no-undef": "error",
-            "no-unused-vars": ["warn", {
-                argsIgnorePattern: "^_",
-                varsIgnorePattern: "^_",
-                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
-            }],
+            "no-unused-vars": "off",
             "no-console": "off",
         },
     },
