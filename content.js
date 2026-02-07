@@ -58,7 +58,21 @@
 
   // Known serif/sans font families for element walker classification
   var knownSerifFonts = ['pt serif', 'mencken-std', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril'];
-  var knownSansFonts = [];
+  var knownSansFonts = [
+    'arial',
+    'helvetica',
+    'helvetica neue',
+    'inter',
+    'roboto',
+    'open sans',
+    'lato',
+    'noto sans',
+    'source sans pro',
+    'system-ui',
+    '-apple-system',
+    'segoe ui',
+    'ui-sans-serif'
+  ];
 
   // Load user-defined serif/sans lists from storage
   try {
@@ -1331,8 +1345,16 @@
         NodeFilter.SHOW_ELEMENT,
         {
           acceptNode: function(node) {
-            // Skip elements that are hidden or have no text content
-            if (node.offsetParent === null && node.tagName !== 'BODY') return NodeFilter.FILTER_SKIP;
+            // Skip hidden elements, but don't rely on offsetParent:
+            // it is null for legitimate visible layouts (fixed/sticky/transformed wrappers),
+            // which can cause main article text to be missed on mobile sites.
+            if (node.tagName !== 'BODY') {
+              try {
+                var cs = window.getComputedStyle(node);
+                if (cs.display === 'none' || cs.visibility === 'hidden') return NodeFilter.FILTER_SKIP;
+                if (node.getClientRects && node.getClientRects().length === 0) return NodeFilter.FILTER_SKIP;
+              } catch(_) {}
+            }
             if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
             return NodeFilter.FILTER_ACCEPT;
           }

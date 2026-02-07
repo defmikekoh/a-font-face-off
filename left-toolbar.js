@@ -344,7 +344,7 @@
             console.error('[Left Toolbar] Error opening popup:', e);
         }
     }
-    
+
     // Handle toolbar option changes
     function handleToolbarOptionsChanged(newOptions) {
         

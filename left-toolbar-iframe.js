@@ -51,7 +51,7 @@
         // Send message to parent window to handle popup opening with domain context
         parent.postMessage({ type: 'openPopup' }, '*');
     }
-    
+
     // Show SVG based on theme (exactly like Essential)
     function showSVG(svgs, theme, additionalClass) {
         svgs.forEach((svg) => {
