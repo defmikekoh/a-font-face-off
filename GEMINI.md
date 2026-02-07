@@ -1,5 +1,3 @@
-README.md generally describes the Firefox Extension.
+Read and modify this file for Gemini-specific instructions only.
 
-README-data-structures.md should be a point a reference and updated accordingly.
-
-fontonic-firefox-android/ is another font changing extension that may occasionally be used as a point of reference.
+Read and modify @./AGENTS.md for info relevant to all coding agents.

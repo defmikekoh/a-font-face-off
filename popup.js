@@ -2670,19 +2670,30 @@ async function injectCustomFonts() {
 
 // Lazily inject AP font @font-face rules (base64-embedded, ~390KB).
 // Called when an AP font is first selected for preview.
+// Converts data: URLs to blob: URLs at injection time because Firefox
+// extension popups don't load data: URL fonts even with CSP font-src data:.
 let apFontsInjected = false;
 function injectApFonts() {
-    if (apFontsInjected) return;
-    if (!apFontsCssText) {
-        console.warn('injectApFonts: apFontsCssText is empty, cannot inject');
-        return;
-    }
+    if (apFontsInjected || !apFontsCssText) return;
+    apFontsInjected = true;
+
+    // Convert data: URLs to blob: URLs for Firefox CSP compatibility
+    const cssWithBlobs = apFontsCssText.replace(
+        /url\("data:font\/woff2;base64,([^"]+)"\)/g,
+        (_match, b64) => {
+            const binary = atob(b64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'font/woff2' });
+            return `url("${URL.createObjectURL(blob)}")`;
+        }
+    );
+
     const styleElement = document.createElement('style');
     styleElement.id = 'affo-ap-fonts';
     document.head.appendChild(styleElement);
-    styleElement.textContent = apFontsCssText;
-    apFontsInjected = true;
-    console.log('Injected AP font @font-face rules, CSS length:', apFontsCssText.length);
+    styleElement.textContent = cssWithBlobs;
+    if (AFFO_DEBUG) console.log('Injected AP font @font-face rules (blob URLs)');
 }
 
 // Returns mode-appropriate preview/button callbacks for a panel position
