@@ -69,6 +69,32 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoWebDavConfig` | WebDAV config for custom fonts sync | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 
+## WebDAV Sync
+
+`background.js` uses shared JSON sync helpers for domain/favorites (`pullJsonObjectFromWebDav`, `pushJsonToWebDav`, `syncJsonSnapshotOnce`, `scheduleWebDavAutoSync`) to keep behavior consistent.
+
+### Domain settings (`affoApplyMap`)
+- Remote file: `/a-font-face-off/affo-apply-map.json`
+- Auto sync trigger: `background.js` listens for `browser.storage.local` changes to `affoApplyMap`
+- Auto sync flow: pull (best effort) then push local changed snapshot
+- Conflict model: last successful push wins
+- Guard: if `affoWebDavConfig.serverUrl` is empty/missing, skip sync (no pull/push attempt)
+- Manual pull: Options page button **Pull Domain Settings** (`affoWebDavPullDomainSettings`) imports remote JSON into local `affoApplyMap`
+- Auto-failure signal: runtime message `affoWebDavDomainSyncFailed` (used by Options retry modal)
+
+### Favorites (`affoFavorites`, `affoFavoritesOrder`)
+- Remote file: `/a-font-face-off/affo-favorites.json`
+- Auto sync trigger: `background.js` listens for `browser.storage.local` changes to `affoFavorites` and `affoFavoritesOrder`
+- Auto sync flow: pull (best effort) then push local changed snapshot
+- Conflict model: last successful push wins
+- Guard: if `affoWebDavConfig.serverUrl` is empty/missing, skip sync (no pull/push attempt)
+- Manual sync controls: **Pull Favorites** (`affoWebDavPullFavorites`) and **Push Favorites** (`affoWebDavPushFavorites`)
+- Auto-failure signal: runtime message `affoWebDavFavoritesSyncFailed` (used by Options retry modal)
+
+### Custom fonts CSS (`affoCustomFontsCss`)
+- Remote file: `/a-font-face-off/custom-fonts.css`
+- Manual sync controls in Options: **Pull Custom Fonts**, **Push Custom Fonts**
+
 ## Mode Types
 
 ### View Modes
@@ -190,15 +216,17 @@ const panelStates = {
 
 ### Storage Operations
 
-#### Centralized Storage Functions (popup.js only)
+#### Centralized Storage Functions (popup.js primary)
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
 - `saveBatchApplyMapForOrigin(origin, fontConfigs)`: Batch save multiple font types in single storage write (used by Apply All)
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 #### Inline Storage Access
-- **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Only the write functions (`saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`) and `getAppliedConfigForDomain` access `browser.storage.local.get('affoApplyMap')` directly (read-modify-write pattern).
-- **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations; all writes are in popup.js.
+- **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
+- **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
+- **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
+- **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations.
 
 ### Config Conversion & Payload Building
 

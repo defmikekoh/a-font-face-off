@@ -51,6 +51,17 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCache` (WOFF2 cache). See `docs/architecture/DATA_STRUCTURES.md` for full details.
 
+### WebDAV Sync (Current Behavior)
+
+- WebDAV sync is used for `custom-fonts.css`, domain settings (`affoApplyMap`), and favorites (`affoFavorites`, `affoFavoritesOrder`).
+- Domain settings auto-sync from `background.js` when `affoApplyMap` changes: **pull (best effort) then push local snapshot** (last successful push wins).
+- Favorites auto-sync from `background.js` when `affoFavorites` or `affoFavoritesOrder` changes: **pull (best effort) then push local snapshot** (last successful push wins).
+- Manual domain pull is available in Advanced Options via **Pull Domain Settings**.
+- Manual favorites sync is available in Advanced Options via **Pull Favorites** and **Push Favorites**.
+- If WebDAV is not configured (`affoWebDavConfig.serverUrl` missing/empty), auto/manual domain and favorites sync attempts are skipped.
+- Auto-sync failures for domain/favorites emit runtime messages consumed by Options page modal retry UX (`affoWebDavDomainSyncFailed`, `affoWebDavFavoritesSyncFailed`).
+- `background.js` uses shared WebDAV JSON sync helpers (`pullJsonObjectFromWebDav`, `pushJsonToWebDav`, `syncJsonSnapshotOnce`, `scheduleWebDavAutoSync`) to keep domain/favorites sync paths DRY.
+
 ### Font Config "No Key" Architecture
 
 Only store properties with actual values — no nulls, no defaults. `fontName` is always present when configured; `variableAxes` is always an object (even if empty `{}`). Primitive properties like `fontSize`, `fontColor` only appear when explicitly set.

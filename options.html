@@ -219,6 +219,47 @@
     #left-toolbar-preview .preview-button:nth-child(2) {
       color: rgb(var(--primary-color));
     }
+
+    /* WebDAV failure modal */
+    .affo-modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 20, 40, 0.55);
+      z-index: 9999;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .affo-modal-overlay.show {
+      display: flex;
+    }
+    .affo-modal {
+      width: min(520px, 100%);
+      background: var(--tab-background);
+      color: var(--text-color);
+      border: 2px solid var(--primary-color);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      padding: 16px;
+    }
+    .affo-modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .affo-modal-message {
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 14px;
+      word-break: break-word;
+    }
+    .affo-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
@@ -528,10 +569,15 @@
       <div class="row">
         <button id="webdav-pull" class="purple">Pull Custom Fonts</button>
         <button id="webdav-push">Push Custom Fonts</button>
+        <button id="webdav-pull-domain-settings">Pull Domain Settings</button>
+        <button id="webdav-pull-favorites">Pull Favorites</button>
+        <button id="webdav-push-favorites">Push Favorites</button>
         <button id="webdav-clear-local" class="danger">Clear Local Override</button>
+      </div>
+      <div class="row">
         <span id="status-webdav-sync" class="status"></span>
       </div>
-      <div class="hint">Syncs `custom-fonts.css` with your WebDAV server at `/a-font-face-off/custom-fonts.css`.</div>
+      <div class="hint">Syncs `custom-fonts.css`, domain settings (`affoApplyMap`), and favorites (`affoFavorites`, `affoFavoritesOrder`) from `/a-font-face-off/`.</div>
     </div>
 
     <div class="section">
@@ -560,6 +606,17 @@
         <span id="status-reset-all" class="status"></span>
       </div>
       <div class="hint">⚠️ This will clear all extension data including applied fonts, saved configurations, and custom settings. This action cannot be undone.</div>
+    </div>
+  </div>
+
+  <div id="webdav-failure-modal" class="affo-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="webdav-failure-title">
+    <div class="affo-modal">
+      <div id="webdav-failure-title" class="affo-modal-title">WebDAV Sync Failed</div>
+      <div id="webdav-failure-message" class="affo-modal-message"></div>
+      <div class="affo-modal-actions">
+        <button id="webdav-failure-ignore">Ignore</button>
+        <button id="webdav-failure-retry" class="purple">Retry</button>
+      </div>
     </div>
   </div>
 

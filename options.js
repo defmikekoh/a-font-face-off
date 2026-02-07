@@ -1,5 +1,36 @@
 /* Options page logic: manage known serif/sans lists */
 (function(){
+  let webDavRetryAction = null;
+
+  function showWebDavFailureModal(message, retryAction) {
+    const overlay = document.getElementById('webdav-failure-modal');
+    const messageEl = document.getElementById('webdav-failure-message');
+    const retryBtn = document.getElementById('webdav-failure-retry');
+    if (!overlay || !messageEl || !retryBtn) return;
+
+    webDavRetryAction = typeof retryAction === 'function' ? retryAction : null;
+    messageEl.textContent = message || 'Unknown WebDAV error';
+    retryBtn.disabled = !webDavRetryAction;
+    overlay.classList.add('show');
+  }
+
+  function hideWebDavFailureModal() {
+    const overlay = document.getElementById('webdav-failure-modal');
+    if (overlay) overlay.classList.remove('show');
+    webDavRetryAction = null;
+  }
+
+  async function runWebDavModalRetry() {
+    const retry = webDavRetryAction;
+    hideWebDavFailureModal();
+    if (!retry) return;
+    try {
+      await retry();
+    } catch (e) {
+      showWebDavFailureModal(e && e.message ? e.message : String(e), retry);
+    }
+  }
+
   // Theme functionality to match essential-buttons-toolbar
   function overrideTheme(theme) {
     document.documentElement.classList.toggle('dark-theme', theme === 'dark');
@@ -396,6 +427,7 @@
     } catch (e) {
       statusEl.textContent = 'Error: ' + e.message;
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showWebDavFailureModal(e.message, webDavPull);
     }
   }
 
@@ -410,6 +442,64 @@
     } catch (e) {
       statusEl.textContent = 'Error: ' + e.message;
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showWebDavFailureModal(e.message, webDavPush);
+    }
+  }
+
+  async function webDavPullDomainSettings() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Pulling domain settings...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPullDomainSettings' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV domain settings pull failed');
+      if (res.bootstrapped) {
+        statusEl.textContent = `Bootstrapped remote from local (${res.count || 0} domains)`;
+      } else if (res.skipped) {
+        statusEl.textContent = 'Skipped (WebDAV not configured)';
+      } else {
+        statusEl.textContent = `Pulled domain settings (${res.count || 0} domains)`;
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showWebDavFailureModal(e.message, webDavPullDomainSettings);
+    }
+  }
+
+  async function webDavPullFavorites() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Pulling favorites...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPullFavorites' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV favorites pull failed');
+      if (res.bootstrapped) {
+        statusEl.textContent = `Bootstrapped favorites from local (${res.count || 0})`;
+      } else if (res.skipped) {
+        statusEl.textContent = 'Skipped (WebDAV not configured)';
+      } else {
+        statusEl.textContent = `Pulled favorites (${res.count || 0})`;
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showWebDavFailureModal(e.message, webDavPullFavorites);
+    }
+  }
+
+  async function webDavPushFavorites() {
+    const statusEl = document.getElementById('status-webdav-sync');
+    try {
+      statusEl.textContent = 'Pushing favorites...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPushFavorites' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV favorites push failed');
+      statusEl.textContent = `Pushed favorites (${res.count || 0})`;
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showWebDavFailureModal(e.message, webDavPushFavorites);
     }
   }
 
@@ -528,7 +618,40 @@
     document.getElementById('save-webdav').addEventListener('click', saveWebDav);
     document.getElementById('webdav-pull').addEventListener('click', webDavPull);
     document.getElementById('webdav-push').addEventListener('click', webDavPush);
+    document.getElementById('webdav-pull-domain-settings').addEventListener('click', webDavPullDomainSettings);
+    document.getElementById('webdav-pull-favorites').addEventListener('click', webDavPullFavorites);
+    document.getElementById('webdav-push-favorites').addEventListener('click', webDavPushFavorites);
     document.getElementById('webdav-clear-local').addEventListener('click', clearCustomFontsOverride);
+    document.getElementById('webdav-failure-ignore').addEventListener('click', hideWebDavFailureModal);
+    document.getElementById('webdav-failure-retry').addEventListener('click', runWebDavModalRetry);
+
+    browser.runtime.onMessage.addListener((msg) => {
+      if (!msg) return;
+      const isDomainFailure = msg.type === 'affoWebDavDomainSyncFailed';
+      const isFavoritesFailure = msg.type === 'affoWebDavFavoritesSyncFailed';
+      if (!isDomainFailure && !isFavoritesFailure) return;
+
+      const statusEl = document.getElementById('status-webdav-sync');
+      if (statusEl) {
+        statusEl.textContent = isDomainFailure ? 'Auto domain sync failed' : 'Auto favorites sync failed';
+        setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      }
+
+      const retryType = isDomainFailure ? 'affoWebDavRetryDomainSettingsSync' : 'affoWebDavRetryFavoritesSync';
+      const successText = isDomainFailure ? 'Auto domain sync retry succeeded' : 'Auto favorites sync retry succeeded';
+
+      showWebDavFailureModal(msg.error || 'Auto domain sync failed', async () => {
+        const retryRes = await browser.runtime.sendMessage({ type: retryType });
+        if (!retryRes || !retryRes.ok) {
+          throw new Error(retryRes && retryRes.error ? retryRes.error : 'Retry failed');
+        }
+        const okStatusEl = document.getElementById('status-webdav-sync');
+        if (okStatusEl) {
+          okStatusEl.textContent = successText;
+          setTimeout(() => { okStatusEl.textContent = ''; }, 2500);
+        }
+      });
+    });
 
     // Icon theme will only apply on save, not on change
   });

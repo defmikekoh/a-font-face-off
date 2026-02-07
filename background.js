@@ -11,13 +11,20 @@ const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
 const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';
 const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
+const APPLY_MAP_KEY = 'affoApplyMap';
+const FAVORITES_KEY = 'affoFavorites';
+const FAVORITES_ORDER_KEY = 'affoFavoritesOrder';
 const WEBDAV_DIR = 'a-font-face-off';
 const CUSTOM_FONTS_CSS_FILENAME = 'custom-fonts.css';
+const APPLY_MAP_FILENAME = 'affo-apply-map.json';
+const FAVORITES_FILENAME = 'affo-favorites.json';
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
 let cachedFontData = null;
 const CACHE_STALE_TIME = 5000; // 5 seconds
+let applyMapSyncQueue = Promise.resolve();
+let favoritesSyncQueue = Promise.resolve();
 
 function normalizeWebDavUrl(url) {
   let cleaned = String(url || '').trim();
@@ -77,10 +84,10 @@ async function webDavGetFile(baseUrl, headers, filename) {
   return response.text();
 }
 
-async function webDavPutFile(baseUrl, headers, filename, body) {
+async function webDavPutFile(baseUrl, headers, filename, body, contentType = 'text/plain') {
   const response = await fetch(baseUrl + filename, {
     method: 'PUT',
-    headers: Object.assign({ 'Content-Type': 'text/css' }, headers),
+    headers: Object.assign({ 'Content-Type': contentType }, headers),
     body,
     credentials: 'omit'
   });
@@ -114,8 +121,229 @@ async function pushCustomFontsToWebDav() {
     const response = await fetch(url);
     cssText = await response.text();
   }
-  await webDavPutFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME, cssText || '');
+  await webDavPutFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME, cssText || '', 'text/css');
   return { ok: true };
+}
+
+function isWebDavConfigured(config) {
+  return !!String(config && config.serverUrl || '').trim();
+}
+
+function notifyWebDavSyncFailure(type, fallbackMessage, errorMessage) {
+  browser.runtime.sendMessage({
+    type,
+    error: String(errorMessage || fallbackMessage)
+  }).catch(() => {
+    // Ignore when no extension page is listening.
+  });
+}
+
+function notifyDomainSyncFailure(errorMessage) {
+  notifyWebDavSyncFailure('affoWebDavDomainSyncFailed', 'Unknown WebDAV domain sync error', errorMessage);
+}
+
+function notifyFavoritesSyncFailure(errorMessage) {
+  notifyWebDavSyncFailure('affoWebDavFavoritesSyncFailed', 'Unknown WebDAV favorites sync error', errorMessage);
+}
+
+async function pullJsonObjectFromWebDav(filename, invalidFormatMessage) {
+  const config = await getWebDavConfig();
+  if (!isWebDavConfigured(config)) return { ok: true, skipped: true };
+  const headers = getWebDavHeaders(config);
+  const baseUrl = buildWebDavBaseUrl(config);
+  await ensureWebDavDir(baseUrl, headers);
+  const jsonText = await webDavGetFile(baseUrl, headers, filename);
+  const parsed = JSON.parse(jsonText || '{}');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(invalidFormatMessage);
+  }
+  return { ok: true, data: parsed };
+}
+
+async function pushJsonToWebDav(filename, payloadObject) {
+  const config = await getWebDavConfig();
+  if (!isWebDavConfigured(config)) return { ok: true, skipped: true };
+  const headers = getWebDavHeaders(config);
+  const baseUrl = buildWebDavBaseUrl(config);
+  await ensureWebDavDir(baseUrl, headers);
+  const payload = JSON.stringify(payloadObject || {}, null, 2);
+  await webDavPutFile(baseUrl, headers, filename, payload, 'application/json');
+  return { ok: true };
+}
+
+async function syncJsonSnapshotOnce(options) {
+  const {
+    filename,
+    snapshot,
+    label,
+    notifyOnFailure = true,
+    notifyFailure
+  } = options;
+
+  const config = await getWebDavConfig();
+  if (!isWebDavConfigured(config)) {
+    throw new Error('WebDAV not configured');
+  }
+
+  try {
+    await pullJsonObjectFromWebDav(filename, `Invalid ${label} format in WebDAV file`);
+  } catch (e) {
+    if (!String(e && e.message || e).includes('WebDAV file not found')) {
+      console.warn(`[AFFO Background] ${label} pull failed before push:`, e);
+    }
+  }
+
+  try {
+    await pushJsonToWebDav(filename, snapshot);
+    console.log(`[AFFO Background] ${label} synced to WebDAV`);
+    return { ok: true };
+  } catch (e) {
+    console.warn(`[AFFO Background] ${label} sync failed:`, e);
+    if (notifyOnFailure && typeof notifyFailure === 'function') {
+      notifyFailure(e && e.message ? e.message : String(e));
+    }
+    throw e;
+  }
+}
+
+function scheduleWebDavAutoSync(queue, runSync, label) {
+  return queue
+    .then(async () => {
+      const config = await getWebDavConfig();
+      if (!isWebDavConfigured(config)) {
+        console.log(`[AFFO Background] WebDAV not configured; skipping ${label} sync`);
+        return;
+      }
+      await runSync();
+    })
+    .catch((e) => {
+      console.warn(`[AFFO Background] ${label} sync queue error:`, e);
+    });
+}
+
+async function pullDomainSettingsFromWebDav() {
+  return pullJsonObjectFromWebDav(APPLY_MAP_FILENAME, 'Invalid domain settings format in WebDAV file');
+}
+
+async function importDomainSettingsFromWebDav() {
+  const pulled = await pullDomainSettingsFromWebDav();
+  if (pulled.skipped) return { ok: true, skipped: true };
+  const applyMap = pulled.data || {};
+  await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+  return { ok: true, count: Object.keys(applyMap).length };
+}
+
+async function pushDomainSettingsToWebDav(applyMapSnapshot) {
+  return pushJsonToWebDav(
+    APPLY_MAP_FILENAME,
+    (applyMapSnapshot && typeof applyMapSnapshot === 'object') ? applyMapSnapshot : {}
+  );
+}
+
+async function getLocalFavoritesSnapshot() {
+  const data = await browser.storage.local.get([FAVORITES_KEY, FAVORITES_ORDER_KEY]);
+  const favorites = (data[FAVORITES_KEY] && typeof data[FAVORITES_KEY] === 'object') ? data[FAVORITES_KEY] : {};
+  const favoritesOrder = Array.isArray(data[FAVORITES_ORDER_KEY]) ? data[FAVORITES_ORDER_KEY] : Object.keys(favorites);
+  return {
+    [FAVORITES_KEY]: favorites,
+    [FAVORITES_ORDER_KEY]: favoritesOrder
+  };
+}
+
+async function pullFavoritesFromWebDav() {
+  return pullJsonObjectFromWebDav(FAVORITES_FILENAME, 'Invalid favorites format in WebDAV file');
+}
+
+async function importFavoritesFromWebDav() {
+  const pulled = await pullFavoritesFromWebDav();
+  if (pulled.skipped) return { ok: true, skipped: true };
+  const payload = pulled.data || {};
+  const favorites = (payload[FAVORITES_KEY] && typeof payload[FAVORITES_KEY] === 'object') ? payload[FAVORITES_KEY] : {};
+  const favoritesOrder = Array.isArray(payload[FAVORITES_ORDER_KEY]) ? payload[FAVORITES_ORDER_KEY] : Object.keys(favorites);
+  await browser.storage.local.set({
+    [FAVORITES_KEY]: favorites,
+    [FAVORITES_ORDER_KEY]: favoritesOrder
+  });
+  return { ok: true, count: Object.keys(favorites).length };
+}
+
+async function pushFavoritesToWebDav(favoritesSnapshot) {
+  return pushJsonToWebDav(FAVORITES_FILENAME, {
+    [FAVORITES_KEY]: (favoritesSnapshot && favoritesSnapshot[FAVORITES_KEY] && typeof favoritesSnapshot[FAVORITES_KEY] === 'object') ? favoritesSnapshot[FAVORITES_KEY] : {},
+    [FAVORITES_ORDER_KEY]: Array.isArray(favoritesSnapshot && favoritesSnapshot[FAVORITES_ORDER_KEY]) ? favoritesSnapshot[FAVORITES_ORDER_KEY] : []
+  });
+}
+
+async function syncFavoritesOnce(favoritesSnapshot, notifyOnFailure = true) {
+  return syncJsonSnapshotOnce({
+    filename: FAVORITES_FILENAME,
+    snapshot: {
+      [FAVORITES_KEY]: (favoritesSnapshot && favoritesSnapshot[FAVORITES_KEY] && typeof favoritesSnapshot[FAVORITES_KEY] === 'object') ? favoritesSnapshot[FAVORITES_KEY] : {},
+      [FAVORITES_ORDER_KEY]: Array.isArray(favoritesSnapshot && favoritesSnapshot[FAVORITES_ORDER_KEY]) ? favoritesSnapshot[FAVORITES_ORDER_KEY] : []
+    },
+    label: 'Favorites',
+    notifyOnFailure,
+    notifyFailure: notifyFavoritesSyncFailure
+  });
+}
+
+function scheduleFavoritesAutoSync() {
+  favoritesSyncQueue = scheduleWebDavAutoSync(
+    favoritesSyncQueue,
+    async () => {
+      const snapshot = await getLocalFavoritesSnapshot();
+      await syncFavoritesOnce(snapshot, true);
+    },
+    'favorites'
+  );
+}
+
+async function syncDomainSettingsOnce(applyMapSnapshot, notifyOnFailure = true) {
+  return syncJsonSnapshotOnce({
+    filename: APPLY_MAP_FILENAME,
+    snapshot: (applyMapSnapshot && typeof applyMapSnapshot === 'object') ? applyMapSnapshot : {},
+    label: 'Domain settings',
+    notifyOnFailure,
+    notifyFailure: notifyDomainSyncFailure
+  });
+}
+
+function scheduleDomainSettingsAutoSync(applyMapSnapshot) {
+  applyMapSyncQueue = scheduleWebDavAutoSync(
+    applyMapSyncQueue,
+    async () => {
+      await syncDomainSettingsOnce(applyMapSnapshot, true);
+    },
+    'domain settings'
+  );
+}
+
+function isMissingWebDavFileError(error) {
+  return String(error && error.message || error).includes('WebDAV file not found');
+}
+
+async function runWebDavMessage(operation) {
+  try {
+    return await operation();
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+}
+
+async function handleWebDavPullWithBootstrap(importFn, bootstrapFn, countFn) {
+  try {
+    return await importFn();
+  } catch (e) {
+    if (!isMissingWebDavFileError(e)) {
+      return { ok: false, error: e && e.message ? e.message : String(e) };
+    }
+    try {
+      const bootstrapSnapshot = await bootstrapFn();
+      return { ok: true, bootstrapped: true, count: countFn(bootstrapSnapshot) };
+    } catch (pushErr) {
+      return { ok: false, error: pushErr && pushErr.message ? pushErr.message : String(pushErr) };
+    }
+  }
 }
 
 async function getCachedFont(url) {
@@ -291,19 +519,61 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
     }
 
     if (msg.type === 'affoWebDavPull') {
-      try {
-        return await pullCustomFontsFromWebDav();
-      } catch (e) {
-        return { ok: false, error: e.message || String(e) };
-      }
+      return runWebDavMessage(() => pullCustomFontsFromWebDav());
     }
 
     if (msg.type === 'affoWebDavPush') {
-      try {
-        return await pushCustomFontsToWebDav();
-      } catch (e) {
-        return { ok: false, error: e.message || String(e) };
-      }
+      return runWebDavMessage(() => pushCustomFontsToWebDav());
+    }
+
+    if (msg.type === 'affoWebDavPullDomainSettings') {
+      return handleWebDavPullWithBootstrap(
+        () => importDomainSettingsFromWebDav(),
+        async () => {
+          const local = await browser.storage.local.get(APPLY_MAP_KEY);
+          const localSnapshot = local[APPLY_MAP_KEY] || {};
+          await pushDomainSettingsToWebDav(localSnapshot);
+          return localSnapshot;
+        },
+        (snapshot) => Object.keys(snapshot || {}).length
+      );
+    }
+
+    if (msg.type === 'affoWebDavRetryDomainSettingsSync') {
+      return runWebDavMessage(async () => {
+        const data = await browser.storage.local.get(APPLY_MAP_KEY);
+        const applyMapSnapshot = data[APPLY_MAP_KEY] || {};
+        await syncDomainSettingsOnce(applyMapSnapshot, false);
+        return { ok: true };
+      });
+    }
+
+    if (msg.type === 'affoWebDavPullFavorites') {
+      return handleWebDavPullWithBootstrap(
+        () => importFavoritesFromWebDav(),
+        async () => {
+          const localSnapshot = await getLocalFavoritesSnapshot();
+          await pushFavoritesToWebDav(localSnapshot);
+          return localSnapshot;
+        },
+        (snapshot) => Object.keys((snapshot && snapshot[FAVORITES_KEY]) || {}).length
+      );
+    }
+
+    if (msg.type === 'affoWebDavPushFavorites') {
+      return runWebDavMessage(async () => {
+        const localSnapshot = await getLocalFavoritesSnapshot();
+        await pushFavoritesToWebDav(localSnapshot);
+        return { ok: true, count: Object.keys(localSnapshot[FAVORITES_KEY] || {}).length };
+      });
+    }
+
+    if (msg.type === 'affoWebDavRetryFavoritesSync') {
+      return runWebDavMessage(async () => {
+        const localSnapshot = await getLocalFavoritesSnapshot();
+        await syncFavoritesOnce(localSnapshot, false);
+        return { ok: true };
+      });
     }
 
     // Handle toolbar options requests
@@ -459,6 +729,13 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
 // Listen for toolbar option changes and notify content scripts
 browser.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
+
+  if (changes[APPLY_MAP_KEY]) {
+    scheduleDomainSettingsAutoSync(changes[APPLY_MAP_KEY].newValue || {});
+  }
+  if (changes[FAVORITES_KEY] || changes[FAVORITES_ORDER_KEY]) {
+    scheduleFavoritesAutoSync();
+  }
   
   // Check if any toolbar options changed
   const toolbarOptionsChanged = {};
