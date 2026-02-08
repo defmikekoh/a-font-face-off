@@ -464,68 +464,50 @@ function enableFavoritesReorder(container) {
     let currentMouseY = 0;
     function startAutoScroll(clientY) {
         currentMouseY = clientY;
-        console.log('startAutoScroll called with clientY:', clientY, 'existing interval:', !!autoScrollInterval);
-        console.log('Container element:', container.className, container.id, 'tagName:', container.tagName);
-        if (autoScrollInterval) {
-            console.log('Returning early, interval already exists');
-            return;
+        if (autoScrollInterval) return;
+
+        // Find the actually scrollable container once
+        let scrollContainer = container;
+        if (container.scrollHeight <= container.clientHeight) {
+            let parent = container.parentElement;
+            while (parent && parent.scrollHeight <= parent.clientHeight && parent !== document.body) {
+                parent = parent.parentElement;
+            }
+            if (parent && parent.scrollHeight > parent.clientHeight) {
+                scrollContainer = parent;
+            }
         }
 
-        console.log('Creating new auto-scroll interval');
         autoScrollInterval = setInterval(() => {
-            const containerRect = container.getBoundingClientRect();
-            const scrollZone = 200; // pixels from edge to trigger scroll (very generous)
-            const maxScrollSpeed = 200; // max pixels per second (reduced for better control)
+            // Use the scroll container's rect for zone calculations so scroll-up
+            // triggers correctly even when the list extends above the visible area
+            const scrollRect = scrollContainer.getBoundingClientRect();
+            const scrollZone = 200;
+            const maxScrollSpeed = 200;
 
-            // Allow scrolling when mouse is above/below container or within expanded scroll zones
-            // More generous zones for easier triggering when reordering
-            const shouldScrollUp = currentMouseY <= containerRect.top + scrollZone;
-            const shouldScrollDown = currentMouseY >= containerRect.bottom - scrollZone;
-
-            console.log('Auto-scroll tick - mouseY:', currentMouseY, 'containerTop:', containerRect.top, 'containerBottom:', containerRect.bottom, 'shouldScrollUp:', shouldScrollUp, 'shouldScrollDown:', shouldScrollDown, 'scrollTop:', container.scrollTop, 'scrollHeight:', container.scrollHeight, 'clientHeight:', container.clientHeight);
-
-            // Find the actually scrollable container
-            let scrollContainer = container;
-            if (container.scrollHeight <= container.clientHeight) {
-                // Container isn't scrollable, try parent elements
-                let parent = container.parentElement;
-                while (parent && parent.scrollHeight <= parent.clientHeight && parent !== document.body) {
-                    parent = parent.parentElement;
-                }
-                if (parent && parent.scrollHeight > parent.clientHeight) {
-                    scrollContainer = parent;
-                    console.log('Using parent as scroll container:', parent.className, parent.tagName);
-                }
-            }
+            const shouldScrollUp = currentMouseY <= scrollRect.top + scrollZone;
+            const shouldScrollDown = currentMouseY >= scrollRect.bottom - scrollZone;
 
             if (shouldScrollUp && scrollContainer.scrollTop > 0) {
-                // Calculate scroll speed based on distance from edge (closer = faster)
-                // When above the container, use maximum speed
                 let scrollSpeed;
-                if (currentMouseY < containerRect.top) {
-                    scrollSpeed = maxScrollSpeed; // Maximum speed when completely above
+                if (currentMouseY < scrollRect.top) {
+                    scrollSpeed = maxScrollSpeed;
                 } else {
-                    const distanceFromTop = currentMouseY - containerRect.top;
+                    const distanceFromTop = currentMouseY - scrollRect.top;
                     const normalizedDistance = Math.min(distanceFromTop / scrollZone, 1);
-                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance)); // Reduced minimum speed
+                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance));
                 }
-                console.log('Scrolling up, mouseY:', currentMouseY, 'containerTop:', containerRect.top, 'scrollTop:', scrollContainer.scrollTop);
-                scrollContainer.scrollBy({ top: -scrollSpeed / 15, behavior: 'auto' }); // Reduced scroll speed
+                scrollContainer.scrollBy({ top: -scrollSpeed / 15, behavior: 'auto' });
             } else if (shouldScrollDown && scrollContainer.scrollTop < scrollContainer.scrollHeight - scrollContainer.clientHeight) {
-                // Calculate scroll speed based on distance from edge (closer = faster)
-                // When below the container, use maximum speed
                 let scrollSpeed;
-                if (currentMouseY > containerRect.bottom) {
-                    scrollSpeed = maxScrollSpeed; // Maximum speed when completely below
+                if (currentMouseY > scrollRect.bottom) {
+                    scrollSpeed = maxScrollSpeed;
                 } else {
-                    const distanceFromBottom = containerRect.bottom - currentMouseY;
+                    const distanceFromBottom = scrollRect.bottom - currentMouseY;
                     const normalizedDistance = Math.min(distanceFromBottom / scrollZone, 1);
-                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance)); // Reduced minimum speed
+                    scrollSpeed = Math.max(30, maxScrollSpeed * (1 - normalizedDistance));
                 }
-                scrollContainer.scrollBy({ top: scrollSpeed / 15, behavior: 'auto' }); // Reduced scroll speed
-            } else {
-                // Don't stop auto-scroll here - let the drag handlers manage it
-                console.log('No scroll needed, but keeping interval active');
+                scrollContainer.scrollBy({ top: scrollSpeed / 15, behavior: 'auto' });
             }
         }, 16); // ~60fps for smooth scrolling
     }
@@ -699,10 +681,6 @@ function enableFavoritesReorder(container) {
             // Prevent page scroll while dragging
             try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
 
-            // Attach global listeners immediately
-            document.addEventListener('pointermove', onPointerMove);
-            document.addEventListener('pointerup', onPointerUp);
-            document.addEventListener('pointercancel', onPointerUp);
             // Create floating proxy of the item for clearer drag feedback
             const rect = item.getBoundingClientRect();
             startOffsetY = e.clientY - rect.top;
@@ -713,10 +691,10 @@ function enableFavoritesReorder(container) {
             proxy.style.top = `${rect.top}px`;
             document.body.appendChild(proxy);
             ensureIndicator();
+            // Attach global listeners
             document.addEventListener('pointermove', onPointerMove, { passive: false });
-            document.addEventListener('pointerup', onPointerUp, { passive: true });
-            document.addEventListener('pointercancel', onPointerUp, { passive: true });
-            e.preventDefault();
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerUp);
         }, { passive: false });
     });
 }
