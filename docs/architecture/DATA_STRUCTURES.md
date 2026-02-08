@@ -67,37 +67,31 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
-| `affoSyncMeta` | Google Drive local sync metadata, tombstones, and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains/example.com.json": { modified: 1700000000000, remoteRev: "domains-folder:example.com.json:1700000000000", deletedAt: 1700000000000 } } }` |
+| `affoSyncMeta` | Google Drive local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoWebDavConfig` | WebDAV config for custom fonts sync | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 
 ### Google Drive Sync Metadata (`affoSyncMeta`)
-**Purpose**: Tracks per-item change timestamps for bidirectional Google Drive sync.
+**Purpose**: Tracks per-item change timestamps for bidirectional Google Drive sync. Each synced item is a single file in the Drive folder (no per-domain files).
 **Key**: `affoSyncMeta`
 
 ```javascript
 {
   "lastSync": 1700000000000,
   "items": {
-    "domains/example.com.json": {
+    "domains.json": {
       "modified": 1700000000000,
-      "remoteRev": "domains-folder:example.com.json:1700000000000"
-    },
-    "domains/removed.com.json": {
-      "modified": 1700001000000,
-      "deletedAt": 1700001000000,
-      "remoteRev": "domains-folder:removed.com.json:1700000500000"
+      "remoteRev": "app-folder:domains.json:v3"
     },
     "favorites.json": {
       "modified": 1700002000000,
-      "remoteRev": "app-folder:favorites.json:1700002000000"
+      "remoteRev": "app-folder:favorites.json:v5"
     }
   }
 }
 ```
 
 - `modified`: last known write time for the item
-- `deletedAt` (optional): tombstone timestamp used to propagate deletes safely across devices
-- `remoteRev` (optional): last observed Drive file revision fingerprint (`<fileId>:<driveModifiedMs>`) used for optimistic concurrency checks before overwriting remote files
+- `remoteRev` (optional): last observed Drive file revision fingerprint (`<fileId>:v<version>`) used for optimistic concurrency checks before overwriting remote files
 
 ## WebDAV Sync
 
