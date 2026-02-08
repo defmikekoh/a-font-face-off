@@ -7,7 +7,9 @@
 **A Firefox Android extension that replaces fonts on Firefox web pages and also can compare how they look on your Android device.**
 
 <p align="center">
-  <img src="docs/affo-screenshot.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
+  <img src="docs/affo-face-off-mode.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
+  <img src="docs/affo-third-man-in-mode.png" alt="A Font Face-off screenshot from Note10" width="300" style="margin-left: 12px;">
+  <img src="docs/affo-third-man-in-mode-selection.png" alt="A Font Face-off screenshot showing Third Man In mode selection" width="300" style="margin-left: 12px;">
 </p>
 
 Pick any Google Font at runtime, tune variable axes (weight, width, optical size, and more), and see how they actually render on real content. No rebuilds, no font files bundled — everything loads on the fly. Even pick decimal size fonts to get the Goldilocks size.
