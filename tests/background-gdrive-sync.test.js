@@ -99,7 +99,12 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         fileInfo: JSON.parse(JSON.stringify(remoteFileInfo || {})),
     };
     const remoteRevFromInfo = (info) => {
-        if (!info || !info.id || !info.modifiedTime) return null;
+        if (!info || !info.id) return null;
+        const version = String(info.version || '').trim();
+        if (version && /^[0-9]+$/.test(version)) {
+            return `${String(info.id)}:v${version}`;
+        }
+        if (!info.modifiedTime) return null;
         const ts = Date.parse(info.modifiedTime);
         if (!Number.isFinite(ts) || ts <= 0) return null;
         return `${String(info.id)}:${Math.floor(ts)}`;
@@ -126,6 +131,7 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         const key = fileInfoKey(folderId, name);
         remote.fileInfo[key] = {
             id: `${folderId}:${name}`,
+            version: String(putCounter),
             modifiedTime: new Date(1700000000000 + putCounter).toISOString()
         };
         return remote.fileInfo[key];
@@ -574,7 +580,7 @@ describe('Google Drive domain sync regression cases', () => {
                     items: {
                         'domains/conflict.example.json': {
                             modified: 500,
-                            remoteRev: 'domains-folder:conflict.example.json:1700000000001'
+                            remoteRev: 'domains-folder:conflict.example.json:v1'
                         }
                     }
                 },
@@ -592,6 +598,7 @@ describe('Google Drive domain sync regression cases', () => {
             remoteFileInfo: {
                 'domains-folder/conflict.example.json': {
                     id: 'domains-folder:conflict.example.json',
+                    version: '2',
                     modifiedTime: '2026-01-01T00:00:00.050Z'
                 }
             }
@@ -793,5 +800,60 @@ describe('Google Drive duplicate file cleanup behavior', () => {
         assert.ok(deleteCalls.some((call) => call.url.endsWith('/dup-a')));
         assert.ok(deleteCalls.some((call) => call.url.endsWith('/dup-b')));
         assert.ok(deleteCalls.some((call) => call.url.endsWith('/dup-c')));
+    });
+});
+
+describe('Google Drive alarms API fallback', () => {
+    it('does not crash when alarms API is unavailable', async () => {
+        const storage = createStorageStub({
+            affoGDriveTokens: { accessToken: 'access-token', refreshToken: 'refresh-token' }
+        });
+        const browserStub = {
+            storage: {
+                local: storage.local,
+                onChanged: storage.onChanged,
+            },
+            runtime: {
+                sendMessage() { return Promise.resolve(); },
+                getURL(file) { return `moz-extension://test/${file}`; },
+                onMessage: { addListener() {} },
+            },
+            tabs: {
+                query() { return Promise.resolve([]); },
+                sendMessage() { return Promise.resolve(); },
+                create() { return Promise.resolve({ id: 1 }); },
+            },
+            identity: {
+                launchWebAuthFlow() { return Promise.resolve(); },
+            },
+            browserAction: {
+                openPopup() { return Promise.resolve(); },
+            },
+        };
+
+        const context = vm.createContext({
+            console,
+            browser: browserStub,
+            navigator: { onLine: true, userAgent: 'node-test' },
+            fetch: async () => ({ ok: true, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) }),
+            performance: { now: () => 0 },
+            crypto: globalThis.crypto,
+            TextEncoder: globalThis.TextEncoder,
+            URLSearchParams,
+            btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
+            setTimeout,
+            clearTimeout,
+            Promise,
+            Date,
+        });
+
+        const sourcePath = path.join(__dirname, '..', 'background.js');
+        const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoAlarms = { startSyncAlarm };';
+        vm.runInContext(source, context, { filename: 'background.js' });
+
+        const res = await context.__affoAlarms.startSyncAlarm();
+        assert.equal(res.ok, true);
+        assert.equal(res.skipped, true);
+        assert.equal(res.reason, 'alarms_unavailable');
     });
 });

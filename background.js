@@ -122,9 +122,31 @@ function configsEqual(a, b) {
 
 function buildRemoteRevision(file) {
   if (!file || !file.id) return null;
+  const version = String(file.version || '').trim();
+  if (version && /^[0-9]+$/.test(version)) {
+    return `${String(file.id)}:v${version}`;
+  }
   const modified = sanitizeTimestamp(Date.parse(file.modifiedTime));
   if (!modified) return null;
   return `${String(file.id)}:${modified}`;
+}
+
+function parseRemoteRevision(remoteRev) {
+  const raw = (typeof remoteRev === 'string') ? remoteRev.trim() : '';
+  if (!raw) return null;
+
+  const idx = raw.lastIndexOf(':');
+  if (idx <= 0 || idx === raw.length - 1) return null;
+
+  const fileId = raw.slice(0, idx);
+  const token = raw.slice(idx + 1);
+  if (/^v[0-9]+$/.test(token)) {
+    return { raw, fileId, kind: 'version', value: token.slice(1) };
+  }
+  if (/^[0-9]+$/.test(token)) {
+    return { raw, fileId, kind: 'mtime', value: Number(token) };
+  }
+  return { raw, fileId, kind: 'opaque', value: token };
 }
 
 function getExpectedRemoteRevision(itemState) {
@@ -138,6 +160,10 @@ async function ensureRemoteRevisionUnchanged(itemState, filename, folderId) {
   if (!expectedRemoteRev) {
     return { ok: true, expectedRemoteRev: null, currentRemoteRev: null };
   }
+  const expected = parseRemoteRevision(expectedRemoteRev);
+  if (!expected) {
+    return { ok: true, expectedRemoteRev, currentRemoteRev: null, legacyWeakRev: true };
+  }
 
   const latest = await findFile(filename, folderId);
   if (!latest) {
@@ -145,10 +171,27 @@ async function ensureRemoteRevisionUnchanged(itemState, filename, folderId) {
   }
 
   const currentRemoteRev = buildRemoteRevision(latest);
-  if (!currentRemoteRev || currentRemoteRev !== expectedRemoteRev) {
+  if (String(latest.id) !== expected.fileId) {
     return { ok: false, expectedRemoteRev, currentRemoteRev: currentRemoteRev || null };
   }
 
+  if (expected.kind === 'version') {
+    const currentVersion = String(latest.version || '').trim();
+    if (!currentVersion || currentVersion !== expected.value) {
+      return { ok: false, expectedRemoteRev, currentRemoteRev: currentRemoteRev || null };
+    }
+    return { ok: true, expectedRemoteRev, currentRemoteRev };
+  }
+
+  // Legacy timestamp-based revisions were coarse and can drift subtly across APIs.
+  // Treat them as weak hints to avoid false conflict failures and upgrade to version-based revisions on next write.
+  if (expected.kind === 'mtime') {
+    return { ok: true, expectedRemoteRev, currentRemoteRev, legacyWeakRev: true };
+  }
+
+  if (!currentRemoteRev || currentRemoteRev !== expectedRemoteRev) {
+    return { ok: false, expectedRemoteRev, currentRemoteRev: currentRemoteRev || null };
+  }
   return { ok: true, expectedRemoteRev, currentRemoteRev };
 }
 
@@ -1218,22 +1261,44 @@ async function markLocalItemDeleted(itemKey) {
 
 // ─── Periodic Sync Alarm ────────────────────────────────────────────────
 
+function hasAlarmsApi() {
+  return !!(
+    browser &&
+    browser.alarms &&
+    typeof browser.alarms.create === 'function' &&
+    typeof browser.alarms.clear === 'function' &&
+    browser.alarms.onAlarm &&
+    typeof browser.alarms.onAlarm.addListener === 'function'
+  );
+}
+
 async function startSyncAlarm() {
+  if (!hasAlarmsApi()) {
+    console.warn('[AFFO Background] browser.alarms API unavailable; periodic sync disabled');
+    return { ok: true, skipped: true, reason: 'alarms_unavailable' };
+  }
   await browser.alarms.create(SYNC_ALARM_NAME, { periodInMinutes: SYNC_ALARM_PERIOD_MINUTES });
   console.log(`[AFFO Background] Periodic sync alarm started (every ${SYNC_ALARM_PERIOD_MINUTES}m)`);
+  return { ok: true };
 }
 
 async function stopSyncAlarm() {
+  if (!hasAlarmsApi()) {
+    return { ok: true, skipped: true, reason: 'alarms_unavailable' };
+  }
   await browser.alarms.clear(SYNC_ALARM_NAME);
   console.log('[AFFO Background] Periodic sync alarm stopped');
+  return { ok: true };
 }
 
-browser.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === SYNC_ALARM_NAME) {
-    console.log('[AFFO Background] Periodic sync alarm fired');
-    scheduleAutoSync();
-  }
-});
+if (hasAlarmsApi()) {
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === SYNC_ALARM_NAME) {
+      console.log('[AFFO Background] Periodic sync alarm fired');
+      scheduleAutoSync();
+    }
+  });
+}
 
 // On background script wake, ensure alarm is running if GDrive is configured
 isGDriveConfigured().then(configured => {
