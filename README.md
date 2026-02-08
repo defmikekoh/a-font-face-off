@@ -1,14 +1,14 @@
 # A Font Face-off
 
-**A Firefox Android extension that replaces and compares fonts on any web page.**
-
-Pick any Google Font at runtime, tune variable axes (weight, width, optical size, and more), and see how they actually render on real content. No rebuilds, no font files bundled — everything loads on the fly. Even pick decimal size fonts to get the Goldilocks size.
-
-I created this extension because looking at the Spectral font on my Android tablet on long articles made my eyes bleed.
+**A Firefox Android extension that replaces fonts on Firefox web pages and also can compare how they look on your Android device.**
 
 <p align="center">
   <img src="docs/affo-screenshot.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
 </p>
+
+Pick any Google Font at runtime, tune variable axes (weight, width, optical size, and more), and see how they actually render on real content. No rebuilds, no font files bundled — everything loads on the fly. Even pick decimal size fonts to get the Goldilocks size.
+
+I created this extension because looking at the Spectral font on my Android tablet on long articles made my eyes bleed.
 
 ## Three Ways to Use It
 
