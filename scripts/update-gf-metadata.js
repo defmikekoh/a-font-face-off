@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUT_DIR = path.join(process.cwd(), 'data');
+const OUT_DIR = path.join(process.cwd(), 'src', 'data');
 const OUT_FILE = path.join(OUT_DIR, 'gf-axis-registry.json');
 const SRC_URL = process.env.GF_METADATA_URL || 'https://fonts.google.com/metadata/fonts';
 

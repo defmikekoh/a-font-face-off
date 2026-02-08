@@ -178,7 +178,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
         Date,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'background.js');
+    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
     const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoTest = { runSync };';
     vm.runInContext(source, context, { filename: 'background.js' });
 
@@ -283,7 +283,7 @@ function createQueueHarness() {
         Date,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'background.js');
+    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
     const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoQueue = { enqueueSync };';
     vm.runInContext(source, context, { filename: 'background.js' });
 
@@ -345,7 +345,7 @@ function createSyncMetaHarness() {
         Date,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'background.js');
+    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
     const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoMeta = { markLocalItemModified };';
     vm.runInContext(source, context, { filename: 'background.js' });
 
@@ -403,7 +403,7 @@ function createDriveOpsHarness() {
         Date,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'background.js');
+    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
     const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoDriveOps = { gdrivePutFile, gdriveDeleteFile };';
     vm.runInContext(source, context, { filename: 'background.js' });
 
@@ -798,7 +798,7 @@ describe('Google Drive alarms API fallback', () => {
             Date,
         });
 
-        const sourcePath = path.join(__dirname, '..', 'background.js');
+        const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
         const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoAlarms = { startSyncAlarm };';
         vm.runInContext(source, context, { filename: 'background.js' });
 
