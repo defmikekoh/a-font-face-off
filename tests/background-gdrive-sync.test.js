@@ -76,12 +76,13 @@ function createStorageStub(seed = {}) {
     };
 }
 
-function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFiles }) {
+function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFiles, remoteFileInfo }) {
     const storage = createStorageStub(localSeed);
     const calls = {
         put: [],
         delete: [],
     };
+    let putCounter = 0;
     const parseOrRaw = (text) => {
         try {
             return JSON.parse(text);
@@ -95,6 +96,39 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
             : JSON.parse(JSON.stringify(remoteManifest || { version: 1, lastSync: 0, items: {} })),
         domains: JSON.parse(JSON.stringify(remoteDomains || {})),
         appFiles: JSON.parse(JSON.stringify(remoteAppFiles || {})),
+        fileInfo: JSON.parse(JSON.stringify(remoteFileInfo || {})),
+    };
+    const remoteRevFromInfo = (info) => {
+        if (!info || !info.id || !info.modifiedTime) return null;
+        const ts = Date.parse(info.modifiedTime);
+        if (!Number.isFinite(ts) || ts <= 0) return null;
+        return `${String(info.id)}:${Math.floor(ts)}`;
+    };
+    const fileInfoKey = (folderId, name) => `${folderId}/${name}`;
+    const getFallbackInfo = (folderId, name) => {
+        const key = fileInfoKey(folderId, name);
+        if (Object.prototype.hasOwnProperty.call(remote.fileInfo, key)) {
+            return remote.fileInfo[key];
+        }
+        const hasAppFile = folderId === 'app-folder'
+            && name !== 'sync-manifest.json'
+            && Object.prototype.hasOwnProperty.call(remote.appFiles, name);
+        const hasDomainFile = folderId === 'domains-folder'
+            && Object.prototype.hasOwnProperty.call(remote.domains, name);
+        if (!hasAppFile && !hasDomainFile) return null;
+        return {
+            id: `${folderId}:${name}`,
+            modifiedTime: '2026-01-01T00:00:00.000Z'
+        };
+    };
+    const setFileInfo = (folderId, name) => {
+        putCounter += 1;
+        const key = fileInfoKey(folderId, name);
+        remote.fileInfo[key] = {
+            id: `${folderId}:${name}`,
+            modifiedTime: new Date(1700000000000 + putCounter).toISOString()
+        };
+        return remote.fileInfo[key];
     };
 
     const browserStub = {
@@ -148,6 +182,11 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
     context.isGDriveConfigured = async () => true;
     context.ensureAppFolder = async () => ({ appFolderId: 'app-folder', domainsFolderId: 'domains-folder' });
     context.gdriveListFiles = async () => Object.keys(remote.domains).map((name) => ({ id: name, name }));
+    context.findFile = async (name, folderId) => {
+        const info = getFallbackInfo(folderId, name);
+        if (!info) return null;
+        return JSON.parse(JSON.stringify(info));
+    };
     context.gdriveGetFile = async (name, folderId) => {
         if (folderId === 'app-folder' && name === 'sync-manifest.json') {
             if (remote.manifest === null) return { notFound: true };
@@ -155,11 +194,19 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         }
         if (folderId === 'app-folder' && Object.prototype.hasOwnProperty.call(remote.appFiles, name)) {
             const value = remote.appFiles[name];
-            return { data: typeof value === 'string' ? value : JSON.stringify(value) };
+            const info = getFallbackInfo(folderId, name);
+            return {
+                data: typeof value === 'string' ? value : JSON.stringify(value),
+                remoteRev: remoteRevFromInfo(info)
+            };
         }
         if (folderId === 'domains-folder' && Object.prototype.hasOwnProperty.call(remote.domains, name)) {
             const value = remote.domains[name];
-            return { data: typeof value === 'string' ? value : JSON.stringify(value) };
+            const info = getFallbackInfo(folderId, name);
+            return {
+                data: typeof value === 'string' ? value : JSON.stringify(value),
+                remoteRev: remoteRevFromInfo(info)
+            };
         }
         return { notFound: true };
     };
@@ -172,13 +219,15 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         } else if (folderId === 'domains-folder') {
             remote.domains[name] = contentType === 'application/json' ? parseOrRaw(content) : content;
         }
-        return `${folderId}:${name}`;
+        const info = setFileInfo(folderId, name);
+        return { id: info.id, remoteRev: remoteRevFromInfo(info) };
     };
     context.gdriveDeleteFile = async (name, folderId) => {
         calls.delete.push({ name, folderId });
         if (folderId === 'domains-folder') {
             delete remote.domains[name];
         }
+        delete remote.fileInfo[fileInfoKey(folderId, name)];
     };
 
     return {
@@ -512,6 +561,49 @@ describe('Google Drive domain sync regression cases', () => {
         assert.ok(domainPut, 'expected domain file to be rewritten to resolve zero/zero tie');
         const pushedConfig = JSON.parse(domainPut.content);
         assert.equal(pushedConfig.body.fontName, 'LocalFont');
+    });
+
+    it('refuses to overwrite when remote revision changed since last seen', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'conflict.example': { body: { fontName: 'LocalFont', variableAxes: {} } }
+                },
+                affoSyncMeta: {
+                    lastSync: 600,
+                    items: {
+                        'domains/conflict.example.json': {
+                            modified: 500,
+                            remoteRev: 'domains-folder:conflict.example.json:1700000000001'
+                        }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 550,
+                items: {
+                    'domains/conflict.example.json': { modified: 400 }
+                }
+            },
+            remoteDomains: {
+                'conflict.example.json': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+            },
+            remoteFileInfo: {
+                'domains-folder/conflict.example.json': {
+                    id: 'domains-folder:conflict.example.json',
+                    modifiedTime: '2026-01-01T00:00:00.050Z'
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, false);
+
+        const domainPut = harness.calls.put.find((call) =>
+            call.folderId === 'domains-folder' && call.name === 'conflict.example.json'
+        );
+        assert.equal(domainPut, undefined);
     });
 
     it('does not apply remote tombstones destructively before this device has synced', async () => {
