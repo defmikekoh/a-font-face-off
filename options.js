@@ -221,6 +221,21 @@
     }
   }
 
+  async function clearLocalSync() {
+    const statusEl = document.getElementById('status-gdrive-sync');
+    try {
+      statusEl.textContent = 'Clearing...';
+      const res = await browser.runtime.sendMessage({ type: 'affoClearLocalSync' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Clear failed');
+      statusEl.textContent = 'Local sync data cleared';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      await updateGDriveConnectionState();
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
   async function syncNow() {
     const statusEl = document.getElementById('status-gdrive-sync');
     try {
@@ -609,6 +624,7 @@
     // Google Drive sync handlers
     document.getElementById('gdrive-connect').addEventListener('click', connectGDrive);
     document.getElementById('gdrive-disconnect').addEventListener('click', disconnectGDrive);
+    document.getElementById('gdrive-clear-sync').addEventListener('click', clearLocalSync);
     document.getElementById('gdrive-sync-now').addEventListener('click', syncNow);
     document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
       updateGDriveFolderPreview();

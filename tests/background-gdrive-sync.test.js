@@ -76,7 +76,7 @@ function createStorageStub(seed = {}) {
     };
 }
 
-function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFiles, remoteFileInfo }) {
+function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileInfo }) {
     const storage = createStorageStub(localSeed);
     const calls = {
         put: [],
@@ -94,7 +94,6 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         manifest: remoteManifest === null
             ? null
             : JSON.parse(JSON.stringify(remoteManifest || { version: 1, lastSync: 0, items: {} })),
-        domains: JSON.parse(JSON.stringify(remoteDomains || {})),
         appFiles: JSON.parse(JSON.stringify(remoteAppFiles || {})),
         fileInfo: JSON.parse(JSON.stringify(remoteFileInfo || {})),
     };
@@ -118,9 +117,7 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
         const hasAppFile = folderId === 'app-folder'
             && name !== 'sync-manifest.json'
             && Object.prototype.hasOwnProperty.call(remote.appFiles, name);
-        const hasDomainFile = folderId === 'domains-folder'
-            && Object.prototype.hasOwnProperty.call(remote.domains, name);
-        if (!hasAppFile && !hasDomainFile) return null;
+        if (!hasAppFile) return null;
         return {
             id: `${folderId}:${name}`,
             modifiedTime: '2026-01-01T00:00:00.000Z'
@@ -186,8 +183,7 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
     vm.runInContext(source, context, { filename: 'background.js' });
 
     context.isGDriveConfigured = async () => true;
-    context.ensureAppFolder = async () => ({ appFolderId: 'app-folder', domainsFolderId: 'domains-folder' });
-    context.gdriveListFiles = async () => Object.keys(remote.domains).map((name) => ({ id: name, name }));
+    context.ensureAppFolder = async () => ({ appFolderId: 'app-folder' });
     context.findFile = async (name, folderId) => {
         const info = getFallbackInfo(folderId, name);
         if (!info) return null;
@@ -206,14 +202,6 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
                 remoteRev: remoteRevFromInfo(info)
             };
         }
-        if (folderId === 'domains-folder' && Object.prototype.hasOwnProperty.call(remote.domains, name)) {
-            const value = remote.domains[name];
-            const info = getFallbackInfo(folderId, name);
-            return {
-                data: typeof value === 'string' ? value : JSON.stringify(value),
-                remoteRev: remoteRevFromInfo(info)
-            };
-        }
         return { notFound: true };
     };
     context.gdrivePutFile = async (name, folderId, content, contentType) => {
@@ -222,16 +210,14 @@ function createHarness({ localSeed, remoteManifest, remoteDomains, remoteAppFile
             remote.manifest = JSON.parse(content);
         } else if (folderId === 'app-folder') {
             remote.appFiles[name] = contentType === 'application/json' ? parseOrRaw(content) : content;
-        } else if (folderId === 'domains-folder') {
-            remote.domains[name] = contentType === 'application/json' ? parseOrRaw(content) : content;
         }
         const info = setFileInfo(folderId, name);
         return { id: info.id, remoteRev: remoteRevFromInfo(info) };
     };
     context.gdriveDeleteFile = async (name, folderId) => {
         calls.delete.push({ name, folderId });
-        if (folderId === 'domains-folder') {
-            delete remote.domains[name];
+        if (folderId === 'app-folder') {
+            delete remote.appFiles[name];
         }
         delete remote.fileInfo[fileInfoKey(folderId, name)];
     };
@@ -360,12 +346,11 @@ function createSyncMetaHarness() {
     });
 
     const sourcePath = path.join(__dirname, '..', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoMeta = { markLocalItemModified, markLocalItemDeleted };';
+    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoMeta = { markLocalItemModified };';
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return {
         markLocalItemModified: context.__affoMeta.markLocalItemModified,
-        markLocalItemDeleted: context.__affoMeta.markLocalItemDeleted,
         storageData: storage.data,
     };
 }
@@ -437,139 +422,139 @@ function createDriveOpsHarness() {
     };
 }
 
-describe('Google Drive domain sync regression cases', () => {
-    it('pulls remote-only domains instead of deleting them', async () => {
+describe('Google Drive domain sync (single-file)', () => {
+    it('pulls remote domains.json on first sync', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {},
-                affoSyncMeta: { lastSync: 100, items: {} },
+                affoSyncMeta: { lastSync: 0, items: {} },
             },
-            remoteManifest: {
-                version: 1,
-                lastSync: 200,
-                items: {
-                    'domains/news.example.json': { modified: 200 }
-                }
-            },
-            remoteDomains: {
-                'news.example.json': {
-                    body: { fontName: 'Merriweather', variableAxes: {} }
+            remoteManifest: null,
+            remoteAppFiles: {
+                'domains.json': {
+                    'news.example': { body: { fontName: 'Merriweather', variableAxes: {} } }
                 }
             }
         });
 
         const result = await harness.runSync();
         assert.equal(result.ok, true);
-        assert.deepEqual(harness.calls.delete, []);
         assert.equal(harness.storageData.affoApplyMap['news.example'].body.fontName, 'Merriweather');
-        assert.equal(
-            harness.storageData.affoSyncMeta.items['domains/news.example.json'].modified,
-            200
-        );
+        assert.ok(harness.storageData.affoSyncMeta.items['domains.json']);
     });
 
-    it('preserves tombstones and deletes remote domain files for local deletions', async () => {
-        const harness = createHarness({
-            localSeed: {
-                affoApplyMap: {},
-                affoSyncMeta: {
-                    lastSync: 300,
-                    items: {
-                        'domains/deleted.example.json': { modified: 300, deletedAt: 300 }
-                    }
-                },
-            },
-            remoteManifest: {
-                version: 1,
-                lastSync: 250,
-                items: {
-                    'domains/deleted.example.json': { modified: 200 }
-                }
-            },
-            remoteDomains: {
-                'deleted.example.json': {
-                    body: { fontName: 'Roboto', variableAxes: {} }
-                }
-            }
-        });
-
-        const result = await harness.runSync();
-        assert.equal(result.ok, true);
-        assert.equal(harness.calls.delete.length, 1);
-        assert.deepEqual(harness.calls.delete[0], { name: 'deleted.example.json', folderId: 'domains-folder' });
-
-        const manifestPut = harness.calls.put.find((call) => call.name === 'sync-manifest.json');
-        assert.ok(manifestPut, 'expected sync-manifest.json to be updated');
-        const savedManifest = JSON.parse(manifestPut.content);
-        assert.deepEqual(savedManifest.items['domains/deleted.example.json'], { modified: 300, deletedAt: 300 });
-        assert.deepEqual(harness.storageData.affoApplyMap, {});
-    });
-
-    it('applies remote tombstones to local state so stale local copies do not survive', async () => {
+    it('pushes local domains.json on first sync when no remote exists', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {
                     'local.example': { body: { fontName: 'Inter', variableAxes: {} } }
                 },
-                affoSyncMeta: {
-                    lastSync: 120,
-                    items: {
-                        'domains/local.example.json': { modified: 100 }
-                    }
-                },
+                affoSyncMeta: { lastSync: 0, items: {} },
             },
-            remoteManifest: {
-                version: 1,
-                lastSync: 220,
-                items: {
-                    'domains/local.example.json': { modified: 210, deletedAt: 210 }
-                }
-            },
-            remoteDomains: {}
+            remoteManifest: null,
         });
 
         const result = await harness.runSync();
         assert.equal(result.ok, true);
-        assert.equal(harness.storageData.affoApplyMap['local.example'], undefined);
-        assert.deepEqual(
-            harness.storageData.affoSyncMeta.items['domains/local.example.json'],
-            { modified: 210, deletedAt: 210 }
-        );
+
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.ok(domainPut, 'expected domains.json to be pushed');
+        const pushed = JSON.parse(domainPut.content);
+        assert.equal(pushed['local.example'].body.fontName, 'Inter');
     });
 
-    it('resolves zero-vs-zero timestamp ties by comparing content instead of skipping', async () => {
+    it('pulls remote domains.json when remote is newer', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {
-                    'tie.example': { body: { fontName: 'LocalFont', variableAxes: {} } }
+                    'old.example': { body: { fontName: 'OldFont', variableAxes: {} } }
                 },
                 affoSyncMeta: {
-                    lastSync: 500,
-                    items: {}
+                    lastSync: 100,
+                    items: { 'domains.json': { modified: 100 } }
                 },
             },
             remoteManifest: {
                 version: 1,
-                lastSync: 400,
-                items: {}
+                lastSync: 200,
+                items: { 'domains.json': { modified: 200 } }
             },
-            remoteDomains: {
-                'tie.example.json': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+            remoteAppFiles: {
+                'domains.json': {
+                    'new.example': { body: { fontName: 'NewFont', variableAxes: {} } }
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        assert.equal(harness.storageData.affoApplyMap['new.example'].body.fontName, 'NewFont');
+        assert.equal(harness.storageData.affoApplyMap['old.example'], undefined);
+    });
+
+    it('pushes local domains.json when local is newer', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'local.example': { body: { fontName: 'LocalFont', variableAxes: {} } }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: { 'domains.json': { modified: 300 } }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 200,
+                items: { 'domains.json': { modified: 200 } }
+            },
+            remoteAppFiles: {
+                'domains.json': {
+                    'remote.example': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+                }
             }
         });
 
         const result = await harness.runSync();
         assert.equal(result.ok, true);
 
-        const domainPut = harness.calls.put.find((call) =>
-            call.folderId === 'domains-folder' && call.name === 'tie.example.json'
-        );
-        assert.ok(domainPut, 'expected domain file to be rewritten to resolve zero/zero tie');
-        const pushedConfig = JSON.parse(domainPut.content);
-        assert.equal(pushedConfig.body.fontName, 'LocalFont');
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.ok(domainPut, 'expected domains.json to be pushed');
+        const pushed = JSON.parse(domainPut.content);
+        assert.equal(pushed['local.example'].body.fontName, 'LocalFont');
     });
 
-    it('refuses to overwrite when remote revision changed since last seen', async () => {
+    it('skips sync when timestamps are equal', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'same.example': { body: { fontName: 'SameFont', variableAxes: {} } }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: { 'domains.json': { modified: 200 } }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 200,
+                items: { 'domains.json': { modified: 200 } }
+            },
+            remoteAppFiles: {
+                'domains.json': {
+                    'same.example': { body: { fontName: 'SameFont', variableAxes: {} } }
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.equal(domainPut, undefined, 'should not push when timestamps are equal');
+    });
+
+    it('refuses to push when remote revision changed since last seen', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {
@@ -578,9 +563,9 @@ describe('Google Drive domain sync regression cases', () => {
                 affoSyncMeta: {
                     lastSync: 600,
                     items: {
-                        'domains/conflict.example.json': {
+                        'domains.json': {
                             modified: 500,
-                            remoteRev: 'domains-folder:conflict.example.json:v1'
+                            remoteRev: 'app-folder:domains.json:v1'
                         }
                     }
                 },
@@ -588,16 +573,16 @@ describe('Google Drive domain sync regression cases', () => {
             remoteManifest: {
                 version: 1,
                 lastSync: 550,
-                items: {
-                    'domains/conflict.example.json': { modified: 400 }
+                items: { 'domains.json': { modified: 400 } }
+            },
+            remoteAppFiles: {
+                'domains.json': {
+                    'remote.example': { body: { fontName: 'RemoteFont', variableAxes: {} } }
                 }
             },
-            remoteDomains: {
-                'conflict.example.json': { body: { fontName: 'RemoteFont', variableAxes: {} } }
-            },
             remoteFileInfo: {
-                'domains-folder/conflict.example.json': {
-                    id: 'domains-folder:conflict.example.json',
+                'app-folder/domains.json': {
+                    id: 'app-folder:domains.json',
                     version: '2',
                     modifiedTime: '2026-01-01T00:00:00.050Z'
                 }
@@ -607,39 +592,8 @@ describe('Google Drive domain sync regression cases', () => {
         const result = await harness.runSync();
         assert.equal(result.ok, false);
 
-        const domainPut = harness.calls.put.find((call) =>
-            call.folderId === 'domains-folder' && call.name === 'conflict.example.json'
-        );
-        assert.equal(domainPut, undefined);
-    });
-
-    it('does not apply remote tombstones destructively before this device has synced', async () => {
-        const harness = createHarness({
-            localSeed: {
-                affoApplyMap: {
-                    'fresh-device.example': { body: { fontName: 'Inter', variableAxes: {} } }
-                },
-                affoSyncMeta: {
-                    lastSync: 0,
-                    items: {
-                        'domains/fresh-device.example.json': { modified: 100 }
-                    }
-                },
-            },
-            remoteManifest: {
-                version: 1,
-                lastSync: 220,
-                items: {
-                    'domains/fresh-device.example.json': { modified: 210, deletedAt: 210 }
-                }
-            },
-            remoteDomains: {}
-        });
-
-        const result = await harness.runSync();
-        assert.equal(result.ok, true);
-        assert.ok(harness.storageData.affoApplyMap['fresh-device.example']);
-        assert.equal(harness.calls.delete.length, 0);
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.equal(domainPut, undefined, 'should not push when revision conflict detected');
     });
 });
 
@@ -655,7 +609,6 @@ describe('Google Drive first-sync behavior', () => {
                 affoSyncMeta: { lastSync: 0, items: {} },
             },
             remoteManifest: null,
-            remoteDomains: {},
             remoteAppFiles: {
                 'favorites.json': {
                     affoFavorites: {
@@ -707,14 +660,13 @@ describe('Google Drive sync metadata writes', () => {
         await Promise.all([
             harness.markLocalItemModified('favorites.json'),
             harness.markLocalItemModified('known-serif.json'),
-            harness.markLocalItemDeleted('domains/dead.example.json')
+            harness.markLocalItemModified('domains.json')
         ]);
 
         const items = harness.storageData.affoSyncMeta.items;
         assert.ok(items['favorites.json']);
         assert.ok(items['known-serif.json']);
-        assert.ok(items['domains/dead.example.json']);
-        assert.ok(items['domains/dead.example.json'].deletedAt > 0);
+        assert.ok(items['domains.json']);
     });
 
     it('keeps previous lastSync when sync completes with errors', async () => {
@@ -735,7 +687,6 @@ describe('Google Drive sync metadata writes', () => {
                     'favorites.json': { modified: 600 }
                 }
             },
-            remoteDomains: {},
             remoteAppFiles: {
                 'favorites.json': '{bad-json'
             }
@@ -768,7 +719,7 @@ describe('Google Drive duplicate file cleanup behavior', () => {
 
         await harness.driveOps.gdrivePutFile(
             'example.json',
-            'domains-folder',
+            'app-folder',
             JSON.stringify({ body: { fontName: 'Inter', variableAxes: {} } }),
             'application/json'
         );
@@ -793,7 +744,7 @@ describe('Google Drive duplicate file cleanup behavior', () => {
             return { ok: false, status: 500 };
         });
 
-        await harness.driveOps.gdriveDeleteFile('stale.json', 'domains-folder');
+        await harness.driveOps.gdriveDeleteFile('stale.json', 'app-folder');
 
         const deleteCalls = harness.calls.filter((call) => (call.options.method || 'GET') === 'DELETE');
         assert.equal(deleteCalls.length, 3);
