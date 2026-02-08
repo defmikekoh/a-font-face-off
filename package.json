@@ -5,11 +5,11 @@
   "description": "Build scripts for A Font Face-off (web-ext)",
   "scripts": {
     "prebuild": "node scripts/set-debug.js false",
-    "build": "web-ext build --overwrite-dest --artifacts-dir web-ext-artifacts",
+    "build": "web-ext build",
     "postbuild": "node scripts/set-debug.js true",
     "build:latest": "npm run build && cp web-ext-artifacts/*.zip web-ext-artifacts/latest.xpi",
     "gf:update": "node scripts/update-gf-metadata.js",
-    "lint": "eslint --no-warn-ignored *.js scripts/",
+    "lint": "eslint --no-warn-ignored src/*.js scripts/",
     "test": "node --test 'tests/**/*.test.js'"
   },
   "devDependencies": {

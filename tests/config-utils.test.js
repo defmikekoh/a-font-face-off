@@ -9,7 +9,7 @@ const {
     getEffectiveSlant,
     getEffectiveItalic,
     buildCustomAxisSettings,
-} = require('../config-utils.js');
+} = require('../src/config-utils.js');
 
 // ── normalizeConfig ──────────────────────────────────────────────────────────
 

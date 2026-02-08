@@ -33,7 +33,7 @@ jobs:
       - name: Create gdrive-config.js from secrets
         run: |
           printf "const GDRIVE_CLIENT_ID = '%s';\nconst GDRIVE_CLIENT_SECRET = '%s';\n" \
-            "$GDRIVE_CLIENT_ID" "$GDRIVE_CLIENT_SECRET" > gdrive-config.js
+            "$GDRIVE_CLIENT_ID" "$GDRIVE_CLIENT_SECRET" > src/gdrive-config.js
         env:
           GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
           GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}

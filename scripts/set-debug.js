@@ -10,7 +10,7 @@ if (value !== 'true' && value !== 'false') {
 }
 
 const files = ['popup.js', 'content.js', 'background.js', 'left-toolbar.js'];
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', 'src');
 
 for (const file of files) {
   const filePath = path.join(root, file);
