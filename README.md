@@ -6,7 +6,9 @@ Pick any Google Font at runtime, tune variable axes (weight, width, optical size
 
 I created this extension because looking at the Spectral font on my Android tablet on long articles made my eyes bleed.
 
-<img src="docs/affo-screenshot.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
+<p align="center">
+  <img src="docs/affo-screenshot.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
+</p>
 
 ## Three Ways to Use It
 
