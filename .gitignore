@@ -28,6 +28,8 @@ temp/
 # Optional: large local data at repo root (kept locally)
 /fonts
 
+gdrive-config.js
+
 zothercode/
 zoutput*
 ztemp/

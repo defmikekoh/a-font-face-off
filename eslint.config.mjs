@@ -10,6 +10,8 @@ export default [
             "data/",
             "jquery.js",
             "whatfont_core.js",
+            "gdrive-config.js",
+            "gdrive-config.example.js",
             "eslint.config.js",
         ],
     },
@@ -72,6 +74,9 @@ export default [
                 chrome: "readonly",
                 // Used in whatfont_core.js
                 Tip: "writable",
+                // From gdrive-config.js (loaded before background.js)
+                GDRIVE_CLIENT_ID: "readonly",
+                GDRIVE_CLIENT_SECRET: "readonly",
                 // From config-utils.js (loaded before popup.js)
                 REGISTERED_AXES: "readonly",
                 normalizeConfig: "readonly",

@@ -220,7 +220,7 @@
       color: rgb(var(--primary-color));
     }
 
-    /* WebDAV failure modal */
+    /* Sync failure modal */
     .affo-modal-overlay {
       position: fixed;
       inset: 0;
@@ -552,32 +552,30 @@
     </div>
 
     <div class="section">
-      <div class="section-title">WebDAV Custom Fonts Sync</div>
-      <label for="webdav-url">WebDAV Server URL</label>
-      <input id="webdav-url" type="text" placeholder="https://example.com/remote.php/dav/files/you/">
-      <label>
-        <input id="webdav-anon" type="checkbox"> Anonymous (no auth)
-      </label>
-      <label for="webdav-username">Username</label>
-      <input id="webdav-username" type="text" placeholder="username">
-      <label for="webdav-password">Password</label>
-      <input id="webdav-password" type="password" placeholder="password">
-      <div class="row">
-        <button id="save-webdav">Save WebDAV Settings</button>
-        <span id="status-webdav" class="status"></span>
+      <div class="section-title">Google Drive Sync</div>
+      <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
+      <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
+      <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
+      <div id="gdrive-disconnected">
+        <div class="row">
+          <button id="gdrive-connect" class="purple">Connect Google Drive</button>
+          <span id="status-gdrive-connect" class="status"></span>
+        </div>
+      </div>
+      <div id="gdrive-connected" style="display: none;">
+        <div class="row" style="align-items: center; gap: 10px;">
+          <span style="color: green; font-weight: bold;">Connected</span>
+          <button id="gdrive-sync-now" class="purple">Sync Now</button>
+          <button id="gdrive-disconnect" class="danger">Disconnect</button>
+        </div>
+        <div class="row">
+          <span id="gdrive-last-synced" class="status"></span>
+        </div>
       </div>
       <div class="row">
-        <button id="webdav-pull" class="purple">Pull Custom Fonts</button>
-        <button id="webdav-push">Push Custom Fonts</button>
-        <button id="webdav-pull-domain-settings">Pull Domain Settings</button>
-        <button id="webdav-pull-favorites">Pull Favorites</button>
-        <button id="webdav-push-favorites">Push Favorites</button>
-        <button id="webdav-clear-local" class="danger">Clear Local Override</button>
+        <span id="status-gdrive-sync" class="status"></span>
       </div>
-      <div class="row">
-        <span id="status-webdav-sync" class="status"></span>
-      </div>
-      <div class="hint">Syncs `custom-fonts.css`, domain settings (`affoApplyMap`), and favorites (`affoFavorites`, `affoFavoritesOrder`) from `/a-font-face-off/`.</div>
+      <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to a Google Drive folder. Each domain gets its own file to minimize conflicts across devices.</div>
     </div>
 
     <div class="section">
@@ -609,13 +607,13 @@
     </div>
   </div>
 
-  <div id="webdav-failure-modal" class="affo-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="webdav-failure-title">
+  <div id="sync-failure-modal" class="affo-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sync-failure-title">
     <div class="affo-modal">
-      <div id="webdav-failure-title" class="affo-modal-title">WebDAV Sync Failed</div>
-      <div id="webdav-failure-message" class="affo-modal-message"></div>
+      <div id="sync-failure-title" class="affo-modal-title">Google Drive Sync Failed</div>
+      <div id="sync-failure-message" class="affo-modal-message"></div>
       <div class="affo-modal-actions">
-        <button id="webdav-failure-ignore">Ignore</button>
-        <button id="webdav-failure-retry" class="purple">Retry</button>
+        <button id="sync-failure-ignore">Ignore</button>
+        <button id="sync-failure-retry" class="purple">Retry</button>
       </div>
     </div>
   </div>

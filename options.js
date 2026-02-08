@@ -1,33 +1,33 @@
-/* Options page logic: manage known serif/sans lists */
+/* Options page logic: manage known serif/sans lists and Google Drive sync */
 (function(){
-  let webDavRetryAction = null;
+  let syncRetryAction = null;
 
-  function showWebDavFailureModal(message, retryAction) {
-    const overlay = document.getElementById('webdav-failure-modal');
-    const messageEl = document.getElementById('webdav-failure-message');
-    const retryBtn = document.getElementById('webdav-failure-retry');
+  function showSyncFailureModal(message, retryAction) {
+    const overlay = document.getElementById('sync-failure-modal');
+    const messageEl = document.getElementById('sync-failure-message');
+    const retryBtn = document.getElementById('sync-failure-retry');
     if (!overlay || !messageEl || !retryBtn) return;
 
-    webDavRetryAction = typeof retryAction === 'function' ? retryAction : null;
-    messageEl.textContent = message || 'Unknown WebDAV error';
-    retryBtn.disabled = !webDavRetryAction;
+    syncRetryAction = typeof retryAction === 'function' ? retryAction : null;
+    messageEl.textContent = message || 'Unknown sync error';
+    retryBtn.disabled = !syncRetryAction;
     overlay.classList.add('show');
   }
 
-  function hideWebDavFailureModal() {
-    const overlay = document.getElementById('webdav-failure-modal');
+  function hideSyncFailureModal() {
+    const overlay = document.getElementById('sync-failure-modal');
     if (overlay) overlay.classList.remove('show');
-    webDavRetryAction = null;
+    syncRetryAction = null;
   }
 
-  async function runWebDavModalRetry() {
-    const retry = webDavRetryAction;
-    hideWebDavFailureModal();
+  async function runSyncModalRetry() {
+    const retry = syncRetryAction;
+    hideSyncFailureModal();
     if (!retry) return;
     try {
       await retry();
     } catch (e) {
-      showWebDavFailureModal(e && e.message ? e.message : String(e), retry);
+      showSyncFailureModal(e && e.message ? e.message : String(e), retry);
     }
   }
 
@@ -36,7 +36,7 @@
     document.documentElement.classList.toggle('dark-theme', theme === 'dark');
     document.documentElement.classList.toggle('light-theme', theme === 'light');
   }
-  
+
   // Use auto theme to match essential-buttons-toolbar default behavior
   overrideTheme('auto');
 
@@ -98,34 +98,34 @@
   const DEFAULT_SANS = ['Apercu Pro'];
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
-  
+
   // Tab functionality
   function initTabs() {
     const generalTab = document.getElementById('generalTab');
     const excludeTab = document.getElementById('excludeTab');
     const generalSettings = document.getElementById('generalSettings');
     const excludeSettings = document.getElementById('excludeSettings');
-    
+
     // Set initial active state - General tab is active by default
     generalTab.classList.add('active');
-    
+
     generalTab.addEventListener('click', () => {
       // Show general, hide exclude
       generalSettings.style.display = 'block';
       excludeSettings.style.display = 'none';
-      
+
       // Update tab appearance - hockey theme uses active class
       generalTab.classList.add('active');
       excludeTab.classList.remove('active');
       generalTab.style.borderColor = 'var(--primary-color)';
       excludeTab.style.borderColor = 'var(--box-background)';
     });
-    
+
     excludeTab.addEventListener('click', () => {
-      // Show exclude, hide general  
+      // Show exclude, hide general
       generalSettings.style.display = 'none';
       excludeSettings.style.display = 'block';
-      
+
       // Update tab appearance - hockey theme uses active class
       excludeTab.classList.add('active');
       generalTab.classList.remove('active');
@@ -148,12 +148,116 @@
     return normalize(String(text || '').split(/\r?\n/));
   }
 
+  // ─── Google Drive Sync UI ─────────────────────────────────────────────
+
+  function updateGDriveFolderPreview() {
+    const suffix = (document.getElementById('gdrive-folder-suffix').value || '').trim();
+    const preview = document.getElementById('gdrive-folder-preview');
+    if (preview) {
+      preview.textContent = suffix
+        ? `Folder: A Font Face-off ${suffix}`
+        : 'Folder: A Font Face-off';
+    }
+  }
+
+  function formatTimeAgo(timestamp) {
+    if (!timestamp) return '';
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  async function updateGDriveConnectionState() {
+    const data = await browser.storage.local.get(['affoGDriveTokens', 'affoSyncMeta']);
+    const tokens = data.affoGDriveTokens;
+    const connected = !!(tokens && tokens.accessToken && tokens.refreshToken);
+    const disconnectedEl = document.getElementById('gdrive-disconnected');
+    const connectedEl = document.getElementById('gdrive-connected');
+    const lastSyncedEl = document.getElementById('gdrive-last-synced');
+
+    if (disconnectedEl) disconnectedEl.style.display = connected ? 'none' : 'block';
+    if (connectedEl) connectedEl.style.display = connected ? 'block' : 'none';
+
+    if (connected && lastSyncedEl) {
+      const meta = data.affoSyncMeta || {};
+      lastSyncedEl.textContent = meta.lastSync
+        ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
+        : 'Not yet synced';
+    }
+  }
+
+  async function connectGDrive() {
+    const statusEl = document.getElementById('status-gdrive-connect');
+    try {
+      statusEl.textContent = 'Connecting...';
+      const res = await browser.runtime.sendMessage({ type: 'affoGDriveAuth' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
+      statusEl.textContent = 'Connected';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      await updateGDriveConnectionState();
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function disconnectGDrive() {
+    const statusEl = document.getElementById('status-gdrive-sync');
+    try {
+      statusEl.textContent = 'Disconnecting...';
+      const res = await browser.runtime.sendMessage({ type: 'affoGDriveDisconnect' });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Disconnect failed');
+      statusEl.textContent = 'Disconnected';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      await updateGDriveConnectionState();
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function syncNow() {
+    const statusEl = document.getElementById('status-gdrive-sync');
+    try {
+      statusEl.textContent = 'Syncing...';
+      const res = await browser.runtime.sendMessage({ type: 'affoSyncNow' });
+      if (!res) throw new Error('No response from background');
+      if (res.skipped) {
+        statusEl.textContent = res.reason === 'offline'
+          ? 'You appear to be offline'
+          : 'Google Drive not connected';
+      } else if (!res.ok) {
+        throw new Error(res.error || 'Sync failed');
+      } else {
+        statusEl.textContent = 'Synced';
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+      await updateGDriveConnectionState();
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      showSyncFailureModal(e.message || String(e), syncNow);
+    }
+  }
+
+  async function saveGDriveFolderSuffix() {
+    const suffix = (document.getElementById('gdrive-folder-suffix').value || '').trim();
+    await browser.storage.local.set({ affoGDriveFolderSuffix: suffix });
+  }
+
+  // ─── Other settings (unchanged) ──────────────────────────────────────
+
   async function load(){
     try {
       const data = await browser.storage.local.get([
-        'affoKnownSerif', 
-        'affoKnownSans', 
-        'affoFontFaceOnlyDomains', 
+        'affoKnownSerif',
+        'affoKnownSans',
+        'affoFontFaceOnlyDomains',
         'affoInlineApplyDomains',
         'affoToolbarEnabled',
         'affoToolbarWidth',
@@ -164,7 +268,7 @@
         'affoPageUpScrollOverlap',
         'affoPageUpLongpressOverlap',
         'affoIconTheme',
-        'affoWebDavConfig'
+        'affoGDriveFolderSuffix'
       ]);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
@@ -174,7 +278,7 @@
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
       const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
       document.getElementById('inline-domains').value = toTextarea(inline);
-      
+
       // Load toolbar settings with new defaults
       document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
       const width = data.affoToolbarWidth || 48;
@@ -186,7 +290,7 @@
       const pageUpLongpressOverlap = data.affoPageUpLongpressOverlap !== undefined ? data.affoPageUpLongpressOverlap : 60;
       const pageUpScrollType = data.affoPageUpScrollType || 'smooth';
       const iconTheme = data.affoIconTheme || 'heroIcons';
-      
+
       document.getElementById('toolbar-width').value = width;
       document.getElementById('toolbar-height').value = height;
       document.getElementById('toolbar-position').value = position;
@@ -196,7 +300,7 @@
       document.getElementById('pageup-longpress-overlap').value = pageUpLongpressOverlap;
       document.getElementById('pageup-scroll-type').value = pageUpScrollType;
       document.getElementById('icon-theme').value = iconTheme;
-      
+
       document.getElementById('toolbar-width-value').textContent = width + 'px';
       document.getElementById('toolbar-height-value').textContent = height + '%';
       document.getElementById('toolbar-position-value').textContent = position + '%';
@@ -204,7 +308,7 @@
       document.getElementById('toolbar-gap-value').textContent = gap + 'px';
       document.getElementById('pageup-scroll-overlap-value').textContent = pageUpScrollOverlap + 'px';
       document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
-      
+
       // Update preview after loading settings
       updatePreviewAfterSave();
 
@@ -212,11 +316,10 @@
       applyIconThemeToPreview();
       addPreviewClickBehaviors();
 
-      const webdav = data.affoWebDavConfig || {};
-      document.getElementById('webdav-url').value = webdav.serverUrl || '';
-      document.getElementById('webdav-anon').checked = !!webdav.anonymous;
-      document.getElementById('webdav-username').value = webdav.username || '';
-      document.getElementById('webdav-password').value = webdav.password || '';
+      // Load Google Drive settings
+      document.getElementById('gdrive-folder-suffix').value = data.affoGDriveFolderSuffix || '';
+      updateGDriveFolderPreview();
+      await updateGDriveConnectionState();
     } catch (e) {}
   }
 
@@ -292,12 +395,12 @@
     try {
       const statusEl = document.getElementById('status-cache');
       statusEl.textContent = 'Clearing cache...';
-      
+
       await browser.storage.local.remove('affoFontCache');
-      
+
       statusEl.textContent = 'Font cache cleared';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      
+
     } catch (e) {
       const statusEl = document.getElementById('status-cache');
       statusEl.textContent = 'Error: ' + e.message;
@@ -311,23 +414,23 @@
       const data = await browser.storage.local.get('affoFontCache');
       const fontCache = data.affoFontCache || {};
       const entries = Object.entries(fontCache);
-      
+
       if (entries.length === 0) {
         statusEl.textContent = 'Cache is empty';
         setTimeout(() => { statusEl.textContent = ''; }, 2000);
         return;
       }
-      
+
       const totalSize = entries.reduce((sum, [_url, entry]) => sum + (entry.size || 0), 0);
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
       const oldestEntry = Math.min(...entries.map(([_url, entry]) => entry.timestamp));
       Math.max(...entries.map(([_url, entry]) => entry.timestamp));
       const ageHours = ((Date.now() - oldestEntry) / (1000 * 60 * 60)).toFixed(1);
-      
+
       const info = `Cache: ${entries.length} fonts, ${totalSizeMB}MB, oldest: ${ageHours}h ago`;
       statusEl.textContent = info;
       setTimeout(() => { statusEl.textContent = ''; }, 5000);
-      
+
     } catch (e) {
       const statusEl = document.getElementById('status-cache');
       statusEl.textContent = 'Error: ' + e.message;
@@ -373,8 +476,8 @@
       const pageUpLongpressOverlap = parseInt(document.getElementById('pageup-longpress-overlap').value);
       const pageUpScrollType = document.getElementById('pageup-scroll-type').value;
       const iconTheme = document.getElementById('icon-theme').value;
-      
-      await browser.storage.local.set({ 
+
+      await browser.storage.local.set({
         affoToolbarEnabled: enabled,
         affoToolbarWidth: width,
         affoToolbarHeight: height,
@@ -386,133 +489,14 @@
         affoPageUpScrollType: pageUpScrollType,
         affoIconTheme: iconTheme
       });
-      
-      const s = document.getElementById('status-toolbar'); 
-      s.textContent = 'Saved'; 
-      setTimeout(() => { s.textContent = ''; }, 1500);
-    } catch (e) {
-      const s = document.getElementById('status-toolbar'); 
-      s.textContent = 'Error: ' + e.message; 
-      setTimeout(() => { s.textContent = ''; }, 3000);
-    }
-  }
 
-  async function saveWebDav() {
-    try {
-      const config = {
-        serverUrl: document.getElementById('webdav-url').value.trim(),
-        anonymous: document.getElementById('webdav-anon').checked,
-        username: document.getElementById('webdav-username').value.trim(),
-        password: document.getElementById('webdav-password').value
-      };
-      await browser.storage.local.set({ affoWebDavConfig: config });
-      const s = document.getElementById('status-webdav');
+      const s = document.getElementById('status-toolbar');
       s.textContent = 'Saved';
       setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {
-      const s = document.getElementById('status-webdav');
+      const s = document.getElementById('status-toolbar');
       s.textContent = 'Error: ' + e.message;
       setTimeout(() => { s.textContent = ''; }, 3000);
-    }
-  }
-
-  async function webDavPull() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Pulling...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPull' });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV pull failed');
-      statusEl.textContent = 'Pulled';
-      setTimeout(() => { statusEl.textContent = ''; }, 2000);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showWebDavFailureModal(e.message, webDavPull);
-    }
-  }
-
-  async function webDavPush() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Pushing...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPush' });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV push failed');
-      statusEl.textContent = 'Pushed';
-      setTimeout(() => { statusEl.textContent = ''; }, 2000);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showWebDavFailureModal(e.message, webDavPush);
-    }
-  }
-
-  async function webDavPullDomainSettings() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Pulling domain settings...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPullDomainSettings' });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV domain settings pull failed');
-      if (res.bootstrapped) {
-        statusEl.textContent = `Bootstrapped remote from local (${res.count || 0} domains)`;
-      } else if (res.skipped) {
-        statusEl.textContent = 'Skipped (WebDAV not configured)';
-      } else {
-        statusEl.textContent = `Pulled domain settings (${res.count || 0} domains)`;
-      }
-      setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showWebDavFailureModal(e.message, webDavPullDomainSettings);
-    }
-  }
-
-  async function webDavPullFavorites() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Pulling favorites...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPullFavorites' });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV favorites pull failed');
-      if (res.bootstrapped) {
-        statusEl.textContent = `Bootstrapped favorites from local (${res.count || 0})`;
-      } else if (res.skipped) {
-        statusEl.textContent = 'Skipped (WebDAV not configured)';
-      } else {
-        statusEl.textContent = `Pulled favorites (${res.count || 0})`;
-      }
-      setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showWebDavFailureModal(e.message, webDavPullFavorites);
-    }
-  }
-
-  async function webDavPushFavorites() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Pushing favorites...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavPushFavorites' });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'WebDAV favorites push failed');
-      statusEl.textContent = `Pushed favorites (${res.count || 0})`;
-      setTimeout(() => { statusEl.textContent = ''; }, 2500);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showWebDavFailureModal(e.message, webDavPushFavorites);
-    }
-  }
-
-  async function clearCustomFontsOverride() {
-    const statusEl = document.getElementById('status-webdav-sync');
-    try {
-      statusEl.textContent = 'Clearing...';
-      await browser.storage.local.remove('affoCustomFontsCss');
-      statusEl.textContent = 'Cleared';
-      setTimeout(() => { statusEl.textContent = ''; }, 2000);
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + e.message;
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
     }
   }
 
@@ -524,7 +508,7 @@
     const gap = document.getElementById('toolbar-gap').value;
     const pageUpScrollOverlap = document.getElementById('pageup-scroll-overlap').value;
     const pageUpLongpressOverlap = document.getElementById('pageup-longpress-overlap').value;
-    
+
     document.getElementById('toolbar-width-value').textContent = width + 'px';
     document.getElementById('toolbar-height-value').textContent = height + '%';
     document.getElementById('toolbar-position-value').textContent = position + '%';
@@ -532,7 +516,7 @@
     document.getElementById('toolbar-gap-value').textContent = gap + 'px';
     document.getElementById('pageup-scroll-overlap-value').textContent = pageUpScrollOverlap + 'px';
     document.getElementById('pageup-longpress-overlap-value').textContent = pageUpLongpressOverlap + 'px';
-    
+
     // Don't update preview in real-time - only on save
   }
 
@@ -547,24 +531,25 @@
         '• Known serif/sans family lists\n' +
         '• FontFace-only domains list\n' +
         '• Toolbar settings\n' +
+        '• Google Drive connection\n' +
         '• Extension state and preferences\n\n' +
         'This action cannot be undone.'
       );
-      
+
       if (!confirmed) return;
-      
+
       const statusEl = document.getElementById('status-reset-all');
       statusEl.textContent = 'Clearing...';
-      
+
       // Clear all extension storage
       await browser.storage.local.clear();
-      
+
       // Reset all form values to defaults
       document.getElementById('known-serif').value = toTextarea(DEFAULT_SERIF);
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
-      
+
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
       document.getElementById('toolbar-width').value = 48;
@@ -577,10 +562,15 @@
       document.getElementById('pageup-scroll-type').value = 'smooth';
       document.getElementById('icon-theme').value = 'heroIcons';
       updateToolbarValues();
-      
+
+      // Reset Google Drive UI
+      document.getElementById('gdrive-folder-suffix').value = '';
+      updateGDriveFolderPreview();
+      await updateGDriveConnectionState();
+
       statusEl.textContent = 'All settings reset successfully';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
-      
+
     } catch (e) {
       const statusEl = document.getElementById('status-reset-all');
       statusEl.textContent = 'Error: ' + e.message;
@@ -615,41 +605,38 @@
     document.getElementById('view-cache-info').addEventListener('click', viewCacheInfo);
     document.getElementById('refresh-gf-metadata').addEventListener('click', refreshGfMetadata);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
-    document.getElementById('save-webdav').addEventListener('click', saveWebDav);
-    document.getElementById('webdav-pull').addEventListener('click', webDavPull);
-    document.getElementById('webdav-push').addEventListener('click', webDavPush);
-    document.getElementById('webdav-pull-domain-settings').addEventListener('click', webDavPullDomainSettings);
-    document.getElementById('webdav-pull-favorites').addEventListener('click', webDavPullFavorites);
-    document.getElementById('webdav-push-favorites').addEventListener('click', webDavPushFavorites);
-    document.getElementById('webdav-clear-local').addEventListener('click', clearCustomFontsOverride);
-    document.getElementById('webdav-failure-ignore').addEventListener('click', hideWebDavFailureModal);
-    document.getElementById('webdav-failure-retry').addEventListener('click', runWebDavModalRetry);
+
+    // Google Drive sync handlers
+    document.getElementById('gdrive-connect').addEventListener('click', connectGDrive);
+    document.getElementById('gdrive-disconnect').addEventListener('click', disconnectGDrive);
+    document.getElementById('gdrive-sync-now').addEventListener('click', syncNow);
+    document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
+      updateGDriveFolderPreview();
+      saveGDriveFolderSuffix();
+    });
+    document.getElementById('sync-failure-ignore').addEventListener('click', hideSyncFailureModal);
+    document.getElementById('sync-failure-retry').addEventListener('click', runSyncModalRetry);
 
     browser.runtime.onMessage.addListener((msg) => {
-      if (!msg) return;
-      const isDomainFailure = msg.type === 'affoWebDavDomainSyncFailed';
-      const isFavoritesFailure = msg.type === 'affoWebDavFavoritesSyncFailed';
-      if (!isDomainFailure && !isFavoritesFailure) return;
+      if (!msg || msg.type !== 'affoSyncFailed') return;
 
-      const statusEl = document.getElementById('status-webdav-sync');
+      const statusEl = document.getElementById('status-gdrive-sync');
       if (statusEl) {
-        statusEl.textContent = isDomainFailure ? 'Auto domain sync failed' : 'Auto favorites sync failed';
+        statusEl.textContent = 'Auto sync failed';
         setTimeout(() => { statusEl.textContent = ''; }, 4000);
       }
 
-      const retryType = isDomainFailure ? 'affoWebDavRetryDomainSettingsSync' : 'affoWebDavRetryFavoritesSync';
-      const successText = isDomainFailure ? 'Auto domain sync retry succeeded' : 'Auto favorites sync retry succeeded';
-
-      showWebDavFailureModal(msg.error || 'Auto domain sync failed', async () => {
-        const retryRes = await browser.runtime.sendMessage({ type: retryType });
+      showSyncFailureModal(msg.error || 'Auto sync failed', async () => {
+        const retryRes = await browser.runtime.sendMessage({ type: 'affoSyncRetry' });
         if (!retryRes || !retryRes.ok) {
           throw new Error(retryRes && retryRes.error ? retryRes.error : 'Retry failed');
         }
-        const okStatusEl = document.getElementById('status-webdav-sync');
+        const okStatusEl = document.getElementById('status-gdrive-sync');
         if (okStatusEl) {
-          okStatusEl.textContent = successText;
+          okStatusEl.textContent = 'Sync retry succeeded';
           setTimeout(() => { okStatusEl.textContent = ''; }, 2500);
         }
+        await updateGDriveConnectionState();
       });
     });
 

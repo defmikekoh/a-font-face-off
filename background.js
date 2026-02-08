@@ -4,240 +4,479 @@ if (!AFFO_DEBUG) {
   console.log = function() {};
   console.warn = function() {};
 }
-
 // Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
 const FONT_CACHE_KEY = 'affoFontCache';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
-const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';
 const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
 const APPLY_MAP_KEY = 'affoApplyMap';
 const FAVORITES_KEY = 'affoFavorites';
 const FAVORITES_ORDER_KEY = 'affoFavoritesOrder';
-const WEBDAV_DIR = 'a-font-face-off';
-const CUSTOM_FONTS_CSS_FILENAME = 'custom-fonts.css';
-const APPLY_MAP_FILENAME = 'affo-apply-map.json';
-const FAVORITES_FILENAME = 'affo-favorites.json';
+
+// Google Drive sync constants
+const GDRIVE_TOKENS_KEY = 'affoGDriveTokens';
+const GDRIVE_FOLDER_SUFFIX_KEY = 'affoGDriveFolderSuffix';
+const GDRIVE_SYNC_META_KEY = 'affoSyncMeta';
+const GDRIVE_FOLDER_NAME_BASE = 'A Font Face-off';
+const GDRIVE_SYNC_MANIFEST_NAME = 'sync-manifest.json';
+const GDRIVE_DOMAINS_FOLDER_NAME = 'domains';
+const GDRIVE_FAVORITES_NAME = 'favorites.json';
+const GDRIVE_CUSTOM_FONTS_NAME = 'custom-fonts.css';
+const GDRIVE_KNOWN_SERIF_NAME = 'known-serif.json';
+const GDRIVE_KNOWN_SANS_NAME = 'known-sans.json';
+const GDRIVE_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
+const GDRIVE_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
+const KNOWN_SERIF_KEY = 'affoKnownSerif';
+const KNOWN_SANS_KEY = 'affoKnownSans';
+const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
+const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
+// GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET are loaded from gdrive-config.js (gitignored)
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_API = 'https://www.googleapis.com/drive/v3';
+const GDRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+// Loopback redirect URI (native app OAuth flow) — intercepted via webRequest, port is arbitrary
+const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/affo-oauth';
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
 let cachedFontData = null;
 const CACHE_STALE_TIME = 5000; // 5 seconds
-let applyMapSyncQueue = Promise.resolve();
-let favoritesSyncQueue = Promise.resolve();
+let syncQueue = Promise.resolve();
 
-function normalizeWebDavUrl(url) {
-  let cleaned = String(url || '').trim();
-  if (!cleaned) throw new Error('WebDAV server URL is required');
-  if (!cleaned.includes('://')) cleaned = `http://${cleaned}`;
-  if (!cleaned.endsWith('/')) cleaned += '/';
-  return cleaned;
+// Cached folder IDs (cleared on background script restart)
+let cachedAppFolderId = null;
+let cachedDomainsFolderId = null;
+
+// ─── Google Drive: OAuth & Token Management ────────────────────────────
+
+async function getGDriveTokens() {
+  const data = await browser.storage.local.get(GDRIVE_TOKENS_KEY);
+  return data[GDRIVE_TOKENS_KEY] || null;
 }
 
-function buildWebDavBaseUrl(config) {
-  const root = normalizeWebDavUrl(config.serverUrl);
-  return `${root}${WEBDAV_DIR}/`;
+async function saveGDriveTokens(tokens) {
+  await browser.storage.local.set({ [GDRIVE_TOKENS_KEY]: tokens });
 }
 
-function getWebDavHeaders(config) {
-  const headers = {};
-  if (config.anonymous) return headers;
-  const username = String(config.username || '').trim();
-  const password = String(config.password || '');
-  if (!username || !password) {
-    throw new Error('WebDAV username and password are required');
+async function isGDriveConfigured() {
+  const tokens = await getGDriveTokens();
+  return !!(tokens && tokens.accessToken && tokens.refreshToken);
+}
+
+async function refreshAccessToken() {
+  const tokens = await getGDriveTokens();
+  if (!tokens || !tokens.refreshToken) {
+    throw new Error('No refresh token available — please reconnect Google Drive');
   }
-  headers.Authorization = `Basic ${btoa(`${username}:${password}`)}`;
-  return headers;
-}
-
-async function ensureWebDavDir(baseUrl, headers) {
-  const response = await fetch(baseUrl, {
-    method: 'PROPFIND',
-    headers: Object.assign({ Depth: '0' }, headers),
-    credentials: 'omit'
+  const body = new URLSearchParams({
+    client_id: GDRIVE_CLIENT_ID,
+    client_secret: GDRIVE_CLIENT_SECRET,
+    grant_type: 'refresh_token',
+    refresh_token: tokens.refreshToken
   });
-  if (response.status === 404) {
-    const mkcol = await fetch(baseUrl, {
-      method: 'MKCOL',
-      headers,
-      credentials: 'omit'
-    });
-    if (!mkcol.ok && mkcol.status !== 405) {
-      throw new Error(`WebDAV MKCOL failed: ${mkcol.status}`);
-    }
-    return;
-  }
-  if (!response.ok) {
-    throw new Error(`WebDAV PROPFIND failed: ${response.status}`);
-  }
-}
-
-async function webDavGetFile(baseUrl, headers, filename) {
-  const response = await fetch(baseUrl + filename, {
-    method: 'GET',
-    headers,
-    credentials: 'omit'
-  });
-  if (response.status === 404) throw new Error('WebDAV file not found');
-  if (!response.ok) throw new Error(`WebDAV GET failed: ${response.status}`);
-  return response.text();
-}
-
-async function webDavPutFile(baseUrl, headers, filename, body, contentType = 'text/plain') {
-  const response = await fetch(baseUrl + filename, {
-    method: 'PUT',
-    headers: Object.assign({ 'Content-Type': contentType }, headers),
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
     credentials: 'omit'
   });
-  if (!response.ok) throw new Error(`WebDAV PUT failed: ${response.status}`);
-}
-
-async function getWebDavConfig() {
-  const data = await browser.storage.local.get(WEBDAV_CONFIG_KEY);
-  return data[WEBDAV_CONFIG_KEY] || {};
-}
-
-async function pullCustomFontsFromWebDav() {
-  const config = await getWebDavConfig();
-  const headers = getWebDavHeaders(config);
-  const baseUrl = buildWebDavBaseUrl(config);
-  await ensureWebDavDir(baseUrl, headers);
-  const cssText = await webDavGetFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME);
-  await browser.storage.local.set({ [CUSTOM_FONTS_CSS_KEY]: cssText });
-  return { ok: true };
-}
-
-async function pushCustomFontsToWebDav() {
-  const config = await getWebDavConfig();
-  const headers = getWebDavHeaders(config);
-  const baseUrl = buildWebDavBaseUrl(config);
-  await ensureWebDavDir(baseUrl, headers);
-  const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
-  let cssText = stored[CUSTOM_FONTS_CSS_KEY];
-  if (!cssText) {
-    const url = browser.runtime.getURL('custom-fonts.css');
-    const response = await fetch(url);
-    cssText = await response.text();
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Token refresh failed (${res.status}): ${errText}`);
   }
-  await webDavPutFile(baseUrl, headers, CUSTOM_FONTS_CSS_FILENAME, cssText || '', 'text/css');
+  const data = await res.json();
+  const updated = {
+    accessToken: data.access_token,
+    refreshToken: tokens.refreshToken,
+    expiresAt: Date.now() + (data.expires_in || 3600) * 1000
+  };
+  await saveGDriveTokens(updated);
+  return updated;
+}
+
+async function gdriveFetch(url, options = {}) {
+  if (!navigator.onLine) {
+    throw new Error('Device is offline');
+  }
+
+  let tokens = await getGDriveTokens();
+  if (!tokens || !tokens.accessToken) {
+    throw new Error('Google Drive not connected');
+  }
+
+  // Proactively refresh if token is expired or about to expire (1 minute buffer)
+  if (tokens.expiresAt && Date.now() > tokens.expiresAt - 60000) {
+    tokens = await refreshAccessToken();
+  }
+
+  const doFetch = async (accessToken) => {
+    const headers = Object.assign({}, options.headers || {}, {
+      Authorization: `Bearer ${accessToken}`
+    });
+    return fetch(url, Object.assign({}, options, { headers, credentials: 'omit' }));
+  };
+
+  let res = await doFetch(tokens.accessToken);
+
+  // On 401, try refresh once
+  if (res.status === 401) {
+    tokens = await refreshAccessToken();
+    res = await doFetch(tokens.accessToken);
+  }
+
+  // On 429, exponential backoff
+  if (res.status === 429) {
+    let delay = 1000;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const retryAfter = res.headers.get('retry-after');
+      if (retryAfter) {
+        const serverDelay = isNaN(+retryAfter)
+          ? new Date(retryAfter).getTime() - Date.now()
+          : +retryAfter * 1000;
+        if (serverDelay > 0) delay = serverDelay;
+      }
+      await new Promise(r => setTimeout(r, delay));
+      res = await doFetch(tokens.accessToken);
+      if (res.status !== 429) break;
+      delay = Math.min(delay * 2, 32000);
+    }
+  }
+
+  return res;
+}
+
+// ─── Google Drive: PKCE helpers ────────────────────────────────────────
+
+function generateCodeVerifier() {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+async function generateCodeChallenge(verifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
+  const tokenBody = new URLSearchParams({
+    client_id: GDRIVE_CLIENT_ID,
+    client_secret: GDRIVE_CLIENT_SECRET,
+    code,
+    code_verifier: codeVerifier,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri
+  });
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: tokenBody,
+    credentials: 'omit'
+  });
+
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text().catch(() => '');
+    throw new Error(`Token exchange failed (${tokenRes.status}): ${errText}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  const tokens = {
+    accessToken: tokenData.access_token,
+    refreshToken: tokenData.refresh_token,
+    expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000
+  };
+  await saveGDriveTokens(tokens);
+  cachedAppFolderId = null;
+  cachedDomainsFolderId = null;
+  console.log('[AFFO Background] Google Drive connected');
   return { ok: true };
 }
 
-function isWebDavConfigured(config) {
-  return !!String(config && config.serverUrl || '').trim();
+function buildAuthUrl(codeChallenge, redirectUri) {
+  const params = new URLSearchParams({
+    client_id: GDRIVE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GDRIVE_SCOPE,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+    access_type: 'offline',
+    prompt: 'consent'
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-function notifyWebDavSyncFailure(type, fallbackMessage, errorMessage) {
-  browser.runtime.sendMessage({
-    type,
-    error: String(errorMessage || fallbackMessage)
-  }).catch(() => {
-    // Ignore when no extension page is listening.
+// Primary auth: uses browser.identity.launchWebAuthFlow (desktop Firefox)
+async function startGDriveAuthIdentity() {
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  const redirectUri = browser.identity.getRedirectURL();
+  const authUrl = buildAuthUrl(codeChallenge, redirectUri);
+
+  const responseUrl = await browser.identity.launchWebAuthFlow({
+    url: authUrl,
+    interactive: true
+  });
+
+  const url = new URL(responseUrl);
+  const code = url.searchParams.get('code');
+  if (!code) {
+    throw new Error('No authorization code received');
+  }
+
+  return exchangeCodeForTokens(code, codeVerifier, redirectUri);
+}
+
+// Fallback auth: opens tab + intercepts redirect via webRequest (Firefox Android)
+function startGDriveAuthViaTab() {
+  return new Promise(async (resolve, reject) => {
+    let settled = false;
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    const redirectUri = GDRIVE_FALLBACK_REDIRECT;
+    const authUrl = buildAuthUrl(codeChallenge, redirectUri);
+
+    const listener = (details) => {
+      if (settled) return;
+      // The filter pattern is broad (port stripped for Firefox compat),
+      // so verify this is actually our redirect before acting
+      if (!details.url.startsWith(redirectUri)) return;
+      const url = new URL(details.url);
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
+
+      settled = true;
+      browser.webRequest.onBeforeRequest.removeListener(listener);
+
+      // Close the OAuth tab
+      if (details.tabId >= 0) {
+        browser.tabs.remove(details.tabId).catch(() => {});
+      }
+
+      if (error) {
+        reject(new Error(`OAuth error: ${error}`));
+      } else if (code) {
+        exchangeCodeForTokens(code, codeVerifier, redirectUri)
+          .then(resolve)
+          .catch(reject);
+      } else {
+        reject(new Error('No authorization code received'));
+      }
+
+      return { cancel: true };
+    };
+
+    // Firefox match patterns don't support port numbers — strip port for the filter,
+    // then do precise matching inside the listener via full URL comparison
+    const filterPattern = redirectUri.replace(/:\d+/, '') + '*';
+    browser.webRequest.onBeforeRequest.addListener(
+      listener,
+      { urls: [filterPattern] },
+      ['blocking']
+    );
+
+    try {
+      await browser.tabs.create({ url: authUrl, active: true });
+    } catch (e) {
+      settled = true;
+      browser.webRequest.onBeforeRequest.removeListener(listener);
+      reject(e);
+    }
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        browser.webRequest.onBeforeRequest.removeListener(listener);
+        reject(new Error('OAuth flow timed out'));
+      }
+    }, 5 * 60 * 1000);
   });
 }
 
-function notifyDomainSyncFailure(errorMessage) {
-  notifyWebDavSyncFailure('affoWebDavDomainSyncFailed', 'Unknown WebDAV domain sync error', errorMessage);
-}
-
-function notifyFavoritesSyncFailure(errorMessage) {
-  notifyWebDavSyncFailure('affoWebDavFavoritesSyncFailed', 'Unknown WebDAV favorites sync error', errorMessage);
-}
-
-async function pullJsonObjectFromWebDav(filename, invalidFormatMessage) {
-  const config = await getWebDavConfig();
-  if (!isWebDavConfigured(config)) return { ok: true, skipped: true };
-  const headers = getWebDavHeaders(config);
-  const baseUrl = buildWebDavBaseUrl(config);
-  await ensureWebDavDir(baseUrl, headers);
-  const jsonText = await webDavGetFile(baseUrl, headers, filename);
-  const parsed = JSON.parse(jsonText || '{}');
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(invalidFormatMessage);
+async function startGDriveAuth() {
+  if (typeof browser.identity !== 'undefined' && browser.identity.launchWebAuthFlow) {
+    return startGDriveAuthIdentity();
   }
-  return { ok: true, data: parsed };
+  return startGDriveAuthViaTab();
 }
 
-async function pushJsonToWebDav(filename, payloadObject) {
-  const config = await getWebDavConfig();
-  if (!isWebDavConfigured(config)) return { ok: true, skipped: true };
-  const headers = getWebDavHeaders(config);
-  const baseUrl = buildWebDavBaseUrl(config);
-  await ensureWebDavDir(baseUrl, headers);
-  const payload = JSON.stringify(payloadObject || {}, null, 2);
-  await webDavPutFile(baseUrl, headers, filename, payload, 'application/json');
+async function disconnectGDrive() {
+  const tokens = await getGDriveTokens();
+  if (tokens && tokens.accessToken) {
+    // Best-effort revoke
+    fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
+      method: 'POST',
+      credentials: 'omit'
+    }).catch(() => {});
+  }
+  await browser.storage.local.remove([GDRIVE_TOKENS_KEY, GDRIVE_SYNC_META_KEY]);
+  cachedAppFolderId = null;
+  cachedDomainsFolderId = null;
+  console.log('[AFFO Background] Google Drive disconnected');
   return { ok: true };
 }
 
-async function syncJsonSnapshotOnce(options) {
-  const {
-    filename,
-    snapshot,
-    label,
-    notifyOnFailure = true,
-    notifyFailure
-  } = options;
+// ─── Google Drive: Folder & File Operations ────────────────────────────
 
-  const config = await getWebDavConfig();
-  if (!isWebDavConfigured(config)) {
-    throw new Error('WebDAV not configured');
+async function getAppFolderName() {
+  const data = await browser.storage.local.get(GDRIVE_FOLDER_SUFFIX_KEY);
+  const suffix = String(data[GDRIVE_FOLDER_SUFFIX_KEY] || '').trim();
+  return suffix ? `${GDRIVE_FOLDER_NAME_BASE} ${suffix}` : GDRIVE_FOLDER_NAME_BASE;
+}
+
+async function findFolder(name, parentId) {
+  const q = parentId
+    ? `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    : `name='${name}' and 'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res = await gdriveFetch(`${GDRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`);
+  if (!res.ok) throw new Error(`Google Drive list failed: ${res.status}`);
+  const data = await res.json();
+  return data.files && data.files.length > 0 ? data.files[0].id : null;
+}
+
+async function createFolder(name, parentId) {
+  const metadata = {
+    name,
+    mimeType: 'application/vnd.google-apps.folder'
+  };
+  if (parentId) metadata.parents = [parentId];
+  const res = await gdriveFetch(`${GDRIVE_API}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(metadata)
+  });
+  if (!res.ok) throw new Error(`Google Drive folder creation failed: ${res.status}`);
+  const data = await res.json();
+  return data.id;
+}
+
+async function ensureAppFolder() {
+  if (cachedAppFolderId && cachedDomainsFolderId) {
+    return { appFolderId: cachedAppFolderId, domainsFolderId: cachedDomainsFolderId };
   }
 
-  try {
-    await pullJsonObjectFromWebDav(filename, `Invalid ${label} format in WebDAV file`);
-  } catch (e) {
-    if (!String(e && e.message || e).includes('WebDAV file not found')) {
-      console.warn(`[AFFO Background] ${label} pull failed before push:`, e);
-    }
+  const folderName = await getAppFolderName();
+
+  // Find or create app folder
+  let appFolderId = await findFolder(folderName, null);
+  if (!appFolderId) {
+    appFolderId = await createFolder(folderName, null);
+    console.log(`[AFFO Background] Created Google Drive folder: ${folderName}`);
   }
 
-  try {
-    await pushJsonToWebDav(filename, snapshot);
-    console.log(`[AFFO Background] ${label} synced to WebDAV`);
-    return { ok: true };
-  } catch (e) {
-    console.warn(`[AFFO Background] ${label} sync failed:`, e);
-    if (notifyOnFailure && typeof notifyFailure === 'function') {
-      notifyFailure(e && e.message ? e.message : String(e));
-    }
-    throw e;
+  // Find or create domains subfolder
+  let domainsFolderId = await findFolder(GDRIVE_DOMAINS_FOLDER_NAME, appFolderId);
+  if (!domainsFolderId) {
+    domainsFolderId = await createFolder(GDRIVE_DOMAINS_FOLDER_NAME, appFolderId);
+    console.log('[AFFO Background] Created domains subfolder');
+  }
+
+  cachedAppFolderId = appFolderId;
+  cachedDomainsFolderId = domainsFolderId;
+  return { appFolderId, domainsFolderId };
+}
+
+async function findFile(name, folderId) {
+  const q = `name='${name}' and '${folderId}' in parents and trashed=false`;
+  const res = await gdriveFetch(`${GDRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`);
+  if (!res.ok) throw new Error(`Google Drive file search failed: ${res.status}`);
+  const data = await res.json();
+  return data.files && data.files.length > 0 ? data.files[0].id : null;
+}
+
+async function gdriveGetFile(name, folderId) {
+  const fileId = await findFile(name, folderId);
+  if (!fileId) return { notFound: true };
+  const res = await gdriveFetch(`${GDRIVE_API}/files/${fileId}?alt=media`);
+  if (res.status === 404) return { notFound: true };
+  if (!res.ok) throw new Error(`Google Drive GET failed: ${res.status}`);
+  const text = await res.text();
+  return { data: text, fileId };
+}
+
+async function gdrivePutFile(name, folderId, content, contentType) {
+  const existingId = await findFile(name, folderId);
+  const boundary = '----AffoSyncBoundary' + Date.now();
+  const metadata = existingId
+    ? { name }
+    : { name, parents: [folderId] };
+
+  const body = [
+    `--${boundary}\r\n`,
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+    JSON.stringify(metadata),
+    `\r\n--${boundary}\r\n`,
+    `Content-Type: ${contentType}\r\n\r\n`,
+    content,
+    `\r\n--${boundary}--`
+  ].join('');
+
+  const url = existingId
+    ? `${GDRIVE_UPLOAD_API}/files/${existingId}?uploadType=multipart`
+    : `${GDRIVE_UPLOAD_API}/files?uploadType=multipart`;
+
+  const res = await gdriveFetch(url, {
+    method: existingId ? 'PATCH' : 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+
+  if (!res.ok) throw new Error(`Google Drive upload failed: ${res.status}`);
+  const data = await res.json();
+  return data.id;
+}
+
+async function gdriveDeleteFile(name, folderId) {
+  const fileId = await findFile(name, folderId);
+  if (!fileId) return;
+  const res = await gdriveFetch(`${GDRIVE_API}/files/${fileId}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Google Drive delete failed: ${res.status}`);
   }
 }
 
-function scheduleWebDavAutoSync(queue, runSync, label) {
-  return queue
-    .then(async () => {
-      const config = await getWebDavConfig();
-      if (!isWebDavConfigured(config)) {
-        console.log(`[AFFO Background] WebDAV not configured; skipping ${label} sync`);
-        return;
-      }
-      await runSync();
-    })
-    .catch((e) => {
-      console.warn(`[AFFO Background] ${label} sync queue error:`, e);
-    });
+async function gdriveListFiles(folderId) {
+  const q = `'${folderId}' in parents and trashed=false`;
+  let files = [];
+  let pageToken = null;
+  do {
+    let url = `${GDRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name),nextPageToken&spaces=drive&pageSize=1000`;
+    if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
+    const res = await gdriveFetch(url);
+    if (!res.ok) throw new Error(`Google Drive list failed: ${res.status}`);
+    const data = await res.json();
+    files = files.concat(data.files || []);
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+  return files;
 }
 
-async function pullDomainSettingsFromWebDav() {
-  return pullJsonObjectFromWebDav(APPLY_MAP_FILENAME, 'Invalid domain settings format in WebDAV file');
+// ─── Google Drive: Sync Algorithm ──────────────────────────────────────
+
+function notifySyncFailure(errorMessage) {
+  browser.runtime.sendMessage({
+    type: 'affoSyncFailed',
+    error: String(errorMessage || 'Unknown sync error')
+  }).catch(() => {});
 }
 
-async function importDomainSettingsFromWebDav() {
-  const pulled = await pullDomainSettingsFromWebDav();
-  if (pulled.skipped) return { ok: true, skipped: true };
-  const applyMap = pulled.data || {};
-  await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
-  return { ok: true, count: Object.keys(applyMap).length };
+async function getLocalSyncMeta() {
+  const data = await browser.storage.local.get(GDRIVE_SYNC_META_KEY);
+  return data[GDRIVE_SYNC_META_KEY] || { lastSync: 0, items: {} };
 }
 
-async function pushDomainSettingsToWebDav(applyMapSnapshot) {
-  return pushJsonToWebDav(
-    APPLY_MAP_FILENAME,
-    (applyMapSnapshot && typeof applyMapSnapshot === 'object') ? applyMapSnapshot : {}
-  );
+async function saveLocalSyncMeta(meta) {
+  await browser.storage.local.set({ [GDRIVE_SYNC_META_KEY]: meta });
 }
 
 async function getLocalFavoritesSnapshot() {
@@ -250,100 +489,256 @@ async function getLocalFavoritesSnapshot() {
   };
 }
 
-async function pullFavoritesFromWebDav() {
-  return pullJsonObjectFromWebDav(FAVORITES_FILENAME, 'Invalid favorites format in WebDAV file');
-}
-
-async function importFavoritesFromWebDav() {
-  const pulled = await pullFavoritesFromWebDav();
-  if (pulled.skipped) return { ok: true, skipped: true };
-  const payload = pulled.data || {};
-  const favorites = (payload[FAVORITES_KEY] && typeof payload[FAVORITES_KEY] === 'object') ? payload[FAVORITES_KEY] : {};
-  const favoritesOrder = Array.isArray(payload[FAVORITES_ORDER_KEY]) ? payload[FAVORITES_ORDER_KEY] : Object.keys(favorites);
-  await browser.storage.local.set({
-    [FAVORITES_KEY]: favorites,
-    [FAVORITES_ORDER_KEY]: favoritesOrder
-  });
-  return { ok: true, count: Object.keys(favorites).length };
-}
-
-async function pushFavoritesToWebDav(favoritesSnapshot) {
-  return pushJsonToWebDav(FAVORITES_FILENAME, {
-    [FAVORITES_KEY]: (favoritesSnapshot && favoritesSnapshot[FAVORITES_KEY] && typeof favoritesSnapshot[FAVORITES_KEY] === 'object') ? favoritesSnapshot[FAVORITES_KEY] : {},
-    [FAVORITES_ORDER_KEY]: Array.isArray(favoritesSnapshot && favoritesSnapshot[FAVORITES_ORDER_KEY]) ? favoritesSnapshot[FAVORITES_ORDER_KEY] : []
-  });
-}
-
-async function syncFavoritesOnce(favoritesSnapshot, notifyOnFailure = true) {
-  return syncJsonSnapshotOnce({
-    filename: FAVORITES_FILENAME,
-    snapshot: {
-      [FAVORITES_KEY]: (favoritesSnapshot && favoritesSnapshot[FAVORITES_KEY] && typeof favoritesSnapshot[FAVORITES_KEY] === 'object') ? favoritesSnapshot[FAVORITES_KEY] : {},
-      [FAVORITES_ORDER_KEY]: Array.isArray(favoritesSnapshot && favoritesSnapshot[FAVORITES_ORDER_KEY]) ? favoritesSnapshot[FAVORITES_ORDER_KEY] : []
-    },
-    label: 'Favorites',
-    notifyOnFailure,
-    notifyFailure: notifyFavoritesSyncFailure
-  });
-}
-
-function scheduleFavoritesAutoSync() {
-  favoritesSyncQueue = scheduleWebDavAutoSync(
-    favoritesSyncQueue,
-    async () => {
-      const snapshot = await getLocalFavoritesSnapshot();
-      await syncFavoritesOnce(snapshot, true);
-    },
-    'favorites'
-  );
-}
-
-async function syncDomainSettingsOnce(applyMapSnapshot, notifyOnFailure = true) {
-  return syncJsonSnapshotOnce({
-    filename: APPLY_MAP_FILENAME,
-    snapshot: (applyMapSnapshot && typeof applyMapSnapshot === 'object') ? applyMapSnapshot : {},
-    label: 'Domain settings',
-    notifyOnFailure,
-    notifyFailure: notifyDomainSyncFailure
-  });
-}
-
-function scheduleDomainSettingsAutoSync(applyMapSnapshot) {
-  applyMapSyncQueue = scheduleWebDavAutoSync(
-    applyMapSyncQueue,
-    async () => {
-      await syncDomainSettingsOnce(applyMapSnapshot, true);
-    },
-    'domain settings'
-  );
-}
-
-function isMissingWebDavFileError(error) {
-  return String(error && error.message || error).includes('WebDAV file not found');
-}
-
-async function runWebDavMessage(operation) {
-  try {
-    return await operation();
-  } catch (e) {
-    return { ok: false, error: e && e.message ? e.message : String(e) };
+async function runSync() {
+  if (!navigator.onLine) {
+    console.log('[AFFO Background] Offline — skipping sync');
+    return { ok: true, skipped: true, reason: 'offline' };
   }
-}
 
-async function handleWebDavPullWithBootstrap(importFn, bootstrapFn, countFn) {
-  try {
-    return await importFn();
-  } catch (e) {
-    if (!isMissingWebDavFileError(e)) {
-      return { ok: false, error: e && e.message ? e.message : String(e) };
-    }
+  if (!(await isGDriveConfigured())) {
+    console.log('[AFFO Background] Google Drive not configured — skipping sync');
+    return { ok: true, skipped: true, reason: 'not_configured' };
+  }
+
+  const now = Date.now();
+  const { appFolderId, domainsFolderId } = await ensureAppFolder();
+
+  // Fetch remote manifest
+  const manifestResult = await gdriveGetFile(GDRIVE_SYNC_MANIFEST_NAME, appFolderId);
+  let remoteManifest = { version: 1, lastSync: 0, items: {} };
+  const firstSync = manifestResult.notFound;
+  if (!firstSync) {
     try {
-      const bootstrapSnapshot = await bootstrapFn();
-      return { ok: true, bootstrapped: true, count: countFn(bootstrapSnapshot) };
-    } catch (pushErr) {
-      return { ok: false, error: pushErr && pushErr.message ? pushErr.message : String(pushErr) };
+      remoteManifest = JSON.parse(manifestResult.data);
+    } catch (e) {
+      console.warn('[AFFO Background] Invalid sync manifest, starting fresh');
     }
   }
+
+  const localMeta = await getLocalSyncMeta();
+  let manifestChanged = false;
+  const errors = [];
+
+  // ── Domain settings (per-domain) ──
+  try {
+    const localApplyMapData = await browser.storage.local.get(APPLY_MAP_KEY);
+    const localApplyMap = localApplyMapData[APPLY_MAP_KEY] || {};
+    const localDomains = new Set(Object.keys(localApplyMap));
+
+    // Find all remote domain files
+    const remoteFiles = await gdriveListFiles(domainsFolderId);
+    const remoteDomains = new Set();
+    for (const file of remoteFiles) {
+      if (file.name.endsWith('.json')) {
+        remoteDomains.add(file.name.replace(/\.json$/, ''));
+      }
+    }
+
+    // Sync each domain
+    const allDomains = new Set([...localDomains, ...remoteDomains]);
+    for (const domain of allDomains) {
+      try {
+        const filename = `${domain}.json`;
+        const localItemKey = `domains/${filename}`;
+        const localModified = (localMeta.items[localItemKey] || {}).modified || 0;
+        const remoteModified = ((remoteManifest.items || {})[localItemKey] || {}).modified || 0;
+        const inLocal = localDomains.has(domain);
+        const inRemote = remoteDomains.has(domain);
+
+        if (inLocal && inRemote) {
+          // Both exist — compare timestamps
+          if (remoteModified > localModified) {
+            // Pull
+            const fileResult = await gdriveGetFile(filename, domainsFolderId);
+            if (!fileResult.notFound) {
+              const domainConfig = JSON.parse(fileResult.data);
+              localApplyMap[domain] = domainConfig;
+              localMeta.items[localItemKey] = { modified: remoteModified };
+            }
+          } else if (localModified > remoteModified) {
+            // Push
+            await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+            remoteManifest.items[localItemKey] = { modified: localModified };
+            manifestChanged = true;
+          }
+          // else: equal — skip
+        } else if (inLocal && !inRemote) {
+          // Only local — push
+          const modified = localModified || now;
+          await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+          remoteManifest.items[localItemKey] = { modified };
+          localMeta.items[localItemKey] = { modified };
+          manifestChanged = true;
+        } else if (!inLocal && inRemote) {
+          if (firstSync || !localMeta.lastSync) {
+            // First sync — pull remote domains
+            const fileResult = await gdriveGetFile(filename, domainsFolderId);
+            if (!fileResult.notFound) {
+              localApplyMap[domain] = JSON.parse(fileResult.data);
+              localMeta.items[localItemKey] = { modified: remoteModified || now };
+            }
+          } else {
+            // Domain was deleted locally — remove from remote
+            await gdriveDeleteFile(filename, domainsFolderId);
+            delete remoteManifest.items[localItemKey];
+            delete localMeta.items[localItemKey];
+            manifestChanged = true;
+          }
+        }
+      } catch (e) {
+        console.warn(`[AFFO Background] Sync error for domain ${domain}:`, e);
+        errors.push(e);
+      }
+    }
+
+    // Write back merged apply map
+    await browser.storage.local.set({ [APPLY_MAP_KEY]: localApplyMap });
+  } catch (e) {
+    console.warn('[AFFO Background] Domain settings sync error:', e);
+    errors.push(e);
+  }
+
+  // ── Favorites ──
+  try {
+    const localFavSnapshot = await getLocalFavoritesSnapshot();
+    const favItemKey = GDRIVE_FAVORITES_NAME;
+    const localModified = (localMeta.items[favItemKey] || {}).modified || 0;
+    const remoteModified = ((remoteManifest.items || {})[favItemKey] || {}).modified || 0;
+
+    if (remoteModified > localModified && !firstSync) {
+      // Pull
+      const fileResult = await gdriveGetFile(GDRIVE_FAVORITES_NAME, appFolderId);
+      if (!fileResult.notFound) {
+        const remoteFav = JSON.parse(fileResult.data);
+        const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
+        const favoritesOrder = Array.isArray(remoteFav[FAVORITES_ORDER_KEY]) ? remoteFav[FAVORITES_ORDER_KEY] : Object.keys(favorites);
+        await browser.storage.local.set({ [FAVORITES_KEY]: favorites, [FAVORITES_ORDER_KEY]: favoritesOrder });
+        localMeta.items[favItemKey] = { modified: remoteModified };
+      }
+    } else if (localModified > remoteModified || firstSync) {
+      // Push
+      const modified = localModified || now;
+      const payload = JSON.stringify(localFavSnapshot, null, 2);
+      await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
+      remoteManifest.items[favItemKey] = { modified };
+      localMeta.items[favItemKey] = { modified };
+      manifestChanged = true;
+    }
+  } catch (e) {
+    console.warn('[AFFO Background] Favorites sync error:', e);
+    errors.push(e);
+  }
+
+  // ── Custom fonts CSS ──
+  try {
+    const cssItemKey = GDRIVE_CUSTOM_FONTS_NAME;
+    const localModified = (localMeta.items[cssItemKey] || {}).modified || 0;
+    const remoteModified = ((remoteManifest.items || {})[cssItemKey] || {}).modified || 0;
+
+    if (remoteModified > localModified && !firstSync) {
+      // Pull
+      const fileResult = await gdriveGetFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
+      if (!fileResult.notFound) {
+        await browser.storage.local.set({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
+        localMeta.items[cssItemKey] = { modified: remoteModified };
+      }
+    } else if (localModified > remoteModified || firstSync) {
+      // Push
+      const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
+      let cssText = stored[CUSTOM_FONTS_CSS_KEY];
+      if (!cssText) {
+        const url = browser.runtime.getURL('custom-fonts.css');
+        const response = await fetch(url);
+        cssText = await response.text();
+      }
+      if (cssText) {
+        const modified = localModified || now;
+        await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
+        remoteManifest.items[cssItemKey] = { modified };
+        localMeta.items[cssItemKey] = { modified };
+        manifestChanged = true;
+      }
+    }
+  } catch (e) {
+    console.warn('[AFFO Background] Custom fonts sync error:', e);
+    errors.push(e);
+  }
+
+  // ── Simple JSON array settings (known serif/sans, fontface-only/inline domains) ──
+  const jsonArrayItems = [
+    { key: KNOWN_SERIF_KEY, filename: GDRIVE_KNOWN_SERIF_NAME, label: 'Known serif' },
+    { key: KNOWN_SANS_KEY, filename: GDRIVE_KNOWN_SANS_NAME, label: 'Known sans' },
+    { key: FFONLY_DOMAINS_KEY, filename: GDRIVE_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
+    { key: INLINE_DOMAINS_KEY, filename: GDRIVE_INLINE_DOMAINS_NAME, label: 'Inline apply domains' }
+  ];
+  for (const item of jsonArrayItems) {
+    try {
+      const localModified = (localMeta.items[item.filename] || {}).modified || 0;
+      const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
+
+      if (remoteModified > localModified && !firstSync) {
+        // Pull
+        const fileResult = await gdriveGetFile(item.filename, appFolderId);
+        if (!fileResult.notFound) {
+          const parsed = JSON.parse(fileResult.data);
+          await browser.storage.local.set({ [item.key]: parsed });
+          localMeta.items[item.filename] = { modified: remoteModified };
+        }
+      } else if (localModified > remoteModified || firstSync || (localModified === 0 && remoteModified === 0)) {
+        // Push (includes never-synced items where both timestamps are 0)
+        const stored = await browser.storage.local.get(item.key);
+        const arr = stored[item.key];
+        if (Array.isArray(arr)) {
+          const modified = localModified || now;
+          await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
+          remoteManifest.items[item.filename] = { modified };
+          localMeta.items[item.filename] = { modified };
+          manifestChanged = true;
+        }
+      }
+    } catch (e) {
+      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      errors.push(e);
+    }
+  }
+
+  // ── Update manifests ──
+  if (manifestChanged || firstSync) {
+    remoteManifest.lastSync = now;
+    await gdrivePutFile(GDRIVE_SYNC_MANIFEST_NAME, appFolderId, JSON.stringify(remoteManifest, null, 2), 'application/json');
+  }
+
+  localMeta.lastSync = now;
+  await saveLocalSyncMeta(localMeta);
+
+  if (errors.length > 0) {
+    const msg = errors.map(e => e && e.message ? e.message : String(e)).join('; ');
+    console.warn(`[AFFO Background] Sync completed with ${errors.length} error(s): ${msg}`);
+    notifySyncFailure(msg);
+    return { ok: false, error: msg, partialErrors: errors.length };
+  }
+
+  console.log('[AFFO Background] Sync completed successfully');
+  return { ok: true };
+}
+
+function scheduleAutoSync() {
+  syncQueue = syncQueue
+    .then(async () => {
+      if (!(await isGDriveConfigured()) || !navigator.onLine) return;
+      await runSync();
+    })
+    .catch((e) => {
+      console.warn('[AFFO Background] Auto-sync queue error:', e);
+      notifySyncFailure(e && e.message ? e.message : String(e));
+    });
+}
+
+// Update local sync timestamp when data changes
+async function markLocalItemModified(itemKey) {
+  const meta = await getLocalSyncMeta();
+  meta.items[itemKey] = { modified: Date.now() };
+  await saveLocalSyncMeta(meta);
 }
 
 async function getCachedFont(url) {
@@ -483,14 +878,14 @@ async function clearExpiredCache() {
     const fontCache = cache[FONT_CACHE_KEY] || {};
     const now = Date.now();
     let cleaned = 0;
-    
+
     for (const [url, entry] of Object.entries(fontCache)) {
       if (now - entry.timestamp >= CACHE_TTL) {
         delete fontCache[url];
         cleaned++;
       }
     }
-    
+
     if (cleaned > 0) {
       await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
       console.log(`[AFFO Background] Cleaned ${cleaned} expired font cache entries`);
@@ -518,62 +913,36 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
       return { ok: true };
     }
 
-    if (msg.type === 'affoWebDavPull') {
-      return runWebDavMessage(() => pullCustomFontsFromWebDav());
+    if (msg.type === 'affoGDriveAuth') {
+      try {
+        return await startGDriveAuth();
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
     }
 
-    if (msg.type === 'affoWebDavPush') {
-      return runWebDavMessage(() => pushCustomFontsToWebDav());
+    if (msg.type === 'affoGDriveDisconnect') {
+      try {
+        return await disconnectGDrive();
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
     }
 
-    if (msg.type === 'affoWebDavPullDomainSettings') {
-      return handleWebDavPullWithBootstrap(
-        () => importDomainSettingsFromWebDav(),
-        async () => {
-          const local = await browser.storage.local.get(APPLY_MAP_KEY);
-          const localSnapshot = local[APPLY_MAP_KEY] || {};
-          await pushDomainSettingsToWebDav(localSnapshot);
-          return localSnapshot;
-        },
-        (snapshot) => Object.keys(snapshot || {}).length
-      );
+    if (msg.type === 'affoSyncNow') {
+      try {
+        return await runSync();
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
     }
 
-    if (msg.type === 'affoWebDavRetryDomainSettingsSync') {
-      return runWebDavMessage(async () => {
-        const data = await browser.storage.local.get(APPLY_MAP_KEY);
-        const applyMapSnapshot = data[APPLY_MAP_KEY] || {};
-        await syncDomainSettingsOnce(applyMapSnapshot, false);
-        return { ok: true };
-      });
-    }
-
-    if (msg.type === 'affoWebDavPullFavorites') {
-      return handleWebDavPullWithBootstrap(
-        () => importFavoritesFromWebDav(),
-        async () => {
-          const localSnapshot = await getLocalFavoritesSnapshot();
-          await pushFavoritesToWebDav(localSnapshot);
-          return localSnapshot;
-        },
-        (snapshot) => Object.keys((snapshot && snapshot[FAVORITES_KEY]) || {}).length
-      );
-    }
-
-    if (msg.type === 'affoWebDavPushFavorites') {
-      return runWebDavMessage(async () => {
-        const localSnapshot = await getLocalFavoritesSnapshot();
-        await pushFavoritesToWebDav(localSnapshot);
-        return { ok: true, count: Object.keys(localSnapshot[FAVORITES_KEY] || {}).length };
-      });
-    }
-
-    if (msg.type === 'affoWebDavRetryFavoritesSync') {
-      return runWebDavMessage(async () => {
-        const localSnapshot = await getLocalFavoritesSnapshot();
-        await syncFavoritesOnce(localSnapshot, false);
-        return { ok: true };
-      });
+    if (msg.type === 'affoSyncRetry') {
+      try {
+        return await runSync();
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
     }
 
     // Handle toolbar options requests
@@ -594,16 +963,16 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return {};
       }
     }
-    
+
     // Handle toolbar popup opening requests
     if (msg.type === 'openPopup') {
       console.log('[AFFO Background] Received openPopup request');
       console.log('[AFFO Background] User agent:', navigator.userAgent);
       console.log('[AFFO Background] Available APIs:', Object.keys(browser.browserAction || {}));
-      
+
       try {
         console.log('[AFFO Background] Attempting browserAction.openPopup()...');
-        
+
         // For Firefox Android, try the standard API
         if (browser.browserAction && browser.browserAction.openPopup) {
           await browser.browserAction.openPopup();
@@ -619,7 +988,7 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return { success: false, error: e.message };
       }
     }
-    
+
     // Handle close current tab requests
     if (msg.type === 'closeCurrentTab') {
       try {
@@ -638,7 +1007,7 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return { success: false, error: e.message };
       }
     }
-    
+
     // Handle getting current tab info
     if (msg.type === 'getCurrentTab') {
       try {
@@ -653,15 +1022,15 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return { success: false, error: e.message };
       }
     }
-    
+
     // Handle fallback popup opening (open in new tab/window)
     if (msg.type === 'openPopupFallback') {
       try {
         console.log('[AFFO Background] Attempting fallback: open popup in new tab');
-        
+
         // For Firefox Android, open the popup HTML in a new tab since popups don't exist
         let popup = browser.runtime.getURL('popup.html');
-        
+
         // If domain and sourceTabId are provided, pass them as URL parameters
         const params = new URLSearchParams();
         if (msg.domain) {
@@ -672,14 +1041,14 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
           params.set('sourceTabId', msg.sourceTabId.toString());
           console.log('[AFFO Background] Added sourceTabId parameter:', msg.sourceTabId);
         }
-        
+
         if (params.toString()) {
           popup += '?' + params.toString();
         }
-        
+
         console.log('[AFFO Background] Popup URL:', popup);
-        
-        const tab = await browser.tabs.create({ 
+
+        const tab = await browser.tabs.create({
           url: popup,
           active: true // Make sure the tab is focused
         });
@@ -691,12 +1060,12 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return { success: false, error: e.message };
       }
     }
-    
+
     // Handle font fetching requests
     if (!msg || msg.type !== 'affoFetch') return;
     const url = msg.url;
     const binary = !!msg.binary;
-    
+
     // For binary requests (fonts), check cache first
     if (binary) {
       const cachedData = await getCachedFont(url);
@@ -704,18 +1073,18 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
         return { ok: true, binary: true, data: cachedData, cached: true };
       }
     }
-    
+
     const res = await fetch(url, { credentials: 'omit' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    
+
     if (binary) {
       const buf = await res.arrayBuffer();
       const u8 = new Uint8Array(buf);
       const dataArray = Array.from(u8);
-      
+
       // Cache the font data
       await setCachedFont(url, buf);
-      
+
       return { ok: true, binary: true, data: dataArray, cached: false };
     } else {
       const text = await res.text();
@@ -731,16 +1100,42 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
 
   if (changes[APPLY_MAP_KEY]) {
-    scheduleDomainSettingsAutoSync(changes[APPLY_MAP_KEY].newValue || {});
+    // Mark all changed domains with current timestamp
+    const newMap = changes[APPLY_MAP_KEY].newValue || {};
+    const oldMap = changes[APPLY_MAP_KEY].oldValue || {};
+    const changedDomains = new Set([
+      ...Object.keys(newMap).filter(d => JSON.stringify(newMap[d]) !== JSON.stringify(oldMap[d])),
+      ...Object.keys(oldMap).filter(d => !(d in newMap))
+    ]);
+    if (changedDomains.size > 0) {
+      (async () => {
+        for (const domain of changedDomains) {
+          await markLocalItemModified(`domains/${domain}.json`);
+        }
+        scheduleAutoSync();
+      })();
+    }
   }
   if (changes[FAVORITES_KEY] || changes[FAVORITES_ORDER_KEY]) {
-    scheduleFavoritesAutoSync();
+    markLocalItemModified(GDRIVE_FAVORITES_NAME).then(() => scheduleAutoSync());
   }
-  
+  if (changes[KNOWN_SERIF_KEY]) {
+    markLocalItemModified(GDRIVE_KNOWN_SERIF_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[KNOWN_SANS_KEY]) {
+    markLocalItemModified(GDRIVE_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[FFONLY_DOMAINS_KEY]) {
+    markLocalItemModified(GDRIVE_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[INLINE_DOMAINS_KEY]) {
+    markLocalItemModified(GDRIVE_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
+  }
+
   // Check if any toolbar options changed
   const toolbarOptionsChanged = {};
   let hasToolbarChanges = false;
-  
+
   if (changes.affoToolbarEnabled) {
     toolbarOptionsChanged.affoToolbarEnabled = changes.affoToolbarEnabled.newValue;
     hasToolbarChanges = true;
@@ -765,10 +1160,10 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     toolbarOptionsChanged.affoToolbarGap = changes.affoToolbarGap.newValue;
     hasToolbarChanges = true;
   }
-  
+
   if (hasToolbarChanges) {
     console.log('[AFFO Background] Toolbar options changed, notifying content scripts:', toolbarOptionsChanged);
-    
+
     try {
       // Get all tabs and send message to content scripts
       const tabs = await browser.tabs.query({});
