@@ -28,7 +28,8 @@ temp/
 # Optional: large local data at repo root (kept locally)
 /fonts
 
-gdrive-config.js
+# Google Drive OAuth config (generated from secrets in CI)
+src/gdrive-config.js
 
 zothercode/
 zoutput*

@@ -1,0 +1,14 @@
+# Exclude example/template files from extension bundle
+# (web-ext builds from src/ directory, so paths are relative to src/)
+
+# Example config files
+custom-fonts-example.css
+gdrive-config.example.js
+
+# Docs that may be in src/
+*.md
+
+# OS junk that might appear in src/
+.DS_Store
+Thumbs.db
+
