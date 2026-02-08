@@ -15,7 +15,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 ## What Makes It Fun
 
 - Full Google Fonts library at your fingertips via search + A-Z rail
-- Variable axes sliders auto-generated from Google Fonts metadata
+- Variable axes sliders auto-generated from Google Fonts metadata. Go nuts on the Roboto Flex and Recursive fonts' multiple axes!
 - Save favorites per panel, drag to reorder, load them back instantly
 - One injected `<style>` drives everything — no per-node DOM mutations
 - Custom font hosts supported (BBC Reith, Graphik Trial, etc.)

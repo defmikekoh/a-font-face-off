@@ -2428,6 +2428,20 @@ function unapplyThirdManInFont(fontType) {
 
 // Unified payload builder — enriches a canonical config with transport properties
 // (css2Url, styleId) for domain storage and content script consumption.
+// Store css2Url in global cache (not per-domain to avoid duplication)
+async function storeCss2UrlInCache(fontName, css2Url) {
+    if (!fontName || !css2Url) return;
+    try {
+        const result = await browser.storage.local.get('affoCss2UrlCache');
+        const cache = result.affoCss2UrlCache || {};
+        cache[fontName] = css2Url;
+        await browser.storage.local.set({ affoCss2UrlCache: cache });
+        if (AFFO_DEBUG) console.log(`Stored css2Url for ${fontName} in global cache`);
+    } catch (e) {
+        console.error(`Failed to store css2Url in cache for ${fontName}:`, e);
+    }
+}
+
 async function buildPayload(position, providedConfig = null) {
     const cfg = providedConfig || getCurrentUIConfig(position);
     if (!cfg) return null;
@@ -2442,27 +2456,21 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.lineHeight != null) payload.lineHeight = Number(cfg.lineHeight);
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
-    if (cfg.fontFaceRule) payload.fontFaceRule = cfg.fontFaceRule;
 
     // Add styleId for TMI positions
     if (['serif', 'sans', 'mono'].includes(position)) {
         payload.styleId = `a-font-face-off-style-${position}`;
     }
 
-    // Add fontFaceRule from static definitions if not already on config (custom fonts)
-    if (!payload.fontFaceRule && cfg.fontName) {
-        const fontDef = fontDefinitions[cfg.fontName];
-        if (fontDef && fontDef.fontFaceRule) {
-            payload.fontFaceRule = fontDef.fontFaceRule;
+    // Compute and cache css2Url for Google Fonts (skip for custom fonts)
+    // Note: css2Url is NOT included in payload - content.js will lookup from cache
+    const isCustomFont = cfg.fontName && fontDefinitions[cfg.fontName];
+    if (cfg.fontName && !isCustomFont) {
+        const css2Url = cfg.css2Url || await buildCss2Url(cfg.fontName, cfg);
+        if (css2Url) {
+            // Store in global cache for content.js to lookup
+            await storeCss2UrlInCache(cfg.fontName, css2Url);
         }
-    }
-
-    // Compute css2Url for Google Fonts
-    if (cfg.css2Url) {
-        payload.css2Url = cfg.css2Url;
-    } else if (cfg.fontName && !payload.fontFaceRule) {
-        const css2Url = await buildCss2Url(cfg.fontName, cfg);
-        if (css2Url) payload.css2Url = css2Url;
     }
 
     return payload;

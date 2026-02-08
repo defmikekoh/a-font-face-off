@@ -109,6 +109,116 @@
     return inlineApplyDomains.includes(currentOrigin);
   }
 
+  // --- css2Url cache lookup ---
+  // Global cache of fontName -> css2Url (populated by popup.js, eliminates per-domain duplication)
+  var css2UrlCache = null;
+  var css2UrlCachePromise = null;
+
+  function ensureCss2UrlCache() {
+    if (css2UrlCache !== null) return Promise.resolve(css2UrlCache);
+    if (!css2UrlCachePromise) {
+      css2UrlCachePromise = browser.storage.local.get('affoCss2UrlCache').then(function(result) {
+        css2UrlCache = result.affoCss2UrlCache || {};
+        debugLog('[AFFO Content] Loaded css2Url cache:', Object.keys(css2UrlCache).length, 'entries');
+        return css2UrlCache;
+      }).catch(function(e) {
+        debugLog('[AFFO Content] Failed to load css2Url cache:', e);
+        css2UrlCache = {};
+        return css2UrlCache;
+      });
+    }
+    return css2UrlCachePromise;
+  }
+
+  function getCss2Url(fontName) {
+    if (css2UrlCache && css2UrlCache[fontName]) {
+      return css2UrlCache[fontName];
+    }
+    return null;
+  }
+
+  // --- Custom font definitions ---
+  // Parse custom-fonts.css and ap-fonts.css to get @font-face rules on-demand
+  var customFontDefinitions = {};
+  var customFontsLoaded = false;
+  var customFontsPromise = null;
+
+  function parseCustomFontsFromCss(cssText) {
+    var blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
+    var byName = {};
+
+    blocks.forEach(function(block) {
+      var match = block.match(/font-family\s*:\s*(['"]?)([^;'"]+)\1\s*;/i);
+      if (!match) return;
+      var name = match[2].trim();
+      if (!name) return;
+      if (!byName[name]) {
+        byName[name] = [];
+      }
+      byName[name].push(block);
+    });
+
+    var defs = {};
+    Object.keys(byName).forEach(function(name) {
+      defs[name] = { fontFaceRule: byName[name].join('\n') };
+    });
+
+    return defs;
+  }
+
+  function ensureCustomFontsLoaded() {
+    if (customFontsLoaded) return Promise.resolve();
+    if (!customFontsPromise) {
+      customFontsPromise = browser.storage.local.get('affoCustomFontsCss').then(function(stored) {
+        var cssText = stored.affoCustomFontsCss;
+        var promises = [];
+
+        // Load packaged custom-fonts.css if not overridden
+        if (!cssText) {
+          promises.push(
+            fetch(browser.runtime.getURL('custom-fonts.css'))
+              .then(function(response) { return response.text(); })
+              .then(function(text) {
+                var parsed = parseCustomFontsFromCss(text);
+                Object.assign(customFontDefinitions, parsed);
+              })
+              .catch(function(e) {
+                debugLog('[AFFO Content] Failed to load custom-fonts.css:', e);
+              })
+          );
+        } else {
+          var parsed = parseCustomFontsFromCss(cssText);
+          Object.assign(customFontDefinitions, parsed);
+        }
+
+        // Load ap-fonts.css
+        promises.push(
+          fetch(browser.runtime.getURL('ap-fonts.css'))
+            .then(function(response) { return response.text(); })
+            .then(function(text) {
+              var parsed = parseCustomFontsFromCss(text);
+              Object.assign(customFontDefinitions, parsed);
+            })
+            .catch(function(e) {
+              debugLog('[AFFO Content] Failed to load ap-fonts.css:', e);
+            })
+        );
+
+        return Promise.all(promises).then(function() {
+          customFontsLoaded = true;
+          debugLog('[AFFO Content] Loaded custom font definitions:', Object.keys(customFontDefinitions));
+        });
+      }).catch(function(e) {
+        debugLog('[AFFO Content] Failed to load custom fonts:', e);
+      });
+    }
+    return customFontsPromise;
+  }
+
+  function getFontFaceRule(fontName) {
+    return customFontDefinitions[fontName] ? customFontDefinitions[fontName].fontFaceRule : null;
+  }
+
   // --- Module-level selector & inline-apply helpers ---
   var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
   var BODY_EXCLUDE = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)';
@@ -663,46 +773,57 @@
     }
 
     debugLog(`[AFFO Content] Loading font ${fontName} for ${fontType}, FontFace-only:`, shouldUseFontFaceOnly());
-    debugLog(`[AFFO Content] Font config for ${fontName}:`, {
-      fontName: fontConfig.fontName,
-      hasFontFaceRule: !!fontConfig.fontFaceRule,
-      fontFaceRuleLength: fontConfig.fontFaceRule ? fontConfig.fontFaceRule.length : 0,
-      otherKeys: Object.keys(fontConfig).filter(k => k !== 'fontName' && k !== 'fontFaceRule')
-    });
 
     // Create the loading promise and track it
-    var loadingPromise;
+    // Load both custom fonts and css2Url cache in parallel
+    var loadingPromise = Promise.all([ensureCustomFontsLoaded(), ensureCss2UrlCache()]).then(function() {
+      // Look up fontFaceRule from parsed custom font definitions
+      var fontFaceRule = getFontFaceRule(fontName);
 
-    // If font has custom @font-face rule (non-Google font), handle it
-    if (fontConfig.fontFaceRule) {
-      debugLog(`[AFFO Content] Handling custom font ${fontName}`);
+      debugLog(`[AFFO Content] Font config for ${fontName}:`, {
+        fontName: fontConfig.fontName,
+        isCustomFont: !!fontFaceRule,
+        fontFaceRuleLength: fontFaceRule ? fontFaceRule.length : 0,
+        otherKeys: Object.keys(fontConfig).filter(function(k) { return k !== 'fontName'; })
+      });
 
-      if (shouldUseFontFaceOnly()) {
-        // On FontFace-only domains, download and load custom fonts via FontFace API
-        debugLog(`[AFFO Content] Loading custom font ${fontName} via FontFace API for CSP bypass`);
-        loadingPromise = tryCustomFontFaceAPI(fontName, fontConfig.fontFaceRule);
-      } else {
-        // On standard domains, inject @font-face CSS
-        debugLog(`[AFFO Content] Injecting custom @font-face for ${fontName}`);
-        var fontFaceStyleId = 'affo-fontface-' + fontName.replace(/\s+/g, '-').toLowerCase();
-        if (!document.getElementById(fontFaceStyleId)) {
-          var fontFaceStyle = document.createElement('style');
-          fontFaceStyle.id = fontFaceStyleId;
-          fontFaceStyle.textContent = fontConfig.fontFaceRule;
-          document.head.appendChild(fontFaceStyle);
+      // If font has custom @font-face rule (non-Google font), handle it
+      if (fontFaceRule) {
+        debugLog(`[AFFO Content] Handling custom font ${fontName}`);
+
+        if (shouldUseFontFaceOnly()) {
+          // On FontFace-only domains, download and load custom fonts via FontFace API
+          debugLog(`[AFFO Content] Loading custom font ${fontName} via FontFace API for CSP bypass`);
+          return tryCustomFontFaceAPI(fontName, fontFaceRule);
+        } else {
+          // On standard domains, inject @font-face CSS
+          debugLog(`[AFFO Content] Injecting custom @font-face for ${fontName}`);
+          var fontFaceStyleId = 'affo-fontface-' + fontName.replace(/\s+/g, '-').toLowerCase();
+          if (!document.getElementById(fontFaceStyleId)) {
+            var fontFaceStyle = document.createElement('style');
+            fontFaceStyle.id = fontFaceStyleId;
+            fontFaceStyle.textContent = fontFaceRule;
+            document.head.appendChild(fontFaceStyle);
+          }
+          return Promise.resolve();
         }
-        loadingPromise = Promise.resolve();
       }
-    }
-    // If Google font and not FontFace-only domain, load Google Fonts CSS
-    else if (!fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
-      loadGoogleFontCSS(fontConfig);
-      loadingPromise = Promise.resolve();
-    }
-    // If Google font and FontFace-only domain, use FontFace API only
-    else if (!fontConfig.fontFaceRule && shouldUseFontFaceOnly()) {
-      loadingPromise = tryFontFaceAPI(fontConfig);
-    } else {
+      // If Google font and not FontFace-only domain, load Google Fonts CSS
+      else if (!shouldUseFontFaceOnly()) {
+        loadGoogleFontCSS(fontConfig);
+        return Promise.resolve();
+      }
+      // If Google font and FontFace-only domain, use FontFace API only
+      else {
+        return tryFontFaceAPI(fontConfig);
+      }
+    }).catch(function(e) {
+      debugLog(`[AFFO Content] Error loading font ${fontName}:`, e);
+      return Promise.resolve();
+    });
+
+    // Fallback for immediate path (shouldn't happen but defensive)
+    if (!loadingPromise) {
       loadingPromise = Promise.resolve();
     }
 
@@ -725,15 +846,16 @@
       var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
       if (document.getElementById(linkId)) return; // Already loaded
 
-      // Use pre-computed css2Url from popup.js if available, otherwise build it
-      var href = fontConfig.css2Url || buildGoogleFontUrl(fontConfig);
+      // Lookup css2Url from global cache (populated by popup.js)
+      var cachedUrl = getCss2Url(fontName);
+      var href = cachedUrl || buildGoogleFontUrl(fontConfig);
 
       var link = document.createElement('link');
       link.id = linkId;
       link.rel = 'stylesheet';
       link.href = href;
       document.head.appendChild(link);
-      debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
+      debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}${cachedUrl ? ' (from cache)' : ' (fallback)'}`);
     } catch (e) {
       console.error(`[AFFO Content] Failed to load Google Font CSS ${fontConfig.fontName}:`, e);
     }
@@ -785,30 +907,71 @@
       debugLog(`[AFFO Content] Found ${fontFaceBlocks.length} @font-face blocks for ${fontName}`);
       
       var loadPromises = fontFaceBlocks.map(function(block, index) {
-        // Extract src URL - handle both WOFF and WOFF2 formats
-        var srcMatch = block.match(/src:\s*url\(["']?([^"'\)]+\.(?:woff2?))["']?\)/i);
+        // Extract src URL - handle HTTP URLs, data: URLs, and WOFF/WOFF2 formats
+        var srcMatch = block.match(/src:\s*url\(["']?([^"'\)]+)["']?\)/i);
         if (!srcMatch) {
-          debugLog(`[AFFO Content] No WOFF/WOFF2 URL found in @font-face block ${index + 1} for ${fontName}`);
+          debugLog(`[AFFO Content] No URL found in @font-face block ${index + 1} for ${fontName}`);
           return Promise.resolve(false);
         }
-        
+
         var fontUrl = srcMatch[1];
-        var fontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
-        debugLog(`[AFFO Content] Found ${fontFormat} URL ${index + 1}: ${fontUrl}`);
-        
+
         // Extract font descriptors
         var weightMatch = block.match(/font-weight:\s*(\d+)/i);
         var styleMatch = block.match(/font-style:\s*(normal|italic)/i);
-        
+
         var descriptors = {
           weight: weightMatch ? weightMatch[1] : '400',
           style: styleMatch ? styleMatch[1] : 'normal',
           display: 'swap'
         };
-        
+
         debugLog(`[AFFO Content] Font descriptors ${index + 1}:`, descriptors);
-        
-        // Download font file via background script
+
+        // Handle data: URLs (for AP fonts and other base64-embedded fonts)
+        if (fontUrl.startsWith('data:font/woff2;base64,') || fontUrl.startsWith('data:font/woff;base64,')) {
+          var fontFormat = fontUrl.startsWith('data:font/woff2') ? 'WOFF2' : 'WOFF';
+          debugLog(`[AFFO Content] Found ${fontFormat} data: URL ${index + 1} for ${fontName}`);
+
+          try {
+            // Extract base64 data after the comma
+            var base64Data = fontUrl.split(',')[1];
+            if (!base64Data) {
+              debugLog(`[AFFO Content] Invalid data: URL format for ${fontName} variant ${index + 1}`);
+              return Promise.resolve(false);
+            }
+
+            // Decode base64 to binary string
+            var binaryString = atob(base64Data);
+            var bytes = new Uint8Array(binaryString.length);
+            for (var i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            var arrayBuffer = bytes.buffer;
+
+            debugLog(`[AFFO Content] Decoded data: URL for ${fontName} variant ${index + 1} (${arrayBuffer.byteLength} bytes)`);
+
+            // Create FontFace with ArrayBuffer and descriptors
+            var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
+            document.fonts.add(fontFace);
+
+            return fontFace.load().then(function() {
+              debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} data: URL variant ${index + 1}`);
+              return true;
+            }).catch(function(e) {
+              debugLog(`[AFFO Content] Custom FontFace API failed for ${fontName} data: URL variant ${index + 1}:`, e);
+              return false;
+            });
+          } catch (e) {
+            debugLog(`[AFFO Content] Error decoding data: URL for ${fontName} variant ${index + 1}:`, e);
+            return Promise.resolve(false);
+          }
+        }
+
+        // Handle HTTP/HTTPS URLs - download via background script
+        var fontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
+        debugLog(`[AFFO Content] Found ${fontFormat} HTTP URL ${index + 1}: ${fontUrl}`);
+
         return browser.runtime.sendMessage({
           type: 'affoFetch',
           url: fontUrl,
@@ -817,17 +980,17 @@
           if (response && response.ok && response.binary && response.data) {
             var cacheStatus = response.cached ? 'cached' : 'downloaded';
             debugLog(`[AFFO Content] Custom font ${cacheStatus} ${index + 1} successful for ${fontName}`);
-            
+
             // Convert binary data to ArrayBuffer
             var uint8Array = new Uint8Array(response.data);
             var arrayBuffer = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength);
-            
+
             debugLog(`[AFFO Content] Created ArrayBuffer ${index + 1} for ${fontName} (${arrayBuffer.byteLength} bytes)`);
-            
+
             // Create FontFace with ArrayBuffer and descriptors
             var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
             document.fonts.add(fontFace);
-            
+
             return fontFace.load().then(function() {
               debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} variant ${index + 1}`);
               return true;
@@ -835,7 +998,7 @@
               debugLog(`[AFFO Content] Custom FontFace API failed for ${fontName} variant ${index + 1}:`, e);
               return false;
             });
-            
+
           } else {
             debugLog(`[AFFO Content] Custom font download ${index + 1} failed for ${fontUrl}`);
             return false;
@@ -1120,8 +1283,12 @@
 
       debugLog(`[AFFO Content] Downloading WOFF2 font data for ${fontName} via background script`);
 
-      // Use pre-computed css2Url from popup.js if available, otherwise build it
-      var cssUrl = fontConfig.css2Url || buildGoogleFontUrl(fontConfig);
+      // Lookup css2Url from global cache (populated by popup.js)
+      var cachedUrl = getCss2Url(fontName);
+      var cssUrl = cachedUrl || buildGoogleFontUrl(fontConfig);
+      if (cachedUrl) {
+        debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
+      }
       
       return browser.runtime.sendMessage({
         type: 'affoFetch',

@@ -71,9 +71,10 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 
 ### Key Config Functions (popup.js)
 
-- `getCurrentUIConfig(position)` — reads current UI state into canonical config (respects active/unset controls)
+- `getCurrentUIConfig(position)` — reads current UI state into canonical config (respects active/unset controls); includes `fontFaceRule` for custom fonts
 - `normalizeConfig(raw)` — converts any external data (favorites, domain storage, legacy formats) into canonical config
-- `buildPayload(position, config?)` — builds enriched payload (adds `css2Url`, `styleId`, `fontFaceRule`) for domain storage / content.js
+- `buildPayload(position, config?)` — builds payload for domain storage; adds `styleId` for TMI; does NOT include `fontFaceRule` or `css2Url` (both looked up on-demand to avoid per-domain duplication)
+- `storeCss2UrlInCache(fontName, css2Url)` — stores Google Fonts URL in global `affoCss2UrlCache`
 - `getFontMemory(position)` — returns runtime font memory object for a panel position
 - `MODE_CONFIG` — data-driven mode metadata (positions, stateKeys, useDomain) used by save/switch/applied-check functions
 - `determineButtonState(changeCount, allDefaults, domainHasApplied)` — shared apply/reset/hide decision logic

@@ -67,6 +67,7 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
+| `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL) | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
 | `affoSyncMeta` | Google Drive local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoWebDavConfig` | WebDAV config for custom fonts sync | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 
@@ -201,9 +202,9 @@ Pinned custom font family names, parsed from the effective CSS (override or pack
 ]
 ```
 
-### fontDefinitions (custom only)
+### fontDefinitions (popup.js)
 
-Map of custom font family name to definition object. All custom font definitions are non-variable and use empty axis metadata.
+Map of custom font family name to definition object. All custom font definitions are non-variable and use empty axis metadata. Built by parsing `custom-fonts.css` and `ap-fonts.css` at popup startup.
 
 ```javascript
 {
@@ -216,6 +217,20 @@ Map of custom font family name to definition object. All custom font definitions
   }
 }
 ```
+
+### customFontDefinitions (content.js)
+
+Content script maintains its own parsed custom font definitions by fetching and parsing `custom-fonts.css` and `ap-fonts.css` on-demand (first font load). This eliminates the need to store `fontFaceRule` in domain storage (`affoApplyMap`). When a custom font is applied, content.js looks up the `fontFaceRule` by `fontName` from its parsed definitions.
+
+```javascript
+{
+  "GuardianTextEgyptian": {
+    "fontFaceRule": "@font-face { ... }"
+  }
+}
+```
+
+**Note:** Domain storage no longer includes `fontFaceRule`. This prevents multi-KB @font-face rules from being duplicated across all domains using the same custom font.
 
 ## Panel State Tracking
 
@@ -258,16 +273,20 @@ const panelStates = {
 Single entry point for converting any external config (favorites, domain storage, legacy formats) into canonical format. Handles:
 - `fontSizePx` → `fontSize` legacy rename
 - Coercion to `Number` for all numeric properties
-- `fontFaceRule` passthrough for custom fonts
+- `fontFaceRule` passthrough for backward compatibility (from old stored data; not used in new saves)
 - Legacy axis props (`wdthVal`, `slntVal`, `italVal`) folded into `variableAxes`
 
 Used when loading from: favorites, domain storage (`affoApplyMap`), any external source.
 
 #### `buildPayload(position, providedConfig?)`
-Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Adds transport properties (`css2Url`, `styleId`) and resolves `fontFaceRule` from `fontDefinitions` if needed. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
+Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Adds `styleId` for TMI positions. **Note:** Does NOT include `fontFaceRule` or `css2Url` in the payload to eliminate per-domain duplication:
+- `fontFaceRule`: content.js looks up custom font @font-face rules on-demand by parsing custom-fonts.css and ap-fonts.css
+- `css2Url`: Stored in global `affoCss2UrlCache` (fontName → URL mapping); content.js looks up by fontName
+
+This eliminates storage duplication - the same multi-KB `fontFaceRule` and identical `css2Url` are no longer stored per-domain. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
 
 #### `getCurrentUIConfig(position)`
-Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. This is the canonical "read from UI" function.
+Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. For custom fonts, includes `fontFaceRule` from `fontDefinitions` for use in UI state, favorites, and popup preview. This is the canonical "read from UI" function.
 
 ### State Management
 
