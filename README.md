@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/icons/icon.svg" width="128" alt="A Font Face-off icon">
+</p>
+
 # A Font Face-off
 
 **A Firefox Android extension that replaces fonts on Firefox web pages and also can compare how they look on your Android device.**
