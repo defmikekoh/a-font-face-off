@@ -67,7 +67,33 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
+| `affoSyncMeta` | Google Drive local sync metadata and tombstones | `{ lastSync: 1700000000000, items: { "domains/example.com.json": { modified: 1700000000000, deletedAt: 1700000000000 } } }` |
 | `affoWebDavConfig` | WebDAV config for custom fonts sync | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
+
+### Google Drive Sync Metadata (`affoSyncMeta`)
+**Purpose**: Tracks per-item change timestamps for bidirectional Google Drive sync.
+**Key**: `affoSyncMeta`
+
+```javascript
+{
+  "lastSync": 1700000000000,
+  "items": {
+    "domains/example.com.json": {
+      "modified": 1700000000000
+    },
+    "domains/removed.com.json": {
+      "modified": 1700001000000,
+      "deletedAt": 1700001000000
+    },
+    "favorites.json": {
+      "modified": 1700002000000
+    }
+  }
+}
+```
+
+- `modified`: last known write time for the item
+- `deletedAt` (optional): tombstone timestamp used to propagate deletes safely across devices
 
 ## WebDAV Sync
 
