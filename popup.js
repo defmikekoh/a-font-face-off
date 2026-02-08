@@ -547,12 +547,12 @@ let customFontsLoaded = false;
 let customFontsPromise = null;
 
 // Font families defined in ap-fonts.css (loaded lazily into popup DOM)
-const AP_FONT_FAMILIES = ['AP', 'APVar'];
+const AP_FONT_FAMILIES = ['AP d', 'APVar d'];
 
 // Manual axis metadata for custom variable fonts (from fvar table inspection).
 // Static custom fonts don't need entries here — they get empty axes by default.
 const CUSTOM_FONT_AXES = {
-    'APVar': {
+    'APVar d': {
         axes: ['wght', 'wdth'],
         defaults: { wght: 400, wdth: 100 },
         ranges:   { wght: [100, 900], wdth: [35, 100] },
