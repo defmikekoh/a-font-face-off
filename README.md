@@ -25,8 +25,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 - Full Google Fonts library at your fingertips via search + A-Z rail
 - Variable axes sliders auto-generated from Google Fonts metadata. Go nuts on the Roboto Flex and Recursive fonts' multiple axes!
 - Save favorites per panel, drag to reorder, load them back instantly
-- One injected `<style>` drives everything — no per-node DOM mutations
-- Custom font hosts supported (BBC Reith, Graphik Trial, etc.)
+- Efficient CSS injection handles (mostly) everything — can adapt to aggressive style-clearing sites
 - No tracking, no data collection — all code is open source
 
 ## Install
@@ -43,4 +42,6 @@ Built on the shoulders of:
 
 ## License
 
-Experimental extension for personal/educational use.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+⚠️ **Alpha Software**: This extension is experimental and under active development. Use at your own risk.
