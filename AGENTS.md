@@ -33,7 +33,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
 | `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience |
-| `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), WebDAV support |
+| `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start` |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
@@ -51,16 +51,18 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCache` (WOFF2 cache). See `docs/architecture/DATA_STRUCTURES.md` for full details.
 
-### WebDAV Sync (Current Behavior)
+### Google Drive Sync
 
-- WebDAV sync is used for `custom-fonts.css`, domain settings (`affoApplyMap`), and favorites (`affoFavorites`, `affoFavoritesOrder`).
-- Domain settings auto-sync from `background.js` when `affoApplyMap` changes: **pull (best effort) then push local snapshot** (last successful push wins).
-- Favorites auto-sync from `background.js` when `affoFavorites` or `affoFavoritesOrder` changes: **pull (best effort) then push local snapshot** (last successful push wins).
-- Manual domain pull is available in Advanced Options via **Pull Domain Settings**.
-- Manual favorites sync is available in Advanced Options via **Pull Favorites** and **Push Favorites**.
-- If WebDAV is not configured (`affoWebDavConfig.serverUrl` missing/empty), auto/manual domain and favorites sync attempts are skipped.
-- Auto-sync failures for domain/favorites emit runtime messages consumed by Options page modal retry UX (`affoWebDavDomainSyncFailed`, `affoWebDavFavoritesSyncFailed`).
-- `background.js` uses shared WebDAV JSON sync helpers (`pullJsonObjectFromWebDav`, `pushJsonToWebDav`, `syncJsonSnapshotOnce`, `scheduleWebDavAutoSync`) to keep domain/favorites sync paths DRY.
+- Google Drive sync covers `custom-fonts.css`, domain settings (`affoApplyMap`), and favorites (`affoFavorites`, `affoFavoritesOrder`).
+- OAuth via `browser.identity.launchWebAuthFlow()` with PKCE. Tokens stored in `affoGDriveTokens`.
+- Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive, with per-domain JSON files in a `domains/` subfolder.
+- A `sync-manifest.json` tracks modification timestamps for all synced items.
+- **Bidirectional merge**: compares local vs remote timestamps per item; newer version wins.
+- Domain settings auto-sync from `background.js` when `affoApplyMap` changes. Favorites auto-sync when `affoFavorites` or `affoFavoritesOrder` changes.
+- Manual sync via single "Sync Now" button in Advanced Options.
+- `navigator.onLine` check before sync; auto-sync skips silently when offline.
+- Auto-sync failures emit `affoSyncFailed` runtime messages consumed by Options page modal retry UX.
+- Key functions: `runSync()` (core bidirectional merge), `gdriveFetch()` (auth + retry wrapper), `ensureAppFolder()`, `scheduleAutoSync()`, `markLocalItemModified()`.
 
 ### Font Config "No Key" Architecture
 

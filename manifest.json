@@ -26,6 +26,9 @@
     "activeTab",
     "tabs",
     "storage",
+    "identity",
+    "webRequest",
+    "webRequestBlocking",
     "<all_urls>"
   ],
 
@@ -58,7 +61,7 @@
 
 
   "background": {
-    "scripts": ["background.js"],
+    "scripts": ["gdrive-config.js", "background.js"],
     "persistent": false
   },
 
