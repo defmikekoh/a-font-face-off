@@ -60,10 +60,13 @@ function sanitizeSyncItem(rawItem) {
   const item = (rawItem && typeof rawItem === 'object') ? rawItem : {};
   const modified = sanitizeTimestamp(item.modified);
   const deletedAt = sanitizeTimestamp(item.deletedAt);
+  const remoteRev = (typeof item.remoteRev === 'string' && item.remoteRev.trim())
+    ? item.remoteRev.trim()
+    : null;
   if (deletedAt > 0 && deletedAt >= modified) {
-    return { modified: deletedAt, deletedAt };
+    return remoteRev ? { modified: deletedAt, deletedAt, remoteRev } : { modified: deletedAt, deletedAt };
   }
-  return { modified };
+  return remoteRev ? { modified, remoteRev } : { modified };
 }
 
 function sanitizeSyncContainer(raw) {
@@ -75,12 +78,28 @@ function sanitizeSyncContainer(raw) {
   return out;
 }
 
-function setModified(items, itemKey, modified) {
-  items[itemKey] = { modified };
+function setModified(items, itemKey, modified, options = {}) {
+  const explicitRemoteRev = Object.prototype.hasOwnProperty.call(options, 'remoteRev');
+  const remoteRev = explicitRemoteRev
+    ? ((typeof options.remoteRev === 'string' && options.remoteRev.trim()) ? options.remoteRev.trim() : null)
+    : ((typeof (items[itemKey] && items[itemKey].remoteRev) === 'string' && items[itemKey].remoteRev.trim())
+      ? items[itemKey].remoteRev.trim()
+      : null);
+  const next = { modified };
+  if (remoteRev) next.remoteRev = remoteRev;
+  items[itemKey] = next;
 }
 
-function setDeleted(items, itemKey, deletedAt) {
-  items[itemKey] = { modified: deletedAt, deletedAt };
+function setDeleted(items, itemKey, deletedAt, options = {}) {
+  const explicitRemoteRev = Object.prototype.hasOwnProperty.call(options, 'remoteRev');
+  const remoteRev = explicitRemoteRev
+    ? ((typeof options.remoteRev === 'string' && options.remoteRev.trim()) ? options.remoteRev.trim() : null)
+    : ((typeof (items[itemKey] && items[itemKey].remoteRev) === 'string' && items[itemKey].remoteRev.trim())
+      ? items[itemKey].remoteRev.trim()
+      : null);
+  const next = { modified: deletedAt, deletedAt };
+  if (remoteRev) next.remoteRev = remoteRev;
+  items[itemKey] = next;
 }
 
 function isDeleted(item) {
@@ -99,6 +118,48 @@ function domainFromItemKey(itemKey) {
 
 function configsEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function buildRemoteRevision(file) {
+  if (!file || !file.id) return null;
+  const modified = sanitizeTimestamp(Date.parse(file.modifiedTime));
+  if (!modified) return null;
+  return `${String(file.id)}:${modified}`;
+}
+
+function getExpectedRemoteRevision(itemState) {
+  return (typeof (itemState && itemState.remoteRev) === 'string' && itemState.remoteRev.trim())
+    ? itemState.remoteRev.trim()
+    : null;
+}
+
+async function ensureRemoteRevisionUnchanged(itemState, filename, folderId) {
+  const expectedRemoteRev = getExpectedRemoteRevision(itemState);
+  if (!expectedRemoteRev) {
+    return { ok: true, expectedRemoteRev: null, currentRemoteRev: null };
+  }
+
+  const latest = await findFile(filename, folderId);
+  if (!latest) {
+    return { ok: false, expectedRemoteRev, currentRemoteRev: null };
+  }
+
+  const currentRemoteRev = buildRemoteRevision(latest);
+  if (!currentRemoteRev || currentRemoteRev !== expectedRemoteRev) {
+    return { ok: false, expectedRemoteRev, currentRemoteRev: currentRemoteRev || null };
+  }
+
+  return { ok: true, expectedRemoteRev, currentRemoteRev };
+}
+
+function assertRemoteRevisionUnchanged(checkResult, filename) {
+  if (checkResult.ok) return;
+  if (checkResult.currentRemoteRev) {
+    throw new Error(
+      `Remote revision changed for ${filename}; expected ${checkResult.expectedRemoteRev} but found ${checkResult.currentRemoteRev}`
+    );
+  }
+  throw new Error(`Remote revision changed for ${filename}; expected ${checkResult.expectedRemoteRev} but file is missing`);
 }
 
 function escapeGDriveQueryLiteral(value) {
@@ -531,17 +592,17 @@ async function findFile(name, folderId) {
   if (files.length > 1) {
     console.warn(`[AFFO Background] Duplicate Google Drive files found for ${name}; using latest modified file`);
   }
-  return files.length > 0 ? files[0].id : null;
+  return files.length > 0 ? files[0] : null;
 }
 
 async function gdriveGetFile(name, folderId) {
-  const fileId = await findFile(name, folderId);
-  if (!fileId) return { notFound: true };
-  const res = await gdriveFetch(`${GDRIVE_API}/files/${fileId}?alt=media`);
+  const file = await findFile(name, folderId);
+  if (!file) return { notFound: true };
+  const res = await gdriveFetch(`${GDRIVE_API}/files/${file.id}?alt=media`);
   if (res.status === 404) return { notFound: true };
   if (!res.ok) throw new Error(`Google Drive GET failed: ${res.status}`);
   const text = await res.text();
-  return { data: text, fileId };
+  return { data: text, fileId: file.id, remoteRev: buildRemoteRevision(file) };
 }
 
 async function gdrivePutFile(name, folderId, content, contentType) {
@@ -563,8 +624,8 @@ async function gdrivePutFile(name, folderId, content, contentType) {
   ].join('');
 
   const url = existingId
-    ? `${GDRIVE_UPLOAD_API}/files/${existingId}?uploadType=multipart`
-    : `${GDRIVE_UPLOAD_API}/files?uploadType=multipart`;
+    ? `${GDRIVE_UPLOAD_API}/files/${existingId}?uploadType=multipart&fields=id,modifiedTime`
+    : `${GDRIVE_UPLOAD_API}/files?uploadType=multipart&fields=id,modifiedTime`;
 
   const res = await gdriveFetch(url, {
     method: existingId ? 'PATCH' : 'POST',
@@ -586,7 +647,10 @@ async function gdrivePutFile(name, folderId, content, contentType) {
     }
   }
 
-  return data.id;
+  return {
+    id: data.id,
+    remoteRev: buildRemoteRevision(data)
+  };
 }
 
 async function gdriveDeleteFile(name, folderId) {
@@ -744,16 +808,18 @@ async function runSync() {
           if (allowDestructiveSync) {
             delete localApplyMap[domain];
             localDomains.delete(domain);
-            setDeleted(localMeta.items, localItemKey, remoteDeletedAt);
+            setDeleted(localMeta.items, localItemKey, remoteDeletedAt, { remoteRev: null });
           }
           continue;
         }
 
         if (inLocal && inRemote) {
           if (locallyDeleted && allowDestructiveSync && localDeletedAt >= remoteModified) {
+            const deleteRevCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+            assertRemoteRevisionUnchanged(deleteRevCheck, filename);
             await gdriveDeleteFile(filename, domainsFolderId);
-            setDeleted(remoteManifest.items, localItemKey, localDeletedAt);
-            setDeleted(localMeta.items, localItemKey, localDeletedAt);
+            setDeleted(remoteManifest.items, localItemKey, localDeletedAt, { remoteRev: null });
+            setDeleted(localMeta.items, localItemKey, localDeletedAt, { remoteRev: null });
             manifestChanged = true;
             remoteDomains.delete(domain);
             delete localApplyMap[domain];
@@ -768,13 +834,16 @@ async function runSync() {
             if (!fileResult.notFound) {
               const domainConfig = JSON.parse(fileResult.data);
               localApplyMap[domain] = domainConfig;
-              setModified(localMeta.items, localItemKey, remoteModified);
+              setModified(localMeta.items, localItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
             }
           } else if (localModified > remoteModified) {
             // Push
-            await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
-            setModified(remoteManifest.items, localItemKey, localModified);
-            setModified(localMeta.items, localItemKey, localModified);
+            const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+            assertRemoteRevisionUnchanged(revCheck, filename);
+            const putResult = await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+            const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+            setModified(remoteManifest.items, localItemKey, localModified, { remoteRev });
+            setModified(localMeta.items, localItemKey, localModified, { remoteRev });
             manifestChanged = true;
           } else if (localModified === 0 && remoteModified === 0) {
             // Repair timestamp-less conflicts by comparing content.
@@ -785,10 +854,17 @@ async function runSync() {
                 if (!localMeta.lastSync || firstSync || !manifestReliable) {
                   localApplyMap[domain] = remoteConfig;
                 } else {
-                  await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+                  const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+                  assertRemoteRevisionUnchanged(revCheck, filename);
+                  const putResult = await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+                  const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+                  setModified(remoteManifest.items, localItemKey, now, { remoteRev });
+                  setModified(localMeta.items, localItemKey, now, { remoteRev });
+                  manifestChanged = true;
+                  continue;
                 }
-                setModified(remoteManifest.items, localItemKey, now);
-                setModified(localMeta.items, localItemKey, now);
+                setModified(remoteManifest.items, localItemKey, now, { remoteRev: fileResult.remoteRev });
+                setModified(localMeta.items, localItemKey, now, { remoteRev: fileResult.remoteRev });
                 manifestChanged = true;
               }
             }
@@ -796,8 +872,8 @@ async function runSync() {
           // else: equal — skip
         } else if (inLocal && !inRemote) {
           if (locallyDeleted) {
-            setDeleted(remoteManifest.items, localItemKey, localDeletedAt || now);
-            setDeleted(localMeta.items, localItemKey, localDeletedAt || now);
+            setDeleted(remoteManifest.items, localItemKey, localDeletedAt || now, { remoteRev: null });
+            setDeleted(localMeta.items, localItemKey, localDeletedAt || now, { remoteRev: null });
             delete localApplyMap[domain];
             localDomains.delete(domain);
             manifestChanged = true;
@@ -808,37 +884,44 @@ async function runSync() {
             if (allowDestructiveSync) {
               delete localApplyMap[domain];
               localDomains.delete(domain);
-              setDeleted(localMeta.items, localItemKey, remoteDeletedAt);
+              setDeleted(localMeta.items, localItemKey, remoteDeletedAt, { remoteRev: null });
             }
             continue;
           }
 
           // Only local — push
           const modified = localModified || now;
-          await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
-          setModified(remoteManifest.items, localItemKey, modified);
-          setModified(localMeta.items, localItemKey, modified);
+          const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+          assertRemoteRevisionUnchanged(revCheck, filename);
+          const putResult = await gdrivePutFile(filename, domainsFolderId, JSON.stringify(localApplyMap[domain], null, 2), 'application/json');
+          const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+          setModified(remoteManifest.items, localItemKey, modified, { remoteRev });
+          setModified(localMeta.items, localItemKey, modified, { remoteRev });
           manifestChanged = true;
         } else if (!inLocal && inRemote) {
           if (locallyDeleted && allowDestructiveSync) {
             if (localDeletedAt >= remoteModified) {
+              const deleteRevCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+              assertRemoteRevisionUnchanged(deleteRevCheck, filename);
               await gdriveDeleteFile(filename, domainsFolderId);
-              setDeleted(remoteManifest.items, localItemKey, localDeletedAt);
-              setDeleted(localMeta.items, localItemKey, localDeletedAt);
+              setDeleted(remoteManifest.items, localItemKey, localDeletedAt, { remoteRev: null });
+              setDeleted(localMeta.items, localItemKey, localDeletedAt, { remoteRev: null });
               manifestChanged = true;
             } else {
               const fileResult = await gdriveGetFile(filename, domainsFolderId);
               if (!fileResult.notFound) {
                 localApplyMap[domain] = JSON.parse(fileResult.data);
                 localDomains.add(domain);
-                setModified(localMeta.items, localItemKey, remoteModified || now);
+                setModified(localMeta.items, localItemKey, remoteModified || now, { remoteRev: fileResult.remoteRev });
               }
             }
           } else if (remotelyDeleted) {
             if (allowDestructiveSync) {
+              const deleteRevCheck = await ensureRemoteRevisionUnchanged(localState, filename, domainsFolderId);
+              assertRemoteRevisionUnchanged(deleteRevCheck, filename);
               await gdriveDeleteFile(filename, domainsFolderId);
-              setDeleted(localMeta.items, localItemKey, remoteDeletedAt || now);
-              setDeleted(remoteManifest.items, localItemKey, remoteDeletedAt || now);
+              setDeleted(localMeta.items, localItemKey, remoteDeletedAt || now, { remoteRev: null });
+              setDeleted(remoteManifest.items, localItemKey, remoteDeletedAt || now, { remoteRev: null });
               manifestChanged = true;
             }
             // Before a trusted baseline exists on this device, keep local state unchanged.
@@ -848,18 +931,18 @@ async function runSync() {
             if (!fileResult.notFound) {
               localApplyMap[domain] = JSON.parse(fileResult.data);
               localDomains.add(domain);
-              setModified(localMeta.items, localItemKey, remoteModified || now);
+              setModified(localMeta.items, localItemKey, remoteModified || now, { remoteRev: fileResult.remoteRev });
             }
           }
         } else if (locallyDeleted && !remotelyDeleted) {
-          setDeleted(remoteManifest.items, localItemKey, localDeletedAt);
+          setDeleted(remoteManifest.items, localItemKey, localDeletedAt, { remoteRev: null });
           manifestChanged = true;
         } else if (remotelyDeleted && !locallyDeleted) {
-          setDeleted(localMeta.items, localItemKey, remoteDeletedAt);
+          setDeleted(localMeta.items, localItemKey, remoteDeletedAt, { remoteRev: null });
         } else if (locallyDeleted && remotelyDeleted && remoteDeletedAt > localDeletedAt) {
-          setDeleted(localMeta.items, localItemKey, remoteDeletedAt);
+          setDeleted(localMeta.items, localItemKey, remoteDeletedAt, { remoteRev: null });
         } else if (locallyDeleted && remotelyDeleted && localDeletedAt > remoteDeletedAt) {
-          setDeleted(remoteManifest.items, localItemKey, localDeletedAt);
+          setDeleted(remoteManifest.items, localItemKey, localDeletedAt, { remoteRev: null });
           manifestChanged = true;
         } else if (!inLocal && !inRemote && !locallyDeleted && !remotelyDeleted) {
           delete localMeta.items[localItemKey];
@@ -885,6 +968,7 @@ async function runSync() {
   try {
     const localFavSnapshot = await getLocalFavoritesSnapshot();
     const favItemKey = GDRIVE_FAVORITES_NAME;
+    const localState = localMeta.items[favItemKey] || {};
     const localModified = (localMeta.items[favItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[favItemKey] || {}).modified || 0;
 
@@ -896,15 +980,18 @@ async function runSync() {
         const favoritesOrder = Array.isArray(remoteFav[FAVORITES_ORDER_KEY]) ? remoteFav[FAVORITES_ORDER_KEY] : Object.keys(favorites);
         await setStorageDuringSync({ [FAVORITES_KEY]: favorites, [FAVORITES_ORDER_KEY]: favoritesOrder });
         const modified = remoteModified || now;
-        setModified(localMeta.items, favItemKey, modified);
-        setModified(remoteManifest.items, favItemKey, modified);
+        setModified(localMeta.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
+        setModified(remoteManifest.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
         manifestChanged = true;
       } else {
         const modified = localModified || now;
         const payload = JSON.stringify(localFavSnapshot, null, 2);
-        await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
-        setModified(remoteManifest.items, favItemKey, modified);
-        setModified(localMeta.items, favItemKey, modified);
+        const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_FAVORITES_NAME, appFolderId);
+        assertRemoteRevisionUnchanged(revCheck, GDRIVE_FAVORITES_NAME);
+        const putResult = await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
+        const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+        setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
+        setModified(localMeta.items, favItemKey, modified, { remoteRev });
         manifestChanged = true;
       }
     } else if (remoteModified > localModified) {
@@ -915,15 +1002,18 @@ async function runSync() {
         const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
         const favoritesOrder = Array.isArray(remoteFav[FAVORITES_ORDER_KEY]) ? remoteFav[FAVORITES_ORDER_KEY] : Object.keys(favorites);
         await setStorageDuringSync({ [FAVORITES_KEY]: favorites, [FAVORITES_ORDER_KEY]: favoritesOrder });
-        setModified(localMeta.items, favItemKey, remoteModified);
+        setModified(localMeta.items, favItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
       }
     } else if (localModified > remoteModified) {
       // Push
       const modified = localModified || now;
       const payload = JSON.stringify(localFavSnapshot, null, 2);
-      await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
-      setModified(remoteManifest.items, favItemKey, modified);
-      setModified(localMeta.items, favItemKey, modified);
+      const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_FAVORITES_NAME, appFolderId);
+      assertRemoteRevisionUnchanged(revCheck, GDRIVE_FAVORITES_NAME);
+      const putResult = await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
+      const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+      setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
+      setModified(localMeta.items, favItemKey, modified, { remoteRev });
       manifestChanged = true;
     }
   } catch (e) {
@@ -934,6 +1024,7 @@ async function runSync() {
   // ── Custom fonts CSS ──
   try {
     const cssItemKey = GDRIVE_CUSTOM_FONTS_NAME;
+    const localState = localMeta.items[cssItemKey] || {};
     const localModified = (localMeta.items[cssItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[cssItemKey] || {}).modified || 0;
 
@@ -942,8 +1033,8 @@ async function runSync() {
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
         const modified = remoteModified || now;
-        setModified(localMeta.items, cssItemKey, modified);
-        setModified(remoteManifest.items, cssItemKey, modified);
+        setModified(localMeta.items, cssItemKey, modified, { remoteRev: fileResult.remoteRev });
+        setModified(remoteManifest.items, cssItemKey, modified, { remoteRev: fileResult.remoteRev });
         manifestChanged = true;
       } else {
         const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
@@ -955,9 +1046,12 @@ async function runSync() {
         }
         if (cssText) {
           const modified = localModified || now;
-          await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
-          setModified(remoteManifest.items, cssItemKey, modified);
-          setModified(localMeta.items, cssItemKey, modified);
+          const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
+          assertRemoteRevisionUnchanged(revCheck, GDRIVE_CUSTOM_FONTS_NAME);
+          const putResult = await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
+          const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+          setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
+          setModified(localMeta.items, cssItemKey, modified, { remoteRev });
           manifestChanged = true;
         }
       }
@@ -966,7 +1060,7 @@ async function runSync() {
       const fileResult = await gdriveGetFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
-        setModified(localMeta.items, cssItemKey, remoteModified);
+        setModified(localMeta.items, cssItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
       }
     } else if (localModified > remoteModified) {
       // Push
@@ -979,9 +1073,12 @@ async function runSync() {
       }
       if (cssText) {
         const modified = localModified || now;
-        await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
-        setModified(remoteManifest.items, cssItemKey, modified);
-        setModified(localMeta.items, cssItemKey, modified);
+        const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
+        assertRemoteRevisionUnchanged(revCheck, GDRIVE_CUSTOM_FONTS_NAME);
+        const putResult = await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
+        const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+        setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
+        setModified(localMeta.items, cssItemKey, modified, { remoteRev });
         manifestChanged = true;
       }
     }
@@ -999,6 +1096,7 @@ async function runSync() {
   ];
   for (const item of jsonArrayItems) {
     try {
+      const localState = localMeta.items[item.filename] || {};
       const localModified = (localMeta.items[item.filename] || {}).modified || 0;
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
@@ -1008,17 +1106,20 @@ async function runSync() {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
           const modified = remoteModified || now;
-          setModified(localMeta.items, item.filename, modified);
-          setModified(remoteManifest.items, item.filename, modified);
+          setModified(localMeta.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
+          setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
           manifestChanged = true;
         } else {
           const stored = await browser.storage.local.get(item.key);
           const arr = stored[item.key];
           if (Array.isArray(arr)) {
             const modified = localModified || now;
-            await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
-            setModified(remoteManifest.items, item.filename, modified);
-            setModified(localMeta.items, item.filename, modified);
+            const revCheck = await ensureRemoteRevisionUnchanged(localState, item.filename, appFolderId);
+            assertRemoteRevisionUnchanged(revCheck, item.filename);
+            const putResult = await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
+            const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+            setModified(remoteManifest.items, item.filename, modified, { remoteRev });
+            setModified(localMeta.items, item.filename, modified, { remoteRev });
             manifestChanged = true;
           }
         }
@@ -1028,7 +1129,7 @@ async function runSync() {
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
-          setModified(localMeta.items, item.filename, remoteModified);
+          setModified(localMeta.items, item.filename, remoteModified, { remoteRev: fileResult.remoteRev });
         }
       } else if (localModified > remoteModified || (localModified === 0 && remoteModified === 0)) {
         // Push (includes never-synced items where both timestamps are 0)
@@ -1036,9 +1137,12 @@ async function runSync() {
         const arr = stored[item.key];
         if (Array.isArray(arr)) {
           const modified = localModified || now;
-          await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
-          setModified(remoteManifest.items, item.filename, modified);
-          setModified(localMeta.items, item.filename, modified);
+          const revCheck = await ensureRemoteRevisionUnchanged(localState, item.filename, appFolderId);
+          assertRemoteRevisionUnchanged(revCheck, item.filename);
+          const putResult = await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
+          const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+          setModified(remoteManifest.items, item.filename, modified, { remoteRev });
+          setModified(localMeta.items, item.filename, modified, { remoteRev });
           manifestChanged = true;
         }
       }
