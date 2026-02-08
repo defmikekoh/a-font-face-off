@@ -36,6 +36,8 @@ const GDRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GDRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 // Loopback redirect URI (native app OAuth flow) — intercepted via webRequest, port is arbitrary
 const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/affo-oauth';
+const SYNC_ALARM_NAME = 'affoPeriodicSync';
+const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
@@ -197,6 +199,7 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
   await saveGDriveTokens(tokens);
   cachedAppFolderId = null;
   cachedDomainsFolderId = null;
+  await startSyncAlarm();
   console.log('[AFFO Background] Google Drive connected');
   return { ok: true };
 }
@@ -322,6 +325,7 @@ async function disconnectGDrive() {
   await browser.storage.local.remove([GDRIVE_TOKENS_KEY, GDRIVE_SYNC_META_KEY]);
   cachedAppFolderId = null;
   cachedDomainsFolderId = null;
+  await stopSyncAlarm();
   console.log('[AFFO Background] Google Drive disconnected');
   return { ok: true };
 }
@@ -740,6 +744,30 @@ async function markLocalItemModified(itemKey) {
   meta.items[itemKey] = { modified: Date.now() };
   await saveLocalSyncMeta(meta);
 }
+
+// ─── Periodic Sync Alarm ────────────────────────────────────────────────
+
+async function startSyncAlarm() {
+  await browser.alarms.create(SYNC_ALARM_NAME, { periodInMinutes: SYNC_ALARM_PERIOD_MINUTES });
+  console.log(`[AFFO Background] Periodic sync alarm started (every ${SYNC_ALARM_PERIOD_MINUTES}m)`);
+}
+
+async function stopSyncAlarm() {
+  await browser.alarms.clear(SYNC_ALARM_NAME);
+  console.log('[AFFO Background] Periodic sync alarm stopped');
+}
+
+browser.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SYNC_ALARM_NAME) {
+    console.log('[AFFO Background] Periodic sync alarm fired');
+    scheduleAutoSync();
+  }
+});
+
+// On background script wake, ensure alarm is running if GDrive is configured
+isGDriveConfigured().then(configured => {
+  if (configured) startSyncAlarm();
+});
 
 async function getCachedFont(url) {
   const startTime = performance.now();

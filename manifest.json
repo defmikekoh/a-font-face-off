@@ -26,6 +26,7 @@
     "activeTab",
     "tabs",
     "storage",
+    "alarms",
     "identity",
     "webRequest",
     "webRequestBlocking",
