@@ -5,6 +5,7 @@ module.exports = {
     overwriteDest: true,
   },
   ignoreFiles: [
-    // Already handled by .web-extignore at root
+    'custom-fonts-example.css',
+    'gdrive-config.example.js',
   ],
 };
