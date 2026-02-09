@@ -8,18 +8,17 @@ export default [
             "web-ext-artifacts/",
             "zothercode/",
             "data/",
-            "jquery.js",
-            "whatfont_core.js",
-            "gdrive-config.js",
-            "gdrive-config.example.js",
+            "src/jquery.js",
+            "src/gdrive-config.js",
+            "src/gdrive-config.example.js",
             "eslint.config.js",
         ],
     },
 
     // Extension source files (browser context), excluding files with their own config
     {
-        files: ["*.js"],
-        ignores: ["config-utils.js", "css-generators.js", "favorites.js", "font-picker.js"],
+        files: ["src/*.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -72,8 +71,6 @@ export default [
                 // WebExtension
                 browser: "readonly",
                 chrome: "readonly",
-                // Used in whatfont_core.js
-                Tip: "writable",
                 // From gdrive-config.js (loaded before background.js)
                 GDRIVE_CLIENT_ID: "readonly",
                 GDRIVE_CLIENT_SECRET: "readonly",
@@ -116,6 +113,8 @@ export default [
                 initializeGoogleFontsSelects: "readonly",
                 resolveFamilyCase: "readonly",
                 setupFontPicker: "readonly",
+                // From whatfont_core.js (loaded before content.js)
+                _whatFont: "readonly",
             },
         },
         rules: {
@@ -146,7 +145,7 @@ export default [
 
     // config-utils.js — dual browser/Node; needs module for conditional export
     {
-        files: ["config-utils.js"],
+        files: ["src/config-utils.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -165,7 +164,7 @@ export default [
 
     // css-generators.js — depends on config-utils.js; dual browser/Node
     {
-        files: ["css-generators.js"],
+        files: ["src/css-generators.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -192,7 +191,7 @@ export default [
     // favorites.js — depends on config-utils.js, css-generators.js, popup.js globals
     // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
     {
-        files: ["favorites.js"],
+        files: ["src/favorites.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -234,7 +233,7 @@ export default [
     // font-picker.js — font picker modal, Google Fonts init, family resolution
     // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
     {
-        files: ["font-picker.js"],
+        files: ["src/font-picker.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -271,6 +270,36 @@ export default [
             "no-undef": "error",
             "no-unused-vars": "off",
             "no-console": "off",
+        },
+    },
+
+    // whatfont_core.js — font detection overlay (browser context, uses jQuery)
+    {
+        files: ["src/whatfont_core.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                window: "readonly",
+                document: "readonly",
+                console: "readonly",
+                setTimeout: "readonly",
+                Image: "readonly",
+                jQuery: "readonly",
+                parseFloat: "readonly",
+                isFinite: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+            "no-unused-vars": ["warn", {
+                argsIgnorePattern: "^_",
+                varsIgnorePattern: "^_",
+                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
+            }],
+            "no-console": "off",
+            "no-prototype-builtins": "off",
         },
     },
 

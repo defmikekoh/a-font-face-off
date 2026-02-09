@@ -657,6 +657,7 @@ async function gdrivePutFile(name, folderId, content, contentType) {
   };
 }
 
+// eslint-disable-next-line no-unused-vars -- exposed to tests via globalThis.__affoDriveOps
 async function gdriveDeleteFile(name, folderId) {
   const matches = await findFilesByName(name, folderId);
   for (const match of matches) {

@@ -1,5 +1,5 @@
 /*jslint browser: true, regexp: true, white: true, newcap: false, nomen: true, plusplus: true, vars: true */
-/*global jQuery, $ */
+/*global jQuery */
 
 function _whatFont() {
     // Base Settings
@@ -134,7 +134,7 @@ function _whatFont() {
             var axes = {};
             var computedStyle = window.getComputedStyle(this.element[0]);
 
-            // Only check font-variation-settings - show exactly what's explicitly specified
+            // Check font-variation-settings for custom axes
             var fontVariationSettings = computedStyle.getPropertyValue('font-variation-settings');
             if (fontVariationSettings && fontVariationSettings !== 'normal') {
                 // Parse font-variation-settings: "wght" 400, "wdth" 100
@@ -146,6 +146,30 @@ function _whatFont() {
                             axes[match[1]] = parseFloat(match[2]);
                         }
                     }
+                }
+            }
+
+            // Registered axes use high-level CSS properties, not font-variation-settings.
+            // Check those properties and map back to axis tags when non-default.
+            if (!axes.hasOwnProperty('wght')) {
+                var weight = parseFloat(computedStyle.getPropertyValue('font-weight'));
+                if (isFinite(weight) && weight !== 400) {
+                    axes.wght = weight;
+                }
+            }
+            if (!axes.hasOwnProperty('wdth')) {
+                var stretch = computedStyle.getPropertyValue('font-stretch');
+                var stretchVal = parseFloat(stretch);
+                if (isFinite(stretchVal) && stretchVal !== 100) {
+                    axes.wdth = stretchVal;
+                }
+            }
+            if (!axes.hasOwnProperty('slnt')) {
+                var fontStyle = computedStyle.getPropertyValue('font-style');
+                // oblique Ndeg → slnt axis
+                var obliqueMatch = fontStyle.match(/oblique\s+(-?[\d.]+)deg/);
+                if (obliqueMatch) {
+                    axes.slnt = parseFloat(obliqueMatch[1]);
                 }
             }
 
@@ -313,7 +337,7 @@ function _whatFont() {
             var kitId;
 
             // Find kitId
-            $('script').each(function(index) {
+            $('script').each(function() {
                 var m = this.src.match(/use\.typekit\.(com|net)\/(.+)\.js/);
                 if (m) {
                     kitId = m[2];
@@ -375,7 +399,7 @@ function _whatFont() {
         fontdeck: function() {
             // Fontdeck fonts
             var projectIds = [],
-                domain = location.hostname;
+                domain = window.location.hostname;
 
             $("link").each(function(i, l) {
                 // when loaded directly with stylesheet
@@ -465,7 +489,7 @@ function _whatFont() {
                 e.stopPropagation();
             });
 
-            $('body').on('mouseout.wf', function(e) {
+            $('body').on('mouseout.wf', function() {
                 that.hide();
             });
         },
@@ -596,7 +620,7 @@ function _whatFont() {
             // Font Service section
             var fiu = typeInfo.current,
                 fontData = fs.getFontDataByCSSName(fiu),
-                fontServices, fontName;
+                fontServices;
 
             fontServices = $("<ul>").addClass('font_service');
 
@@ -619,12 +643,7 @@ function _whatFont() {
             var fontStack = typeInfo.fonts.replace(/;/, '').split(/,\s*/),
                 fontInUse = typeInfo.current,
                 fontInUseFound = false,
-                font, fHTML, ff, fiu, fiuFound;
-
-            ff = typeInfo.fonts;
-            fiu = typeInfo.current; // cssName Font in use
-            ff = ff.replace(/;/, '').split(/,\s*/);
-            fiuFound = false;
+                font, fHTML;
 
             // Font stack
             for (font = 0; font < fontStack.length; font += 1) {
@@ -821,7 +840,7 @@ function _whatFont() {
             panel.convertClassName(p);
             p.typeInfo = typeInfo;
 
-            $(p).click(function(e) {
+            $(p).click(function() {
                 $(this).find('*').css('-webkit-animation', 'none');
                 $(this).detach();
                 $(this).appendTo('html');
@@ -893,8 +912,7 @@ function _whatFont() {
         TOOLBAR: null,
 
         init: function() {
-            var exit = $.wfElem('div', "exit", "Exit WhatFont"),
-                help = $.wfElem('div', "help", "<strong>Hover</strong> to identify<br /><strong>Click</strong> to pin a detail panel");
+            var exit = $.wfElem('div', "exit", "Exit WhatFont");
 
             toolbar.TOOLBAR = $("<div>").addClass(css.getClassName(["elem", "control"])).append(exit).appendTo('body');
 
@@ -915,7 +933,7 @@ function _whatFont() {
             sansSerif = $('<p>').css('font-family', 'sans-serif'),
             testCanvasRandom = new TestCanvas(new TypeInfo(random)),
             testCanvasSerif = new TestCanvas(new TypeInfo(serif)),
-            testCanvasSansSerif = new TestCanvas(new TypeInfo(sansSerif));
+            _testCanvasSansSerif = new TestCanvas(new TypeInfo(sansSerif));
 
         if (testCanvasRandom.isEqual(testCanvasSerif)) {
             defaultFont = 'serif';
@@ -935,7 +953,7 @@ function _whatFont() {
             }
         },
 
-        restore: function(e) {
+        restore: function() {
             $("body :visible").unbind('mousemove', ctrl.updateTip);
             $("body :visible").unbind('click', ctrl.pinPanel);
 
@@ -969,8 +987,7 @@ function _whatFont() {
 
             $.wfElem = function(tag, className, content, attr) {
                 // Shortcut for generating DOM element
-                var e = $("<" + tag + ">"),
-                    c;
+                var e = $("<" + tag + ">");
                 className = className || [];
                 content = content || '';
 
@@ -982,7 +999,7 @@ function _whatFont() {
                 if (typeof content === 'string') {
                     e.html(content);
                 } else if (content.constructor === Array) {
-                    $.map(content, function(n, i) {
+                    $.map(content, function(n) {
                         return e.append(n);
                     });
                 } else {
@@ -1104,7 +1121,7 @@ function _whatFont() {
         },
 
         takeCroppedScreenshot: function(cb, x1, y1, x2, y2, options) {
-            var capturer, scrollTop, width, height;
+            var capturer, width, height;
 
             capturer = screenshot.captureAll ? screenshot.takeFullScreenshot : screenshot.takePartialScreenshot;
 
