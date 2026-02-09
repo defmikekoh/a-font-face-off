@@ -561,6 +561,15 @@ async function createFolder(name, parentId) {
   return data.id;
 }
 
+// ─── Google Drive: Sync I/O Layer ──────────────────────────────────────
+// These four functions form the sync backend interface. runSync() calls
+// only these (plus ensureAppFolder for init). To add WebDAV or another
+// backend, implement the same interface:
+//   init()                          → backend-specific setup (folder, auth)
+//   get(name)                       → { data, remoteRev } | { notFound: true }
+//   put(name, content, contentType) → { id, remoteRev }
+//   remove(name)                    → void
+
 async function ensureAppFolder() {
   if (cachedAppFolderId) {
     return { appFolderId: cachedAppFolderId };
@@ -961,8 +970,8 @@ async function runSync() {
           await setStorageDuringSync({ [item.key]: parsed });
           setModified(localMeta.items, item.filename, remoteModified, { remoteRev: fileResult.remoteRev });
         }
-      } else if (localModified > remoteModified || (localModified === 0 && remoteModified === 0)) {
-        // Push (includes never-synced items where both timestamps are 0)
+      } else if (localModified > remoteModified) {
+        // Push
         const stored = await browser.storage.local.get(item.key);
         const arr = stored[item.key];
         if (Array.isArray(arr)) {
@@ -1459,22 +1468,30 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
   const trackSyncManagedChanges = syncWriteDepth === 0;
 
-  if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges) {
+  // Only mark items modified when data actually changed (avoid unnecessary sync cycles)
+  const storageValueChanged = (c) =>
+    JSON.stringify(c.oldValue) !== JSON.stringify(c.newValue);
+
+  if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges && storageValueChanged(changes[APPLY_MAP_KEY])) {
     markLocalItemModified(GDRIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
-  if ((changes[FAVORITES_KEY] || changes[FAVORITES_ORDER_KEY]) && trackSyncManagedChanges) {
-    markLocalItemModified(GDRIVE_FAVORITES_NAME).then(() => scheduleAutoSync());
+  if (trackSyncManagedChanges) {
+    const favChanged = changes[FAVORITES_KEY] && storageValueChanged(changes[FAVORITES_KEY]);
+    const orderChanged = changes[FAVORITES_ORDER_KEY] && storageValueChanged(changes[FAVORITES_ORDER_KEY]);
+    if (favChanged || orderChanged) {
+      markLocalItemModified(GDRIVE_FAVORITES_NAME).then(() => scheduleAutoSync());
+    }
   }
-  if (changes[KNOWN_SERIF_KEY] && trackSyncManagedChanges) {
+  if (changes[KNOWN_SERIF_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SERIF_KEY])) {
     markLocalItemModified(GDRIVE_KNOWN_SERIF_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[KNOWN_SANS_KEY] && trackSyncManagedChanges) {
+  if (changes[KNOWN_SANS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SANS_KEY])) {
     markLocalItemModified(GDRIVE_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[FFONLY_DOMAINS_KEY] && trackSyncManagedChanges) {
+  if (changes[FFONLY_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[FFONLY_DOMAINS_KEY])) {
     markLocalItemModified(GDRIVE_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges) {
+  if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
     markLocalItemModified(GDRIVE_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
 
