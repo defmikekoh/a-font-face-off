@@ -926,9 +926,6 @@ const axisInfo = {
     }
 };
 
-// Current font controls (variables)
-let topFontControlsVars = {};
-let bottomFontControlsVars = {};
 
 function getEffectiveFontDefinition(fontName) {
     return dynamicFontDefinitions[fontName] || fontDefinitions[fontName] || { axes: [], defaults: {}, ranges: {}, steps: {} };
@@ -1939,35 +1936,16 @@ function buildCss2AxisRangesFromMetadata(md) {
 }
 
 function generateFontControls(position, fontName) {
-    const axesSection = document.getElementById(`${position}-axes-section`) ||
-                        document.getElementById(`${position}-variable-axes`);
+    const axesContainer = document.getElementById(`${position}-axes-container`);
     // Pull dynamic defs when available
     const fontDef = dynamicFontDefinitions[fontName] || fontDefinitions[fontName];
 
     // Clear existing axes controls
-    if (!axesSection) return; // Safety check
-
-    if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
-        // Body and Third Man In panels have container structure: clear the container, not the whole section
-        const axesContainer = document.getElementById(`${position}-axes-container`);
-        if (axesContainer) {
-            axesContainer.innerHTML = '';
-        }
-    } else {
-        // Top/bottom positions: clear the whole section
-        axesSection.innerHTML = '<h3>Variable Axes</h3>';
-    }
+    if (!axesContainer) return; // Safety check
+    axesContainer.innerHTML = '';
 
     if (!fontDef || fontDef.axes.length === 0) {
-        const noAxesMsg = '<p class="no-axes">This font has no variable axes.</p>';
-        if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
-            const axesContainer = document.getElementById(`${position}-axes-container`);
-            if (axesContainer) {
-                axesContainer.innerHTML = noAxesMsg;
-            }
-        } else {
-            axesSection.innerHTML += noAxesMsg;
-        }
+        axesContainer.innerHTML = '<p class="no-axes">This font has no variable axes.</p>';
         return;
     }
 
@@ -2060,15 +2038,7 @@ function generateFontControls(position, fontName) {
         controlGroup.appendChild(inputRow);
         controlGroup.appendChild(sliderRow);
 
-        // Append to the correct container based on position
-        if (position === 'body' || ['serif', 'sans', 'mono'].includes(position)) {
-            const axesContainer = document.getElementById(`${position}-axes-container`);
-            if (axesContainer) {
-                axesContainer.appendChild(controlGroup);
-            }
-        } else {
-            axesSection.appendChild(controlGroup);
-        }
+        axesContainer.appendChild(controlGroup);
 
         // Add event listeners for both slider and text input
         function activateAxis() {
@@ -2132,27 +2102,6 @@ function generateFontControls(position, fontName) {
         });
     });
 
-    // Store controls reference (only for top/bottom positions - body mode doesn't use this)
-    if (position === 'top') {
-        topFontControlsVars = {};
-        topFontControlsVars.fontSize = document.getElementById('top-font-size');
-        topFontControlsVars.lineHeight = document.getElementById('top-line-height');
-        topFontControlsVars.fontWeight = document.getElementById('top-font-weight');
-        topFontControlsVars.fontColor = document.getElementById('top-font-color');
-        fontDef.axes.forEach(axis => {
-            topFontControlsVars[axis] = document.getElementById(`top-${axis}`);
-        });
-    } else if (position === 'bottom') {
-        bottomFontControlsVars = {};
-        bottomFontControlsVars.fontSize = document.getElementById('bottom-font-size');
-        bottomFontControlsVars.lineHeight = document.getElementById('bottom-line-height');
-        bottomFontControlsVars.fontWeight = document.getElementById('bottom-font-weight');
-        bottomFontControlsVars.fontColor = document.getElementById('bottom-font-color');
-        fontDef.axes.forEach(axis => {
-            bottomFontControlsVars[axis] = document.getElementById(`bottom-${axis}`);
-        });
-    }
-    // Body mode and other positions don't need control variable storage
 }
 
 // formatAxisValue, generateBodyCSS are now in css-generators.js
@@ -2753,8 +2702,67 @@ async function migrateRemoveDuplicatedFields() {
     }
 }
 
+// Position display names for panel headings
+const PANEL_HEADINGS = {
+    top: 'Top Font', bottom: 'Bottom Font',
+    serif: 'Serif', sans: 'Sans', mono: 'Mono'
+};
+// TMI positions get "Apply All" / "Reset All" button text
+const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
+
+// Clone body-font-controls to create other panels before any other init code
+function cloneControlPanel(position) {
+    const template = document.getElementById('body-font-controls');
+    if (!template) return;
+    const clone = template.cloneNode(true);
+
+    // Replace the panel ID
+    clone.id = `${position}-font-controls`;
+
+    // Update heading
+    const h2 = clone.querySelector('h2');
+    if (h2) h2.textContent = PANEL_HEADINGS[position] || position;
+
+    // Replace all body- ID prefixes with position-
+    clone.querySelectorAll('[id]').forEach(el => {
+        el.id = el.id.replace(/^body-/, `${position}-`);
+    });
+    // Replace apply-body / reset-body button IDs and text
+    const isTMI = TMI_POSITIONS.has(position);
+    const applyBtn = clone.querySelector('[id^="apply-"]');
+    if (applyBtn) { applyBtn.id = `apply-${position}`; if (isTMI) applyBtn.textContent = 'Apply All'; }
+    const resetBtn = clone.querySelector('[id^="reset-"]');
+    if (resetBtn) { resetBtn.id = `reset-${position}`; if (isTMI) resetBtn.textContent = 'Reset All'; }
+
+    // Update data-position attributes
+    clone.querySelectorAll('[data-position]').forEach(el => {
+        el.setAttribute('data-position', position);
+    });
+
+    // Update for/label associations
+    clone.querySelectorAll('label[for]').forEach(label => {
+        label.setAttribute('for', label.getAttribute('for').replace(/^body-/, `${position}-`));
+    });
+
+    // Update aria-label attributes
+    clone.querySelectorAll('[aria-label]').forEach(el => {
+        el.setAttribute('aria-label', el.getAttribute('aria-label').replace(/Body/g, PANEL_HEADINGS[position] || position));
+    });
+
+    // Update button titles
+    clone.querySelectorAll('[title]').forEach(el => {
+        el.setAttribute('title', el.getAttribute('title').replace(/Body/g, PANEL_HEADINGS[position] || position));
+    });
+
+    // Insert after body-font-controls
+    template.parentNode.insertBefore(clone, template.nextSibling);
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
+
+    // Clone body panel to create top/bottom/serif/sans/mono panels
+    ['top', 'bottom', 'serif', 'mono', 'sans'].forEach(cloneControlPanel);
 
     // Run migration to clean up old data
     await migrateRemoveDuplicatedFields();
@@ -3094,26 +3102,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Family reset handlers removed - no longer needed
 
-    // Add event listeners for footer Reset buttons
-    const resetTopBtn = document.getElementById('reset-top');
-    if (resetTopBtn) resetTopBtn.addEventListener('click', async function() {
-        try {
-            resetTopFont();
-            await unapplyFontFromPage('top');
-            saveExtensionState();
-        } catch (_) {}
-    });
-    const resetBottomBtn = document.getElementById('reset-bottom');
-    if (resetBottomBtn) resetBottomBtn.addEventListener('click', async function() {
-        try {
-            resetBottomFont();
-            await unapplyFontFromPage('bottom');
-            saveExtensionState();
-        } catch (_) {}
-    });
-    const resetBodyBtn = document.getElementById('reset-body');
-    if (resetBodyBtn) resetBodyBtn.addEventListener('click', async function() {
-        try { await resetPanelSettings('body'); } catch (_) {}
+    // Add event listeners for footer Reset buttons (all use resetPanelSettings)
+    ['top', 'bottom', 'body'].forEach(pos => {
+        const btn = document.getElementById(`reset-${pos}`);
+        if (btn) btn.addEventListener('click', async function() {
+            try { await resetPanelSettings(pos); } catch (_) {}
+        });
     });
 
     // Custom alert OK button
@@ -3463,71 +3457,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Panel state variables are declared at module level
 
 
-    function showPanel(panel) {
-        // On narrow screens, enforce single-panel mode
-        const isNarrow = window.innerWidth <= 599;
-        if (isNarrow) {
-            if (panel === 'top' && bottomPanelOpen) hidePanel('bottom');
-            if (panel === 'bottom' && topPanelOpen) hidePanel('top');
-        }
-        if (panel === 'top') {
-            topFontControlsPanel.classList.add('visible');
-            panelOverlay.classList.add('visible');
-            topPanelOpen = true;
-            topFontGrip.classList.add('active');
-            bottomFontGrip.classList.remove('active');
-            topFontGrip.setAttribute('aria-pressed', 'true');
-            bottomFontGrip.setAttribute('aria-pressed', 'false');
-        } else if (panel === 'bottom') {
-            bottomFontControlsPanel.classList.add('visible');
-            panelOverlay.classList.add('visible');
-            bottomPanelOpen = true;
-            bottomFontGrip.classList.add('active');
-            topFontGrip.classList.remove('active');
-            bottomFontGrip.setAttribute('aria-pressed', 'true');
-            topFontGrip.setAttribute('aria-pressed', 'false');
-        }
-        updateFontComparisonLayout();
-    }
-
-    function hidePanel(panel) {
-        if (panel === 'top') {
-            topFontControlsPanel.classList.remove('visible');
-            topPanelOpen = false;
-            topFontGrip.classList.remove('active');
-            topFontGrip.setAttribute('aria-pressed', 'false');
-        } else if (panel === 'bottom') {
-            bottomFontControlsPanel.classList.remove('visible');
-            bottomPanelOpen = false;
-            bottomFontGrip.classList.remove('active');
-            bottomFontGrip.setAttribute('aria-pressed', 'false');
-        }
-
-        // Hide overlay only if no panels are open
-        if (!topPanelOpen && !bottomPanelOpen) {
-            panelOverlay.classList.remove('visible');
-        }
-        updateFontComparisonLayout();
-    }
-
-    function hideAllPanels() {
-        topFontControlsPanel.classList.remove('visible');
-        bottomFontControlsPanel.classList.remove('visible');
-        panelOverlay.classList.remove('visible');
-        topPanelOpen = false;
-        bottomPanelOpen = false;
-        topFontGrip.classList.remove('active');
-        bottomFontGrip.classList.remove('active');
-        topFontGrip.setAttribute('aria-pressed', 'false');
-        bottomFontGrip.setAttribute('aria-pressed', 'false');
-        updateFontComparisonLayout();
-    }
-
-    // Function moved to global scope - see updateFontComparisonLayout function below
-
     // Grip handlers (throttled to avoid double-fire on touch/click)
-    function toggleTop() { if (topPanelOpen) hidePanel('top'); else showPanel('top'); }
-    function toggleBottom() { if (bottomPanelOpen) hidePanel('bottom'); else showPanel('bottom'); }
     let lastToggleTs = 0;
     function throttled(fn) {
         return (e) => {
@@ -3539,26 +3469,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
     }
     // Click for desktop, pointerdown for touch-capable (no separate touchstart to avoid double fire)
-    topFontGrip.addEventListener('click', throttled(toggleTop));
-    bottomFontGrip.addEventListener('click', throttled(toggleBottom));
+    topFontGrip.addEventListener('click', throttled(() => togglePanel('top')));
+    bottomFontGrip.addEventListener('click', throttled(() => togglePanel('bottom')));
     if (window && 'PointerEvent' in window) {
-        topFontGrip.addEventListener('pointerdown', throttled(toggleTop), { passive: false });
-        bottomFontGrip.addEventListener('pointerdown', throttled(toggleBottom), { passive: false });
+        topFontGrip.addEventListener('pointerdown', throttled(() => togglePanel('top')), { passive: false });
+        bottomFontGrip.addEventListener('pointerdown', throttled(() => togglePanel('bottom')), { passive: false });
     }
 
     // Close panels when clicking overlay
-    panelOverlay.addEventListener('click', hideAllPanels);
+    panelOverlay.addEventListener('click', () => {
+        if (topPanelOpen) togglePanel('top');
+        if (bottomPanelOpen) togglePanel('bottom');
+    });
 
     // Enforce single-panel mode on narrow screens when resizing
     window.addEventListener('resize', () => {
         if (window.innerWidth <= 599 && topPanelOpen && bottomPanelOpen) {
-            hidePanel('bottom');
+            togglePanel('bottom');
         }
     });
-
-    // Reference to panel elements
-    const topFontControlsPanel = topFontControls;
-    const bottomFontControlsPanel = bottomFontControls;
 
     // Dynamically align panel bottoms above the bottom strip (#panel-grips)
     function adjustPanelBottomOffset() {
@@ -3744,119 +3673,56 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupLoadFavorite('mono');
 });
 
-// Reset functions
-function resetTopFont() {
-    const fontName = document.getElementById('top-font-display').textContent;
+// Generic reset for any panel position (replaces resetTopFont/resetBottomFont)
+function resetFontForPosition(position) {
+    const fontName = document.getElementById(`${position}-font-display`).textContent;
     const fontDef = getEffectiveFontDefinition(fontName);
 
-    // Controls will be marked as unset via UI state below
+    // Reset basic slider values
+    const sizeSlider = document.getElementById(`${position}-font-size`);
+    const lhSlider = document.getElementById(`${position}-line-height`);
+    const weightSlider = document.getElementById(`${position}-font-weight`);
+    if (sizeSlider) sizeSlider.value = 17;
+    if (lhSlider) lhSlider.value = 1.5;
+    if (weightSlider) weightSlider.value = 400;
 
-    // Reset basic properties
-    document.getElementById('top-font-size').value = 17;
-    document.getElementById('top-line-height').value = 1.5;
-    document.getElementById('top-font-weight').value = 400;
-    // Color left unset - will be marked as unset in UI state
+    // Reset text inputs
+    const sizeText = document.getElementById(`${position}-font-size-text`);
+    const lhText = document.getElementById(`${position}-line-height-text`);
+    if (sizeText) sizeText.value = 17;
+    if (lhText) lhText.value = 1.5;
 
     // Reset display values
-    (function(){ const el = document.getElementById('top-font-size-value'); if (el) el.textContent = '17px'; })();
-    const topLineHeightValue = document.getElementById('top-line-height-value');
-    if (topLineHeightValue) topLineHeightValue.textContent = '1.5';
-    const topFontWeightValue = document.getElementById('top-font-weight-value');
-    if (topFontWeightValue) topFontWeightValue.textContent = '400';
+    const sizeValue = document.getElementById(`${position}-font-size-value`);
+    const lhValue = document.getElementById(`${position}-line-height-value`);
+    const weightValue = document.getElementById(`${position}-font-weight-value`);
+    if (sizeValue) sizeValue.textContent = '17px';
+    if (lhValue) lhValue.textContent = '1.5';
+    if (weightValue) weightValue.textContent = '400';
 
-    // Reset weight control to unset/dimmed state
-    const weightControl = document.querySelector('#top-font-controls .control-group[data-control="weight"]');
-    if (weightControl) {
-        weightControl.classList.add('unset');
-    }
-
-    // Reset line height control to unset/dimmed state
-    const lineHeightControl = document.querySelector('#top-font-controls .control-group[data-control="line-height"]');
-    if (lineHeightControl) {
-        lineHeightControl.classList.add('unset');
-    }
+    // Mark weight and line-height controls as unset/dimmed
+    const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
+    if (weightControl) weightControl.classList.add('unset');
+    const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
+    if (lineHeightControl) lineHeightControl.classList.add('unset');
 
     // Reset variable axes and make them unset/dimmed
     if (fontDef && fontDef.axes.length > 0) {
         fontDef.axes.forEach(axis => {
-            const control = document.getElementById(`top-${axis}`);
-            const textInput = document.getElementById(`top-${axis}-text`);
-            const controlGroup = document.querySelector(`#top-font-controls .control-group[data-axis="${axis}"]`);
+            const control = document.getElementById(`${position}-${axis}`);
+            const textInput = document.getElementById(`${position}-${axis}-text`);
+            const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
 
             if (control) {
                 control.value = fontDef.defaults[axis];
                 if (textInput) textInput.value = fontDef.defaults[axis];
-                if (controlGroup) {
-                    controlGroup.classList.add('unset');
-                }
+                if (controlGroup) controlGroup.classList.add('unset');
             }
         });
     }
 
     // Apply the reset state
-    applyFont('top');
-}
-
-function resetBottomFont() {
-    const fontName = document.getElementById('bottom-font-display').textContent;
-    const fontDef = getEffectiveFontDefinition(fontName);
-
-    // Controls will be marked as unset via UI state below
-
-    // Reset basic properties
-    document.getElementById('bottom-font-size').value = 17;
-    document.getElementById('bottom-line-height').value = 1.5;
-    document.getElementById('bottom-font-weight').value = 400;
-    // Color left unset - will be marked as unset in UI state
-
-    // Reset text input values
-    const bottomFontSizeTextInput = document.getElementById('bottom-font-size-text');
-    const bottomLineHeightTextInput = document.getElementById('bottom-line-height-text');
-    if (bottomFontSizeTextInput) bottomFontSizeTextInput.value = 17;
-    if (bottomLineHeightTextInput) bottomLineHeightTextInput.value = 1.5;
-
-    // Reset display values
-    (function(){ const el = document.getElementById('bottom-font-size-value'); if (el) el.textContent = '17px'; })();
-    const bottomLineHeightValue = document.getElementById('bottom-line-height-value');
-    if (bottomLineHeightValue) bottomLineHeightValue.textContent = '1.5';
-    const bottomFontWeightValue = document.getElementById('bottom-font-weight-value');
-    if (bottomFontWeightValue) bottomFontWeightValue.textContent = '400';
-
-    // Reset weight control to unset/dimmed state
-    const weightControl = document.querySelector('#bottom-font-controls .control-group[data-control="weight"]');
-    if (weightControl) {
-        weightControl.classList.add('unset');
-    }
-
-    // Reset line height control to unset/dimmed state
-    const lineHeightControl = document.querySelector('#bottom-font-controls .control-group[data-control="line-height"]');
-    if (lineHeightControl) {
-        lineHeightControl.classList.add('unset');
-    }
-
-    // Reset variable axes and make them unset/dimmed
-    if (fontDef && fontDef.axes.length > 0) {
-        fontDef.axes.forEach(axis => {
-            const control = document.getElementById(`bottom-${axis}`);
-            const textInput = document.getElementById(`bottom-${axis}-text`);
-            const controlGroup = document.querySelector(`#bottom-font-controls .control-group[data-axis="${axis}"]`);
-            const valueSpan = document.getElementById(`bottom-${axis}-value`);
-
-            if (control) {
-                control.value = fontDef.defaults[axis];
-                if (textInput) textInput.value = fontDef.defaults[axis];
-                if (valueSpan) {
-                    valueSpan.textContent = formatAxisValue(axis, fontDef.defaults[axis]);
-                }
-                if (controlGroup) {
-                    controlGroup.classList.add('unset');
-                }
-            }
-        });
-    }
-
-    // Apply the reset state
-    applyFont('bottom');
+    applyFont(position);
 }
 
 // (apply buttons listeners are bound in the primary DOMContentLoaded block above)
@@ -5205,12 +5071,26 @@ function countThirdManInDifferences() {
 }
 
 // Apply panel configuration based on current mode
+// Routing table: maps (mode, panelId) → apply/unapply functions
+const PANEL_ROUTE = {
+    'body-contact': {
+        body: { apply: (c) => applyFontToPage('body', c), unapply: () => unapplyFontFromPage('body') }
+    },
+    'faceoff': {
+        serif: { apply: (c) => applyFontToPage('top', c), unapply: () => unapplyFontFromPage('top') },
+        sans:  { apply: (c) => applyFontToPage('bottom', c), unapply: () => unapplyFontFromPage('bottom') }
+    },
+    'third-man-in': {
+        serif: { apply: (c) => applyThirdManInFont('serif', c), unapply: () => unapplyThirdManInFont('serif') },
+        sans:  { apply: (c) => applyThirdManInFont('sans', c), unapply: () => unapplyThirdManInFont('sans') },
+        mono:  { apply: (c) => applyThirdManInFont('mono', c), unapply: () => unapplyThirdManInFont('mono') }
+    }
+};
+
 function applyPanelConfiguration(panelId) {
     console.log(`applyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
-    const currentMode = currentViewMode;
     const config = getCurrentUIConfig(panelId);
 
-    // Body mode can apply font size/weight/color changes even without selecting a specific font
     if (!config) {
         console.log('applyPanelConfiguration: No config found');
         return Promise.resolve(false);
@@ -5226,25 +5106,10 @@ function applyPanelConfiguration(panelId) {
         console.log(`applyPanelConfiguration: Allowing ${panelId} with properties but no fontName:`, config);
     }
 
-    if (currentMode === 'third-man-in') {
-        // Use Third Man In specific application
-        if (['serif', 'sans', 'mono'].includes(panelId)) {
-            console.log(`applyPanelConfiguration: Applying ${panelId} with config:`, config);
-            return applyThirdManInFont(panelId, config);
-        }
-    } else if (currentMode === 'body-contact' && panelId === 'body') {
-        // Use body application logic
-        console.log(`applyPanelConfiguration: Applying body with config:`, config);
-        return applyFontToPage('body', config);
-    } else if (currentMode === 'faceoff') {
-        // Use face-off application logic
-        if (panelId === 'serif') {
-            console.log(`applyPanelConfiguration: Applying top/serif with config:`, config);
-            return applyFontToPage('top', config);
-        } else if (panelId === 'sans') {
-            console.log(`applyPanelConfiguration: Applying bottom/sans with config:`, config);
-            return applyFontToPage('bottom', config);
-        }
+    const route = PANEL_ROUTE[currentViewMode]?.[panelId];
+    if (route) {
+        console.log(`applyPanelConfiguration: Applying ${panelId} with config:`, config);
+        return route.apply(config);
     }
 
     return Promise.resolve(false);
@@ -5252,27 +5117,11 @@ function applyPanelConfiguration(panelId) {
 
 function unapplyPanelConfiguration(panelId) {
     console.log(`unapplyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
-    const currentMode = currentViewMode;
 
-    if (currentMode === 'third-man-in') {
-        // Use Third Man In specific unapplication
-        if (['serif', 'sans', 'mono'].includes(panelId)) {
-            console.log(`unapplyPanelConfiguration: Unapplying ${panelId}`);
-            return unapplyThirdManInFont(panelId);
-        }
-    } else if (currentMode === 'body-contact' && panelId === 'body') {
-        // Use body unapplication logic
-        console.log(`unapplyPanelConfiguration: Unapplying body`);
-        return unapplyFontFromPage('body');
-    } else if (currentMode === 'faceoff') {
-        // Use face-off unapplication logic
-        if (panelId === 'serif') {
-            console.log(`unapplyPanelConfiguration: Unapplying top/serif`);
-            return unapplyFontFromPage('top');
-        } else if (panelId === 'sans') {
-            console.log(`unapplyPanelConfiguration: Unapplying bottom/sans`);
-            return unapplyFontFromPage('bottom');
-        }
+    const route = PANEL_ROUTE[currentViewMode]?.[panelId];
+    if (route) {
+        console.log(`unapplyPanelConfiguration: Unapplying ${panelId}`);
+        return route.unapply();
     }
 
     return Promise.resolve(false);
@@ -5316,17 +5165,53 @@ function togglePanel(panelId) {
 
     const isVisible = panel.classList.contains('visible');
 
-    if (isVisible) {
-        panel.classList.remove('visible');
-    } else {
-        panel.classList.add('visible');
-    }
+    if (panelId === 'top' || panelId === 'bottom') {
+        // Face-off panels: manage open state, grip active/aria, overlay, narrow-screen enforcement
+        const overlay = document.getElementById('panel-overlay');
+        const grip = document.getElementById(`${panelId}-font-grip`);
+        const otherPanelId = panelId === 'top' ? 'bottom' : 'top';
+        const otherGrip = document.getElementById(`${otherPanelId}-font-grip`);
 
-    // Update font comparison layout
-    if (panelId === 'body') {
-        updateFontComparisonLayoutForBody();
-    } else if (['serif', 'sans', 'mono'].includes(panelId)) {
-        updateFontComparisonLayoutForThirdManIn();
+        if (isVisible) {
+            // Hide this panel
+            panel.classList.remove('visible');
+            if (panelId === 'top') topPanelOpen = false;
+            else bottomPanelOpen = false;
+            if (grip) { grip.classList.remove('active'); grip.setAttribute('aria-pressed', 'false'); }
+            // Hide overlay only if no panels are open
+            if (!topPanelOpen && !bottomPanelOpen && overlay) {
+                overlay.classList.remove('visible');
+            }
+        } else {
+            // On narrow screens, enforce single-panel mode
+            if (window.innerWidth <= 599) {
+                const otherPanel = document.getElementById(`${otherPanelId}-font-controls`);
+                if (otherPanel && otherPanel.classList.contains('visible')) {
+                    togglePanel(otherPanelId); // recursively close the other
+                }
+            }
+            // Show this panel
+            panel.classList.add('visible');
+            if (overlay) overlay.classList.add('visible');
+            if (panelId === 'top') topPanelOpen = true;
+            else bottomPanelOpen = true;
+            if (grip) { grip.classList.add('active'); grip.setAttribute('aria-pressed', 'true'); }
+            if (otherGrip) { otherGrip.classList.remove('active'); otherGrip.setAttribute('aria-pressed', 'false'); }
+        }
+        updateFontComparisonLayout();
+    } else {
+        // Body / TMI panels: simple toggle
+        if (isVisible) {
+            panel.classList.remove('visible');
+        } else {
+            panel.classList.add('visible');
+        }
+
+        if (panelId === 'body') {
+            updateFontComparisonLayoutForBody();
+        } else if (['serif', 'sans', 'mono'].includes(panelId)) {
+            updateFontComparisonLayoutForThirdManIn();
+        }
     }
 }
 
@@ -5566,29 +5451,11 @@ function unsetAllPanelControls(panelId) {
     // Clear extension state for this panel
     if (panelId === 'body') {
         delete extensionState[currentViewMode].bodyFont;
-        // Active axes will be derived from UI state
-        // Save the cleared state to UI storage
         saveExtensionState();
-
-        // Reset body control values to defaults
-        const bodyFontSizeSlider = document.getElementById('body-font-size');
-        const bodyFontSizeText = document.getElementById('body-font-size-text');
-        const bodyFontSizeValue = document.getElementById('body-font-size-value');
-        const bodyLineHeightSlider = document.getElementById('body-line-height');
-        const bodyLineHeightText = document.getElementById('body-line-height-text');
-        const bodyLineHeightValue = document.getElementById('body-line-height-value');
-        const bodyFontWeightSlider = document.getElementById('body-font-weight');
-        const bodyFontWeightValue = document.getElementById('body-font-weight-value');
-
-        if (bodyFontSizeSlider) bodyFontSizeSlider.value = 17;
-        if (bodyFontSizeText) bodyFontSizeText.value = 17;
-        if (bodyFontSizeValue) bodyFontSizeValue.textContent = '17px';
-        if (bodyLineHeightSlider) bodyLineHeightSlider.value = 1.5;
-        if (bodyLineHeightText) bodyLineHeightText.value = 1.5;
-        if (bodyLineHeightValue) bodyLineHeightValue.textContent = '1.5';
-        if (bodyFontWeightSlider) bodyFontWeightSlider.value = 400;
-        if (bodyFontWeightValue) bodyFontWeightValue.textContent = '400';
     }
+
+    // Reset slider/text/value controls to defaults
+    resetFontForPosition(panelId);
 
     // Unset all control groups
     const controlGroups = document.querySelectorAll(`#${panelId}-font-controls .control-group`);

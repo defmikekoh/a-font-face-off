@@ -399,14 +399,7 @@ body {
     min-width: 80px;
 }
 
-#body-font-controls .favorites-section {
-    /* Override default column layout for Body panel footer */
-    flex-direction: row !important;
-    gap: 6px; /* Standard spacing between buttons */
-    justify-content: flex-start; /* Align buttons to the left */
-    align-items: center;
-    width: 100%;
-}
+/* Body panel footer uses same footer-icons + footer-actions as TMI panels */
 
 /* Invisible "Out of Body" grip for perfect symmetry */
 /* This creates a phantom grip on the left that matches the real "Body" grip on the right,
@@ -1493,27 +1486,6 @@ body.body-contact #font-comparison {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3) !important;
 }
 
-/* Size text inputs for font size and line height */
-.size-text-input {
-    width: 65px;
-    padding: 4px 6px;
-    background: #34495e;
-    color: #ecf0f1;
-    border: 1px solid #4a5a6a;
-    border-radius: 3px;
-    font-size: 11px;
-    text-align: center;
-    margin-right: 8px;
-    outline: none;
-}
-
-.size-text-input:focus {
-    border-color: #3498db !important;
-    background: #ffffff !important;
-    opacity: 1 !important;
-    color: #2c3e50 !important;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3) !important;
-}
 
 .control-group input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -1555,26 +1527,14 @@ body.body-contact #font-comparison {
 }
 
 /* Variable axes active state: same palette as unset, just brighter */
-#top-axes-section .control-group:not(.unset),
-#bottom-axes-section .control-group:not(.unset) {
+.axes-container .control-group:not(.unset) {
     opacity: 0.75;
 }
 
-#top-axes-section .control-group:not(.unset) .axis-info-btn,
-#bottom-axes-section .control-group:not(.unset) .axis-info-btn {
+.axes-container .control-group:not(.unset) .axis-info-btn {
     background: #9aa3a7;
     color: #ffffff;
     border: 1px solid #9aa3a7;
-}
-
-#top-axes-section .control-group:not(.unset) .axis-reset-btn,
-#bottom-axes-section .control-group:not(.unset) .axis-reset-btn {
-    /* Use the same red reset style as basic controls */
-}
-
-#top-axes-section .control-group:not(.unset) .axis-reset-btn:hover,
-#bottom-axes-section .control-group:not(.unset) .axis-reset-btn:hover {
-    /* Use global hover style */
 }
 
 .control-group.unset label {
@@ -3385,18 +3345,6 @@ body {
         background: #adb5bd;
     }
 
-    /* Size text inputs light theme */
-    .size-text-input {
-        background: #ffffff;
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .size-text-input:focus {
-        border-color: #495057 !important;
-        background: #ffffff !important;
-        color: #212529 !important;
-    }
 
     /* Save Modal light theme */
     .save-modal-content {
@@ -3536,26 +3484,14 @@ body {
     }
 
     /* Variable axes active state in light theme: same palette as unset, just brighter */
-    #top-axes-section .control-group:not(.unset),
-    #bottom-axes-section .control-group:not(.unset) {
+    .axes-container .control-group:not(.unset) {
         opacity: 0.85;
     }
 
-    #top-axes-section .control-group:not(.unset) .axis-info-btn,
-    #bottom-axes-section .control-group:not(.unset) .axis-info-btn {
+    .axes-container .control-group:not(.unset) .axis-info-btn {
         background: #495057;
-        color: #ffffff; /* activated '?' icon white */
+        color: #ffffff;
         border: 1px solid #495057;
-    }
-
-    #top-axes-section .control-group:not(.unset) .axis-reset-btn,
-    #bottom-axes-section .control-group:not(.unset) .axis-reset-btn {
-        /* Use the same red reset style as basic controls in light theme */
-    }
-
-    #top-axes-section .control-group:not(.unset) .axis-reset-btn:hover,
-    #bottom-axes-section .control-group:not(.unset) .axis-reset-btn:hover {
-        /* Use global hover style */
     }
 
 /* Numeric Modal Styles */

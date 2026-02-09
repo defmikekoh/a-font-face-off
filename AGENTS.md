@@ -77,9 +77,13 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 - `storeCss2UrlInCache(fontName, css2Url)` — stores Google Fonts URL in global `affoCss2UrlCache`
 - `getFontMemory(position)` — returns runtime font memory object for a panel position
 - `MODE_CONFIG` — data-driven mode metadata (positions, stateKeys, useDomain) used by save/switch/applied-check functions
+- `PANEL_ROUTE` — routing table mapping `(mode, panelId)` → `{ apply, unapply }` functions, replacing mode-branching if/else chains
 - `determineButtonState(changeCount, allDefaults, domainHasApplied)` — shared apply/reset/hide decision logic
 - `getPositionCallbacks(position)` — returns mode-appropriate preview/button/save callbacks for a panel position
 - `setupSliderControl(position, controlId, options?)` — generic factory for slider + text input handlers
+- `cloneControlPanel(position)` — clones body-font-controls template to create top/bottom/serif/sans/mono panels at startup (position-aware headings, button text)
+- `resetFontForPosition(position)` — generic reset for any panel position (sliders, text inputs, value displays, variable axes)
+- `togglePanel(panelId)` — unified panel toggle for all modes (handles face-off overlay/grip state, narrow-screen enforcement)
 
 ### Variable Font Axes
 

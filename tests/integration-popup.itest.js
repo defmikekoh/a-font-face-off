@@ -49,7 +49,7 @@ describe('Integration tests', () => {
         assert.deepEqual(modes, ['body-contact', 'faceoff', 'third-man-in']);
     });
 
-    it('switches to faceoff mode', async () => {
+    it('switches to faceoff mode and has cloned panels', async () => {
         await popupExec(driver, 'document.querySelector(\'[data-mode="faceoff"]\').click()');
         await driver.sleep(500);
 
@@ -57,6 +57,31 @@ describe('Integration tests', () => {
             "return document.querySelector('[data-mode].active')?.dataset?.mode"
         );
         assert.equal(active, 'faceoff');
+
+        // Verify cloned top/bottom control panels have correct elements
+        const panels = await popupExec(driver, `
+            return ['top', 'bottom'].map(pos => ({
+                pos,
+                panel: !!document.getElementById(pos + '-font-controls'),
+                display: !!document.getElementById(pos + '-font-display'),
+                sizeSlider: !!document.getElementById(pos + '-font-size'),
+                sizeText: !!document.getElementById(pos + '-font-size-text'),
+                weightSlider: !!document.getElementById(pos + '-font-weight'),
+                axesContainer: !!document.getElementById(pos + '-axes-container'),
+                applyBtn: !!document.getElementById('apply-' + pos),
+                resetBtn: !!document.getElementById('reset-' + pos)
+            }));
+        `);
+        for (const p of panels) {
+            assert.ok(p.panel, `${p.pos} control panel exists`);
+            assert.ok(p.display, `${p.pos} font display exists`);
+            assert.ok(p.sizeSlider, `${p.pos} font-size slider exists`);
+            assert.ok(p.sizeText, `${p.pos} font-size text input exists`);
+            assert.ok(p.weightSlider, `${p.pos} font-weight slider exists`);
+            assert.ok(p.axesContainer, `${p.pos} axes container exists`);
+            assert.ok(p.applyBtn, `${p.pos} apply button exists`);
+            assert.ok(p.resetBtn, `${p.pos} reset button exists`);
+        }
     });
 
     it('switches to third-man-in mode', async () => {
@@ -78,6 +103,29 @@ describe('Integration tests', () => {
         assert.ok(grips.serif, 'serif grip exists');
         assert.ok(grips.sans, 'sans grip exists');
         assert.ok(grips.mono, 'mono grip exists');
+
+        // Verify cloned control panels have correct elements
+        const panels = await popupExec(driver, `
+            return ['serif', 'sans', 'mono'].map(pos => ({
+                pos,
+                panel: !!document.getElementById(pos + '-font-controls'),
+                display: !!document.getElementById(pos + '-font-display'),
+                sizeSlider: !!document.getElementById(pos + '-font-size'),
+                weightSlider: !!document.getElementById(pos + '-font-weight'),
+                axesContainer: !!document.getElementById(pos + '-axes-container'),
+                applyBtn: !!document.getElementById('apply-' + pos),
+                resetBtn: !!document.getElementById('reset-' + pos)
+            }));
+        `);
+        for (const p of panels) {
+            assert.ok(p.panel, `${p.pos} control panel exists`);
+            assert.ok(p.display, `${p.pos} font display exists`);
+            assert.ok(p.sizeSlider, `${p.pos} font-size slider exists`);
+            assert.ok(p.weightSlider, `${p.pos} font-weight slider exists`);
+            assert.ok(p.axesContainer, `${p.pos} axes container exists`);
+            assert.ok(p.applyBtn, `${p.pos} apply button exists`);
+            assert.ok(p.resetBtn, `${p.pos} reset button exists`);
+        }
     });
 
     it('switches to body-contact mode', async () => {
