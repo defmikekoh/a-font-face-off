@@ -37,7 +37,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `left-toolbar.js` | Toolbar overlay injected at `document_start` |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
-| `whatfont_core.js` | Font detection utilities |
+| `whatfont_core.js` | Font detection overlay — detects font name, size, weight, variable axes (registered axes via CSS properties, custom axes via `font-variation-settings`) |
 | `custom-fonts.css` | @font-face rules for non-Google custom fonts (BBC Reith, Graphik Trial, etc.) |
 | `data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
 
@@ -87,7 +87,7 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 
 ### Variable Font Axes
 
-Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to CSS properties. Custom axes use `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`.
+Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to CSS properties. Custom axes use `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`. WhatFont (`whatfont_core.js`) detects registered axes by reading their high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) and mapping non-default values back to axis tags, since browsers don't expose them in `font-variation-settings`.
 
 ### x.com Special Handling
 
