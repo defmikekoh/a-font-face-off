@@ -969,8 +969,8 @@
         }
 
         // Handle HTTP/HTTPS URLs - download via background script
-        var fontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
-        debugLog(`[AFFO Content] Found ${fontFormat} HTTP URL ${index + 1}: ${fontUrl}`);
+        var httpFontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
+        debugLog(`[AFFO Content] Found ${httpFontFormat} HTTP URL ${index + 1}: ${fontUrl}`);
 
         return browser.runtime.sendMessage({
           type: 'affoFetch',
