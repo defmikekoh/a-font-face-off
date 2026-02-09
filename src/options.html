@@ -260,6 +260,22 @@
       gap: 10px;
       justify-content: flex-end;
     }
+
+    /* Google Drive Sync button layout */
+    #gdrive-sync-now {
+      margin-left: auto;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    #gdrive-clear-sync,
+    #gdrive-disconnect {
+      white-space: nowrap;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -506,6 +522,38 @@
 
   <div id="excludeSettings" style="display: none;">
     <div class="section">
+      <div class="section-title">Google Drive Sync</div>
+      <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
+      <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
+      <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
+      <div id="gdrive-disconnected">
+        <div class="row">
+          <button id="gdrive-connect" class="purple">Connect Google Drive</button>
+          <span id="status-gdrive-connect" class="status"></span>
+        </div>
+      </div>
+      <div id="gdrive-connected" style="display: none;">
+        <div class="row">
+          <span style="color: green; font-weight: bold;">Connected</span>
+        </div>
+        <div class="row" style="align-items: stretch; gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button id="gdrive-clear-sync" class="danger">Clear Local Sync</button>
+            <button id="gdrive-disconnect" class="danger">Disconnect</button>
+          </div>
+          <button id="gdrive-sync-now">Sync Now</button>
+        </div>
+        <div class="row">
+          <span id="gdrive-last-synced" class="status"></span>
+        </div>
+      </div>
+      <div class="row">
+        <span id="status-gdrive-sync" class="status"></span>
+      </div>
+      <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to a Google Drive folder.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Known Serif Family Names</div>
       <label for="known-serif">Classification</label>
       <textarea id="known-serif" placeholder="One family per line, case-insensitive. Example:\nPT Serif\nmencken-std"></textarea>
@@ -549,34 +597,6 @@
         <span id="status-inline" class="status"></span>
       </div>
       <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Google Drive Sync</div>
-      <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
-      <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
-      <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
-      <div id="gdrive-disconnected">
-        <div class="row">
-          <button id="gdrive-connect" class="purple">Connect Google Drive</button>
-          <span id="status-gdrive-connect" class="status"></span>
-        </div>
-      </div>
-      <div id="gdrive-connected" style="display: none;">
-        <div class="row" style="align-items: center; gap: 10px;">
-          <span style="color: green; font-weight: bold;">Connected</span>
-          <button id="gdrive-sync-now" class="purple">Sync Now</button>
-          <button id="gdrive-clear-sync" class="danger">Clear Local Sync</button>
-          <button id="gdrive-disconnect" class="danger">Disconnect</button>
-        </div>
-        <div class="row">
-          <span id="gdrive-last-synced" class="status"></span>
-        </div>
-      </div>
-      <div class="row">
-        <span id="status-gdrive-sync" class="status"></span>
-      </div>
-      <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to a Google Drive folder.</div>
     </div>
 
     <div class="section">
