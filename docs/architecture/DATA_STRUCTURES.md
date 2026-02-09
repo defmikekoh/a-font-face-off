@@ -279,11 +279,12 @@ Single entry point for converting any external config (favorites, domain storage
 Used when loading from: favorites, domain storage (`affoApplyMap`), any external source.
 
 #### `buildPayload(position, providedConfig?)`
-Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Adds `styleId` for TMI positions. **Note:** Does NOT include `fontFaceRule` or `css2Url` in the payload to eliminate per-domain duplication:
+Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. **Note:** Does NOT include `fontFaceRule`, `css2Url`, or `styleId` in the payload to eliminate per-domain duplication:
 - `fontFaceRule`: content.js looks up custom font @font-face rules on-demand by parsing custom-fonts.css and ap-fonts.css
 - `css2Url`: Stored in global `affoCss2UrlCache` (fontName → URL mapping); content.js looks up by fontName
+- `styleId`: content.js computes it as `'a-font-face-off-style-' + fontType` (deterministic, no need to store)
 
-This eliminates storage duplication - the same multi-KB `fontFaceRule` and identical `css2Url` are no longer stored per-domain. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
+This eliminates storage duplication - the same multi-KB `fontFaceRule` and identical `css2Url` are no longer stored per-domain, and computed values like `styleId` are derived at runtime. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
 
 #### `getCurrentUIConfig(position)`
 Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. For custom fonts, includes `fontFaceRule` from `fontDefinitions` for use in UI state, favorites, and popup preview. This is the canonical "read from UI" function.
