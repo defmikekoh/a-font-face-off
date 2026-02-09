@@ -338,6 +338,18 @@ Returns `{ preview, buttons, save }` callbacks appropriate for a panel position.
 #### `setupSliderControl(position, controlId, options?)`
 Generic factory for slider input, text keydown/blur, and value display handlers. Used for font-size, line-height, and font-weight across all 6 positions. Options: `{ format, suffix, clampMin, clampMax }`.
 
+#### `cloneControlPanel(position)`
+Clones the `body-font-controls` template to create control panels for top, bottom, serif, sans, and mono positions at startup. Replaces all `body-` ID prefixes, updates headings (e.g. "Top Font", "Serif"), button text ("Apply All"/"Reset All" for TMI positions), aria-labels, and titles. All 5 panels are cloned before any other initialization code runs.
+
+#### `PANEL_ROUTE` constant
+Routing table mapping `(mode, panelId)` → `{ apply, unapply }` functions. Replaces mode-branching if/else chains in `applyPanelConfiguration()` and `unapplyPanelConfiguration()`.
+
+#### `resetFontForPosition(position)`
+Generic reset for any panel position. Resets slider values (17, 1.6, 400), text inputs, value displays, marks all control groups as `unset`, resets variable axes using `getEffectiveFontDefinition()`, and calls `applyFont(position)`.
+
+#### `togglePanel(panelId)`
+Unified panel toggle for all modes. For face-off panels (top/bottom): manages grip active/aria state, overlay visibility, and narrow-screen single-panel enforcement. For body/TMI panels: simple classList toggle.
+
 ### Font Application
 - `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyMapForOrigin()` (1 storage write instead of N) with parallel CSS application
 
