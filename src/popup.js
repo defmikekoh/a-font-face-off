@@ -2457,10 +2457,7 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
 
-    // Add styleId for TMI positions
-    if (['serif', 'sans', 'mono'].includes(position)) {
-        payload.styleId = `a-font-face-off-style-${position}`;
-    }
+    // Note: styleId is not stored - content.js computes it as 'a-font-face-off-style-' + fontType
 
     // Compute and cache css2Url for Google Fonts (skip for custom fonts)
     // Note: css2Url is NOT included in payload - content.js will lookup from cache
@@ -2715,8 +2712,52 @@ function getPositionCallbacks(position) {
     return null;
 }
 
+// Migration: Remove fontFaceRule and css2Url from existing domain storage
+async function migrateRemoveDuplicatedFields() {
+    try {
+        const result = await browser.storage.local.get('affoApplyMap');
+        const applyMap = result.affoApplyMap;
+        if (!applyMap || typeof applyMap !== 'object') return;
+
+        let modified = false;
+        for (const domain in applyMap) {
+            for (const fontType in applyMap[domain]) {
+                const config = applyMap[domain][fontType];
+                if (config && typeof config === 'object') {
+                    if ('fontFaceRule' in config) {
+                        delete config.fontFaceRule;
+                        modified = true;
+                    }
+                    if ('css2Url' in config) {
+                        delete config.css2Url;
+                        modified = true;
+                    }
+                    if ('styleId' in config) {
+                        delete config.styleId;
+                        modified = true;
+                    }
+                }
+            }
+        }
+
+        if (modified) {
+            await browser.storage.local.set({ affoApplyMap: applyMap });
+            console.log('✅ Migration: Removed duplicated fields from domain storage');
+
+            // Give storage.onChanged listeners time to fire, then wait a bit for auto-sync
+            // If auto-sync doesn't happen naturally, the next manual change will trigger it
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    } catch (e) {
+        console.error('❌ Migration: Failed to remove duplicated fields:', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
+
+    // Run migration to clean up old data
+    await migrateRemoveDuplicatedFields();
 
     // Inject custom fonts first, before any font previews
     await injectCustomFonts();
@@ -4874,7 +4915,8 @@ function applyAllThirdManInFonts() {
                     if (isDifferent) {
                         console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
                         console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
-                        fontConfigs[type] = config;
+                        // Use buildPayload to strip fontFaceRule/css2Url before saving
+                        fontConfigs[type] = { _needsPayload: true, type, config };
                         appliedAny = true;
 
                         // Prepare CSS/font loading jobs (but don't execute yet)
@@ -4925,11 +4967,20 @@ function applyAllThirdManInFonts() {
                 });
             });
 
-            return Promise.all(css2UrlPromises).then(() => {
-                // Step 2b: SINGLE batch storage write for all fonts (now with css2Url included)
-                // For inline apply domains, content script handles font loading with progressive loading
-                console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(fontConfigs));
-                return saveBatchApplyMapForOrigin(origin, fontConfigs);
+            return Promise.all(css2UrlPromises).then(async () => {
+                // Step 2a: Build payloads for all configs (strips fontFaceRule/css2Url)
+                const payloadConfigs = {};
+                for (const [type, tempConfig] of Object.entries(fontConfigs)) {
+                    if (tempConfig._needsPayload) {
+                        payloadConfigs[type] = await buildPayload(tempConfig.type, tempConfig.config);
+                    } else {
+                        payloadConfigs[type] = tempConfig;
+                    }
+                }
+
+                // Step 2b: SINGLE batch storage write for all fonts (now with clean payloads)
+                console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
+                return saveBatchApplyMapForOrigin(origin, payloadConfigs);
             }).then(() => {
 
             // Step 3: Clean up any existing CSS for all types before applying new CSS
