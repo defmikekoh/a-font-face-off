@@ -1,4 +1,4 @@
-/* Options page logic: manage known serif/sans lists and Google Drive sync */
+/* Options page logic: manage known serif/sans lists and cloud sync (Google Drive / WebDAV) */
 (function(){
   let syncRetryAction = null;
 
@@ -148,7 +148,7 @@
     return normalize(String(text || '').split(/\r?\n/));
   }
 
-  // ─── Google Drive Sync UI ─────────────────────────────────────────────
+  // ─── Cloud Sync UI ───────────────────────────────────────────────────
 
   function updateGDriveFolderPreview() {
     const suffix = (document.getElementById('gdrive-folder-suffix').value || '').trim();
@@ -172,23 +172,57 @@
     return `${days}d ago`;
   }
 
-  async function updateGDriveConnectionState() {
-    const data = await browser.storage.local.get(['affoGDriveTokens', 'affoSyncMeta']);
-    const tokens = data.affoGDriveTokens;
-    const connected = !!(tokens && tokens.accessToken && tokens.refreshToken);
-    const disconnectedEl = document.getElementById('gdrive-disconnected');
-    const connectedEl = document.getElementById('gdrive-connected');
-    const lastSyncedEl = document.getElementById('gdrive-last-synced');
-
-    if (disconnectedEl) disconnectedEl.style.display = connected ? 'none' : 'block';
-    if (connectedEl) connectedEl.style.display = connected ? 'block' : 'none';
-
-    if (connected && lastSyncedEl) {
-      const meta = data.affoSyncMeta || {};
-      lastSyncedEl.textContent = meta.lastSync
-        ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
-        : 'Not yet synced';
+  function showSyncSection(sectionId) {
+    const sections = ['gdrive-config', 'webdav-config', 'sync-connected'];
+    for (const id of sections) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === sectionId ? 'block' : 'none';
     }
+  }
+
+  async function updateSyncConnectionState() {
+    const data = await browser.storage.local.get(['affoSyncBackend', 'affoGDriveTokens', 'affoWebDavConfig', 'affoSyncMeta']);
+    const activeBackend = data.affoSyncBackend;
+    const selectorEl = document.getElementById('sync-backend-selector');
+    const selectEl = document.getElementById('sync-backend-select');
+    const connectedLabelEl = document.getElementById('sync-connected-label');
+    const lastSyncedEl = document.getElementById('sync-last-synced');
+
+    let connected = false;
+    if (activeBackend === 'gdrive') {
+      const tokens = data.affoGDriveTokens;
+      connected = !!(tokens && tokens.accessToken && tokens.refreshToken);
+    } else if (activeBackend === 'webdav') {
+      const config = data.affoWebDavConfig;
+      connected = !!(config && config.serverUrl);
+    }
+
+    if (connected) {
+      if (selectorEl) selectorEl.style.display = 'none';
+      const backendLabel = activeBackend === 'gdrive' ? 'Google Drive' : 'WebDAV';
+      if (connectedLabelEl) connectedLabelEl.textContent = `Connected (${backendLabel})`;
+      showSyncSection('sync-connected');
+      if (lastSyncedEl) {
+        const meta = data.affoSyncMeta || {};
+        lastSyncedEl.textContent = meta.lastSync
+          ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
+          : 'Not yet synced';
+      }
+    } else {
+      if (selectorEl) selectorEl.style.display = 'block';
+      showSyncSection(null);
+      // Show the config for whatever's selected in the dropdown
+      if (selectEl) updateBackendSelector(selectEl.value);
+    }
+  }
+
+  function updateBackendSelector(value) {
+    const gdriveConfig = document.getElementById('gdrive-config');
+    const webdavConfig = document.getElementById('webdav-config');
+    if (gdriveConfig) gdriveConfig.style.display = value === 'gdrive' ? 'block' : 'none';
+    if (webdavConfig) webdavConfig.style.display = value === 'webdav' ? 'block' : 'none';
+    const connectedEl = document.getElementById('sync-connected');
+    if (connectedEl) connectedEl.style.display = 'none';
   }
 
   async function connectGDrive() {
@@ -199,22 +233,71 @@
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
       statusEl.textContent = 'Connected';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
     }
   }
 
-  async function disconnectGDrive() {
-    const statusEl = document.getElementById('status-gdrive-sync');
+  async function connectWebDav() {
+    const statusEl = document.getElementById('status-webdav-connect');
+    try {
+      const config = {
+        serverUrl: (document.getElementById('webdav-server-url').value || '').trim(),
+        username: (document.getElementById('webdav-username').value || '').trim(),
+        password: document.getElementById('webdav-password').value || '',
+        anonymous: document.getElementById('webdav-anonymous').checked
+      };
+      if (!config.serverUrl) throw new Error('Server URL is required');
+      if (!config.anonymous && (!config.username || !config.password)) {
+        throw new Error('Username and password required (or check Anonymous)');
+      }
+      statusEl.textContent = 'Connecting...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavConnect', config });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
+      statusEl.textContent = 'Connected';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      await updateSyncConnectionState();
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function testWebDav() {
+    const statusEl = document.getElementById('status-webdav-connect');
+    try {
+      const config = {
+        serverUrl: (document.getElementById('webdav-server-url').value || '').trim(),
+        username: (document.getElementById('webdav-username').value || '').trim(),
+        password: document.getElementById('webdav-password').value || '',
+        anonymous: document.getElementById('webdav-anonymous').checked
+      };
+      if (!config.serverUrl) throw new Error('Server URL is required');
+      statusEl.textContent = 'Testing...';
+      const res = await browser.runtime.sendMessage({ type: 'affoWebDavTest', config });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection test failed');
+      statusEl.textContent = 'Connection OK';
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    }
+  }
+
+  async function disconnectSync() {
+    const statusEl = document.getElementById('status-sync');
     try {
       statusEl.textContent = 'Disconnecting...';
-      const res = await browser.runtime.sendMessage({ type: 'affoGDriveDisconnect' });
+      const data = await browser.storage.local.get('affoSyncBackend');
+      const backend = data.affoSyncBackend;
+      const msgType = backend === 'webdav' ? 'affoWebDavDisconnect' : 'affoGDriveDisconnect';
+      const res = await browser.runtime.sendMessage({ type: msgType });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Disconnect failed');
       statusEl.textContent = 'Disconnected';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
@@ -222,14 +305,14 @@
   }
 
   async function clearLocalSync() {
-    const statusEl = document.getElementById('status-gdrive-sync');
+    const statusEl = document.getElementById('status-sync');
     try {
       statusEl.textContent = 'Clearing...';
       const res = await browser.runtime.sendMessage({ type: 'affoClearLocalSync' });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Clear failed');
       statusEl.textContent = 'Local sync data cleared';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
@@ -237,7 +320,7 @@
   }
 
   async function syncNow() {
-    const statusEl = document.getElementById('status-gdrive-sync');
+    const statusEl = document.getElementById('status-sync');
     try {
       statusEl.textContent = 'Syncing...';
       const res = await browser.runtime.sendMessage({ type: 'affoSyncNow' });
@@ -245,14 +328,14 @@
       if (res.skipped) {
         statusEl.textContent = res.reason === 'offline'
           ? 'You appear to be offline'
-          : 'Google Drive not connected';
+          : 'Sync not connected';
       } else if (!res.ok) {
         throw new Error(res.error || 'Sync failed');
       } else {
         statusEl.textContent = 'Synced';
       }
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
@@ -331,10 +414,10 @@
       applyIconThemeToPreview();
       addPreviewClickBehaviors();
 
-      // Load Google Drive settings
+      // Load sync settings
       document.getElementById('gdrive-folder-suffix').value = data.affoGDriveFolderSuffix || '';
       updateGDriveFolderPreview();
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
     } catch (e) {}
   }
 
@@ -578,10 +661,10 @@
       document.getElementById('icon-theme').value = 'heroIcons';
       updateToolbarValues();
 
-      // Reset Google Drive UI
+      // Reset sync UI
       document.getElementById('gdrive-folder-suffix').value = '';
       updateGDriveFolderPreview();
-      await updateGDriveConnectionState();
+      await updateSyncConnectionState();
 
       statusEl.textContent = 'All settings reset successfully';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
@@ -621,11 +704,21 @@
     document.getElementById('refresh-gf-metadata').addEventListener('click', refreshGfMetadata);
     document.getElementById('reset-all-settings').addEventListener('click', resetAllSettings);
 
-    // Google Drive sync handlers
+    // Cloud sync handlers
+    document.getElementById('sync-backend-select').addEventListener('change', function() {
+      updateBackendSelector(this.value);
+    });
     document.getElementById('gdrive-connect').addEventListener('click', connectGDrive);
-    document.getElementById('gdrive-disconnect').addEventListener('click', disconnectGDrive);
-    document.getElementById('gdrive-clear-sync').addEventListener('click', clearLocalSync);
-    document.getElementById('gdrive-sync-now').addEventListener('click', syncNow);
+    document.getElementById('webdav-connect').addEventListener('click', connectWebDav);
+    document.getElementById('webdav-test').addEventListener('click', testWebDav);
+    document.getElementById('webdav-anonymous').addEventListener('change', function() {
+      const disabled = this.checked;
+      document.getElementById('webdav-username').disabled = disabled;
+      document.getElementById('webdav-password').disabled = disabled;
+    });
+    document.getElementById('sync-disconnect').addEventListener('click', disconnectSync);
+    document.getElementById('sync-clear').addEventListener('click', clearLocalSync);
+    document.getElementById('sync-now').addEventListener('click', syncNow);
     document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
       updateGDriveFolderPreview();
       saveGDriveFolderSuffix();
@@ -636,7 +729,7 @@
     browser.runtime.onMessage.addListener((msg) => {
       if (!msg || msg.type !== 'affoSyncFailed') return;
 
-      const statusEl = document.getElementById('status-gdrive-sync');
+      const statusEl = document.getElementById('status-sync');
       if (statusEl) {
         statusEl.textContent = 'Auto sync failed';
         setTimeout(() => { statusEl.textContent = ''; }, 4000);
@@ -647,12 +740,12 @@
         if (!retryRes || !retryRes.ok) {
           throw new Error(retryRes && retryRes.error ? retryRes.error : 'Retry failed');
         }
-        const okStatusEl = document.getElementById('status-gdrive-sync');
+        const okStatusEl = document.getElementById('status-sync');
         if (okStatusEl) {
           okStatusEl.textContent = 'Sync retry succeeded';
           setTimeout(() => { okStatusEl.textContent = ''; }, 2500);
         }
-        await updateGDriveConnectionState();
+        await updateSyncConnectionState();
       });
     });
 

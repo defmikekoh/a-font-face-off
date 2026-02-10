@@ -261,8 +261,8 @@
       justify-content: flex-end;
     }
 
-    /* Google Drive Sync button layout */
-    #gdrive-sync-now {
+    /* Cloud Sync button layout */
+    #sync-now {
       margin-left: auto;
       flex: 1;
       display: flex;
@@ -271,8 +271,8 @@
       min-height: 0;
     }
 
-    #gdrive-clear-sync,
-    #gdrive-disconnect {
+    #sync-clear,
+    #sync-disconnect {
       white-space: nowrap;
       margin: 0;
     }
@@ -522,35 +522,66 @@
 
   <div id="excludeSettings" style="display: none;">
     <div class="section">
-      <div class="section-title">Google Drive Sync</div>
-      <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
-      <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
-      <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
-      <div id="gdrive-disconnected">
+      <div class="section-title">Cloud Sync</div>
+
+      <!-- Backend selector (shown when disconnected) -->
+      <div id="sync-backend-selector">
+        <label for="sync-backend-select">Sync backend</label>
+        <select id="sync-backend-select">
+          <option value="">None</option>
+          <option value="gdrive">Google Drive</option>
+          <option value="webdav">WebDAV</option>
+        </select>
+      </div>
+
+      <!-- Google Drive config (shown when gdrive selected and disconnected) -->
+      <div id="gdrive-config" style="display: none;">
+        <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
+        <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
+        <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
         <div class="row">
           <button id="gdrive-connect" class="purple">Connect Google Drive</button>
           <span id="status-gdrive-connect" class="status"></span>
         </div>
       </div>
-      <div id="gdrive-connected" style="display: none;">
+
+      <!-- WebDAV config (shown when webdav selected and disconnected) -->
+      <div id="webdav-config" style="display: none;">
+        <label for="webdav-server-url">Server URL</label>
+        <input id="webdav-server-url" type="url" placeholder="https://example.com/remote.php/dav/files/user/">
+        <label for="webdav-username">Username</label>
+        <input id="webdav-username" type="text" placeholder="Username">
+        <label for="webdav-password">Password</label>
+        <input id="webdav-password" type="password" placeholder="Password">
+        <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;"><input id="webdav-anonymous" type="checkbox"> Anonymous (no auth)</label>
+        <div class="row" style="margin-top: 8px;">
+          <button id="webdav-test">Test Connection</button>
+          <button id="webdav-connect" class="purple">Connect WebDAV</button>
+          <span id="status-webdav-connect" class="status"></span>
+        </div>
+      </div>
+
+      <!-- Connected state (shared, shown when any backend connected) -->
+      <div id="sync-connected" style="display: none;">
         <div class="row">
-          <span style="color: green; font-weight: bold;">Connected</span>
+          <span id="sync-connected-label" style="color: green; font-weight: bold;">Connected</span>
         </div>
         <div class="row" style="align-items: stretch; gap: 10px;">
           <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="gdrive-clear-sync" class="danger">Clear Local Sync</button>
-            <button id="gdrive-disconnect" class="danger">Disconnect</button>
+            <button id="sync-clear" class="danger">Clear Local Sync</button>
+            <button id="sync-disconnect" class="danger">Disconnect</button>
           </div>
-          <button id="gdrive-sync-now">Sync Now</button>
+          <button id="sync-now">Sync Now</button>
         </div>
         <div class="row">
-          <span id="gdrive-last-synced" class="status"></span>
+          <span id="sync-last-synced" class="status"></span>
         </div>
       </div>
+
       <div class="row">
-        <span id="status-gdrive-sync" class="status"></span>
+        <span id="status-sync" class="status"></span>
       </div>
-      <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to a Google Drive folder.</div>
+      <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to your chosen cloud storage.</div>
     </div>
 
     <div class="section">
@@ -630,7 +661,7 @@
 
   <div id="sync-failure-modal" class="affo-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sync-failure-title">
     <div class="affo-modal">
-      <div id="sync-failure-title" class="affo-modal-title">Google Drive Sync Failed</div>
+      <div id="sync-failure-title" class="affo-modal-title">Sync Failed</div>
       <div id="sync-failure-message" class="affo-modal-message"></div>
       <div class="affo-modal-actions">
         <button id="sync-failure-ignore">Ignore</button>

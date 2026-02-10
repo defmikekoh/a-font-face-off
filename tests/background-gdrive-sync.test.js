@@ -77,7 +77,13 @@ function createStorageStub(seed = {}) {
 }
 
 function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileInfo }) {
-    const storage = createStorageStub(localSeed);
+    // Ensure sync backend is configured for GDrive in all test harnesses
+    const seed = {
+        affoSyncBackend: 'gdrive',
+        affoGDriveTokens: { accessToken: 'test-token', refreshToken: 'test-refresh' },
+        ...localSeed,
+    };
+    const storage = createStorageStub(seed);
     const calls = {
         put: [],
         delete: [],
@@ -232,6 +238,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
 
 function createQueueHarness() {
     const storage = createStorageStub({
+        affoSyncBackend: 'gdrive',
         affoGDriveTokens: { accessToken: 'access-token', refreshToken: 'refresh-token' }
     });
     const notifications = [];

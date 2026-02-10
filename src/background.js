@@ -13,31 +13,37 @@ const APPLY_MAP_KEY = 'affoApplyMap';
 const FAVORITES_KEY = 'affoFavorites';
 const FAVORITES_ORDER_KEY = 'affoFavoritesOrder';
 
-// Google Drive sync constants
-const GDRIVE_TOKENS_KEY = 'affoGDriveTokens';
-const GDRIVE_FOLDER_SUFFIX_KEY = 'affoGDriveFolderSuffix';
-const GDRIVE_SYNC_META_KEY = 'affoSyncMeta';
-const GDRIVE_FOLDER_NAME_BASE = 'A Font Face-off';
-const GDRIVE_SYNC_MANIFEST_NAME = 'sync-manifest.json';
-const GDRIVE_DOMAINS_NAME = 'domains.json';
-const GDRIVE_FAVORITES_NAME = 'favorites.json';
-const GDRIVE_CUSTOM_FONTS_NAME = 'custom-fonts.css';
-const GDRIVE_KNOWN_SERIF_NAME = 'known-serif.json';
-const GDRIVE_KNOWN_SANS_NAME = 'known-sans.json';
-const GDRIVE_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
-const GDRIVE_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
+// Sync constants (backend-agnostic)
+const SYNC_BACKEND_KEY = 'affoSyncBackend';       // 'gdrive' | 'webdav'
+const SYNC_META_KEY = 'affoSyncMeta';
+const SYNC_FOLDER_NAME = 'A Font Face-off';
+const SYNC_MANIFEST_NAME = 'sync-manifest.json';
+const SYNC_DOMAINS_NAME = 'domains.json';
+const SYNC_FAVORITES_NAME = 'favorites.json';
+const SYNC_CUSTOM_FONTS_NAME = 'custom-fonts.css';
+const SYNC_KNOWN_SERIF_NAME = 'known-serif.json';
+const SYNC_KNOWN_SANS_NAME = 'known-sans.json';
+const SYNC_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
+const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
 const KNOWN_SERIF_KEY = 'affoKnownSerif';
 const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
 const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
+const SYNC_ALARM_NAME = 'affoPeriodicSync';
+const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
+
+// Google Drive constants
+const GDRIVE_TOKENS_KEY = 'affoGDriveTokens';
+const GDRIVE_FOLDER_SUFFIX_KEY = 'affoGDriveFolderSuffix';
 // GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET are loaded from gdrive-config.js (gitignored)
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GDRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 // Loopback redirect URI (native app OAuth flow) — intercepted via webRequest, port is arbitrary
 const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/affo-oauth';
-const SYNC_ALARM_NAME = 'affoPeriodicSync';
-const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
+
+// WebDAV constants
+const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';     // { serverUrl, username, password, anonymous }
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
@@ -394,6 +400,7 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
     expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000
   };
   await saveGDriveTokens(tokens);
+  await browser.storage.local.set({ [SYNC_BACKEND_KEY]: 'gdrive' });
   cachedAppFolderId = null;
   await startSyncAlarm();
   console.log('[AFFO Background] Google Drive connected');
@@ -518,7 +525,7 @@ async function disconnectGDrive() {
       credentials: 'omit'
     }).catch(() => {});
   }
-  await browser.storage.local.remove([GDRIVE_TOKENS_KEY, GDRIVE_SYNC_META_KEY]);
+  await browser.storage.local.remove([GDRIVE_TOKENS_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
   cachedAppFolderId = null;
   await stopSyncAlarm();
   console.log('[AFFO Background] Google Drive disconnected');
@@ -530,7 +537,7 @@ async function disconnectGDrive() {
 async function getAppFolderName() {
   const data = await browser.storage.local.get(GDRIVE_FOLDER_SUFFIX_KEY);
   const suffix = String(data[GDRIVE_FOLDER_SUFFIX_KEY] || '').trim();
-  return suffix ? `${GDRIVE_FOLDER_NAME_BASE} ${suffix}` : GDRIVE_FOLDER_NAME_BASE;
+  return suffix ? `${SYNC_FOLDER_NAME} ${suffix}` : SYNC_FOLDER_NAME;
 }
 
 async function findFolder(name, parentId) {
@@ -666,7 +673,6 @@ async function gdrivePutFile(name, folderId, content, contentType) {
   };
 }
 
-// eslint-disable-next-line no-unused-vars -- exposed to tests via globalThis.__affoDriveOps
 async function gdriveDeleteFile(name, folderId) {
   const matches = await findFilesByName(name, folderId);
   for (const match of matches) {
@@ -679,7 +685,153 @@ async function gdriveDeleteFile(name, folderId) {
   }
 }
 
-// ─── Google Drive: Sync Algorithm ──────────────────────────────────────
+// ─── WebDAV I/O ───────────────────────────────────────────────────────
+
+async function getWebDavConfig() {
+  const data = await browser.storage.local.get(WEBDAV_CONFIG_KEY);
+  return data[WEBDAV_CONFIG_KEY] || null;
+}
+
+async function isWebDavConfigured() {
+  const config = await getWebDavConfig();
+  if (!config || !config.serverUrl) return false;
+  if (config.anonymous) return true;
+  return !!(config.username && config.password);
+}
+
+async function connectWebDav(config) {
+  await browser.storage.local.set({
+    [WEBDAV_CONFIG_KEY]: config,
+    [SYNC_BACKEND_KEY]: 'webdav'
+  });
+  await startSyncAlarm();
+  console.log('[AFFO Background] WebDAV connected');
+  return { ok: true };
+}
+
+async function disconnectWebDav() {
+  await browser.storage.local.remove([WEBDAV_CONFIG_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
+  await stopSyncAlarm();
+  console.log('[AFFO Background] WebDAV disconnected');
+  return { ok: true };
+}
+
+async function testWebDavConnection(config) {
+  let url = config.serverUrl.trim();
+  if (!url.endsWith('/')) url += '/';
+  const headers = webdavHeaders(config);
+  // Try a simple PROPFIND on the root to verify connectivity + auth
+  const res = await fetch(url, {
+    method: 'PROPFIND',
+    headers: { ...headers, Depth: '0' },
+    credentials: 'omit'
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Authentication failed');
+  }
+  if (!res.ok && res.status !== 207) {
+    throw new Error('WebDAV server returned: ' + res.status);
+  }
+  return { ok: true };
+}
+
+function webdavHeaders(config) {
+  const headers = {};
+  if (!config.anonymous && config.username && config.password) {
+    headers['Authorization'] = 'Basic ' + btoa(config.username + ':' + config.password);
+  }
+  return headers;
+}
+
+async function webdavInit() {
+  const config = await getWebDavConfig();
+  if (!config || !config.serverUrl) throw new Error('WebDAV not configured');
+  let url = config.serverUrl.trim();
+  if (!url.endsWith('/')) url += '/';
+  const folderSuffixData = await browser.storage.local.get(GDRIVE_FOLDER_SUFFIX_KEY);
+  const suffix = (folderSuffixData[GDRIVE_FOLDER_SUFFIX_KEY] || '').trim();
+  const folderName = suffix ? `${SYNC_FOLDER_NAME} ${suffix}` : SYNC_FOLDER_NAME;
+  url += encodeURIComponent(folderName) + '/';
+  const headers = webdavHeaders(config);
+  // Ensure folder exists (MKCOL; 405 = already exists on most servers)
+  const mkcolRes = await fetch(url, {
+    method: 'MKCOL', headers, credentials: 'omit'
+  });
+  if (!mkcolRes.ok && mkcolRes.status !== 405) {
+    throw new Error('WebDAV MKCOL failed: ' + mkcolRes.status);
+  }
+  return { baseUrl: url, headers };
+}
+
+// ─── Sync Backend Interface ───────────────────────────────────────────
+// Each backend provides: init(), isConfigured(), get(name), put(name, content, contentType), remove(name)
+// get returns { data, remoteRev } | { notFound: true }
+// put returns { remoteRev } (null for backends without revision tracking)
+
+const gdriveBackend = {
+  name: 'gdrive',
+  _folderId: null,
+  async init() {
+    const { appFolderId } = await ensureAppFolder();
+    this._folderId = appFolderId;
+  },
+  async isConfigured() { return isGDriveConfigured(); },
+  async get(name) { return gdriveGetFile(name, this._folderId); },
+  async put(name, content, contentType) { return gdrivePutFile(name, this._folderId, content, contentType); },
+  async remove(name) { return gdriveDeleteFile(name, this._folderId); },
+};
+
+const webdavBackend = {
+  name: 'webdav',
+  _baseUrl: null,
+  _headers: {},
+  async init() {
+    const { baseUrl, headers } = await webdavInit();
+    this._baseUrl = baseUrl;
+    this._headers = headers;
+  },
+  async isConfigured() { return isWebDavConfigured(); },
+  async get(name) {
+    const res = await fetch(this._baseUrl + encodeURIComponent(name), {
+      headers: this._headers, credentials: 'omit'
+    });
+    if (res.status === 404) return { notFound: true };
+    if (!res.ok) throw new Error('WebDAV GET failed: ' + res.status);
+    const data = await res.text();
+    return { data, remoteRev: null };
+  },
+  async put(name, content, contentType) {
+    const res = await fetch(this._baseUrl + encodeURIComponent(name), {
+      method: 'PUT',
+      headers: { ...this._headers, 'Content-Type': contentType },
+      body: content,
+      credentials: 'omit'
+    });
+    if (!res.ok) throw new Error('WebDAV PUT failed: ' + res.status);
+    return { remoteRev: null };
+  },
+  async remove(name) {
+    const res = await fetch(this._baseUrl + encodeURIComponent(name), {
+      method: 'DELETE', headers: this._headers, credentials: 'omit'
+    });
+    if (!res.ok && res.status !== 404) throw new Error('WebDAV DELETE failed: ' + res.status);
+  },
+};
+
+async function getActiveBackend() {
+  const data = await browser.storage.local.get(SYNC_BACKEND_KEY);
+  const backend = data[SYNC_BACKEND_KEY];
+  if (backend === 'webdav') return webdavBackend;
+  if (backend === 'gdrive') return gdriveBackend;
+  return null;
+}
+
+async function isSyncConfigured() {
+  const backend = await getActiveBackend();
+  return backend ? backend.isConfigured() : false;
+}
+
+// ─── Sync Algorithm ───────────────────────────────────────────────────
 
 function notifySyncFailure(errorMessage) {
   browser.runtime.sendMessage({
@@ -689,8 +841,8 @@ function notifySyncFailure(errorMessage) {
 }
 
 async function getLocalSyncMeta() {
-  const data = await browser.storage.local.get(GDRIVE_SYNC_META_KEY);
-  const raw = data[GDRIVE_SYNC_META_KEY];
+  const data = await browser.storage.local.get(SYNC_META_KEY);
+  const raw = data[SYNC_META_KEY];
   return {
     lastSync: sanitizeTimestamp(raw && raw.lastSync),
     items: sanitizeSyncContainer(raw && raw.items)
@@ -699,7 +851,7 @@ async function getLocalSyncMeta() {
 
 async function saveLocalSyncMeta(meta) {
   await browser.storage.local.set({
-    [GDRIVE_SYNC_META_KEY]: {
+    [SYNC_META_KEY]: {
       lastSync: sanitizeTimestamp(meta && meta.lastSync),
       items: sanitizeSyncContainer(meta && meta.items)
     }
@@ -716,22 +868,35 @@ async function getLocalFavoritesSnapshot() {
   };
 }
 
+// Push helper: optionally checks GDrive revision before writing
+async function syncPush(backend, localState, filename, content, contentType) {
+  if (backend.name === 'gdrive') {
+    const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, backend._folderId);
+    assertRemoteRevisionUnchanged(revCheck, filename);
+    const putResult = await backend.put(filename, content, contentType);
+    return putResult.remoteRev || revCheck.currentRemoteRev || null;
+  }
+  const putResult = await backend.put(filename, content, contentType);
+  return putResult.remoteRev || null;
+}
+
 async function runSync() {
   if (!navigator.onLine) {
     console.log('[AFFO Background] Offline — skipping sync');
     return { ok: true, skipped: true, reason: 'offline' };
   }
 
-  if (!(await isGDriveConfigured())) {
-    console.log('[AFFO Background] Google Drive not configured — skipping sync');
+  const backend = await getActiveBackend();
+  if (!backend || !(await backend.isConfigured())) {
+    console.log('[AFFO Background] Sync not configured — skipping sync');
     return { ok: true, skipped: true, reason: 'not_configured' };
   }
 
   const now = Date.now();
-  const { appFolderId } = await ensureAppFolder();
+  await backend.init();
 
   // Fetch remote manifest
-  const manifestResult = await gdriveGetFile(GDRIVE_SYNC_MANIFEST_NAME, appFolderId);
+  const manifestResult = await backend.get(SYNC_MANIFEST_NAME);
   let remoteManifest = { version: 1, lastSync: 0, items: {} };
   const firstSync = manifestResult.notFound;
   if (!firstSync) {
@@ -752,7 +917,7 @@ async function runSync() {
   const errors = [];
   // ── Domain settings (single file) ──
   try {
-    const domainsItemKey = GDRIVE_DOMAINS_NAME;
+    const domainsItemKey = SYNC_DOMAINS_NAME;
     const localApplyMapData = await browser.storage.local.get(APPLY_MAP_KEY);
     const localApplyMap = localApplyMapData[APPLY_MAP_KEY] || {};
     const localState = localMeta.items[domainsItemKey] || {};
@@ -760,7 +925,7 @@ async function runSync() {
     const remoteModified = ((remoteManifest.items || {})[domainsItemKey] || {}).modified || 0;
 
     if (firstSync) {
-      const fileResult = await gdriveGetFile(GDRIVE_DOMAINS_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_DOMAINS_NAME);
       if (!fileResult.notFound) {
         const remoteDomains = JSON.parse(fileResult.data);
         await setStorageDuringSync({ [APPLY_MAP_KEY]: remoteDomains });
@@ -770,17 +935,14 @@ async function runSync() {
         manifestChanged = true;
       } else {
         const modified = localModified || now;
-        const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_DOMAINS_NAME, appFolderId);
-        assertRemoteRevisionUnchanged(revCheck, GDRIVE_DOMAINS_NAME);
-        const putResult = await gdrivePutFile(GDRIVE_DOMAINS_NAME, appFolderId, JSON.stringify(localApplyMap, null, 2), 'application/json');
-        const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+        const remoteRev = await syncPush(backend, localState, SYNC_DOMAINS_NAME, JSON.stringify(localApplyMap, null, 2), 'application/json');
         setModified(remoteManifest.items, domainsItemKey, modified, { remoteRev });
         setModified(localMeta.items, domainsItemKey, modified, { remoteRev });
         manifestChanged = true;
       }
     } else if (remoteModified > localModified) {
       // Pull
-      const fileResult = await gdriveGetFile(GDRIVE_DOMAINS_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_DOMAINS_NAME);
       if (!fileResult.notFound) {
         const remoteDomains = JSON.parse(fileResult.data);
         await setStorageDuringSync({ [APPLY_MAP_KEY]: remoteDomains });
@@ -789,10 +951,7 @@ async function runSync() {
     } else if (localModified > remoteModified) {
       // Push
       const modified = localModified || now;
-      const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_DOMAINS_NAME, appFolderId);
-      assertRemoteRevisionUnchanged(revCheck, GDRIVE_DOMAINS_NAME);
-      const putResult = await gdrivePutFile(GDRIVE_DOMAINS_NAME, appFolderId, JSON.stringify(localApplyMap, null, 2), 'application/json');
-      const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+      const remoteRev = await syncPush(backend, localState, SYNC_DOMAINS_NAME, JSON.stringify(localApplyMap, null, 2), 'application/json');
       setModified(remoteManifest.items, domainsItemKey, modified, { remoteRev });
       setModified(localMeta.items, domainsItemKey, modified, { remoteRev });
       manifestChanged = true;
@@ -806,13 +965,13 @@ async function runSync() {
   // ── Favorites ──
   try {
     const localFavSnapshot = await getLocalFavoritesSnapshot();
-    const favItemKey = GDRIVE_FAVORITES_NAME;
+    const favItemKey = SYNC_FAVORITES_NAME;
     const localState = localMeta.items[favItemKey] || {};
     const localModified = (localMeta.items[favItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[favItemKey] || {}).modified || 0;
 
     if (firstSync) {
-      const fileResult = await gdriveGetFile(GDRIVE_FAVORITES_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
         const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
@@ -825,17 +984,14 @@ async function runSync() {
       } else {
         const modified = localModified || now;
         const payload = JSON.stringify(localFavSnapshot, null, 2);
-        const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_FAVORITES_NAME, appFolderId);
-        assertRemoteRevisionUnchanged(revCheck, GDRIVE_FAVORITES_NAME);
-        const putResult = await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
-        const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+        const remoteRev = await syncPush(backend, localState, SYNC_FAVORITES_NAME, payload, 'application/json');
         setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
         setModified(localMeta.items, favItemKey, modified, { remoteRev });
         manifestChanged = true;
       }
     } else if (remoteModified > localModified) {
       // Pull
-      const fileResult = await gdriveGetFile(GDRIVE_FAVORITES_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
         const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
@@ -847,10 +1003,7 @@ async function runSync() {
       // Push
       const modified = localModified || now;
       const payload = JSON.stringify(localFavSnapshot, null, 2);
-      const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_FAVORITES_NAME, appFolderId);
-      assertRemoteRevisionUnchanged(revCheck, GDRIVE_FAVORITES_NAME);
-      const putResult = await gdrivePutFile(GDRIVE_FAVORITES_NAME, appFolderId, payload, 'application/json');
-      const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+      const remoteRev = await syncPush(backend, localState, SYNC_FAVORITES_NAME, payload, 'application/json');
       setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
       setModified(localMeta.items, favItemKey, modified, { remoteRev });
       manifestChanged = true;
@@ -862,13 +1015,13 @@ async function runSync() {
 
   // ── Custom fonts CSS ──
   try {
-    const cssItemKey = GDRIVE_CUSTOM_FONTS_NAME;
+    const cssItemKey = SYNC_CUSTOM_FONTS_NAME;
     const localState = localMeta.items[cssItemKey] || {};
     const localModified = (localMeta.items[cssItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[cssItemKey] || {}).modified || 0;
 
     if (firstSync) {
-      const fileResult = await gdriveGetFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_CUSTOM_FONTS_NAME);
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
         const modified = remoteModified || now;
@@ -885,10 +1038,7 @@ async function runSync() {
         }
         if (cssText) {
           const modified = localModified || now;
-          const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
-          assertRemoteRevisionUnchanged(revCheck, GDRIVE_CUSTOM_FONTS_NAME);
-          const putResult = await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
-          const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+          const remoteRev = await syncPush(backend, localState, SYNC_CUSTOM_FONTS_NAME, cssText, 'text/css');
           setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
           setModified(localMeta.items, cssItemKey, modified, { remoteRev });
           manifestChanged = true;
@@ -896,7 +1046,7 @@ async function runSync() {
       }
     } else if (remoteModified > localModified) {
       // Pull
-      const fileResult = await gdriveGetFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
+      const fileResult = await backend.get(SYNC_CUSTOM_FONTS_NAME);
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
         setModified(localMeta.items, cssItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
@@ -912,10 +1062,7 @@ async function runSync() {
       }
       if (cssText) {
         const modified = localModified || now;
-        const revCheck = await ensureRemoteRevisionUnchanged(localState, GDRIVE_CUSTOM_FONTS_NAME, appFolderId);
-        assertRemoteRevisionUnchanged(revCheck, GDRIVE_CUSTOM_FONTS_NAME);
-        const putResult = await gdrivePutFile(GDRIVE_CUSTOM_FONTS_NAME, appFolderId, cssText, 'text/css');
-        const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+        const remoteRev = await syncPush(backend, localState, SYNC_CUSTOM_FONTS_NAME, cssText, 'text/css');
         setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
         setModified(localMeta.items, cssItemKey, modified, { remoteRev });
         manifestChanged = true;
@@ -928,10 +1075,10 @@ async function runSync() {
 
   // ── Simple JSON array settings (known serif/sans, fontface-only/inline domains) ──
   const jsonArrayItems = [
-    { key: KNOWN_SERIF_KEY, filename: GDRIVE_KNOWN_SERIF_NAME, label: 'Known serif' },
-    { key: KNOWN_SANS_KEY, filename: GDRIVE_KNOWN_SANS_NAME, label: 'Known sans' },
-    { key: FFONLY_DOMAINS_KEY, filename: GDRIVE_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
-    { key: INLINE_DOMAINS_KEY, filename: GDRIVE_INLINE_DOMAINS_NAME, label: 'Inline apply domains' }
+    { key: KNOWN_SERIF_KEY, filename: SYNC_KNOWN_SERIF_NAME, label: 'Known serif' },
+    { key: KNOWN_SANS_KEY, filename: SYNC_KNOWN_SANS_NAME, label: 'Known sans' },
+    { key: FFONLY_DOMAINS_KEY, filename: SYNC_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
+    { key: INLINE_DOMAINS_KEY, filename: SYNC_INLINE_DOMAINS_NAME, label: 'Inline apply domains' }
   ];
   for (const item of jsonArrayItems) {
     try {
@@ -940,7 +1087,7 @@ async function runSync() {
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
       if (firstSync) {
-        const fileResult = await gdriveGetFile(item.filename, appFolderId);
+        const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
@@ -953,10 +1100,7 @@ async function runSync() {
           const arr = stored[item.key];
           if (Array.isArray(arr)) {
             const modified = localModified || now;
-            const revCheck = await ensureRemoteRevisionUnchanged(localState, item.filename, appFolderId);
-            assertRemoteRevisionUnchanged(revCheck, item.filename);
-            const putResult = await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
-            const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+            const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(arr, null, 2), 'application/json');
             setModified(remoteManifest.items, item.filename, modified, { remoteRev });
             setModified(localMeta.items, item.filename, modified, { remoteRev });
             manifestChanged = true;
@@ -964,7 +1108,7 @@ async function runSync() {
         }
       } else if (remoteModified > localModified) {
         // Pull
-        const fileResult = await gdriveGetFile(item.filename, appFolderId);
+        const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
@@ -976,10 +1120,7 @@ async function runSync() {
         const arr = stored[item.key];
         if (Array.isArray(arr)) {
           const modified = localModified || now;
-          const revCheck = await ensureRemoteRevisionUnchanged(localState, item.filename, appFolderId);
-          assertRemoteRevisionUnchanged(revCheck, item.filename);
-          const putResult = await gdrivePutFile(item.filename, appFolderId, JSON.stringify(arr, null, 2), 'application/json');
-          const remoteRev = putResult.remoteRev || revCheck.currentRemoteRev || null;
+          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(arr, null, 2), 'application/json');
           setModified(remoteManifest.items, item.filename, modified, { remoteRev });
           setModified(localMeta.items, item.filename, modified, { remoteRev });
           manifestChanged = true;
@@ -994,7 +1135,7 @@ async function runSync() {
   // ── Update manifests ──
   if (manifestChanged || firstSync) {
     remoteManifest.lastSync = now;
-    await gdrivePutFile(GDRIVE_SYNC_MANIFEST_NAME, appFolderId, JSON.stringify(remoteManifest, null, 2), 'application/json');
+    await backend.put(SYNC_MANIFEST_NAME, JSON.stringify(remoteManifest, null, 2), 'application/json');
   }
 
   if (errors.length === 0) {
@@ -1022,7 +1163,7 @@ function enqueueSync(options = {}) {
   const queued = syncQueue
     .catch(() => undefined)
     .then(async () => {
-      if (!(await isGDriveConfigured()) || !navigator.onLine) {
+      if (!(await isSyncConfigured()) || !navigator.onLine) {
         return { ok: true, skipped: true, reason: 'offline_or_not_configured' };
       }
       return runSync();
@@ -1091,8 +1232,8 @@ if (hasAlarmsApi()) {
   });
 }
 
-// On background script wake, ensure alarm is running if GDrive is configured
-isGDriveConfigured().then(configured => {
+// On background script wake, ensure alarm is running if sync is configured
+isSyncConfigured().then(configured => {
   if (configured) startSyncAlarm();
 });
 
@@ -1284,9 +1425,33 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
       }
     }
 
+    if (msg.type === 'affoWebDavConnect') {
+      try {
+        return await connectWebDav(msg.config);
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
+    if (msg.type === 'affoWebDavDisconnect') {
+      try {
+        return await disconnectWebDav();
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
+    if (msg.type === 'affoWebDavTest') {
+      try {
+        return await testWebDavConnection(msg.config);
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
     if (msg.type === 'affoClearLocalSync') {
       try {
-        await browser.storage.local.remove(GDRIVE_SYNC_META_KEY);
+        await browser.storage.local.remove(SYNC_META_KEY);
         cachedAppFolderId = null;
         return { ok: true };
       } catch (e) {
@@ -1473,26 +1638,26 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     JSON.stringify(c.oldValue) !== JSON.stringify(c.newValue);
 
   if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges && storageValueChanged(changes[APPLY_MAP_KEY])) {
-    markLocalItemModified(GDRIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markLocalItemModified(SYNC_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
   if (trackSyncManagedChanges) {
     const favChanged = changes[FAVORITES_KEY] && storageValueChanged(changes[FAVORITES_KEY]);
     const orderChanged = changes[FAVORITES_ORDER_KEY] && storageValueChanged(changes[FAVORITES_ORDER_KEY]);
     if (favChanged || orderChanged) {
-      markLocalItemModified(GDRIVE_FAVORITES_NAME).then(() => scheduleAutoSync());
+      markLocalItemModified(SYNC_FAVORITES_NAME).then(() => scheduleAutoSync());
     }
   }
   if (changes[KNOWN_SERIF_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SERIF_KEY])) {
-    markLocalItemModified(GDRIVE_KNOWN_SERIF_NAME).then(() => scheduleAutoSync());
+    markLocalItemModified(SYNC_KNOWN_SERIF_NAME).then(() => scheduleAutoSync());
   }
   if (changes[KNOWN_SANS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SANS_KEY])) {
-    markLocalItemModified(GDRIVE_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
+    markLocalItemModified(SYNC_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
   }
   if (changes[FFONLY_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[FFONLY_DOMAINS_KEY])) {
-    markLocalItemModified(GDRIVE_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markLocalItemModified(SYNC_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
   if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
-    markLocalItemModified(GDRIVE_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
 
   // Check if any toolbar options changed
