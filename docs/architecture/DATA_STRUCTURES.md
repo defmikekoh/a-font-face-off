@@ -68,11 +68,12 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL) | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
-| `affoSyncMeta` | Google Drive local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
-| `affoWebDavConfig` | WebDAV config for custom fonts sync | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
+| `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
+| `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
+| `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 
-### Google Drive Sync Metadata (`affoSyncMeta`)
-**Purpose**: Tracks per-item change timestamps for bidirectional Google Drive sync. Each synced item is a single file in the Drive folder (no per-domain files).
+### Cloud Sync Metadata (`affoSyncMeta`)
+**Purpose**: Tracks per-item change timestamps for bidirectional cloud sync (Google Drive or WebDAV). Each synced item is a single file in the remote folder.
 **Key**: `affoSyncMeta`
 
 ```javascript
@@ -81,7 +82,7 @@ The extension uses `browser.storage.local` for all persistence.
   "items": {
     "domains.json": {
       "modified": 1700000000000,
-      "remoteRev": "app-folder:domains.json:v3"
+      "remoteRev": "app-folder:domains.json:v3"  // GDrive only; null for WebDAV
     },
     "favorites.json": {
       "modified": 1700002000000,
@@ -92,33 +93,40 @@ The extension uses `browser.storage.local` for all persistence.
 ```
 
 - `modified`: last known write time for the item
-- `remoteRev` (optional): last observed Drive file revision fingerprint (`<fileId>:v<version>`) used for optimistic concurrency checks before overwriting remote files
+- `remoteRev` (optional, GDrive only): last observed Drive file revision fingerprint (`<fileId>:v<version>`) used for optimistic concurrency checks before overwriting remote files
 
-## WebDAV Sync
+## Cloud Sync Architecture
 
-`background.js` uses shared JSON sync helpers for domain/favorites (`pullJsonObjectFromWebDav`, `pushJsonToWebDav`, `syncJsonSnapshotOnce`, `scheduleWebDavAutoSync`) to keep behavior consistent.
+One backend active at a time (`affoSyncBackend`). Both use the same sync algorithm (`runSync`) with the same remote file structure:
 
-### Domain settings (`affoApplyMap`)
-- Remote file: `/a-font-face-off/affo-apply-map.json`
-- Auto sync trigger: `background.js` listens for `browser.storage.local` changes to `affoApplyMap`
-- Auto sync flow: pull (best effort) then push local changed snapshot
-- Conflict model: last successful push wins
-- Guard: if `affoWebDavConfig.serverUrl` is empty/missing, skip sync (no pull/push attempt)
-- Manual pull: Options page button **Pull Domain Settings** (`affoWebDavPullDomainSettings`) imports remote JSON into local `affoApplyMap`
-- Auto-failure signal: runtime message `affoWebDavDomainSyncFailed` (used by Options retry modal)
+| Remote File | Storage Key | Content |
+|---|---|---|
+| `sync-manifest.json` | — | Bidirectional merge timestamps |
+| `domains.json` | `affoApplyMap` | All domain font configs |
+| `favorites.json` | `affoFavorites` + `affoFavoritesOrder` | Saved favorites |
+| `custom-fonts.css` | `affoCustomFontsCss` | Custom @font-face rules |
+| `known-serif.json` | `affoKnownSerif` | User serif classification |
+| `known-sans.json` | `affoKnownSans` | User sans classification |
+| `fontface-only-domains.json` | `affoFontFaceOnlyDomains` | FontFace-only domain list |
+| `inline-apply-domains.json` | `affoInlineApplyDomains` | Inline apply domain list |
 
-### Favorites (`affoFavorites`, `affoFavoritesOrder`)
-- Remote file: `/a-font-face-off/affo-favorites.json`
-- Auto sync trigger: `background.js` listens for `browser.storage.local` changes to `affoFavorites` and `affoFavoritesOrder`
-- Auto sync flow: pull (best effort) then push local changed snapshot
-- Conflict model: last successful push wins
-- Guard: if `affoWebDavConfig.serverUrl` is empty/missing, skip sync (no pull/push attempt)
-- Manual sync controls: **Pull Favorites** (`affoWebDavPullFavorites`) and **Push Favorites** (`affoWebDavPushFavorites`)
-- Auto-failure signal: runtime message `affoWebDavFavoritesSyncFailed` (used by Options retry modal)
+### Backend interface (`gdriveBackend` / `webdavBackend`)
+- `init()` — setup (GDrive: ensure app folder; WebDAV: MKCOL sync folder)
+- `isConfigured()` — check credentials present
+- `get(name)` → `{ data, remoteRev }` or `{ notFound: true }`
+- `put(name, content, contentType)` → `{ remoteRev }`
+- `remove(name)` → void
 
-### Custom fonts CSS (`affoCustomFontsCss`)
-- Remote file: `/a-font-face-off/custom-fonts.css`
-- Manual sync controls in Options: **Pull Custom Fonts**, **Push Custom Fonts**
+### Google Drive specifics
+- Uses OAuth PKCE via `browser.identity.launchWebAuthFlow`
+- Files in visible "A Font Face-off{suffix}" folder
+- Optimistic concurrency via `remoteRev` (file version fingerprints)
+
+### WebDAV specifics
+- Basic auth (username/password) or anonymous
+- Files in `{serverUrl}/A Font Face-off{suffix}/` folder (created via MKCOL)
+- No optimistic concurrency (`remoteRev` always null); timestamp-based sync only
+- `credentials: 'omit'` on all requests (avoids Nextcloud CSRF issues)
 
 ## Mode Types
 
