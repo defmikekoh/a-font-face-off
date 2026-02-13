@@ -22,6 +22,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - `zothercode/fontonic-firefox-android/` is another font changing extension that may occasionally be used as a point of reference.
 - use ztemp/ as temporary area instead of /tmp/
+- at ztemp/violentmonkey is a cloned copy of the violentmonkey extension
 
 ## Architecture
 
