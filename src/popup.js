@@ -537,27 +537,15 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
 }
 
 // Custom font definitions are loaded from custom-fonts.css and ap-fonts.css.
-// ap-fonts.css contains base64-embedded AP fonts (large) and is only injected
-// into the popup DOM when an AP font is actually selected for preview.
 let CUSTOM_FONTS = [];
 let fontDefinitions = {};
 let customFontsCssText = '';
-let apFontsCssText = '';
 let customFontsLoaded = false;
 let customFontsPromise = null;
 
-// Font families defined in ap-fonts.css (loaded lazily into popup DOM)
-const AP_FONT_FAMILIES = ['AP d', 'APVar d'];
-
 // Manual axis metadata for custom variable fonts (from fvar table inspection).
 // Static custom fonts don't need entries here — they get empty axes by default.
-const CUSTOM_FONT_AXES = {
-    'APVar d': {
-        axes: ['wght', 'wdth'],
-        defaults: { wght: 400, wdth: 100 },
-        ranges:   { wght: [100, 900], wdth: [35, 100] },
-    },
-};
+const CUSTOM_FONT_AXES = {};
 
 function parseCustomFontsFromCss(cssText) {
     const blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
@@ -608,27 +596,15 @@ async function ensureCustomFontsLoaded() {
                 }
                 customFontsCssText = cssText || '';
 
-                // Also load AP fonts (base64-embedded, separate file for size)
-                try {
-                    const apUrl = browser.runtime.getURL('ap-fonts.css');
-                    const apResponse = await fetch(apUrl);
-                    apFontsCssText = await apResponse.text();
-                } catch (_e) {
-                    apFontsCssText = '';
-                }
-
-                // Parse both files and merge definitions
                 const parsed = parseCustomFontsFromCss(customFontsCssText);
-                const apParsed = parseCustomFontsFromCss(apFontsCssText);
-                CUSTOM_FONTS = [...parsed.names, ...apParsed.names];
-                fontDefinitions = { ...parsed.defs, ...apParsed.defs };
+                CUSTOM_FONTS = parsed.names;
+                fontDefinitions = parsed.defs;
                 customFontsLoaded = true;
             } catch (e) {
                 console.warn('Failed to load custom fonts CSS:', e);
                 CUSTOM_FONTS = [];
                 fontDefinitions = {};
                 customFontsCssText = '';
-                apFontsCssText = '';
                 customFontsLoaded = true;
             }
         })();
@@ -1715,9 +1691,8 @@ async function loadFont(position, fontName, options = {}) {
                 console.warn('Dynamic axis discovery failed', err);
             }
         } else {
-            // Custom fonts are already loaded via CSS @font-face declarations
-            // AP fonts need lazy injection (base64-embedded, separate file)
-            if (AP_FONT_FAMILIES.includes(fontName)) injectApFonts();
+            // Ensure custom font CSS is injected for popup preview
+            ensureCustomFontInjected(fontName);
             // Generate controls for this font (if not already done)
             generateFontControls(position, fontName);
             restoreFontSettings(position, fontName);
@@ -2606,7 +2581,6 @@ let topPanelOpen = false;
 let bottomPanelOpen = false;
 
 // Inject custom font @font-face rules into the popup's head.
-// AP fonts (large, base64-embedded) are injected lazily via injectApFonts().
 async function injectCustomFonts() {
     await ensureCustomFontsLoaded();
     if (!customFontsCssText) return;
@@ -2622,32 +2596,36 @@ async function injectCustomFonts() {
     console.log('Injected custom font @font-face rules for:', CUSTOM_FONTS);
 }
 
-// Lazily inject AP font @font-face rules (base64-embedded, ~390KB).
-// Called when an AP font is first selected for preview.
-// Converts data: URLs to blob: URLs at injection time because Firefox
-// extension popups don't load data: URL fonts even with CSP font-src data:.
-let apFontsInjected = false;
-function injectApFonts() {
-    if (apFontsInjected || !apFontsCssText) return;
-    apFontsInjected = true;
+// Lazily inject a custom font's @font-face CSS into the popup for preview.
+// Converts data: URLs to blob: URLs because Firefox extension popups
+// don't load data: URL fonts even with CSP font-src data:.
+const injectedCustomFonts = new Set();
+function ensureCustomFontInjected(fontName) {
+    if (injectedCustomFonts.has(fontName)) return;
+    const def = fontDefinitions[fontName];
+    if (!def || !def.fontFaceRule) return;
+    injectedCustomFonts.add(fontName);
 
+    let css = def.fontFaceRule;
     // Convert data: URLs to blob: URLs for Firefox CSP compatibility
-    const cssWithBlobs = apFontsCssText.replace(
-        /url\("data:font\/woff2;base64,([^"]+)"\)/g,
-        (_match, b64) => {
-            const binary = atob(b64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const blob = new Blob([bytes], { type: 'font/woff2' });
-            return `url("${URL.createObjectURL(blob)}")`;
-        }
-    );
+    if (css.includes('data:font/')) {
+        css = css.replace(
+            /url\("data:font\/woff2?;base64,([^"]+)"\)/g,
+            (_match, b64) => {
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: 'font/woff2' });
+                return `url("${URL.createObjectURL(blob)}")`;
+            }
+        );
+    }
 
-    const styleElement = document.createElement('style');
-    styleElement.id = 'affo-ap-fonts';
-    document.head.appendChild(styleElement);
-    styleElement.textContent = cssWithBlobs;
-    if (AFFO_DEBUG) console.log('Injected AP font @font-face rules (blob URLs)');
+    const style = document.createElement('style');
+    style.id = `affo-custom-font-${fontName.replace(/\s+/g, '-')}`;
+    document.head.appendChild(style);
+    style.textContent = css;
+    if (AFFO_DEBUG) console.log(`Injected custom font @font-face rules for: ${fontName}`);
 }
 
 // Returns mode-appropriate preview/button callbacks for a panel position
