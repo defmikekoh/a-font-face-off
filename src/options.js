@@ -102,9 +102,9 @@
   // Tab functionality
   function initTabs() {
     const tabs = [
-      { tab: document.getElementById('generalTab'), section: document.getElementById('generalSettings') },
+      { tab: document.getElementById('toolbarTab'), section: document.getElementById('toolbarSettings') },
       { tab: document.getElementById('customTab'), section: document.getElementById('customSettings') },
-      { tab: document.getElementById('excludeTab'), section: document.getElementById('excludeSettings') },
+      { tab: document.getElementById('advancedTab'), section: document.getElementById('advancedSettings') },
     ];
 
     // Set initial active state - General tab is active by default

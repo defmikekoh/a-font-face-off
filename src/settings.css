@@ -26,8 +26,8 @@
 
 @media (min-width: 600px) {
     
-    #generalSettings,
-    #excludeSettings {
+    #toolbarSettings,
+    #advancedSettings {
         width: 95%;
         max-width: 800px;
     }
@@ -43,7 +43,9 @@
         max-width: 800px;
     }
     
-    #settingsTabs div {
+    #toolbarTab,
+    #customTab,
+    #advancedTab {
         padding: 12px 0;
     }
     
@@ -400,7 +402,9 @@ li button {
     font-weight: bold;
 }
 
-#settingsTabs div {
+#toolbarTab,
+#customTab,
+#advancedTab {
     text-align: center;
     width: -moz-available;
     padding: 8px 0;
@@ -408,7 +412,7 @@ li button {
     border-style: solid;
 }
 
-#generalTab {
+#toolbarTab {
     border-color: var(--primary-color);
     border-radius: 4px 0 0 4px;
 }
@@ -417,19 +421,19 @@ li button {
     border-color: var(--box-background);
 }
 
-#excludeTab {
+#advancedTab {
     border-color: var(--box-background);
     border-radius: 0 4px 4px 0;
 }
 
 #customSettings,
-#excludeSettings {
+#advancedSettings {
     display: none;
 }
 
-#generalSettings,
+#toolbarSettings,
 #customSettings,
-#excludeSettings {
+#advancedSettings {
     margin: 0 auto;
     width: 90%;
     max-width: 500px;
@@ -485,9 +489,6 @@ li button {
     margin: 0 auto;
 }
 
-#buttonsSettingsInfo {
-    margin: 0 auto;
-}
 
 .containers label {
     margin: 10px auto;
