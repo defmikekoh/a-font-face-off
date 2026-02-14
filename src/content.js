@@ -191,19 +191,6 @@
           Object.assign(customFontDefinitions, parsed);
         }
 
-        // Load ap-fonts.css
-        promises.push(
-          fetch(browser.runtime.getURL('ap-fonts.css'))
-            .then(function(response) { return response.text(); })
-            .then(function(text) {
-              var parsed = parseCustomFontsFromCss(text);
-              Object.assign(customFontDefinitions, parsed);
-            })
-            .catch(function(e) {
-              debugLog('[AFFO Content] Failed to load ap-fonts.css:', e);
-            })
-        );
-
         return Promise.all(promises).then(function() {
           customFontsLoaded = true;
           debugLog('[AFFO Content] Loaded custom font definitions:', Object.keys(customFontDefinitions));
