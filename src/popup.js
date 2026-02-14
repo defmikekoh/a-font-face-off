@@ -590,7 +590,7 @@ async function ensureCustomFontsLoaded() {
                 const stored = await browser.storage.local.get('affoCustomFontsCss');
                 let cssText = stored.affoCustomFontsCss;
                 if (!cssText) {
-                    const url = browser.runtime.getURL('custom-fonts.css');
+                    const url = browser.runtime.getURL('custom-fonts-starter.css');
                     const response = await fetch(url);
                     cssText = await response.text();
                 }

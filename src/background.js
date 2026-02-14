@@ -1032,7 +1032,7 @@ async function runSync() {
         const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
         let cssText = stored[CUSTOM_FONTS_CSS_KEY];
         if (!cssText) {
-          const url = browser.runtime.getURL('custom-fonts.css');
+          const url = browser.runtime.getURL('custom-fonts-starter.css');
           const response = await fetch(url);
           cssText = await response.text();
         }
@@ -1056,7 +1056,7 @@ async function runSync() {
       const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
       let cssText = stored[CUSTOM_FONTS_CSS_KEY];
       if (!cssText) {
-        const url = browser.runtime.getURL('custom-fonts.css');
+        const url = browser.runtime.getURL('custom-fonts-starter.css');
         const response = await fetch(url);
         cssText = await response.text();
       }

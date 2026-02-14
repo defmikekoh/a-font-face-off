@@ -176,7 +176,7 @@
         // Load packaged custom-fonts.css if not overridden
         if (!cssText) {
           promises.push(
-            fetch(browser.runtime.getURL('custom-fonts.css'))
+            fetch(browser.runtime.getURL('custom-fonts-starter.css'))
               .then(function(response) { return response.text(); })
               .then(function(text) {
                 var parsed = parseCustomFontsFromCss(text);

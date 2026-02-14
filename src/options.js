@@ -101,37 +101,83 @@
 
   // Tab functionality
   function initTabs() {
-    const generalTab = document.getElementById('generalTab');
-    const excludeTab = document.getElementById('excludeTab');
-    const generalSettings = document.getElementById('generalSettings');
-    const excludeSettings = document.getElementById('excludeSettings');
+    const tabs = [
+      { tab: document.getElementById('generalTab'), section: document.getElementById('generalSettings') },
+      { tab: document.getElementById('customTab'), section: document.getElementById('customSettings') },
+      { tab: document.getElementById('excludeTab'), section: document.getElementById('excludeSettings') },
+    ];
 
     // Set initial active state - General tab is active by default
-    generalTab.classList.add('active');
+    tabs[0].tab.classList.add('active');
 
-    generalTab.addEventListener('click', () => {
-      // Show general, hide exclude
-      generalSettings.style.display = 'block';
-      excludeSettings.style.display = 'none';
+    const faceoffCircle = document.querySelector('#settingsTabs .faceoff-circle');
 
-      // Update tab appearance - hockey theme uses active class
-      generalTab.classList.add('active');
-      excludeTab.classList.remove('active');
-      generalTab.style.borderColor = 'var(--primary-color)';
-      excludeTab.style.borderColor = 'var(--box-background)';
+    tabs.forEach(({ tab, section }) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => {
+          t.section.style.display = 'none';
+          t.tab.classList.remove('active');
+          t.tab.style.borderColor = 'var(--box-background)';
+        });
+        section.style.display = 'block';
+        tab.classList.add('active');
+        tab.style.borderColor = 'var(--primary-color)';
+
+        // Darken faceoff circle when custom tab (center) is active
+        if (faceoffCircle) {
+          faceoffCircle.style.background = tab.id === 'customTab'
+            ? 'rgba(0, 51, 160, 0.2)' : '#ffffff';
+        }
+
+        // Load custom CSS when switching to that tab
+        if (tab.id === 'customTab') loadCustomCss();
+      });
     });
+  }
 
-    excludeTab.addEventListener('click', () => {
-      // Show exclude, hide general
-      generalSettings.style.display = 'none';
-      excludeSettings.style.display = 'block';
+  // Custom CSS editor
+  let customCssLoaded = false;
 
-      // Update tab appearance - hockey theme uses active class
-      excludeTab.classList.add('active');
-      generalTab.classList.remove('active');
-      generalTab.style.borderColor = 'var(--box-background)';
-      excludeTab.style.borderColor = 'var(--primary-color)';
-    });
+  async function loadCustomCss() {
+    if (customCssLoaded) return;
+    const editor = document.getElementById('custom-css-editor');
+    const stored = await browser.storage.local.get('affoCustomFontsCss');
+    let cssText = stored.affoCustomFontsCss;
+    if (!cssText) {
+      try {
+        const response = await fetch(browser.runtime.getURL('custom-fonts-starter.css'));
+        cssText = await response.text();
+      } catch (_e) {
+        cssText = '';
+      }
+    }
+    editor.value = cssText;
+    customCssLoaded = true;
+  }
+
+  async function saveCustomCss() {
+    const editor = document.getElementById('custom-css-editor');
+    const status = document.getElementById('css-status');
+    const cssText = editor.value;
+    await browser.storage.local.set({ affoCustomFontsCss: cssText });
+    status.textContent = 'Saved!';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  }
+
+  async function resetCustomCss() {
+    if (!confirm('Reset custom CSS to the default starter content?')) return;
+    const editor = document.getElementById('custom-css-editor');
+    const status = document.getElementById('css-status');
+    try {
+      const response = await fetch(browser.runtime.getURL('custom-fonts-starter.css'));
+      const cssText = await response.text();
+      editor.value = cssText;
+      await browser.storage.local.set({ affoCustomFontsCss: cssText });
+      status.textContent = 'Reset to default!';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (e) {
+      status.textContent = 'Failed to load default CSS.';
+    }
   }
 
   function normalize(lines){
@@ -679,6 +725,8 @@
   document.addEventListener('DOMContentLoaded', function(){
     initTabs();
     load();
+    document.getElementById('save-css').addEventListener('click', saveCustomCss);
+    document.getElementById('reset-css').addEventListener('click', resetCustomCss);
     document.getElementById('save-serif').addEventListener('click', saveSerif);
     document.getElementById('save-sans').addEventListener('click', saveSans);
     document.getElementById('reset-serif').addEventListener('click', resetSerif);

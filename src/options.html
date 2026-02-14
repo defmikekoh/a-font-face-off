@@ -121,9 +121,10 @@
       height: 40px;
       border: 3px solid var(--primary-color);
       border-radius: 50%;
-      background: #ffffff; /* white ice inside the circle */
+      background: rgba(0, 51, 160, 0.1); /* subtle blue like popup */
       transform: translate(-50%, -50%);
       z-index: 1;
+      transition: background 0.2s ease;
     }
     #settingsTabs .faceoff-dot {
       position: absolute;
@@ -137,21 +138,72 @@
       line-height: 1;
       pointer-events: none;
     }
-    
-    
+
+    /* "Custom" text to left of circle — vertical, rotated like FACE in popup */
+    #customTab .custom-text {
+      position: absolute;
+      top: 50%;
+      left: calc(50% - 28px);
+      transform: translate(-50%, -50%) rotate(180deg);
+      z-index: 3;
+      font-size: 11px;
+      font-weight: 700;
+      writing-mode: vertical-lr;
+      letter-spacing: 0px;
+      color: #c33;
+    }
+
+    /* "CSS" text to right of circle — vertical like OFF in popup */
+    #customTab .css-text {
+      position: absolute;
+      top: 50%;
+      left: calc(50% + 28px);
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      font-size: 11px;
+      font-weight: 700;
+      writing-mode: vertical-rl;
+      letter-spacing: 0px;
+    }
+
     /* Tab styling to work with rink theme (scope only to tab labels) */
     #settingsTabs > div#generalTab,
+    #settingsTabs > div#customTab,
     #settingsTabs > div#excludeTab {
       position: relative;
       z-index: 3;
-      background: transparent !important;
+      background: transparent;
       border: none !important;
       border-radius: 0 !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       height: 100% !important;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
+
+    /* Hover state like popup */
+    #settingsTabs > div#generalTab:hover,
+    #settingsTabs > div#customTab:hover,
+    #settingsTabs > div#excludeTab:hover {
+      background: rgba(0, 51, 160, 0.1);
+      color: #46b;
+    }
+
+    /* Vertical divider lines between tabs */
+    #settingsTabs::before,
+    #settingsTabs::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--rink-border);
+      z-index: 1;
+    }
+    #settingsTabs::before { left: 33.3%; }
+    #settingsTabs::after { left: 66.6%; }
     
     /* Decorative rink elements should not intercept clicks */
     #settingsTabs .center-line,
@@ -335,6 +387,7 @@
     <span class="faceoff-circle" aria-hidden="true"></span>
     <span class="faceoff-dot" aria-hidden="true">●</span>
     <div id="generalTab">Toolbar</div>
+    <div id="customTab"><span class="custom-text">Custom</span><span class="css-text">CSS</span></div>
     <div id="excludeTab">Advanced</div>
   </div>
 
@@ -518,6 +571,17 @@
       <span id="status-toolbar" class="status"></span>
     </div>
     <div class="hint">Shows a floating vertical toolbar on the left side of web pages with Face-off, WhatFont, and navigation buttons. Position controls vertical centering. Page Up/Down buttons support longpress for different scroll distances.</div>
+  </div>
+
+  <div id="customSettings" style="display: none;">
+    <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
+    <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving.</p>
+    <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div class="editor-actions">
+      <button id="reset-css" class="reset-css-button">Reset to Default</button>
+      <span id="css-status" class="status"></span>
+      <button id="save-css" class="save-button">Save</button>
+    </div>
   </div>
 
   <div id="excludeSettings" style="display: none;">
