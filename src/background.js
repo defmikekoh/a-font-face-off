@@ -1659,6 +1659,9 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
     markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
+  if (changes[CUSTOM_FONTS_CSS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONTS_CSS_KEY])) {
+    markLocalItemModified(SYNC_CUSTOM_FONTS_NAME).then(() => scheduleAutoSync());
+  }
 
   // Check if any toolbar options changed
   const toolbarOptionsChanged = {};

@@ -18,19 +18,9 @@ build_src/
 *.xpi
 qrcode.png
 
-# Local tooling
-.claude/
-
-# Temporary/working files
-tmp/
-temp/
-
 # Optional: large local data at repo root (kept locally)
 /fonts
 
 # Google Drive OAuth config (generated from secrets in CI)
 src/gdrive-config.js
 
-zothercode/
-zoutput*
-ztemp/
