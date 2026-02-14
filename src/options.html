@@ -167,9 +167,9 @@
     }
 
     /* Tab styling to work with rink theme (scope only to tab labels) */
-    #settingsTabs > div#generalTab,
+    #settingsTabs > div#toolbarTab,
     #settingsTabs > div#customTab,
-    #settingsTabs > div#excludeTab {
+    #settingsTabs > div#advancedTab {
       position: relative;
       z-index: 3;
       background: transparent;
@@ -184,9 +184,9 @@
     }
 
     /* Hover state like popup */
-    #settingsTabs > div#generalTab:hover,
+    #settingsTabs > div#toolbarTab:hover,
     #settingsTabs > div#customTab:hover,
-    #settingsTabs > div#excludeTab:hover {
+    #settingsTabs > div#advancedTab:hover {
       background: rgba(0, 51, 160, 0.1);
       color: #46b;
     }
@@ -216,12 +216,6 @@
     #settingsTabs .faceoff-circle,
     #settingsTabs .faceoff-dot { pointer-events: none; }
 
-    /* Neutralize generic tab div borders from settings.css on line elements only */
-    #settingsTabs .center-line,
-    #settingsTabs .goal-line-left,
-    #settingsTabs .goal-line-right { border: none !important; }
-    
-    
     /* Active tab highlighting with blue tint like popup */
     #settingsTabs div.active {
       background: rgba(0, 51, 160, 0.15) !important; /* Light blue tint like popup */
@@ -386,12 +380,12 @@
     <div class="goal-box-right"></div>
     <span class="faceoff-circle" aria-hidden="true"></span>
     <span class="faceoff-dot" aria-hidden="true">●</span>
-    <div id="generalTab">Toolbar</div>
+    <div id="toolbarTab">Toolbar</div>
     <div id="customTab"><span class="custom-text">Custom</span><span class="css-text">CSS</span></div>
-    <div id="excludeTab">Advanced</div>
+    <div id="advancedTab">Advanced</div>
   </div>
 
-  <div id="generalSettings">
+  <div id="toolbarSettings">
     <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Toolbar Settings</label>
     
     <div id="left-toolbar-preview" style="position: fixed; left: 0px; top: 20%; width: 48px; height: 20vh; z-index: 1000; pointer-events: none;
@@ -584,7 +578,7 @@
     </div>
   </div>
 
-  <div id="excludeSettings" style="display: none;">
+  <div id="advancedSettings" style="display: none;">
     <div class="section">
       <div class="section-title">Cloud Sync</div>
 
