@@ -5142,13 +5142,18 @@ function unapplyPanelConfiguration(panelId) {
     return Promise.resolve(false);
 }
 
+// Hoisted debounced updaters per TMI panel (one per panel so the timer actually persists across calls)
+const debouncedPanelUpdaters = {
+    serif: debounce(() => updateAllThirdManInButtons('serif'), 300),
+    sans: debounce(() => updateAllThirdManInButtons('sans'), 300),
+    mono: debounce(() => updateAllThirdManInButtons('mono'), 300),
+};
+
 // Function to be called whenever any control changes in Body Contact or Third Man In modes
 function onPanelControlChange(panelId) {
-    // Only update button states for the new modes, but skip body (has its own button logic)
-    if (['serif', 'mono', 'sans'].includes(panelId)) {
-        // Debounce the update to avoid excessive calls
-        const debouncedUpdate = debounce(async () => await updateAllThirdManInButtons(panelId), 300);
-        debouncedUpdate();
+    // Only update button states for TMI panels; body has its own button logic
+    if (debouncedPanelUpdaters[panelId]) {
+        debouncedPanelUpdaters[panelId]();
     }
 }
 
