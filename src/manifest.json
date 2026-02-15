@@ -62,7 +62,7 @@
 
 
   "background": {
-    "scripts": ["gdrive-config.js", "background.js"],
+    "scripts": ["config-utils.js", "css-generators.js", "gdrive-config.js", "background.js"],
     "persistent": false
   },
 

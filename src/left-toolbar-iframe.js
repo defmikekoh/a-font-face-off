@@ -88,7 +88,12 @@
             }
         });
     }
-    
+
+    // Show quick-pick menu (signal parent to show it)
+    function showQuickPickMenu() {
+        parent.postMessage({ type: 'showQuickPickMenu' }, '*');
+    }
+
     // Initialize event listeners - EXACTLY like Essential
     document.addEventListener('DOMContentLoaded', function() {
         // Get Essential-style divs
@@ -220,7 +225,12 @@
 
         // Add click handlers with pressed animation like essential-buttons-toolbar
         if (faceoffButton) {
-            handleButtonPress(faceoffButton, openPopup, '[Left Toolbar] Face-off button clicked');
+            handleButtonPress(
+                faceoffButton,
+                showQuickPickMenu,  // Short click → show menu
+                '[Left Toolbar] Face-off button clicked',
+                openPopup  // Long press → open popup
+            );
         }
         
         if (whatfontButton) {

@@ -1401,7 +1401,7 @@ clearExpiredCache().then(() => {
   });
 });
 
-browser.runtime.onMessage.addListener(async (msg, _sender) => {
+browser.runtime.onMessage.addListener(async (msg, sender) => {
   try {
     // Handle cache flush requests
     if (msg.type === 'flushFontCache') {
@@ -1587,6 +1587,92 @@ browser.runtime.onMessage.addListener(async (msg, _sender) => {
       } catch (e) {
         console.error('[AFFO Background] Could not open popup fallback:', e);
         console.error('[AFFO Background] Error details:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Handle quick-apply favorite from toolbar
+    if (msg.type === 'quickApplyFavorite') {
+      try {
+        const { origin, fontConfig, position } = msg;
+        const tabId = sender.tab ? sender.tab.id : null;
+
+        if (!origin || !fontConfig || !position || !tabId) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        // Build payload (simple version - includes only needed properties)
+        const payload = {
+          fontName: fontConfig.fontName
+        };
+        if (fontConfig.fontSize) payload.fontSize = fontConfig.fontSize;
+        if (fontConfig.lineHeight) payload.lineHeight = fontConfig.lineHeight;
+        if (fontConfig.fontWeight) payload.fontWeight = fontConfig.fontWeight;
+        if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
+        if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
+
+        // Save to storage
+        const result = await browser.storage.local.get(APPLY_MAP_KEY);
+        const applyMap = result[APPLY_MAP_KEY] || {};
+        if (!applyMap[origin]) applyMap[origin] = {};
+        applyMap[origin][position] = payload;
+
+        await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+
+        // Run DOM walker
+        const walkerScript = generateElementWalkerScript(position);
+        await browser.tabs.executeScript(tabId, { code: walkerScript });
+
+        // Generate and inject CSS
+        const css = generateThirdManInCSS(position, payload, origin);
+        await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
+
+        console.log('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] Quick-apply failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Handle quick-unapply from toolbar
+    if (msg.type === 'quickUnapplyFonts') {
+      try {
+        const { origin } = msg;
+        const tabId = sender.tab ? sender.tab.id : null;
+
+        if (!origin || !tabId) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        // Remove domain fonts from storage
+        const result = await browser.storage.local.get(APPLY_MAP_KEY);
+        const applyMap = result[APPLY_MAP_KEY] || {};
+        if (applyMap[origin]) {
+          delete applyMap[origin];
+          await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+        }
+
+        // Clear all applied styles by removing the injected CSS
+        try {
+          await browser.tabs.removeCSS(tabId, { code: '' });
+        } catch (e) {
+          // removeCSS might fail, but we still cleared storage
+          console.log('[AFFO Background] RemoveCSS note:', e.message);
+        }
+
+        // Reload page content script to clean up
+        await browser.tabs.executeScript(tabId, {
+          code: 'if (window.affoRemoveAllStyles) { window.affoRemoveAllStyles(); }'
+        }).catch(e => {
+          // Script execution might fail, but storage is cleared
+          console.log('[AFFO Background] Reload script note:', e.message);
+        });
+
+        console.log('[AFFO Background] Fonts removed for', origin);
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] Unapply failed:', e);
         return { success: false, error: e.message };
       }
     }

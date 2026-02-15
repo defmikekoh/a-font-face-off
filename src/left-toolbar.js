@@ -20,6 +20,7 @@
     let leftToolbarIframe = null;
     let leftToolbarHidden = false;
     let unhideIcon = null;
+    let quickPickMenu = null;
     let options = {};
     
     
@@ -182,6 +183,9 @@
             case 'openPopup':
                 handleOpenPopup();
                 break;
+            case 'showQuickPickMenu':
+                showQuickPickMenu();
+                break;
             case 'hideToolbar':
                 handleHideToolbar();
                 break;
@@ -202,6 +206,12 @@
                 break;
             case 'toolbarOptionsChanged':
                 handleToolbarOptionsChanged(event.data.options);
+                break;
+            case 'checkDomainState':
+                handleCheckDomainState(event.data);
+                break;
+            case 'applyQuickPickFont':
+                handleApplyQuickPickFont(event.data);
                 break;
         }
     });
@@ -359,7 +369,589 @@
         
         createLeftToolbar();
     }
-    
+
+    // Detect dominant body font type (serif vs sans)
+    function detectDominantFontType() {
+        const serifNames = [
+            'pt serif', 'mencken-std', 'georgia', 'times', 'times new roman',
+            'merriweather', 'garamond', 'charter', 'spectral', 'lora',
+            'abril', 'crimson', 'playfair', 'noto serif'
+        ];
+
+        try {
+            // Helper function to check a given element's font
+            const checkElementFont = (element, elementName) => {
+                if (!element) return null;
+                const computedStyle = window.getComputedStyle(element);
+                const fontFamily = String(computedStyle.fontFamily || '').toLowerCase();
+
+                if (AFFO_DEBUG) console.log(`[Left Toolbar] Checking ${elementName}: "${computedStyle.fontFamily}"`);
+
+                // Check for known serif font names FIRST
+                const hasSerifName = serifNames.some(name => fontFamily.includes(name));
+                if (hasSerifName) {
+                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found serif name in ${elementName}`);
+                    return 'serif';
+                }
+
+                // Check for generic keywords
+                if (fontFamily.includes('sans-serif')) {
+                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found generic sans-serif in ${elementName}`);
+                    return 'sans';
+                }
+                if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) {
+                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found generic serif in ${elementName}`);
+                    return 'serif';
+                }
+
+                return null; // Couldn't determine from this element
+            };
+
+            // First, check document.body
+            const bodyElement = document.body || document.documentElement;
+            let result = checkElementFont(bodyElement, 'document.body');
+
+            // If body only has generic keywords (no specific font name), check content containers
+            if (!result || result === 'sans') {
+                // Try common content containers in priority order
+                const contentContainers = [
+                    document.querySelector('article'),
+                    document.querySelector('main'),
+                    document.querySelector('[role="main"]'),
+                    document.querySelector('.entry-content'),
+                    document.querySelector('.post'),
+                    document.querySelector('.content'),
+                    document.querySelector('.article-body'),
+                    document.querySelector('[data-content]'),
+                ];
+
+                for (const container of contentContainers) {
+                    if (container) {
+                        const containerName = container.tagName.toLowerCase() +
+                            (container.className ? `.${container.className.split(' ')[0]}` : '');
+                        const containerResult = checkElementFont(container, containerName);
+                        if (containerResult === 'serif') {
+                            if (AFFO_DEBUG) console.log('[Left Toolbar] Detected: serif (from content container)');
+                            return 'serif';
+                        }
+                    }
+                }
+            }
+
+            // Use body result if we got one
+            if (result) {
+                if (AFFO_DEBUG) console.log(`[Left Toolbar] Detected: ${result} (from body)`);
+                return result;
+            }
+
+            // Default to sans
+            if (AFFO_DEBUG) console.log('[Left Toolbar] Detected: sans (default)');
+            return 'sans';
+        } catch (e) {
+            console.error('[Left Toolbar] Error detecting font type:', e);
+            return 'sans';
+        }
+    }
+
+    // Create quick-pick menu in page context (not iframe)
+    function createQuickPickMenuIfNeeded() {
+        if (quickPickMenu) return quickPickMenu;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'affo-quick-pick-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2147483647;
+        `;
+
+        const content = document.createElement('div');
+        content.id = 'affo-quick-pick-content';
+        content.style.cssText = `
+            background: #ffffff;
+            border-radius: 8px;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            color: #495057;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            max-height: 70vh;
+        `;
+
+        // Add header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #dee2e6;
+        `;
+
+        const headerTitle = document.createElement('h3');
+        headerTitle.textContent = 'Quick Pick';
+        headerTitle.style.cssText = `
+            margin: 0;
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+        `;
+        header.appendChild(headerTitle);
+
+        // Header close button (visual, not functional - body has the functional one)
+        const headerCloseBtn = document.createElement('button');
+        headerCloseBtn.textContent = '✕';
+        headerCloseBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: #6c757d;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        `;
+        headerCloseBtn.onmouseover = function() { this.style.background = '#dc3545'; this.style.color = 'white'; };
+        headerCloseBtn.onmouseout = function() { this.style.background = 'none'; this.style.color = '#6c757d'; };
+        headerCloseBtn.onclick = hideQuickPickMenu;
+        header.appendChild(headerCloseBtn);
+
+        content.appendChild(header);
+
+        // Add body container
+        const body = document.createElement('div');
+        body.style.cssText = `
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        `;
+
+        // Add message element
+        const message = document.createElement('div');
+        message.id = 'affo-quick-pick-message';
+        message.style.cssText = `
+            padding: 8px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 13px;
+            line-height: 1.5;
+            display: none;
+            font-weight: 500;
+        `;
+        body.appendChild(message);
+
+        // Create 5 favorite buttons (matching Load Favorites modal button styling)
+        const buttonStyleFn = function(btn) {
+            btn.style.cssText = `
+                padding: 0;
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                color: #495057;
+                cursor: pointer;
+                display: none;
+                font-weight: 500;
+                transition: all 150ms ease;
+                text-align: left;
+                display: flex;
+                flex-direction: column;
+                gap: 0;
+            `;
+            btn.onmouseover = function() { if (!this.disabled) { this.style.background = '#e9ecef'; this.style.borderColor = '#495057'; } };
+            btn.onmouseout = function() { if (!this.disabled) { this.style.background = '#f8f9fa'; this.style.borderColor = '#dee2e6'; } };
+            btn.onmousedown = function() { if (!this.disabled) this.style.background = '#dee2e6'; };
+            btn.onmouseup = function() { if (!this.disabled) this.style.background = '#e9ecef'; };
+        };
+
+        for (let i = 1; i <= 5; i++) {
+            const btn = document.createElement('button');
+            btn.id = `affo-quick-pick-font-${i}`;
+            buttonStyleFn(btn);
+            body.appendChild(btn);
+        }
+
+        // Add unapply button (red danger button matching popup style)
+        const unapplyBtn = document.createElement('button');
+        unapplyBtn.id = 'affo-quick-pick-unapply';
+        unapplyBtn.textContent = 'Unapply';
+        unapplyBtn.style.cssText = `
+            padding: 10px 12px;
+            background: #dc3545;
+            border: 1px solid #c82333;
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 13px;
+            display: none;
+            font-weight: 500;
+            transition: all 150ms ease;
+            text-align: center;
+            margin-top: 4px;
+        `;
+        unapplyBtn.onmouseover = function() { if (!this.disabled) { this.style.background = '#c82333'; this.style.borderColor = '#a71d2a'; } };
+        unapplyBtn.onmouseout = function() { if (!this.disabled) { this.style.background = '#dc3545'; this.style.borderColor = '#c82333'; } };
+        unapplyBtn.onmousedown = function() { if (!this.disabled) this.style.background = '#a71d2a'; };
+        unapplyBtn.onmouseup = function() { if (!this.disabled) this.style.background = '#c82333'; };
+        body.appendChild(unapplyBtn);
+
+        content.appendChild(body);
+        overlay.appendChild(content);
+        document.body.appendChild(overlay);
+
+        quickPickMenu = overlay;
+        return overlay;
+    }
+
+    // Show quick-pick menu
+    async function showQuickPickMenu() {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
+        try {
+            // Fetch favorites
+            const data = await browserAPI.storage.local.get(['affoFavorites', 'affoFavoritesOrder']);
+            const favorites = data.affoFavorites || {};
+            const order = data.affoFavoritesOrder || [];
+
+            // Get top 5 favorites (preserve both name and config like Load Favorites modal)
+            const top5 = order.slice(0, 5)
+                .filter(id => favorites[id])
+                .map(id => ({
+                    name: id,  // Favorite name/ID (like "Atiza Text")
+                    ...favorites[id]  // Spread config (fontName, fontSize, etc.)
+                }));
+
+            if (top5.length === 0) {
+                // No favorites - show message
+                populateQuickPickMenuInPage([], true, false, {});
+            } else {
+                // Check domain state via storage
+                const origin = location.hostname;
+                const storageData = await browserAPI.storage.local.get('affoApplyMap');
+                const applyMap = (storageData && storageData.affoApplyMap) ? storageData.affoApplyMap : {};
+                const domainData = applyMap[origin] || {};
+
+                let showBodyModeMessage = false;
+                if (domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono) {
+                    showBodyModeMessage = true;
+                }
+
+                // Populate menu
+                populateQuickPickMenuInPage(top5, showBodyModeMessage, domainData, origin);
+            }
+
+            // Show menu
+            createQuickPickMenuIfNeeded().style.display = 'flex';
+        } catch (e) {
+            console.error('[Left Toolbar] Error showing quick-pick menu:', e);
+        }
+    }
+
+    // Hide quick-pick menu
+    function hideQuickPickMenu() {
+        if (quickPickMenu) {
+            quickPickMenu.style.display = 'none';
+        }
+    }
+
+    // Populate menu with favorites (in page context)
+    function populateQuickPickMenuInPage(favorites, showBodyModeMessage, domainData, origin) {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        createQuickPickMenuIfNeeded();
+
+        const message = document.getElementById('affo-quick-pick-message');
+        const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
+
+        // Hide all favorite buttons first
+        for (let i = 1; i <= 5; i++) {
+            const btn = document.getElementById(`affo-quick-pick-font-${i}`);
+            if (btn) btn.style.display = 'none';
+        }
+
+        if (showBodyModeMessage) {
+            message.textContent = 'Domain has already been set in Body Mode. Use popup.';
+            message.style.display = 'block';
+            unapplyBtn.style.display = 'none';
+            return;
+        }
+
+        message.style.display = 'none';
+
+        // Show favorite buttons and set up click handlers
+        for (let i = 0; i < Math.min(favorites.length, 5); i++) {
+            const fav = favorites[i];
+            const btn = document.getElementById(`affo-quick-pick-font-${i + 1}`);
+            if (!btn) continue;
+
+            // Reset button state from previous use
+            btn.disabled = false;
+            btn.style.opacity = '1';
+
+            // Create content with name and preview
+            btn.innerHTML = '';
+            btn.style.display = 'flex';
+            btn.style.position = 'relative';
+            btn.style.overflow = 'hidden';
+
+            // Left side indicator (serif)
+            const leftHint = document.createElement('div');
+            leftHint.style.cssText = `
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 50%;
+                pointer-events: none;
+                border-right: 1px dashed #dee2e6;
+            `;
+            btn.appendChild(leftHint);
+
+            // Content wrapper (centered text)
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 12px 16px;
+                pointer-events: none;
+                gap: 4px;
+            `;
+
+            const nameEl = document.createElement('div');
+            nameEl.style.cssText = 'font-weight: 500; color: #495057;';
+            // Show favorite name (like "Atiza Text") matching Load Favorites modal format
+            nameEl.textContent = fav.name || fav.fontName || `Font ${i + 1}`;
+
+            const previewEl = document.createElement('div');
+            previewEl.style.cssText = 'font-size: 11px; color: #6c757d; line-height: 1.2;';
+
+            // Build preview text from font properties (matching Load Favorites Modal format)
+            const previewParts = [];
+            if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
+            if (fav.fontWeight) previewParts.push(`wt${fav.fontWeight}`);
+            if (fav.lineHeight) previewParts.push(`${fav.lineHeight}lh`);
+
+            if (previewParts.length === 0) {
+                previewEl.textContent = 'Default styles';
+            } else {
+                previewEl.textContent = `(${previewParts.join(', ')})`;
+            }
+
+            contentWrapper.appendChild(nameEl);
+            contentWrapper.appendChild(previewEl);
+            btn.appendChild(contentWrapper);
+
+            // Set up click handler that detects left/right click region
+            btn.onclick = (event) => {
+                // Determine if user clicked left (serif) or right (sans) side of button
+                const buttonRect = btn.getBoundingClientRect();
+                const buttonWidth = buttonRect.width;
+                const clickX = event.clientX - buttonRect.left;
+                const position = clickX < buttonWidth / 2 ? 'serif' : 'sans';
+
+                const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
+
+                // Show loading state
+                allBtns.forEach(b => {
+                    if (b && b.style.display !== 'none') {
+                        b.disabled = true;
+                        b.style.opacity = '0.5';
+                    }
+                });
+                unapplyBtn.disabled = true;
+                unapplyBtn.style.opacity = '0.5';
+
+                message.textContent = `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`;
+                message.style.display = 'block';
+
+                browserAPI.runtime.sendMessage({
+                    type: 'quickApplyFavorite',
+                    origin: origin || location.hostname,
+                    fontConfig: fav,
+                    position: position
+                }).then(response => {
+                    if (response && response.success) {
+                        console.log('[Left Toolbar] Font applied successfully to', position);
+                        // Restore button state before closing
+                        allBtns.forEach(b => {
+                            if (b && b.style.display !== 'none') {
+                                b.disabled = false;
+                                b.style.opacity = '1';
+                            }
+                        });
+                        unapplyBtn.disabled = false;
+                        unapplyBtn.style.opacity = '1';
+                        hideQuickPickMenu();
+                    } else {
+                        console.error('[Left Toolbar] Font application failed:', response?.error);
+                        message.textContent = 'Failed to apply font. Try again.';
+                        allBtns.forEach(b => {
+                            if (b && b.style.display !== 'none') {
+                                b.disabled = false;
+                                b.style.opacity = '1';
+                            }
+                        });
+                        unapplyBtn.disabled = false;
+                        unapplyBtn.style.opacity = '1';
+                    }
+                }).catch(err => {
+                    console.error('[Left Toolbar] Error applying font:', err);
+                    message.textContent = 'Error applying font.';
+                    allBtns.forEach(b => {
+                        if (b && b.style.display !== 'none') {
+                            b.disabled = false;
+                            b.style.opacity = '1';
+                        }
+                    });
+                    unapplyBtn.disabled = false;
+                    unapplyBtn.style.opacity = '1';
+                });
+            };
+
+            // Add visual hint for left/right click regions
+            btn.title = '← Click left for serif | Click right for sans-serif →';
+            btn.style.cursor = 'pointer';
+        }
+
+        // Show unapply button if fonts are applied
+        const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body);
+        if (hasFontsApplied && !showBodyModeMessage) {
+            // Reset unapply button state from previous use
+            unapplyBtn.disabled = false;
+            unapplyBtn.style.opacity = '1';
+            unapplyBtn.style.display = 'block';
+            unapplyBtn.onclick = () => {
+                const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
+
+                // Show loading state
+                allBtns.forEach(b => {
+                    if (b && b.style.display !== 'none') {
+                        b.disabled = true;
+                        b.style.opacity = '0.5';
+                    }
+                });
+                unapplyBtn.disabled = true;
+                unapplyBtn.style.opacity = '0.5';
+
+                message.textContent = 'Removing fonts...';
+                message.style.display = 'block';
+
+                browserAPI.runtime.sendMessage({
+                    type: 'quickUnapplyFonts',
+                    origin: origin || location.hostname
+                }).then(response => {
+                    if (response && response.success) {
+                        console.log('[Left Toolbar] Fonts removed successfully');
+                        // Restore button state before closing
+                        allBtns.forEach(b => {
+                            if (b && b.style.display !== 'none') {
+                                b.disabled = false;
+                                b.style.opacity = '1';
+                            }
+                        });
+                        unapplyBtn.disabled = false;
+                        unapplyBtn.style.opacity = '1';
+                        hideQuickPickMenu();
+                    } else {
+                        console.error('[Left Toolbar] Unapply failed:', response?.error);
+                        message.textContent = 'Failed to remove fonts. Try popup.';
+                        allBtns.forEach(b => {
+                            if (b && b.style.display !== 'none') {
+                                b.disabled = false;
+                                b.style.opacity = '1';
+                            }
+                        });
+                        unapplyBtn.disabled = false;
+                        unapplyBtn.style.opacity = '1';
+                    }
+                }).catch(err => {
+                    console.error('[Left Toolbar] Error removing fonts:', err);
+                    message.textContent = 'Error removing fonts.';
+                    allBtns.forEach(b => {
+                        if (b && b.style.display !== 'none') {
+                            b.disabled = false;
+                            b.style.opacity = '1';
+                        }
+                    });
+                    unapplyBtn.disabled = false;
+                    unapplyBtn.style.opacity = '1';
+                });
+            };
+        } else {
+            unapplyBtn.style.display = 'none';
+        }
+    }
+
+    // Check domain state and populate quick-pick menu
+    function handleCheckDomainState(data) {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        const origin = location.hostname;
+        const { favorites } = data;
+
+        // Detect font type in this context (page context, not iframe)
+        const detectedFontType = detectDominantFontType();
+
+        browserAPI.storage.local.get('affoApplyMap').then(storageData => {
+            const applyMap = (storageData && storageData.affoApplyMap) ? storageData.affoApplyMap : {};
+            const domainData = applyMap[origin];
+
+            let showBodyModeMessage = false;
+
+            if (domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono) {
+                // Domain has Body Mode fonts only → show message
+                showBodyModeMessage = true;
+            }
+
+            // Send back to iframe
+            if (leftToolbarIframe && leftToolbarIframe.contentWindow) {
+                leftToolbarIframe.contentWindow.postMessage({
+                    type: 'populateQuickPickMenu',
+                    favorites: favorites,
+                    showBodyModeMessage: showBodyModeMessage,
+                    detectedFontType: detectedFontType
+                }, '*');
+            }
+        }).catch(err => {
+            console.error('[Left Toolbar] Error checking domain state:', err);
+        });
+    }
+
+    // Apply quick-pick font to detected position
+    function handleApplyQuickPickFont(data) {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        const origin = location.hostname;
+        const { config, position } = data;
+
+        // Send to background to handle CSS injection
+        browserAPI.runtime.sendMessage({
+            type: 'quickApplyFavorite',
+            origin: origin,
+            fontConfig: config,
+            position: position  // 'serif' or 'sans'
+        }).then(response => {
+            if (response && response.success) {
+                console.log('[Left Toolbar] Font applied successfully to', position);
+            } else {
+                console.error('[Left Toolbar] Font application failed:', response?.error);
+            }
+        }).catch(err => {
+            console.error('[Left Toolbar] Error applying font:', err);
+        });
+    }
+
     // Close current tab
     function handleCloseTab() {
         try {
