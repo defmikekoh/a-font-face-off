@@ -89,7 +89,7 @@ export default [
                 generateBodyCSS: "readonly",
                 generateBodyContactCSS: "readonly",
                 generateThirdManInCSS: "readonly",
-                generateElementWalkerScript: "readonly",
+
                 // From favorites.js (loaded before popup.js)
                 loadFavoritesFromStorage: "readonly",
                 saveFavoritesToStorage: "readonly",

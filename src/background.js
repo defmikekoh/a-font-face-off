@@ -1692,9 +1692,8 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
 
-        // Run DOM walker
-        const walkerScript = generateElementWalkerScript(position);
-        await browser.tabs.executeScript(tabId, { code: walkerScript });
+        // Run DOM walker via content script message
+        await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType: position });
 
         // Generate and inject CSS
         const css = generateThirdManInCSS(position, payload, origin);

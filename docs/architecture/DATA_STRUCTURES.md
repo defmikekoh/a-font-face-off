@@ -281,7 +281,7 @@ const panelStates = {
 - **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
 - **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
 - **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
-- **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). No write operations.
+- **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). Storage change listener diffs `oldValue[origin]` vs `newValue[origin]` before acting. No write operations.
 
 ### Config Conversion & Payload Building
 
@@ -395,6 +395,35 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 - **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
 - **`getEffectiveItalic(config)`** — Same pattern for ital. (Legacy `italVal` — same note as wdth.)
 - **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
+
+### SPA Hook Registry (content.js module-level)
+
+Idempotent infrastructure for SPA navigation and focus/visibility handlers. Installed once globally; all code paths register handlers via helper functions.
+
+```javascript
+var spaHooksInstalled = false;       // Guard: pushState/replaceState/popstate hooks installed once
+var spaNavigationHandlers = [];      // Array of callbacks invoked on SPA navigation (deduped by reference)
+var focusHooksInstalled = false;     // Guard: focus/visibilitychange listeners installed once
+var focusHandlers = [];              // Array of callbacks invoked on focus/visibility change
+```
+
+- **`registerSpaHandler(fn)`** — Calls `installSpaHooks()`, then adds `fn` if not already registered (indexOf check)
+- **`installSpaHooks()`** — Wraps `history.pushState`/`replaceState` and adds `popstate` listener exactly once. All wrappers dispatch to `spaNavigationHandlers` array after 100ms delay.
+- **`registerFocusHandler(fn)`** — Adds `fn` to `focusHandlers` if not already registered; installs `focus`/`visibilitychange` listeners once
+
+### Unified Element Walker (content.js module-level)
+
+Single-pass DOM walker that classifies elements for all active TMI font types at once.
+
+```javascript
+var elementWalkerCompleted = {};           // fontType → boolean (prevents redundant scans)
+var elementWalkerRechecksScheduled = {};   // fontType → boolean (prevents double-scheduling rechecks)
+```
+
+- **`getElementFontType(element)`** — Module-scope classification function. Returns `'serif'`, `'sans'`, `'mono'`, or `null`. Reads `preservedFonts`, `knownSerifFonts`, `knownSansFonts` from module scope.
+- **`runElementWalkerAll(fontTypes)`** — Accepts array of font types (e.g. `['serif', 'sans', 'mono']`). Filters to uncompleted types, clears existing markers, walks DOM once, marks elements with `data-affo-font-type`, schedules rechecks.
+- **`runElementWalker(fontType)`** — Thin wrapper: `runElementWalkerAll([fontType])`. Used by runtime message handler and individual-type callers.
+- **`scheduleElementWalkerRechecks(fontTypes)`** — Accepts array. Filters to unscheduled types, then schedules rechecks at 700ms, 1600ms, and `document.fonts.ready`.
 
 ### Inline-Apply Helpers (content.js module-level)
 

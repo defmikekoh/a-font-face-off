@@ -21,6 +21,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - `zothercode/fontonic-firefox-android/` is another font changing extension that may occasionally be used as a point of reference.
+- zothercode/fontonic-android-styler-v2.user.js is a user script that changed Substack fonts which this extension largely does also.
 - use ztemp/ as temporary area instead of /tmp/
 - at ztemp/violentmonkey is a cloned copy of the violentmonkey extension
 
@@ -33,8 +34,8 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers) — shared between popup.js and Node tests |
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
-| `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience, element walker rechecks, preconnect hints |
-| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important`, element walker script generation |
+| `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
+| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important` |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start` |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
@@ -47,7 +48,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 - **Body Contact** — Single font applied to body text (excludes headings, code, nav, form controls, syntax highlighting, ARIA roles, metadata/bylines, widgets/ads). Per-origin persistence via `affoApplyMap`.
 - **Face-off** — Split-screen font comparison inside the popup. No page interaction.
-- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type`. Includes delayed rechecks (700ms/1600ms + `document.fonts.ready`) for dynamic/lazy-loaded content, and SPA navigation hooks (`pushState`/`replaceState`/`popstate`) to re-walk on route changes.
+- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type` using a unified walker (`runElementWalkerAll`) that classifies all active types in a single DOM pass. Includes delayed rechecks (700ms/1600ms + `document.fonts.ready`) for dynamic/lazy-loaded content, and SPA navigation hooks to re-walk on route changes.
 
 ### Storage Keys (browser.storage.local)
 
@@ -90,6 +91,18 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 ### Variable Font Axes
 
 Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to CSS properties. Custom axes use `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`. WhatFont (`whatfont_core.js`) detects registered axes by reading their high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) and mapping non-default values back to axis tags, since browsers don't expose them in `font-variation-settings`.
+
+### SPA Hook Infrastructure (content.js)
+
+SPA navigation hooks (`history.pushState`/`replaceState` wrappers, `popstate` listener) are installed once globally via `installSpaHooks()` with an idempotent guard (`spaHooksInstalled` flag). All code paths register handlers via `registerSpaHandler(fn)` which deduplicates by reference. Focus/visibility listeners use the same pattern via `registerFocusHandler(fn)`. This prevents unbounded listener stacking when fonts are reapplied.
+
+### Storage Change Listener (content.js)
+
+The `affoApplyMap` storage change listener diffs `oldValue[origin]` vs `newValue[origin]` using `JSON.stringify` comparison. Only tears down and reapplies styles when the current origin's config actually changed, avoiding unnecessary work on tabs showing unrelated domains.
+
+### Unified Element Walker (content.js)
+
+`runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. `getElementFontType(element)` is a module-scope function that returns the detected type or `null`. `runElementWalker(fontType)` is a thin wrapper for single-type calls (e.g. from runtime messages). `scheduleElementWalkerRechecks(fontTypes)` accepts an array and schedules one set of rechecks for all types together.
 
 ### x.com Special Handling
 

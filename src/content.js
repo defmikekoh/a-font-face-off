@@ -56,6 +56,73 @@
   var activeObservers = {}; // Track MutationObservers by fontType
   var activeTimers = {}; // Track timeout/interval IDs by fontType
 
+  // Idempotent SPA hook infrastructure — installed once, routes to registered handlers
+  var spaHooksInstalled = false;
+  var spaNavigationHandlers = [];
+  var focusHooksInstalled = false;
+  var focusHandlers = [];
+
+  function registerSpaHandler(fn) {
+    installSpaHooks();
+    if (spaNavigationHandlers.indexOf(fn) === -1) {
+      spaNavigationHandlers.push(fn);
+    }
+  }
+
+  function installSpaHooks() {
+    if (spaHooksInstalled) return;
+    spaHooksInstalled = true;
+
+    function onSpaNavigation() {
+      spaNavigationHandlers.forEach(function(fn) {
+        try { fn(); } catch(_) {}
+      });
+    }
+
+    try {
+      var _origPush = history.pushState;
+      history.pushState = function() {
+        var r = _origPush.apply(this, arguments);
+        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+        return r;
+      };
+    } catch(_) {}
+
+    try {
+      var _origReplace = history.replaceState;
+      history.replaceState = function() {
+        var r = _origReplace.apply(this, arguments);
+        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+        return r;
+      };
+    } catch(_) {}
+
+    try {
+      window.addEventListener('popstate', function() {
+        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+      }, true);
+    } catch(_) {}
+  }
+
+  function registerFocusHandler(fn) {
+    if (focusHandlers.indexOf(fn) === -1) {
+      focusHandlers.push(fn);
+    }
+    if (focusHooksInstalled) return;
+    focusHooksInstalled = true;
+
+    try {
+      window.addEventListener('focus', function() {
+        focusHandlers.forEach(function(h) { try { h(); } catch(_) {} });
+      }, true);
+      document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+          focusHandlers.forEach(function(h) { try { h(); } catch(_) {} });
+        }
+      }, true);
+    } catch(_) {}
+  }
+
   // Known serif/sans font families for element walker classification
   var knownSerifFonts = ['pt serif', 'mencken-std', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril'];
   var knownSansFonts = [
@@ -489,29 +556,7 @@
         }
       }
       
-      try {
-        var _ps = history.pushState;
-        history.pushState = function() { 
-          var r = _ps.apply(this, arguments); 
-          try { setTimeout(reapplyInlineStyles, 100); } catch(_) {} 
-          return r; 
-        };
-      } catch(_) {}
-      
-      try {
-        var _rs = history.replaceState;
-        history.replaceState = function() { 
-          var r = _rs.apply(this, arguments); 
-          try { setTimeout(reapplyInlineStyles, 100); } catch(_) {} 
-          return r; 
-        };
-      } catch(_) {}
-      
-      try {
-        window.addEventListener('popstate', function() { 
-          try { setTimeout(reapplyInlineStyles, 100); } catch(_) {} 
-        }, true);
-      } catch(_) {}
+      registerSpaHandler(reapplyInlineStyles);
       
       // Enhanced monitoring with reduced frequency now that fonts load instantly from cache
       var monitoringTimer = setTimeout(function() {
@@ -586,22 +631,8 @@
       }, 1000);
       activeTimers[fontType].push(monitoringTimer);
       
-      // Add focus/visibility event listeners to re-apply styles when page becomes visible
-      try {
-        var reapplyOnFocus = function() {
-          setTimeout(reapplyInlineStyles, 100);
-          debugLog(`[AFFO Content] Re-applied ${fontType} styles on focus/visibility change`);
-        };
-        
-        window.addEventListener('focus', reapplyOnFocus, true);
-        document.addEventListener('visibilitychange', function() {
-          if (!document.hidden) {
-            reapplyOnFocus();
-          }
-        }, true);
-      } catch(e) {
-        debugLog(`[AFFO Content] Error setting up focus/visibility listeners:`, e);
-      }
+      // Re-apply styles when page becomes visible
+      registerFocusHandler(reapplyInlineStyles);
       
       debugLog(`[AFFO Content] Added enhanced SPA resilience for ${fontType} fonts on ${currentOrigin}`);
       
@@ -1477,161 +1508,159 @@
   var elementWalkerCompleted = {};
   var elementWalkerRechecksScheduled = {};
 
-  // Re-run element walker for a font type (bypasses elementWalkerCompleted guard)
-  // Used by delayed rechecks and SPA navigation hooks
-  function recheckElementWalker(fontType) {
-    try {
-      debugLog(`[AFFO Content] Rechecking element walker for ${fontType}`);
-      // Temporarily clear the completed flag so runElementWalker will execute
-      elementWalkerCompleted[fontType] = false;
-      runElementWalker(fontType);
-    } catch (e) {
-      debugLog(`[AFFO Content] Element walker recheck failed for ${fontType}:`, e);
+  // Element type detection logic (module-scope so both single and unified walker can use it)
+  function getElementFontType(element) {
+    var tagName = element.tagName.toLowerCase();
+    var className = element.className || '';
+    var style = element.style.fontFamily || '';
+
+    // Exclude UI elements and form controls
+    if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
+
+    // Exclude children of figcaption (captions contain multiple spans/elements)
+    if (element.closest && element.closest('figcaption')) return null;
+
+    // Exclude guard elements (.no-affo class or data-affo-guard attribute)
+    if (element.closest && element.closest('.no-affo, [data-affo-guard]')) return null;
+
+    // Exclude ARIA landmark roles
+    var role = element.getAttribute && element.getAttribute('role');
+    if (role && ['navigation', 'banner', 'contentinfo', 'complementary'].indexOf(role) !== -1) return null;
+
+    // Convert className safely for pattern matching
+    var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
+
+    // Exclude navigation and UI class names
+    if (classText && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\b/i.test(classText)) return null;
+
+    // Exclude syntax highlighting and code blocks
+    if (classText && /\b(hljs|token|prettyprint|prettyprinted|sourceCode|wp-block-code|wp-block-preformatted|terminal)\b/.test(classText)) return null;
+    if (classText && /\blanguage-/.test(classText)) return null;
+
+    // Exclude small-caps classes
+    if (classText && /\b(small-caps|smallcaps|smcp|sc)\b/.test(classText)) return null;
+
+    // Exclude metadata and byline patterns
+    if (classText && /\b(byline|author|date|meta)\b/.test(classText)) return null;
+
+    // Exclude widget, ad, and UI chrome patterns
+    if (classText && /\b(widget|dropdown|modal|tooltip|advertisement)\b/.test(classText)) return null;
+
+    // Exclude WhatFont overlay elements
+    if (classText && /whatfont/.test(classText)) return null;
+    var elId = element.id || '';
+    if (elId && /whatfont/.test(elId)) return null;
+
+    // Get computed font-family (what WhatFont sees)
+    var computedStyle = window.getComputedStyle(element);
+    var computedFontFamily = computedStyle.fontFamily || '';
+
+    // Skip elements using preserved fonts (icon fonts, etc.)
+    var computedParts = null;
+    if (preservedFonts.length > 0 && computedFontFamily) {
+      computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+      for (var pi = 0; pi < computedParts.length; pi++) {
+        if (preservedFonts.indexOf(computedParts[pi]) !== -1) return null;
+      }
     }
+
+    var styleText = style.toLowerCase();
+    var computedText = computedFontFamily.toLowerCase();
+
+    // Check for monospace keywords
+    if (/\b(monospace|mono|code)\b/.test(classText) ||
+        /\b(monospace|mono)\b/.test(styleText)) return 'mono';
+
+    // Check for sans-serif as complete phrase first
+    if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
+
+    // Check for standalone sans (but not sans-serif)
+    if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
+
+    // Check known font names FIRST (before generic keywords) so specific fonts take priority
+    // e.g. "Spectral", serif, ..., sans-serif → Spectral is known serif, don't misclassify as sans
+    // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
+    if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+    for (var i = 0; i < computedParts.length; i++) {
+      if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
+        return 'serif';
+      }
+      if (knownSansFonts.indexOf(computedParts[i]) !== -1) {
+        return 'sans';
+      }
+    }
+
+    // Fall back to generic keywords in computed font-family
+    if (/\bsans-serif\b/.test(computedText)) {
+        return 'sans';
+    }
+
+    if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
+        return 'serif';
+    }
+
+    // Check for serif (but not sans-serif) in class names and inline styles
+    if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
+        /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
+        return 'serif';
+    }
+
+    // Tag-based detection for monospace
+    if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
+
+    // No explicit indicators found - don't mark this element
+    return null;
   }
 
   // Schedule delayed rechecks after initial walker completes
   // Catches lazy-loaded content and elements that appear after fonts finish loading
-  function scheduleElementWalkerRechecks(fontType) {
-    if (elementWalkerRechecksScheduled[fontType]) return;
-    elementWalkerRechecksScheduled[fontType] = true;
+  function scheduleElementWalkerRechecks(fontTypes) {
+    // Filter to types not already scheduled
+    var toSchedule = fontTypes.filter(function(ft) {
+      return !elementWalkerRechecksScheduled[ft];
+    });
+    if (toSchedule.length === 0) return;
+    toSchedule.forEach(function(ft) { elementWalkerRechecksScheduled[ft] = true; });
 
-    setTimeout(function() { recheckElementWalker(fontType); }, 700);
-    setTimeout(function() { recheckElementWalker(fontType); }, 1600);
+    function recheck() {
+      toSchedule.forEach(function(ft) { elementWalkerCompleted[ft] = false; });
+      runElementWalkerAll(toSchedule);
+    }
+
+    setTimeout(recheck, 700);
+    setTimeout(recheck, 1600);
 
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function() {
-        recheckElementWalker(fontType);
-      }).catch(function() {});
+      document.fonts.ready.then(recheck).catch(function() {});
     }
   }
 
-  // Element walker function for Third Man In mode
-  function runElementWalker(fontType) {
+  // Unified element walker — classifies all requested font types in a single DOM pass
+  function runElementWalkerAll(fontTypes) {
     try {
-      // Skip if walker already completed for this font type on this page
-      if (elementWalkerCompleted[fontType]) {
-        console.log(`[AFFO Content] Element walker already completed for ${fontType}, skipping redundant scan`);
+      // Filter to types not already completed
+      var typesToWalk = fontTypes.filter(function(ft) {
+        return !elementWalkerCompleted[ft];
+      });
+      if (typesToWalk.length === 0) {
+        debugLog('[AFFO Content] All requested font types already walked, skipping');
         return;
       }
 
-      console.log(`[AFFO Content] Starting element walker for ${fontType}`);
+      var typeSet = {};
+      typesToWalk.forEach(function(ft) { typeSet[ft] = true; });
 
+      console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
       var startTime = performance.now();
-      elementLog(`Running element walker for ${fontType}`);
 
-      // Clear only existing markers for this specific font type
-      var existingMarked = document.querySelectorAll(`[data-affo-font-type="${fontType}"]`);
-      elementLog(`Clearing ${existingMarked.length} existing ${fontType} markers`);
-      existingMarked.forEach(function(el) {
-        el.removeAttribute('data-affo-font-type');
+      // Clear existing markers for all requested types
+      typesToWalk.forEach(function(ft) {
+        var existingMarked = document.querySelectorAll('[data-affo-font-type="' + ft + '"]');
+        elementLog('Clearing ' + existingMarked.length + ' existing ' + ft + ' markers');
+        existingMarked.forEach(function(el) {
+          el.removeAttribute('data-affo-font-type');
+        });
       });
-
-      // Element type detection logic
-      function getElementFontType(element) {
-        var tagName = element.tagName.toLowerCase();
-        var className = element.className || '';
-        var style = element.style.fontFamily || '';
-
-        // Exclude UI elements and form controls
-        if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
-
-        // Exclude children of figcaption (captions contain multiple spans/elements)
-        if (element.closest && element.closest('figcaption')) return null;
-
-        // Exclude guard elements (.no-affo class or data-affo-guard attribute)
-        if (element.closest && element.closest('.no-affo, [data-affo-guard]')) return null;
-
-        // Exclude ARIA landmark roles
-        var role = element.getAttribute && element.getAttribute('role');
-        if (role && ['navigation', 'banner', 'contentinfo', 'complementary'].indexOf(role) !== -1) return null;
-
-        // Convert className safely for pattern matching
-        var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
-
-        // Exclude navigation and UI class names
-        if (classText && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\b/i.test(classText)) return null;
-
-        // Exclude syntax highlighting and code blocks
-        if (classText && /\b(hljs|token|prettyprint|prettyprinted|sourceCode|wp-block-code|wp-block-preformatted|terminal)\b/.test(classText)) return null;
-        if (classText && /\blanguage-/.test(classText)) return null;
-
-        // Exclude small-caps classes
-        if (classText && /\b(small-caps|smallcaps|smcp|sc)\b/.test(classText)) return null;
-
-        // Exclude metadata and byline patterns
-        if (classText && /\b(byline|author|date|meta)\b/.test(classText)) return null;
-
-        // Exclude widget, ad, and UI chrome patterns
-        if (classText && /\b(widget|dropdown|modal|tooltip|advertisement)\b/.test(classText)) return null;
-
-        // Exclude WhatFont overlay elements
-        if (classText && /whatfont/.test(classText)) return null;
-        var elId = element.id || '';
-        if (elId && /whatfont/.test(elId)) return null;
-
-        // Get computed font-family (what WhatFont sees)
-        var computedStyle = window.getComputedStyle(element);
-        var computedFontFamily = computedStyle.fontFamily || '';
-
-        // Skip elements using preserved fonts (icon fonts, etc.)
-        var computedParts = null;
-        if (preservedFonts.length > 0 && computedFontFamily) {
-          computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
-          for (var pi = 0; pi < computedParts.length; pi++) {
-            if (preservedFonts.indexOf(computedParts[pi]) !== -1) return null;
-          }
-        }
-
-        var styleText = style.toLowerCase();
-        var computedText = computedFontFamily.toLowerCase();
-
-        // Check for monospace keywords
-        if (/\b(monospace|mono|code)\b/.test(classText) ||
-            /\b(monospace|mono)\b/.test(styleText)) return 'mono';
-
-        // Check for sans-serif as complete phrase first
-        if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
-
-        // Check for standalone sans (but not sans-serif)
-        if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
-
-        // Check known font names FIRST (before generic keywords) so specific fonts take priority
-        // e.g. "Spectral", serif, ..., sans-serif → Spectral is known serif, don't misclassify as sans
-        // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
-        if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
-        for (var i = 0; i < computedParts.length; i++) {
-          if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
-            return 'serif';
-          }
-          if (knownSansFonts.indexOf(computedParts[i]) !== -1) {
-            return 'sans';
-          }
-        }
-
-        // Fall back to generic keywords in computed font-family
-        if (/\bsans-serif\b/.test(computedText)) {
-            return 'sans';
-        }
-
-        if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
-            return 'serif';
-        }
-
-        // Check for serif (but not sans-serif) in class names and inline styles
-        if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
-            /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
-            return 'serif';
-        }
-
-        // Tag-based detection for monospace
-        if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
-
-        // Third Man In mode only finds explicit markers - no assumptions
-
-        // No explicit indicators found - don't mark this element
-        return null;
-      }
 
       // Walk all text-containing elements
       var walker = document.createTreeWalker(
@@ -1656,40 +1685,43 @@
       );
 
       var totalElements = 0;
-      var markedElements = 0;
+      var markedCounts = {};
+      typesToWalk.forEach(function(ft) { markedCounts[ft] = 0; });
       var element;
-
-      console.log(`[AFFO Content] Starting element scan for ${fontType}`);
 
       while (element = walker.nextNode()) {
         totalElements++;
         var detectedType = getElementFontType(element);
-        if (detectedType === fontType) {
-          element.setAttribute('data-affo-font-type', fontType);
-          markedElements++;
+        if (detectedType && typeSet[detectedType]) {
+          element.setAttribute('data-affo-font-type', detectedType);
+          markedCounts[detectedType]++;
         }
 
-        // Log progress every 500 elements to detect hangs
         if (totalElements % 500 === 0) {
-          console.log(`[AFFO Content] Element walker progress: ${totalElements} elements scanned, ${markedElements} marked as ${fontType}`);
+          console.log('[AFFO Content] Element walker progress: ' + totalElements + ' elements scanned');
         }
       }
 
-      console.log(`[AFFO Content] Element scan loop finished for ${fontType}`);
-
       var endTime = performance.now();
       var duration = (endTime - startTime).toFixed(2);
-      console.log(`[AFFO Content] ✅ Element walker completed in ${duration}ms: processed ${totalElements} elements, marked ${markedElements} as ${fontType}`);
+      var summary = typesToWalk.map(function(ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
+      console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
 
-      // Mark this font type as completed to prevent redundant scans
-      elementWalkerCompleted[fontType] = true;
-      console.log(`[AFFO Content] Marked ${fontType} walker as completed`);
+      // Mark all walked types as completed
+      typesToWalk.forEach(function(ft) {
+        elementWalkerCompleted[ft] = true;
+      });
 
       // Schedule delayed rechecks for lazy-loaded content
-      scheduleElementWalkerRechecks(fontType);
+      scheduleElementWalkerRechecks(typesToWalk);
     } catch (e) {
-      console.error(`[AFFO Content] Element walker failed for ${fontType}:`, e);
+      console.error('[AFFO Content] Unified element walker failed:', e);
     }
+  }
+
+  // Single-type wrapper (for runtime messages and individual type calls)
+  function runElementWalker(fontType) {
+    runElementWalkerAll([fontType]);
   }
 
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
@@ -1725,10 +1757,6 @@
           if (css) {
             // Check if we should use inline apply for this domain
             if (shouldUseInlineApply()) {
-              // For Third Man In mode, run element walker first if needed
-              if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-                runElementWalker(fontType);
-              }
               // Apply styles inline directly to elements
               applyInlineStyles(fontConfig, fontType);
             } else {
@@ -1736,7 +1764,7 @@
               var styleId = 'a-font-face-off-style-' + fontType;
               var existingStyle = document.getElementById(styleId);
               if (existingStyle) existingStyle.remove();
-              
+
               var styleEl = document.createElement('style');
               styleEl.id = styleId;
               styleEl.textContent = css;
@@ -1830,31 +1858,11 @@
                   ['serif', 'sans'].forEach(function(ft) {
                     elementWalkerCompleted[ft] = false;
                     elementWalkerRechecksScheduled[ft] = false;
-                    runElementWalker(ft);
                   });
+                  runElementWalkerAll(['serif', 'sans']);
                 } catch(_) {}
               }
-              try {
-                var _rPs = history.pushState;
-                history.pushState = function() {
-                  var r = _rPs.apply(this, arguments);
-                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
-                  return r;
-                };
-              } catch(_) {}
-              try {
-                var _rRs = history.replaceState;
-                history.replaceState = function() {
-                  var r = _rRs.apply(this, arguments);
-                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
-                  return r;
-                };
-              } catch(_) {}
-              try {
-                window.addEventListener('popstate', function() {
-                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
-                }, true);
-              } catch(_) {}
+              registerSpaHandler(reapplyRouletteAfterNavigation);
             }
           }
 
@@ -1918,10 +1926,6 @@
               if (css) {
                 // Check if we should use inline apply for this domain
                 if (shouldUseInlineApply()) {
-                  // For Third Man In mode, run element walker first if needed
-                  if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-                    runElementWalker(fontType);
-                  }
                   // Apply styles inline directly to elements
                   applyInlineStyles(fontConfig, fontType);
                 } else {
@@ -1961,39 +1965,15 @@
       if (hasTmiEntries && !shouldUseInlineApply()) {
         function reapplyTmiAfterNavigation() {
           try {
-            ['serif', 'sans', 'mono'].forEach(function(ft) {
-              if (entry[ft]) {
-                elementWalkerCompleted[ft] = false;
-                elementWalkerRechecksScheduled[ft] = false;
-                runElementWalker(ft);
-              }
+            var activeTmiTypes = ['serif', 'sans', 'mono'].filter(function(ft) { return !!entry[ft]; });
+            activeTmiTypes.forEach(function(ft) {
+              elementWalkerCompleted[ft] = false;
+              elementWalkerRechecksScheduled[ft] = false;
             });
+            runElementWalkerAll(activeTmiTypes);
           } catch(_) {}
         }
-
-        try {
-          var _tmiPs = history.pushState;
-          history.pushState = function() {
-            var r = _tmiPs.apply(this, arguments);
-            try { setTimeout(reapplyTmiAfterNavigation, 100); } catch(_) {}
-            return r;
-          };
-        } catch(_) {}
-
-        try {
-          var _tmiRs = history.replaceState;
-          history.replaceState = function() {
-            var r = _tmiRs.apply(this, arguments);
-            try { setTimeout(reapplyTmiAfterNavigation, 100); } catch(_) {}
-            return r;
-          };
-        } catch(_) {}
-
-        try {
-          window.addEventListener('popstate', function() {
-            try { setTimeout(reapplyTmiAfterNavigation, 100); } catch(_) {}
-          }, true);
-        } catch(_) {}
+        registerSpaHandler(reapplyTmiAfterNavigation);
       }
     }).catch(function(){});
   } catch (e) {}
@@ -2004,11 +1984,18 @@
       if (area !== 'local' || !changes.affoApplyMap) return;
       try {
         var origin = location.hostname;
-        debugLog(`[AFFO Content] Storage changed for origin ${origin}:`, changes.affoApplyMap);
+        var oldMap = changes.affoApplyMap.oldValue || {};
         var newMap = changes.affoApplyMap.newValue || {};
+        var oldEntry = oldMap[origin];
         var entry = newMap[origin];
-        debugLog(`[AFFO Content] New map:`, newMap);
-        debugLog(`[AFFO Content] New entry for ${origin}:`, entry);
+
+        // Skip if this origin's config didn't actually change
+        if (JSON.stringify(oldEntry) === JSON.stringify(entry)) {
+          debugLog(`[AFFO Content] Storage changed but origin ${origin} config unchanged, skipping`);
+          return;
+        }
+
+        debugLog(`[AFFO Content] Storage changed for origin ${origin}`);
         
         // Remove all existing styles
         ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ 
