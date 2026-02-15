@@ -392,6 +392,7 @@
             display: flex;
             flex-direction: column;
             color: #495057;
+            font-family: system-ui, sans-serif;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             overflow: hidden;
             max-height: 70vh;
@@ -479,9 +480,6 @@
                 font-weight: 500;
                 transition: all 150ms ease;
                 text-align: left;
-                display: flex;
-                flex-direction: column;
-                gap: 0;
             `;
             btn.onmouseover = function() { if (!this.disabled) { this.style.background = '#e9ecef'; this.style.borderColor = '#495057'; } };
             btn.onmouseout = function() { if (!this.disabled) { this.style.background = '#f8f9fa'; this.style.borderColor = '#dee2e6'; } };
@@ -520,6 +518,37 @@
         unapplyBtn.onmouseup = function() { if (!this.disabled) this.style.background = '#c82333'; };
         body.appendChild(unapplyBtn);
 
+        // Domain setting checkboxes
+        const checkboxSection = document.createElement('div');
+        checkboxSection.style.cssText = `
+            border-top: 1px solid #dee2e6;
+            margin-top: 8px;
+            padding-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        `;
+
+        const checkboxDefs = [
+            { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
+            { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
+            { id: 'affo-quick-pick-aggressive', label: 'Aggressive Override Domain' },
+        ];
+
+        for (const def of checkboxDefs) {
+            const lbl = document.createElement('label');
+            lbl.style.cssText = 'display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #495057; margin: 0;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = def.id;
+            cb.style.cssText = 'cursor: pointer; margin: 0;';
+            lbl.appendChild(cb);
+            lbl.appendChild(document.createTextNode(def.label));
+            checkboxSection.appendChild(lbl);
+        }
+
+        body.appendChild(checkboxSection);
+
         content.appendChild(body);
         overlay.appendChild(content);
         document.body.appendChild(overlay);
@@ -533,10 +562,22 @@
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
         try {
-            // Fetch favorites
-            const data = await browserAPI.storage.local.get(['affoFavorites', 'affoFavoritesOrder']);
+            // Fetch favorites and domain lists
+            const origin = location.hostname;
+            const data = await browserAPI.storage.local.get([
+                'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains'
+            ]);
             const favorites = data.affoFavorites || {};
             const order = data.affoFavoritesOrder || [];
+            const applyMap = data.affoApplyMap || {};
+            const domainData = applyMap[origin] || {};
+
+            const domainLists = {
+                ffonly: data.affoFontFaceOnlyDomains || [],
+                inline: data.affoInlineApplyDomains || [],
+                aggressive: data.affoAggressiveDomains || [],
+            };
 
             // Get top 5 favorites (preserve both name and config like Load Favorites modal)
             const top5 = order.slice(0, 5)
@@ -546,24 +587,16 @@
                     ...favorites[id]  // Spread config (fontName, fontSize, etc.)
                 }));
 
-            if (top5.length === 0) {
-                // No favorites - show message
-                populateQuickPickMenuInPage([], true, false, {});
-            } else {
-                // Check domain state via storage
-                const origin = location.hostname;
-                const storageData = await browserAPI.storage.local.get('affoApplyMap');
-                const applyMap = (storageData && storageData.affoApplyMap) ? storageData.affoApplyMap : {};
-                const domainData = applyMap[origin] || {};
+            const hasBodyOnly = domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono;
 
-                let showBodyModeMessage = false;
-                if (domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono) {
-                    showBodyModeMessage = true;
-                }
-
-                // Populate menu
-                populateQuickPickMenuInPage(top5, showBodyModeMessage, domainData, origin);
-            }
+            populateQuickPickMenuInPage({
+                favorites: top5,
+                noFavorites: top5.length === 0,
+                showBodyModeMessage: hasBodyOnly,
+                domainData,
+                origin,
+                domainLists,
+            });
 
             // Show menu
             createQuickPickMenuIfNeeded().style.display = 'flex';
@@ -579,18 +612,68 @@
         }
     }
 
+    // Set disabled/loading state on all quick-pick buttons
+    function setQuickPickButtonsDisabled(disabled) {
+        const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
+        const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
+        allBtns.forEach(b => {
+            if (b && b.style.display !== 'none') {
+                b.disabled = disabled;
+                b.style.opacity = disabled ? '0.5' : '1';
+            }
+        });
+        if (unapplyBtn) {
+            unapplyBtn.disabled = disabled;
+            unapplyBtn.style.opacity = disabled ? '0.5' : '1';
+        }
+    }
+
     // Populate menu with favorites (in page context)
-    function populateQuickPickMenuInPage(favorites, showBodyModeMessage, domainData, origin) {
+    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists }) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         createQuickPickMenuIfNeeded();
 
         const message = document.getElementById('affo-quick-pick-message');
         const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
+        const currentOrigin = origin || location.hostname;
+
+        // Domain setting checkboxes (always wired, independent of favorites/mode state)
+        const checkboxConfig = [
+            { id: 'affo-quick-pick-ffonly', key: 'affoFontFaceOnlyDomains', listKey: 'ffonly' },
+            { id: 'affo-quick-pick-inline', key: 'affoInlineApplyDomains', listKey: 'inline' },
+            { id: 'affo-quick-pick-aggressive', key: 'affoAggressiveDomains', listKey: 'aggressive' },
+        ];
+
+        for (const cfg of checkboxConfig) {
+            const cb = document.getElementById(cfg.id);
+            if (!cb) continue;
+            const list = (domainLists && domainLists[cfg.listKey]) || [];
+            cb.checked = list.includes(currentOrigin);
+            cb.onchange = async function() {
+                const storageData = await browserAPI.storage.local.get(cfg.key);
+                let current = storageData[cfg.key] || [];
+                if (cb.checked) {
+                    if (!current.includes(currentOrigin)) {
+                        current.push(currentOrigin);
+                    }
+                } else {
+                    current = current.filter(d => d !== currentOrigin);
+                }
+                await browserAPI.storage.local.set({ [cfg.key]: current });
+            };
+        }
 
         // Hide all favorite buttons first
         for (let i = 1; i <= 5; i++) {
             const btn = document.getElementById(`affo-quick-pick-font-${i}`);
             if (btn) btn.style.display = 'none';
+        }
+
+        if (noFavorites) {
+            message.textContent = 'No favorites saved. Add favorites in the popup.';
+            message.style.display = 'block';
+            unapplyBtn.style.display = 'none';
+            return;
         }
 
         if (showBodyModeMessage) {
@@ -620,188 +703,92 @@
 
             // Left side indicator (serif)
             const leftHint = document.createElement('div');
-            leftHint.style.cssText = `
-                position: absolute;
-                left: 0;
-                top: 0;
-                bottom: 0;
-                width: 50%;
-                pointer-events: none;
-                border-right: 1px dashed #dee2e6;
-            `;
+            leftHint.style.cssText = 'position: absolute; left: 0; top: 0; bottom: 0; width: 50%; pointer-events: none; border-right: 1px dashed #dee2e6;';
             btn.appendChild(leftHint);
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = `
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 12px 16px;
-                pointer-events: none;
-                gap: 4px;
-            `;
+            contentWrapper.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; pointer-events: none; gap: 4px;';
 
             const nameEl = document.createElement('div');
             nameEl.style.cssText = 'font-weight: 500; color: #495057;';
-            // Show favorite name (like "Atiza Text") matching Load Favorites modal format
             nameEl.textContent = fav.name || fav.fontName || `Font ${i + 1}`;
 
             const previewEl = document.createElement('div');
             previewEl.style.cssText = 'font-size: 11px; color: #6c757d; line-height: 1.2;';
 
-            // Build preview text from font properties (matching Load Favorites Modal format)
             const previewParts = [];
             if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
             if (fav.fontWeight) previewParts.push(`wt${fav.fontWeight}`);
             if (fav.lineHeight) previewParts.push(`${fav.lineHeight}lh`);
-
-            if (previewParts.length === 0) {
-                previewEl.textContent = 'Default styles';
-            } else {
-                previewEl.textContent = `(${previewParts.join(', ')})`;
-            }
+            previewEl.textContent = previewParts.length === 0 ? 'Default styles' : `(${previewParts.join(', ')})`;
 
             contentWrapper.appendChild(nameEl);
             contentWrapper.appendChild(previewEl);
             btn.appendChild(contentWrapper);
 
-            // Set up click handler that detects left/right click region
+            // Click handler — left half = serif, right half = sans
             btn.onclick = (event) => {
-                // Determine if user clicked left (serif) or right (sans) side of button
                 const buttonRect = btn.getBoundingClientRect();
-                const buttonWidth = buttonRect.width;
                 const clickX = event.clientX - buttonRect.left;
-                const position = clickX < buttonWidth / 2 ? 'serif' : 'sans';
+                const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
 
-                const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
-
-                // Show loading state
-                allBtns.forEach(b => {
-                    if (b && b.style.display !== 'none') {
-                        b.disabled = true;
-                        b.style.opacity = '0.5';
-                    }
-                });
-                unapplyBtn.disabled = true;
-                unapplyBtn.style.opacity = '0.5';
-
+                setQuickPickButtonsDisabled(true);
                 message.textContent = `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`;
                 message.style.display = 'block';
 
                 browserAPI.runtime.sendMessage({
                     type: 'quickApplyFavorite',
-                    origin: origin || location.hostname,
+                    origin: currentOrigin,
                     fontConfig: fav,
                     position: position
                 }).then(response => {
                     if (response && response.success) {
-                        console.log('[Left Toolbar] Font applied successfully to', position);
-                        // Restore button state before closing
-                        allBtns.forEach(b => {
-                            if (b && b.style.display !== 'none') {
-                                b.disabled = false;
-                                b.style.opacity = '1';
-                            }
-                        });
-                        unapplyBtn.disabled = false;
-                        unapplyBtn.style.opacity = '1';
+                        setQuickPickButtonsDisabled(false);
                         hideQuickPickMenu();
                     } else {
                         console.error('[Left Toolbar] Font application failed:', response?.error);
                         message.textContent = 'Failed to apply font. Try again.';
-                        allBtns.forEach(b => {
-                            if (b && b.style.display !== 'none') {
-                                b.disabled = false;
-                                b.style.opacity = '1';
-                            }
-                        });
-                        unapplyBtn.disabled = false;
-                        unapplyBtn.style.opacity = '1';
+                        setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
                     console.error('[Left Toolbar] Error applying font:', err);
                     message.textContent = 'Error applying font.';
-                    allBtns.forEach(b => {
-                        if (b && b.style.display !== 'none') {
-                            b.disabled = false;
-                            b.style.opacity = '1';
-                        }
-                    });
-                    unapplyBtn.disabled = false;
-                    unapplyBtn.style.opacity = '1';
+                    setQuickPickButtonsDisabled(false);
                 });
             };
 
-            // Add visual hint for left/right click regions
-            btn.title = '← Click left for serif | Click right for sans-serif →';
+            btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
             btn.style.cursor = 'pointer';
         }
 
         // Show unapply button if fonts are applied
         const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body);
-        if (hasFontsApplied && !showBodyModeMessage) {
-            // Reset unapply button state from previous use
+        if (hasFontsApplied) {
             unapplyBtn.disabled = false;
             unapplyBtn.style.opacity = '1';
             unapplyBtn.style.display = 'block';
             unapplyBtn.onclick = () => {
-                const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
-
-                // Show loading state
-                allBtns.forEach(b => {
-                    if (b && b.style.display !== 'none') {
-                        b.disabled = true;
-                        b.style.opacity = '0.5';
-                    }
-                });
-                unapplyBtn.disabled = true;
-                unapplyBtn.style.opacity = '0.5';
-
+                setQuickPickButtonsDisabled(true);
                 message.textContent = 'Removing fonts...';
                 message.style.display = 'block';
 
                 browserAPI.runtime.sendMessage({
                     type: 'quickUnapplyFonts',
-                    origin: origin || location.hostname
+                    origin: currentOrigin
                 }).then(response => {
                     if (response && response.success) {
-                        console.log('[Left Toolbar] Fonts removed successfully');
-                        // Restore button state before closing
-                        allBtns.forEach(b => {
-                            if (b && b.style.display !== 'none') {
-                                b.disabled = false;
-                                b.style.opacity = '1';
-                            }
-                        });
-                        unapplyBtn.disabled = false;
-                        unapplyBtn.style.opacity = '1';
+                        setQuickPickButtonsDisabled(false);
                         hideQuickPickMenu();
                     } else {
                         console.error('[Left Toolbar] Unapply failed:', response?.error);
                         message.textContent = 'Failed to remove fonts. Try popup.';
-                        allBtns.forEach(b => {
-                            if (b && b.style.display !== 'none') {
-                                b.disabled = false;
-                                b.style.opacity = '1';
-                            }
-                        });
-                        unapplyBtn.disabled = false;
-                        unapplyBtn.style.opacity = '1';
+                        setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
                     console.error('[Left Toolbar] Error removing fonts:', err);
                     message.textContent = 'Error removing fonts.';
-                    allBtns.forEach(b => {
-                        if (b && b.style.display !== 'none') {
-                            b.disabled = false;
-                            b.style.opacity = '1';
-                        }
-                    });
-                    unapplyBtn.disabled = false;
-                    unapplyBtn.style.opacity = '1';
+                    setQuickPickButtonsDisabled(false);
                 });
             };
         } else {
