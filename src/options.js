@@ -96,6 +96,7 @@
 
   const DEFAULT_SERIF = ['PT Serif', 'mencken-std'];
   const DEFAULT_SANS = ['Apercu Pro'];
+  const DEFAULT_PRESERVED = ['Font Awesome 5 Free', 'Font Awesome 5 Brands', 'Font Awesome 6 Free', 'Font Awesome 6 Brands', 'FontAwesome', 'Material Icons', 'Material Icons Outlined', 'Material Icons Round', 'Material Icons Sharp', 'Material Symbols Outlined', 'Material Symbols Rounded', 'Material Symbols Sharp', 'bootstrap-icons', 'remixicon', 'icomoon'];
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
   const DEFAULT_AGGRESSIVE = [];
@@ -402,6 +403,7 @@
       const data = await browser.storage.local.get([
         'affoKnownSerif',
         'affoKnownSans',
+        'affoPreservedFonts',
         'affoFontFaceOnlyDomains',
         'affoInlineApplyDomains',
         'affoAggressiveDomains',
@@ -420,6 +422,8 @@
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
       document.getElementById('known-serif').value = toTextarea(serif);
       document.getElementById('known-sans').value = toTextarea(sans);
+      const preserved = Array.isArray(data.affoPreservedFonts) ? data.affoPreservedFonts : DEFAULT_PRESERVED.slice();
+      document.getElementById('preserved-fonts').value = toTextarea(preserved);
       const ffonly = Array.isArray(data.affoFontFaceOnlyDomains) ? data.affoFontFaceOnlyDomains : DEFAULT_FFONLY.slice();
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
       const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
@@ -502,6 +506,23 @@
       await browser.storage.local.set({ affoKnownSans: DEFAULT_SANS.slice() });
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
       const s = document.getElementById('status-sans'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function savePreserved(){
+    try {
+      const raw = document.getElementById('preserved-fonts').value;
+      const list = fromTextarea(raw);
+      await browser.storage.local.set({ affoPreservedFonts: list });
+      const s = document.getElementById('status-preserved'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function resetPreserved(){
+    try {
+      await browser.storage.local.set({ affoPreservedFonts: DEFAULT_PRESERVED.slice() });
+      document.getElementById('preserved-fonts').value = toTextarea(DEFAULT_PRESERVED);
+      const s = document.getElementById('status-preserved'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {}
   }
 
@@ -712,6 +733,7 @@
       // Reset all form values to defaults
       document.getElementById('known-serif').value = toTextarea(DEFAULT_SERIF);
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
+      document.getElementById('preserved-fonts').value = toTextarea(DEFAULT_PRESERVED);
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
@@ -753,6 +775,8 @@
     document.getElementById('save-sans').addEventListener('click', saveSans);
     document.getElementById('reset-serif').addEventListener('click', resetSerif);
     document.getElementById('reset-sans').addEventListener('click', resetSans);
+    document.getElementById('save-preserved').addEventListener('click', savePreserved);
+    document.getElementById('reset-preserved').addEventListener('click', resetPreserved);
     document.getElementById('save-ffonly').addEventListener('click', saveFFOnly);
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);

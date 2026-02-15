@@ -667,6 +667,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Preserved Fonts (Never Replace)</div>
+      <textarea id="preserved-fonts" placeholder="One family per line, case-insensitive. Example:\nFont Awesome\nMaterial Icons"></textarea>
+      <div class="row">
+        <button id="reset-preserved">Reset to Default</button>
+        <button id="save-preserved">Save Preserved List</button>
+        <span id="status-preserved" class="status"></span>
+      </div>
+      <div class="hint">Elements using these fonts will never be restyled. Use for icon fonts (Font Awesome, Material Icons, etc.) that would break if replaced.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">FontFace-only Domains</div>
       <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
       <div class="row">

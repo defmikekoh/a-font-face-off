@@ -465,7 +465,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
 
         // First, run DOM walker to re-mark elements
         try {
-            const walkerScript = generateElementWalkerScript(fontType);
+            const walkerScript = generateElementWalkerScript(fontType, preservedFonts);
             console.log(`reapplyThirdManInCSS: Running walker script for ${fontType}`);
             await executeScriptInTargetTab({ code: walkerScript });
         } catch (e) {
@@ -2118,6 +2118,18 @@ function shouldUseAggressive(origin) {
     return aggressiveDomains.includes(origin);
 }
 
+// Preserved fonts list (icon fonts that should never be replaced)
+let preservedFonts = [];
+
+try {
+    browser.storage.local.get('affoPreservedFonts').then(function(data) {
+        if (Array.isArray(data.affoPreservedFonts)) {
+            preservedFonts = data.affoPreservedFonts;
+            console.log('[AFFO Popup] Loaded preserved fonts:', preservedFonts);
+        }
+    }).catch(function() {});
+} catch (e) {}
+
 // Separate apply/unapply functions for body mode and face-off mode
 async function applyFontToPage(position, config) {
     console.log(`🟢 applyFontToPage: Applying ${position} with config:`, config);
@@ -2304,7 +2316,7 @@ async function applyThirdManInFont(fontType, config) {
 
             return fontLinkPromise.then(() => {
                 // Run element walker script to mark elements with data-affo-font-type
-                const walkerScript = generateElementWalkerScript(fontType);
+                const walkerScript = generateElementWalkerScript(fontType, preservedFonts);
                 console.log(`applyThirdManInFont: Running element walker script for ${fontType}`);
 
                 return executeScriptInTargetTab({ code: walkerScript }).then(() => {
@@ -4911,7 +4923,7 @@ function applyAllThirdManInFonts() {
                     }
 
                     // Element walker script - RUN AFTER font loading
-                    const walkerScript = generateElementWalkerScript(job.type);
+                    const walkerScript = generateElementWalkerScript(job.type, preservedFonts);
                     console.log(`applyAllThirdManInFonts: Running element walker script for ${job.type}`);
 
                     return executeScriptInTargetTab({ code: walkerScript }).then(async () => {

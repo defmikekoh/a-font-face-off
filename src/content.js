@@ -74,16 +74,20 @@
     'ui-sans-serif'
   ];
 
-  // Load user-defined serif/sans lists from storage
+  // Load user-defined serif/sans/preserved lists from storage
+  var preservedFonts = [];
   try {
-    browser.storage.local.get(['affoKnownSerif', 'affoKnownSans']).then(function(opt) {
+    browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoPreservedFonts']).then(function(opt) {
       if (Array.isArray(opt.affoKnownSerif)) {
         knownSerifFonts = opt.affoKnownSerif.map(function(s) { return String(s || '').toLowerCase().trim(); });
       }
       if (Array.isArray(opt.affoKnownSans)) {
         knownSansFonts = opt.affoKnownSans.map(function(s) { return String(s || '').toLowerCase().trim(); });
       }
-      debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts);
+      if (Array.isArray(opt.affoPreservedFonts)) {
+        preservedFonts = opt.affoPreservedFonts.map(function(s) { return String(s || '').toLowerCase().trim(); });
+      }
+      debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts, 'Preserved:', preservedFonts);
     }).catch(function() {});
   } catch(_) {}
   
@@ -1488,22 +1492,56 @@
         var className = element.className || '';
         var style = element.style.fontFamily || '';
 
-        // Exclude pure UI elements (but not headings)
-        if (['nav', 'header', 'footer', 'aside', 'figcaption'].indexOf(tagName) !== -1) return null;
+        // Exclude UI elements and form controls
+        if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
         // Exclude children of figcaption (captions contain multiple spans/elements)
         if (element.closest && element.closest('figcaption')) return null;
 
+        // Exclude guard elements (.no-affo class or data-affo-guard attribute)
+        if (element.closest && element.closest('.no-affo, [data-affo-guard]')) return null;
+
+        // Exclude ARIA landmark roles
+        var role = element.getAttribute && element.getAttribute('role');
+        if (role && ['navigation', 'banner', 'contentinfo', 'complementary'].indexOf(role) !== -1) return null;
+
+        // Convert className safely for pattern matching
+        var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
+
         // Exclude navigation and UI class names
-        if (className && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\b/i.test(className)) return null;
+        if (classText && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\b/i.test(classText)) return null;
+
+        // Exclude syntax highlighting and code blocks
+        if (classText && /\b(hljs|token|prettyprint|prettyprinted|sourceCode|wp-block-code|wp-block-preformatted|terminal)\b/.test(classText)) return null;
+        if (classText && /\blanguage-/.test(classText)) return null;
+
+        // Exclude small-caps classes
+        if (classText && /\b(small-caps|smallcaps|smcp|sc)\b/.test(classText)) return null;
+
+        // Exclude metadata and byline patterns
+        if (classText && /\b(byline|author|date|meta)\b/.test(classText)) return null;
+
+        // Exclude widget, ad, and UI chrome patterns
+        if (classText && /\b(widget|dropdown|modal|tooltip|advertisement)\b/.test(classText)) return null;
+
+        // Exclude WhatFont overlay elements
+        if (classText && /whatfont/.test(classText)) return null;
+        var elId = element.id || '';
+        if (elId && /whatfont/.test(elId)) return null;
 
         // Get computed font-family (what WhatFont sees)
         var computedStyle = window.getComputedStyle(element);
         var computedFontFamily = computedStyle.fontFamily || '';
 
-        // Check for complete words/phrases in class names and styles
-        // Convert className to string safely (it might be a DOMTokenList)
-        var classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
+        // Skip elements using preserved fonts (icon fonts, etc.)
+        var computedParts = null;
+        if (preservedFonts.length > 0 && computedFontFamily) {
+          computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+          for (var pi = 0; pi < computedParts.length; pi++) {
+            if (preservedFonts.indexOf(computedParts[pi]) !== -1) return null;
+          }
+        }
+
         var styleText = style.toLowerCase();
         var computedText = computedFontFamily.toLowerCase();
 
@@ -1530,7 +1568,8 @@
         }
 
         // Check if computed font matches known serif fonts
-        var computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+        // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
+        if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
         for (var i = 0; i < computedParts.length; i++) {
           if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
             console.log('SERIF FOUND (known font):', element.tagName, 'computedFont:', computedFontFamily, 'matched:', computedParts[i]);

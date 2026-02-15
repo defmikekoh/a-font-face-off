@@ -39,10 +39,10 @@ function generateBodyCSS(payload, aggressive) {
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const sel = 'body, ' +
-                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
+                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])';
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
     const weightSel = 'body, ' +
-                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc)';
+                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])';
 
     const decl = [];
 
@@ -244,10 +244,12 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
 
 // ── DOM walker script for Third Man In ───────────────────────────────────────
 
-function generateElementWalkerScript(fontType) {
+function generateElementWalkerScript(fontType, preservedFonts) {
+    const preservedJson = JSON.stringify(Array.isArray(preservedFonts) ? preservedFonts.map(f => f.toLowerCase().trim()) : []);
     return `
         (function() {
             try {
+                const preservedFonts = ${preservedJson};
                 console.log('Third Man In walker script starting for fontType: ${fontType}');
 
                 // Clear only existing markers for this specific font type
@@ -264,22 +266,55 @@ function generateElementWalkerScript(fontType) {
                     const className = element.className || '';
                     const style = element.style.fontFamily || '';
 
-                    // Exclude pure UI elements (but not headings)
-                    if (['nav', 'header', 'footer', 'aside', 'figcaption'].indexOf(tagName) !== -1) return null;
+                    // Exclude UI elements and form controls
+                    if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
                     // Exclude children of figcaption (captions contain multiple spans/elements)
                     if (element.closest && element.closest('figcaption')) return null;
 
+                    // Exclude guard elements (.no-affo class or data-affo-guard attribute)
+                    if (element.closest && element.closest('.no-affo, [data-affo-guard]')) return null;
+
+                    // Exclude ARIA landmark roles
+                    const role = element.getAttribute && element.getAttribute('role');
+                    if (role && ['navigation', 'banner', 'contentinfo', 'complementary'].indexOf(role) !== -1) return null;
+
+                    // Convert className safely for pattern matching
+                    const classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
+
                     // Exclude navigation and UI class names
-                    if (className && /\\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\\b/i.test(className)) return null;
+                    if (classText && /\\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\\b/i.test(classText)) return null;
+
+                    // Exclude syntax highlighting and code blocks
+                    if (classText && /\\b(hljs|token|prettyprint|prettyprinted|sourceCode|wp-block-code|wp-block-preformatted|terminal)\\b/.test(classText)) return null;
+                    if (classText && /\\blanguage-/.test(classText)) return null;
+
+                    // Exclude small-caps classes
+                    if (classText && /\\b(small-caps|smallcaps|smcp|sc)\\b/.test(classText)) return null;
+
+                    // Exclude metadata and byline patterns
+                    if (classText && /\\b(byline|author|date|meta)\\b/.test(classText)) return null;
+
+                    // Exclude widget, ad, and UI chrome patterns
+                    if (classText && /\\b(widget|dropdown|modal|tooltip|advertisement)\\b/.test(classText)) return null;
+
+                    // Exclude WhatFont overlay elements
+                    if (classText && /whatfont/.test(classText)) return null;
+                    const elId = element.id || '';
+                    if (elId && /whatfont/.test(elId)) return null;
 
                     // Get computed font-family (what WhatFont sees)
                     const computedStyle = window.getComputedStyle(element);
                     const computedFontFamily = computedStyle.fontFamily || '';
 
-                    // Check for complete words/phrases in class names and styles
-                    // Convert className to string safely (it might be a DOMTokenList)
-                    const classText = (typeof className === 'string' ? className : className.toString()).toLowerCase();
+                    // Skip elements using preserved fonts (icon fonts, etc.)
+                    if (preservedFonts.length > 0 && computedFontFamily) {
+                        const parts = computedFontFamily.split(',').map(s => s.trim().toLowerCase().replace(/['"]/g, ''));
+                        for (let pi = 0; pi < parts.length; pi++) {
+                            if (preservedFonts.indexOf(parts[pi]) !== -1) return null;
+                        }
+                    }
+
                     const styleText = style.toLowerCase();
                     const computedText = computedFontFamily.toLowerCase();
 
@@ -341,6 +376,7 @@ function generateElementWalkerScript(fontType) {
 
                             // Skip already processed elements and guard elements
                             if (node.hasAttribute('data-affo-guard') ||
+                                node.classList.contains('no-affo') ||
                                 node.hasAttribute('data-affo-font-type')) return NodeFilter.FILTER_SKIP;
 
                             return NodeFilter.FILTER_ACCEPT;
