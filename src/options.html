@@ -689,6 +689,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Aggressive Override Domains</div>
+      <textarea id="aggressive-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
+      <div class="row">
+        <button id="reset-aggressive">Reset to Default</button>
+        <button id="save-aggressive">Save Domains</button>
+        <span id="status-aggressive" class="status"></span>
+      </div>
+      <div class="hint">On these domains, apply fonts with !important to override strong site styles. Leave empty for normal specificity.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Font Cache Management</div>
       <div class="row">
         <button id="clear-font-cache" class="purple">Clear Font Cache</button>

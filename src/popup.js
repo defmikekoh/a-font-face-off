@@ -473,7 +473,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         }
 
         // Then generate and apply CSS
-        const cssCode = generateThirdManInCSS(fontType, fontConfig);
+        const cssCode = generateThirdManInCSS(fontType, fontConfig, shouldUseAggressive(window.currentTabHostname));
         if (cssCode) {
             console.log(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
             await insertCSSInTargetTab({ code: cssCode });
@@ -2101,6 +2101,23 @@ function shouldUseInlineApply(origin) {
     return inlineApplyDomains.includes(origin);
 }
 
+// Domain detection for aggressive override domains
+let aggressiveDomains = []; // Will be loaded from storage
+
+// Load aggressive domains from storage
+try {
+    browser.storage.local.get('affoAggressiveDomains').then(function(data) {
+        if (Array.isArray(data.affoAggressiveDomains)) {
+            aggressiveDomains = data.affoAggressiveDomains;
+            console.log('[AFFO Popup] Loaded aggressive domains:', aggressiveDomains);
+        }
+    }).catch(function() {});
+} catch (e) {}
+
+function shouldUseAggressive(origin) {
+    return aggressiveDomains.includes(origin);
+}
+
 // Separate apply/unapply functions for body mode and face-off mode
 async function applyFontToPage(position, config) {
     console.log(`🟢 applyFontToPage: Applying ${position} with config:`, config);
@@ -2137,13 +2154,14 @@ async function applyFontToPage(position, config) {
             return true;
         } else {
             // Apply CSS using consolidated insertCSS approach for standard domains
+            const aggressive = shouldUseAggressive(origin);
             let css;
             if (position === 'body') {
                 // Use Body Contact CSS generation
-                css = generateBodyContactCSS(payload);
+                css = generateBodyContactCSS(payload, aggressive);
             } else {
                 // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload);
+                css = generateBodyCSS(payload, aggressive);
             }
 
             if (css) {
@@ -2253,6 +2271,20 @@ async function applyThirdManInFont(fontType, config) {
                 const linkId = `a-font-face-off-style-${fontType}-link`;
                 const linkScript = `
                     (function() {
+                        // Add preconnect hints for faster font loading
+                        if (!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')) {
+                            var pc1 = document.createElement('link');
+                            pc1.rel = 'preconnect';
+                            pc1.href = 'https://fonts.googleapis.com';
+                            document.head.appendChild(pc1);
+                        }
+                        if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
+                            var pc2 = document.createElement('link');
+                            pc2.rel = 'preconnect';
+                            pc2.href = 'https://fonts.gstatic.com';
+                            pc2.crossOrigin = '';
+                            document.head.appendChild(pc2);
+                        }
                         var linkId = '${linkId}';
                         var existingLink = document.getElementById(linkId);
                         if (!existingLink) {
@@ -2278,7 +2310,7 @@ async function applyThirdManInFont(fontType, config) {
                 return executeScriptInTargetTab({ code: walkerScript }).then(() => {
                     // Apply CSS using the already-built payload
                     if (payload) {
-                        const css = generateThirdManInCSS(fontType, payload);
+                        const css = generateThirdManInCSS(fontType, payload, shouldUseAggressive(origin));
                         if (css) {
                             console.log(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
                             return insertCSSInTargetTab({
@@ -4901,7 +4933,7 @@ function applyAllThirdManInFonts() {
                             console.log(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
 
                             // Use the payload that was already built earlier
-                            const css = generateThirdManInCSS(job.type, payload);
+                            const css = generateThirdManInCSS(job.type, payload, shouldUseAggressive(origin));
                             if (css) {
                                 console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
                                 console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);

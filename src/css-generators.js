@@ -30,9 +30,10 @@ function getSiteSpecificRules(fontType, otherProps, hostname) {
 
 // ── Face-off mode CSS (generateBodyCSS) ──────────────────────────────────────
 
-function generateBodyCSS(payload) {
+function generateBodyCSS(payload, aggressive) {
     if (!payload) return '';
 
+    const imp = aggressive ? ' !important' : '';
     const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.fontWeight || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
     if (!hasAnyProperties) return '';
 
@@ -46,52 +47,52 @@ function generateBodyCSS(payload) {
     const decl = [];
 
     if (payload.fontName) {
-        decl.push(`font-family:"${payload.fontName}" !important`);
+        decl.push(`font-family:"${payload.fontName}"${imp}`);
     }
 
     if (payload.fontSize !== null && payload.fontSize !== undefined) {
-        decl.push(`font-size:${payload.fontSize}px !important`);
+        decl.push(`font-size:${payload.fontSize}px${imp}`);
     }
     if (payload.lineHeight !== null && payload.lineHeight !== undefined) {
-        decl.push(`line-height:${payload.lineHeight} !important`);
+        decl.push(`line-height:${payload.lineHeight}${imp}`);
     }
     if (payload.fontColor) {
-        decl.push(`color:${payload.fontColor} !important`);
+        decl.push(`color:${payload.fontColor}${imp}`);
     }
     // Registered axes → high-level CSS properties
     const effectiveWdth = getEffectiveWidth(payload);
     if (effectiveWdth !== null) {
-        decl.push(`font-stretch:${effectiveWdth}% !important`);
+        decl.push(`font-stretch:${effectiveWdth}%${imp}`);
     }
     const effectiveItal = getEffectiveItalic(payload);
     const effectiveSlnt = getEffectiveSlant(payload);
     if (effectiveItal !== null && effectiveItal >= 1) {
-        decl.push('font-style:italic !important');
+        decl.push(`font-style:italic${imp}`);
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        decl.push(`font-style:oblique ${effectiveSlnt}deg !important`);
+        decl.push(`font-style:oblique ${effectiveSlnt}deg${imp}`);
     }
     // Custom axes only in font-variation-settings
     const customAxes = buildCustomAxisSettings(payload);
     if (customAxes.length > 0) {
-        decl.push(`font-variation-settings:${customAxes.join(', ')} !important`);
+        decl.push(`font-variation-settings:${customAxes.join(', ')}${imp}`);
     }
 
     let css = `${sel}{${decl.join('; ')};}`;
 
     const effectiveWt = getEffectiveWeight(payload);
     if (effectiveWt !== null) {
-        let weightRule = `font-weight:${effectiveWt} !important`;
+        let weightRule = `font-weight:${effectiveWt}${imp}`;
         if (customAxes.length > 0) {
-            weightRule += `; font-variation-settings:${customAxes.join(', ')} !important`;
+            weightRule += `; font-variation-settings:${customAxes.join(', ')}${imp}`;
         }
         css += '\n' + weightSel + `{${weightRule};}`;
     }
 
     // Bold override — font-weight only; stretch/style inherit from parent
     if (effectiveWt !== null) {
-        let boldRule = 'font-weight: 700 !important';
+        let boldRule = `font-weight: 700${imp}`;
         if (customAxes.length > 0) {
-            boldRule += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+            boldRule += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
         }
         css += `\nbody strong, body b, html body strong, html body b { ${boldRule}; }`;
     }
@@ -101,9 +102,10 @@ function generateBodyCSS(payload) {
 
 // ── Body Contact mode CSS ────────────────────────────────────────────────────
 
-function generateBodyContactCSS(payload) {
+function generateBodyContactCSS(payload, aggressive) {
     if (!payload) return '';
 
+    const imp = aggressive ? ' !important' : '';
     const lines = [];
 
     if (payload.fontFaceRule) {
@@ -115,33 +117,33 @@ function generateBodyContactCSS(payload) {
     let styleRule = `${selector} {`;
 
     if (payload.fontName) {
-        styleRule += ` font-family: "${payload.fontName}" !important;`;
+        styleRule += ` font-family: "${payload.fontName}"${imp};`;
     }
 
     if (payload.fontSize && isFinite(payload.fontSize)) {
-        styleRule += ` font-size: ${payload.fontSize}px !important;`;
+        styleRule += ` font-size: ${payload.fontSize}px${imp};`;
     }
     if (payload.lineHeight && isFinite(payload.lineHeight)) {
-        styleRule += ` line-height: ${payload.lineHeight} !important;`;
+        styleRule += ` line-height: ${payload.lineHeight}${imp};`;
     }
     if (payload.fontColor) {
-        styleRule += ` color: ${payload.fontColor} !important;`;
+        styleRule += ` color: ${payload.fontColor}${imp};`;
     }
 
     const effectiveWdth = getEffectiveWidth(payload);
     if (effectiveWdth !== null) {
-        styleRule += ` font-stretch: ${effectiveWdth}% !important;`;
+        styleRule += ` font-stretch: ${effectiveWdth}%${imp};`;
     }
     const effectiveItal = getEffectiveItalic(payload);
     const effectiveSlnt = getEffectiveSlant(payload);
     if (effectiveItal !== null && effectiveItal >= 1) {
-        styleRule += ` font-style: italic !important;`;
+        styleRule += ` font-style: italic${imp};`;
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        styleRule += ` font-style: oblique ${effectiveSlnt}deg !important;`;
+        styleRule += ` font-style: oblique ${effectiveSlnt}deg${imp};`;
     }
     const customAxes = buildCustomAxisSettings(payload);
     if (customAxes.length > 0) {
-        styleRule += ` font-variation-settings: ${customAxes.join(', ')} !important;`;
+        styleRule += ` font-variation-settings: ${customAxes.join(', ')}${imp};`;
     }
 
     styleRule += ' }';
@@ -149,14 +151,14 @@ function generateBodyContactCSS(payload) {
 
     const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {
-        let weightProps = `font-weight: ${effectiveWeight} !important`;
+        let weightProps = `font-weight: ${effectiveWeight}${imp}`;
         if (customAxes.length > 0) {
-            weightProps += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+            weightProps += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
         }
         lines.push(`${weightSelector} { ${weightProps}; }`);
-        let boldProps = 'font-weight: 700 !important';
+        let boldProps = `font-weight: 700${imp}`;
         if (customAxes.length > 0) {
-            boldProps += `; font-variation-settings: ${customAxes.join(', ')} !important`;
+            boldProps += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
         }
         lines.push(`body strong, body b { ${boldProps}; }`);
     }
@@ -166,9 +168,10 @@ function generateBodyContactCSS(payload) {
 
 // ── Third Man In mode CSS ────────────────────────────────────────────────────
 
-function generateThirdManInCSS(fontType, payload) {
+function generateThirdManInCSS(fontType, payload, aggressive) {
     if (!payload) return '';
 
+    const imp = aggressive ? ' !important' : '';
     const lines = [];
 
     if (payload.fontFaceRule) {
@@ -182,23 +185,23 @@ function generateThirdManInCSS(fontType, payload) {
 
     // Comprehensive rule for non-bold marked elements
     const nonBoldProps = [];
-    if (payload.fontName) nonBoldProps.push(`font-family: "${payload.fontName}" !important`);
+    if (payload.fontName) nonBoldProps.push(`font-family: "${payload.fontName}"${imp}`);
     if (effectiveWeight) {
-        nonBoldProps.push(`font-weight: ${effectiveWeight} !important`);
+        nonBoldProps.push(`font-weight: ${effectiveWeight}${imp}`);
     }
     const effectiveWdth = getEffectiveWidth(payload);
     if (effectiveWdth !== null) {
-        nonBoldProps.push(`font-stretch: ${effectiveWdth}% !important`);
+        nonBoldProps.push(`font-stretch: ${effectiveWdth}%${imp}`);
     }
     const effectiveItal = getEffectiveItalic(payload);
     const effectiveSlnt = getEffectiveSlant(payload);
     if (effectiveItal !== null && effectiveItal >= 1) {
-        nonBoldProps.push('font-style: italic !important');
+        nonBoldProps.push(`font-style: italic${imp}`);
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        nonBoldProps.push(`font-style: oblique ${effectiveSlnt}deg !important`);
+        nonBoldProps.push(`font-style: oblique ${effectiveSlnt}deg${imp}`);
     }
     if (customAxes.length > 0) {
-        nonBoldProps.push(`font-variation-settings: ${customAxes.join(', ')} !important`);
+        nonBoldProps.push(`font-variation-settings: ${customAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
         lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b) { ${nonBoldProps.join('; ')}; }`);
@@ -207,10 +210,10 @@ function generateThirdManInCSS(fontType, payload) {
     // Bold rule
     if (payload.fontName || effectiveWeight) {
         const boldProps = [];
-        if (payload.fontName) boldProps.push(`font-family: "${payload.fontName}" !important`);
-        boldProps.push('font-weight: 700 !important');
+        if (payload.fontName) boldProps.push(`font-family: "${payload.fontName}"${imp}`);
+        boldProps.push(`font-weight: 700${imp}`);
         if (customAxes.length > 0) {
-            boldProps.push(`font-variation-settings: ${customAxes.join(', ')} !important`);
+            boldProps.push(`font-variation-settings: ${customAxes.join(', ')}${imp}`);
         }
         lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
@@ -218,10 +221,10 @@ function generateThirdManInCSS(fontType, payload) {
     // Other properties apply only to body text elements
     const otherProps = [];
     if (payload.fontSize && isFinite(payload.fontSize)) {
-        otherProps.push(`font-size: ${payload.fontSize}px !important`);
+        otherProps.push(`font-size: ${payload.fontSize}px${imp}`);
     }
     if (payload.lineHeight && isFinite(payload.lineHeight)) {
-        otherProps.push(`line-height: ${payload.lineHeight} !important`);
+        otherProps.push(`line-height: ${payload.lineHeight}${imp}`);
     }
 
     if (otherProps.length > 0) {

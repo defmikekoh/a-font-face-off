@@ -98,6 +98,7 @@
   const DEFAULT_SANS = ['Apercu Pro'];
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
+  const DEFAULT_AGGRESSIVE = [];
 
   // Tab functionality
   function initTabs() {
@@ -403,6 +404,7 @@
         'affoKnownSans',
         'affoFontFaceOnlyDomains',
         'affoInlineApplyDomains',
+        'affoAggressiveDomains',
         'affoToolbarEnabled',
         'affoToolbarWidth',
         'affoToolbarHeight',
@@ -422,6 +424,8 @@
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
       const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
       document.getElementById('inline-domains').value = toTextarea(inline);
+      const aggressive = Array.isArray(data.affoAggressiveDomains) ? data.affoAggressiveDomains : DEFAULT_AGGRESSIVE.slice();
+      document.getElementById('aggressive-domains').value = toTextarea(aggressive);
 
       // Load toolbar settings with new defaults
       document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
@@ -532,6 +536,23 @@
       await browser.storage.local.set({ affoInlineApplyDomains: DEFAULT_INLINE.slice() });
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       const s = document.getElementById('status-inline'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function saveAggressive(){
+    try {
+      const raw = document.getElementById('aggressive-domains').value;
+      const list = fromTextarea(raw);
+      await browser.storage.local.set({ affoAggressiveDomains: list });
+      const s = document.getElementById('status-aggressive'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function resetAggressive(){
+    try {
+      await browser.storage.local.set({ affoAggressiveDomains: DEFAULT_AGGRESSIVE.slice() });
+      document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
+      const s = document.getElementById('status-aggressive'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {}
   }
 
@@ -693,6 +714,7 @@
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
+      document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
 
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
@@ -735,6 +757,8 @@
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
+    document.getElementById('save-aggressive').addEventListener('click', saveAggressive);
+    document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();
       updatePreviewAfterSave();
