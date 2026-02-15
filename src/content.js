@@ -138,7 +138,7 @@
   }
 
   // --- Custom font definitions ---
-  // Parse custom-fonts.css and ap-fonts.css to get @font-face rules on-demand
+  // Parse custom-fonts-starter.css (or user-customized version) to get @font-face rules on-demand
   var customFontDefinitions = {};
   var customFontsLoaded = false;
   var customFontsPromise = null;
@@ -173,7 +173,7 @@
         var cssText = stored.affoCustomFontsCss;
         var promises = [];
 
-        // Load packaged custom-fonts.css if not overridden
+        // Load packaged custom-fonts-starter.css if user hasn't customized
         if (!cssText) {
           promises.push(
             fetch(browser.runtime.getURL('custom-fonts-starter.css'))
@@ -183,7 +183,7 @@
                 Object.assign(customFontDefinitions, parsed);
               })
               .catch(function(e) {
-                debugLog('[AFFO Content] Failed to load custom-fonts.css:', e);
+                debugLog('[AFFO Content] Failed to load custom-fonts-starter.css:', e);
               })
           );
         } else {

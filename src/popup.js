@@ -536,7 +536,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
     }
 }
 
-// Custom font definitions are loaded from custom-fonts.css and ap-fonts.css.
+// Custom font definitions are loaded from custom-fonts-starter.css (or user-customized version).
 let CUSTOM_FONTS = [];
 let fontDefinitions = {};
 let customFontsCssText = '';
