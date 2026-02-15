@@ -207,9 +207,6 @@
             case 'toolbarOptionsChanged':
                 handleToolbarOptionsChanged(event.data.options);
                 break;
-            case 'checkDomainState':
-                handleCheckDomainState(event.data);
-                break;
             case 'applyQuickPickFont':
                 handleApplyQuickPickFont(event.data);
                 break;
@@ -368,89 +365,6 @@
         }
         
         createLeftToolbar();
-    }
-
-    // Detect dominant body font type (serif vs sans)
-    function detectDominantFontType() {
-        const serifNames = [
-            'pt serif', 'mencken-std', 'georgia', 'times', 'times new roman',
-            'merriweather', 'garamond', 'charter', 'spectral', 'lora',
-            'abril', 'crimson', 'playfair', 'noto serif'
-        ];
-
-        try {
-            // Helper function to check a given element's font
-            const checkElementFont = (element, elementName) => {
-                if (!element) return null;
-                const computedStyle = window.getComputedStyle(element);
-                const fontFamily = String(computedStyle.fontFamily || '').toLowerCase();
-
-                if (AFFO_DEBUG) console.log(`[Left Toolbar] Checking ${elementName}: "${computedStyle.fontFamily}"`);
-
-                // Check for known serif font names FIRST
-                const hasSerifName = serifNames.some(name => fontFamily.includes(name));
-                if (hasSerifName) {
-                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found serif name in ${elementName}`);
-                    return 'serif';
-                }
-
-                // Check for generic keywords
-                if (fontFamily.includes('sans-serif')) {
-                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found generic sans-serif in ${elementName}`);
-                    return 'sans';
-                }
-                if (fontFamily.includes('serif') && !fontFamily.includes('sans-serif')) {
-                    if (AFFO_DEBUG) console.log(`[Left Toolbar] Found generic serif in ${elementName}`);
-                    return 'serif';
-                }
-
-                return null; // Couldn't determine from this element
-            };
-
-            // First, check document.body
-            const bodyElement = document.body || document.documentElement;
-            let result = checkElementFont(bodyElement, 'document.body');
-
-            // If body only has generic keywords (no specific font name), check content containers
-            if (!result || result === 'sans') {
-                // Try common content containers in priority order
-                const contentContainers = [
-                    document.querySelector('article'),
-                    document.querySelector('main'),
-                    document.querySelector('[role="main"]'),
-                    document.querySelector('.entry-content'),
-                    document.querySelector('.post'),
-                    document.querySelector('.content'),
-                    document.querySelector('.article-body'),
-                    document.querySelector('[data-content]'),
-                ];
-
-                for (const container of contentContainers) {
-                    if (container) {
-                        const containerName = container.tagName.toLowerCase() +
-                            (container.className ? `.${container.className.split(' ')[0]}` : '');
-                        const containerResult = checkElementFont(container, containerName);
-                        if (containerResult === 'serif') {
-                            if (AFFO_DEBUG) console.log('[Left Toolbar] Detected: serif (from content container)');
-                            return 'serif';
-                        }
-                    }
-                }
-            }
-
-            // Use body result if we got one
-            if (result) {
-                if (AFFO_DEBUG) console.log(`[Left Toolbar] Detected: ${result} (from body)`);
-                return result;
-            }
-
-            // Default to sans
-            if (AFFO_DEBUG) console.log('[Left Toolbar] Detected: sans (default)');
-            return 'sans';
-        } catch (e) {
-            console.error('[Left Toolbar] Error detecting font type:', e);
-            return 'sans';
-        }
     }
 
     // Create quick-pick menu in page context (not iframe)
@@ -893,40 +807,6 @@
         } else {
             unapplyBtn.style.display = 'none';
         }
-    }
-
-    // Check domain state and populate quick-pick menu
-    function handleCheckDomainState(data) {
-        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-        const origin = location.hostname;
-        const { favorites } = data;
-
-        // Detect font type in this context (page context, not iframe)
-        const detectedFontType = detectDominantFontType();
-
-        browserAPI.storage.local.get('affoApplyMap').then(storageData => {
-            const applyMap = (storageData && storageData.affoApplyMap) ? storageData.affoApplyMap : {};
-            const domainData = applyMap[origin];
-
-            let showBodyModeMessage = false;
-
-            if (domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono) {
-                // Domain has Body Mode fonts only → show message
-                showBodyModeMessage = true;
-            }
-
-            // Send back to iframe
-            if (leftToolbarIframe && leftToolbarIframe.contentWindow) {
-                leftToolbarIframe.contentWindow.postMessage({
-                    type: 'populateQuickPickMenu',
-                    favorites: favorites,
-                    showBodyModeMessage: showBodyModeMessage,
-                    detectedFontType: detectedFontType
-                }, '*');
-            }
-        }).catch(err => {
-            console.error('[Left Toolbar] Error checking domain state:', err);
-        });
     }
 
     // Apply quick-pick font to detected position
