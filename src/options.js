@@ -196,6 +196,88 @@
     return normalize(String(text || '').split(/\r?\n/));
   }
 
+  // ─── Substack Roulette ────────────────────────────────────────────────
+
+  function renderSubstackRouletteTable(favorites, order, checkedSerif, checkedSans) {
+    const tbody = document.getElementById('substack-roulette-tbody');
+    const emptyMsg = document.getElementById('substack-roulette-empty');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const validNames = new Set(Object.keys(favorites));
+    const displayOrder = order.length > 0
+      ? order.filter(name => validNames.has(name))
+      : Object.keys(favorites);
+
+    if (displayOrder.length === 0) {
+      if (emptyMsg) emptyMsg.style.display = 'block';
+      return;
+    }
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    displayOrder.forEach(name => {
+      const tr = document.createElement('tr');
+
+      const tdName = document.createElement('td');
+      tdName.textContent = name;
+      tdName.style.padding = '4px 8px';
+      tdName.style.borderBottom = '1px solid var(--box-background)';
+      const config = favorites[name];
+      if (config && config.fontName) tdName.title = config.fontName;
+      tr.appendChild(tdName);
+
+      const tdSerif = document.createElement('td');
+      tdSerif.style.textAlign = 'center';
+      tdSerif.style.padding = '4px 8px';
+      tdSerif.style.borderBottom = '1px solid var(--box-background)';
+      const cbSerif = document.createElement('input');
+      cbSerif.type = 'checkbox';
+      cbSerif.checked = checkedSerif.indexOf(name) !== -1;
+      cbSerif.dataset.favName = name;
+      cbSerif.dataset.fontType = 'serif';
+      tdSerif.appendChild(cbSerif);
+      tr.appendChild(tdSerif);
+
+      const tdSans = document.createElement('td');
+      tdSans.style.textAlign = 'center';
+      tdSans.style.padding = '4px 8px';
+      tdSans.style.borderBottom = '1px solid var(--box-background)';
+      const cbSans = document.createElement('input');
+      cbSans.type = 'checkbox';
+      cbSans.checked = checkedSans.indexOf(name) !== -1;
+      cbSans.dataset.favName = name;
+      cbSans.dataset.fontType = 'sans';
+      tdSans.appendChild(cbSans);
+      tr.appendChild(tdSans);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function saveSubstackRoulette() {
+    const statusEl = document.getElementById('status-substack-roulette');
+    try {
+      const enabled = document.getElementById('substack-roulette-enabled').checked;
+      const serifNames = [];
+      const sansNames = [];
+      document.querySelectorAll('#substack-roulette-tbody input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) return;
+        if (cb.dataset.fontType === 'serif') serifNames.push(cb.dataset.favName);
+        if (cb.dataset.fontType === 'sans') sansNames.push(cb.dataset.favName);
+      });
+      await browser.storage.local.set({
+        affoSubstackRoulette: enabled,
+        affoSubstackRouletteSerif: serifNames,
+        affoSubstackRouletteSans: sansNames
+      });
+      statusEl.textContent = 'Saved';
+      setTimeout(() => { statusEl.textContent = ''; }, 1500);
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   // ─── Cloud Sync UI ───────────────────────────────────────────────────
 
   function updateGDriveFolderPreview() {
@@ -407,6 +489,11 @@
         'affoFontFaceOnlyDomains',
         'affoInlineApplyDomains',
         'affoAggressiveDomains',
+        'affoSubstackRoulette',
+        'affoSubstackRouletteSerif',
+        'affoSubstackRouletteSans',
+        'affoFavorites',
+        'affoFavoritesOrder',
         'affoToolbarEnabled',
         'affoToolbarWidth',
         'affoToolbarHeight',
@@ -430,6 +517,15 @@
       document.getElementById('inline-domains').value = toTextarea(inline);
       const aggressive = Array.isArray(data.affoAggressiveDomains) ? data.affoAggressiveDomains : DEFAULT_AGGRESSIVE.slice();
       document.getElementById('aggressive-domains').value = toTextarea(aggressive);
+
+      // Load Substack Roulette settings
+      document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
+      renderSubstackRouletteTable(
+        data.affoFavorites || {},
+        data.affoFavoritesOrder || [],
+        data.affoSubstackRouletteSerif || [],
+        data.affoSubstackRouletteSans || []
+      );
 
       // Load toolbar settings with new defaults
       document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
@@ -751,6 +847,13 @@
       document.getElementById('icon-theme').value = 'heroIcons';
       updateToolbarValues();
 
+      // Reset Substack Roulette
+      document.getElementById('substack-roulette-enabled').checked = true;
+      const rouletteTbody = document.getElementById('substack-roulette-tbody');
+      if (rouletteTbody) rouletteTbody.innerHTML = '';
+      const rouletteEmpty = document.getElementById('substack-roulette-empty');
+      if (rouletteEmpty) rouletteEmpty.style.display = 'block';
+
       // Reset sync UI
       document.getElementById('gdrive-folder-suffix').value = '';
       updateGDriveFolderPreview();
@@ -783,6 +886,7 @@
     document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('save-aggressive').addEventListener('click', saveAggressive);
     document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
+    document.getElementById('save-substack-roulette').addEventListener('click', saveSubstackRoulette);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();
       updatePreviewAfterSave();

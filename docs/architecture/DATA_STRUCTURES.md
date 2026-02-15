@@ -70,6 +70,9 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL) | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
+| `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
+| `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
+| `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
@@ -111,6 +114,9 @@ One backend active at a time (`affoSyncBackend`). Both use the same sync algorit
 | `known-sans.json` | `affoKnownSans` | User sans classification |
 | `fontface-only-domains.json` | `affoFontFaceOnlyDomains` | FontFace-only domain list |
 | `inline-apply-domains.json` | `affoInlineApplyDomains` | Inline apply domain list |
+| `aggressive-domains.json` | `affoAggressiveDomains` | Aggressive `!important` domain list |
+| `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
+| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools |
 
 ### Backend interface (`gdriveBackend` / `webdavBackend`)
 - `init()` — setup (GDrive: ensure app folder; WebDAV: MKCOL sync folder)

@@ -25,10 +25,18 @@ const SYNC_KNOWN_SERIF_NAME = 'known-serif.json';
 const SYNC_KNOWN_SANS_NAME = 'known-sans.json';
 const SYNC_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
 const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
+const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
+const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
+const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const KNOWN_SERIF_KEY = 'affoKnownSerif';
 const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
 const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
+const AGGRESSIVE_DOMAINS_KEY = 'affoAggressiveDomains';
+const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
+const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
+const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
+const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
 const SYNC_ALARM_NAME = 'affoPeriodicSync';
 const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
 
@@ -1078,7 +1086,9 @@ async function runSync() {
     { key: KNOWN_SERIF_KEY, filename: SYNC_KNOWN_SERIF_NAME, label: 'Known serif' },
     { key: KNOWN_SANS_KEY, filename: SYNC_KNOWN_SANS_NAME, label: 'Known sans' },
     { key: FFONLY_DOMAINS_KEY, filename: SYNC_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
-    { key: INLINE_DOMAINS_KEY, filename: SYNC_INLINE_DOMAINS_NAME, label: 'Inline apply domains' }
+    { key: INLINE_DOMAINS_KEY, filename: SYNC_INLINE_DOMAINS_NAME, label: 'Inline apply domains' },
+    { key: AGGRESSIVE_DOMAINS_KEY, filename: SYNC_AGGRESSIVE_DOMAINS_NAME, label: 'Aggressive domains' },
+    { key: PRESERVED_FONTS_KEY, filename: SYNC_PRESERVED_FONTS_NAME, label: 'Preserved fonts' }
   ];
   for (const item of jsonArrayItems) {
     try {
@@ -1130,6 +1140,69 @@ async function runSync() {
       console.warn(`[AFFO Background] ${item.label} sync error:`, e);
       errors.push(e);
     }
+  }
+
+  // ── Substack Roulette (compound object: enabled + serif/sans name arrays) ──
+  try {
+    const rouletteItemKey = SYNC_SUBSTACK_ROULETTE_NAME;
+    const localState = localMeta.items[rouletteItemKey] || {};
+    const localModified = (localMeta.items[rouletteItemKey] || {}).modified || 0;
+    const remoteModified = ((remoteManifest.items || {})[rouletteItemKey] || {}).modified || 0;
+
+    const getLocalRouletteSnapshot = async () => {
+      const stored = await browser.storage.local.get([SUBSTACK_ROULETTE_KEY, SUBSTACK_ROULETTE_SERIF_KEY, SUBSTACK_ROULETTE_SANS_KEY]);
+      return {
+        [SUBSTACK_ROULETTE_KEY]: stored[SUBSTACK_ROULETTE_KEY] !== false,
+        [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SERIF_KEY]) ? stored[SUBSTACK_ROULETTE_SERIF_KEY] : [],
+        [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : []
+      };
+    };
+
+    if (firstSync) {
+      const fileResult = await backend.get(SYNC_SUBSTACK_ROULETTE_NAME);
+      if (!fileResult.notFound) {
+        const remote = JSON.parse(fileResult.data);
+        await setStorageDuringSync({
+          [SUBSTACK_ROULETTE_KEY]: remote[SUBSTACK_ROULETTE_KEY] !== false,
+          [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SERIF_KEY]) ? remote[SUBSTACK_ROULETTE_SERIF_KEY] : [],
+          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : []
+        });
+        const modified = remoteModified || now;
+        setModified(localMeta.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
+        setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
+        manifestChanged = true;
+      } else {
+        const snapshot = await getLocalRouletteSnapshot();
+        const modified = localModified || now;
+        const remoteRev = await syncPush(backend, localState, SYNC_SUBSTACK_ROULETTE_NAME, JSON.stringify(snapshot, null, 2), 'application/json');
+        setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev });
+        setModified(localMeta.items, rouletteItemKey, modified, { remoteRev });
+        manifestChanged = true;
+      }
+    } else if (remoteModified > localModified) {
+      // Pull
+      const fileResult = await backend.get(SYNC_SUBSTACK_ROULETTE_NAME);
+      if (!fileResult.notFound) {
+        const remote = JSON.parse(fileResult.data);
+        await setStorageDuringSync({
+          [SUBSTACK_ROULETTE_KEY]: remote[SUBSTACK_ROULETTE_KEY] !== false,
+          [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SERIF_KEY]) ? remote[SUBSTACK_ROULETTE_SERIF_KEY] : [],
+          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : []
+        });
+        setModified(localMeta.items, rouletteItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
+      }
+    } else if (localModified > remoteModified) {
+      // Push
+      const snapshot = await getLocalRouletteSnapshot();
+      const modified = localModified || now;
+      const remoteRev = await syncPush(backend, localState, SYNC_SUBSTACK_ROULETTE_NAME, JSON.stringify(snapshot, null, 2), 'application/json');
+      setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev });
+      setModified(localMeta.items, rouletteItemKey, modified, { remoteRev });
+      manifestChanged = true;
+    }
+  } catch (e) {
+    console.warn('[AFFO Background] Substack roulette sync error:', e);
+    errors.push(e);
   }
 
   // ── Update manifests ──
@@ -1747,6 +1820,20 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
   if (changes[CUSTOM_FONTS_CSS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONTS_CSS_KEY])) {
     markLocalItemModified(SYNC_CUSTOM_FONTS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[AGGRESSIVE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[AGGRESSIVE_DOMAINS_KEY])) {
+    markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
+    markLocalItemModified(SYNC_PRESERVED_FONTS_NAME).then(() => scheduleAutoSync());
+  }
+  if (trackSyncManagedChanges) {
+    const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))
+      || (changes[SUBSTACK_ROULETTE_SERIF_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SERIF_KEY]))
+      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]));
+    if (rouletteChanged) {
+      markLocalItemModified(SYNC_SUBSTACK_ROULETTE_NAME).then(() => scheduleAutoSync());
+    }
   }
 
   // Check if any toolbar options changed

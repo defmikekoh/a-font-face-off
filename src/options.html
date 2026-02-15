@@ -711,6 +711,35 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Substack Roulette</div>
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+        <input id="substack-roulette-enabled" type="checkbox" checked>
+        Enabled
+      </label>
+      <div id="substack-roulette-table-container" style="margin-top: 10px;">
+        <table id="substack-roulette-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="text-align: left; padding: 6px 8px; font-size: 12px; border-bottom: 1px solid var(--box-background);">Favorite</th>
+              <th style="text-align: center; padding: 6px 8px; width: 60px; font-size: 12px; border-bottom: 1px solid var(--box-background);">Serif</th>
+              <th style="text-align: center; padding: 6px 8px; width: 60px; font-size: 12px; border-bottom: 1px solid var(--box-background);">Sans</th>
+            </tr>
+          </thead>
+          <tbody id="substack-roulette-tbody">
+          </tbody>
+        </table>
+        <div id="substack-roulette-empty" style="display: none; font-style: italic; opacity: 0.7; padding: 8px 0;">
+          No favorites saved yet. Add favorites in the popup to use Substack Roulette.
+        </div>
+      </div>
+      <div class="row">
+        <button id="save-substack-roulette">Save Roulette Settings</button>
+        <span id="status-substack-roulette" class="status"></span>
+      </div>
+      <div class="hint">When visiting a Substack page with no saved font settings, randomly applies one serif and one sans favorite from the checked lists. New random fonts on each page load.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Font Cache Management</div>
       <div class="row">
         <button id="clear-font-cache" class="purple">Clear Font Cache</button>

@@ -122,6 +122,47 @@
     return aggressiveDomains.includes(currentOrigin);
   }
 
+  // --- Substack detection (lazy-cached) ---
+  var _isSubstack = null;
+  function getIsSubstack() {
+    if (_isSubstack !== null) return _isSubstack;
+    _isSubstack = false;
+    try {
+      // Signal 1: hostname
+      if (location.hostname.endsWith('.substack.com')) {
+        _isSubstack = true; return true;
+      }
+      // Signal 2: global variable
+      if (typeof window.__SUBSTACK_PUB_ID__ === 'string') {
+        _isSubstack = true; return true;
+      }
+      // Signal 3: meta generator
+      var gen = document.querySelector('meta[name="generator"]');
+      if (gen && /substack/i.test(gen.getAttribute('content') || '')) {
+        _isSubstack = true; return true;
+      }
+      // Signal 4: canonical link
+      var canon = document.querySelector('link[rel="canonical"]');
+      if (canon && /\.substack\.com/i.test(canon.getAttribute('href') || '')) {
+        _isSubstack = true; return true;
+      }
+      // Signal 5: CDN links or scripts
+      if (document.querySelector('link[href*="substackcdn"], script[src*="substack"]')) {
+        _isSubstack = true; return true;
+      }
+      // Signal 6: JSON-LD structured data
+      var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var i = 0; i < ldScripts.length; i++) {
+        try {
+          if (/substack/i.test(ldScripts[i].textContent || '')) {
+            _isSubstack = true; return true;
+          }
+        } catch(_) {}
+      }
+    } catch(_) {}
+    return false;
+  }
+
   // --- css2Url cache lookup ---
   // Global cache of fontName -> css2Url (populated by popup.js, eliminates per-domain duplication)
   var css2UrlCache = null;
@@ -1555,36 +1596,31 @@
         // Check for standalone sans (but not sans-serif)
         if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
 
-        // Check for sans-serif in computed font-family (what WhatFont sees)
-        if (/\bsans-serif\b/.test(computedText)) {
-            console.log('SANS FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
-            return 'sans';
-        }
-
-        // Check for serif in computed font-family (what WhatFont sees)
-        if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
-            console.log('SERIF FOUND (computed):', element.tagName, 'computedFont:', computedFontFamily);
-            return 'serif';
-        }
-
-        // Check if computed font matches known serif fonts
+        // Check known font names FIRST (before generic keywords) so specific fonts take priority
+        // e.g. "Spectral", serif, ..., sans-serif → Spectral is known serif, don't misclassify as sans
         // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
         if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
         for (var i = 0; i < computedParts.length; i++) {
           if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
-            console.log('SERIF FOUND (known font):', element.tagName, 'computedFont:', computedFontFamily, 'matched:', computedParts[i]);
             return 'serif';
           }
           if (knownSansFonts.indexOf(computedParts[i]) !== -1) {
-            console.log('SANS FOUND (known font):', element.tagName, 'computedFont:', computedFontFamily, 'matched:', computedParts[i]);
             return 'sans';
           }
+        }
+
+        // Fall back to generic keywords in computed font-family
+        if (/\bsans-serif\b/.test(computedText)) {
+            return 'sans';
+        }
+
+        if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
+            return 'serif';
         }
 
         // Check for serif (but not sans-serif) in class names and inline styles
         if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
             /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
-            console.log('SERIF FOUND (class/style):', element.tagName, 'className:', classText, 'style:', styleText);
             return 'serif';
         }
 
@@ -1756,12 +1792,79 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
     
-    browser.storage.local.get('affoApplyMap').then(function(data){
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function(data){
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
       if (!entry) {
         // Clean up all stale styles if no entry exists
         ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
+
+        // --- Substack Roulette ---
+        var rouletteEnabled = data.affoSubstackRoulette !== false; // default true
+        var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
+        var rouletteSans = Array.isArray(data.affoSubstackRouletteSans) ? data.affoSubstackRouletteSans : [];
+        var favorites = data.affoFavorites || {};
+
+        if (rouletteEnabled && rouletteSerif.length >= 1 && rouletteSans.length >= 1) {
+          function trySubstackRoulette() {
+            if (!getIsSubstack()) return;
+
+            // Pick random serif and sans from checked favorites
+            var serifName = rouletteSerif[Math.floor(Math.random() * rouletteSerif.length)];
+            var sansName = rouletteSans[Math.floor(Math.random() * rouletteSans.length)];
+            var serifConfig = favorites[serifName];
+            var sansConfig = favorites[sansName];
+
+            if (!serifConfig || !serifConfig.fontName) return;
+            if (!sansConfig || !sansConfig.fontName) return;
+
+            debugLog('[AFFO Content] Substack Roulette: applying serif=' + serifConfig.fontName + ', sans=' + sansConfig.fontName);
+
+            // Apply via existing TMI path
+            reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
+
+            // Set up SPA navigation hooks for roulette TMI fonts
+            if (!shouldUseInlineApply()) {
+              function reapplyRouletteAfterNavigation() {
+                try {
+                  ['serif', 'sans'].forEach(function(ft) {
+                    elementWalkerCompleted[ft] = false;
+                    elementWalkerRechecksScheduled[ft] = false;
+                    runElementWalker(ft);
+                  });
+                } catch(_) {}
+              }
+              try {
+                var _rPs = history.pushState;
+                history.pushState = function() {
+                  var r = _rPs.apply(this, arguments);
+                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
+                  return r;
+                };
+              } catch(_) {}
+              try {
+                var _rRs = history.replaceState;
+                history.replaceState = function() {
+                  var r = _rRs.apply(this, arguments);
+                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
+                  return r;
+                };
+              } catch(_) {}
+              try {
+                window.addEventListener('popstate', function() {
+                  try { setTimeout(reapplyRouletteAfterNavigation, 100); } catch(_) {}
+                }, true);
+              } catch(_) {}
+            }
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', trySubstackRoulette);
+          } else {
+            setTimeout(trySubstackRoulette, 100);
+          }
+        }
+
         return;
       }
       
@@ -1966,6 +2069,21 @@
         } catch (error) {
           console.error('Error resetting fonts:', error);
           sendResponse({success: false, error: error.message});
+        }
+      } else if (message.type === 'runElementWalker') {
+        try {
+          var ft = message.fontType;
+          if (ft === 'serif' || ft === 'sans' || ft === 'mono') {
+            elementWalkerCompleted[ft] = false;
+            runElementWalker(ft);
+            var marked = document.querySelectorAll('[data-affo-font-type="' + ft + '"]');
+            sendResponse({ success: true, markedCount: marked.length });
+          } else {
+            sendResponse({ success: false, error: 'Invalid fontType: ' + ft });
+          }
+        } catch (error) {
+          console.error('[AFFO Content] Error running element walker:', error);
+          sendResponse({ success: false, error: error.message });
         }
       } else if (message.action === 'restoreOriginal') {
         try {
