@@ -33,7 +33,8 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers) — shared between popup.js and Node tests |
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
-| `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience |
+| `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience, element walker rechecks, preconnect hints |
+| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important`, element walker script generation |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start` |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
@@ -44,13 +45,13 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 ### Three View Modes
 
-- **Body Contact** — Single font applied to body text (excludes headings, code, nav, form controls). Per-origin persistence via `affoApplyMap`.
+- **Body Contact** — Single font applied to body text (excludes headings, code, nav, form controls, syntax highlighting, ARIA roles, metadata/bylines, widgets/ads). Per-origin persistence via `affoApplyMap`.
 - **Face-off** — Split-screen font comparison inside the popup. No page interaction.
-- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type`.
+- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type`. Includes delayed rechecks (700ms/1600ms + `document.fonts.ready`) for dynamic/lazy-loaded content, and SPA navigation hooks (`pushState`/`replaceState`/`popstate`) to re-walk on route changes.
 
 ### Storage Keys (browser.storage.local)
 
-Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCache` (WOFF2 cache). See `docs/architecture/DATA_STRUCTURES.md` for full details.
+Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCache` (WOFF2 cache), `affoAggressiveDomains` (domains using `!important`), `affoPreservedFonts` (icon font families never replaced). See `docs/architecture/DATA_STRUCTURES.md` for full details.
 
 ### Google Drive Sync
 
@@ -97,6 +98,18 @@ x.com requires unique treatment due to aggressive style clearing:
 - **Inline style application** — direct DOM element styles with `!important`
 - **SPA resilience** — polling timers, MutationObserver, History API hooks, computed style restoration
 - Domain lists configurable via `affoFontFaceOnlyDomains` and `affoInlineApplyDomains` storage keys
+
+### Element Exclusions and Guards
+
+Both Body Contact and TMI walkers exclude elements that should not have their font replaced:
+- **Shared exclusions**: headings (h1-h6), code/pre/kbd, nav, form elements, ARIA roles (navigation, button, tab, toolbar, menu, alert, status, log), syntax highlighting classes, small-caps, metadata/bylines, widget/ad patterns, WhatFont compatibility
+- **Guard mechanism**: Elements (or their ancestors) with class `.no-affo` or attribute `data-affo-guard` are skipped entirely by both walkers
+- **Preserved fonts** (`affoPreservedFonts`): Icon font families (Font Awesome, Material Icons, bootstrap-icons, etc.) are never replaced. Configurable via Options page; checked against computed `font-family` stack
+- **Implementation difference**: Body Contact uses CSS `:not()` selectors; TMI uses JS runtime checks in the element walker. Kept separate intentionally due to fundamentally different mechanisms
+
+### Aggressive Mode (`affoAggressiveDomains`)
+
+By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOrigin: 'user'` for priority). Domains listed in `affoAggressiveDomains` get `!important` on all font declarations for sites with very strong style rules. Configurable via Options page textarea (one domain per line, defaults to empty).
 
 ### Async Architecture
 

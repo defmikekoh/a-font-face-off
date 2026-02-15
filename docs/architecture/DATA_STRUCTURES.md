@@ -68,6 +68,8 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL) | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
+| `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
+| `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
