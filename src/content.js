@@ -1620,7 +1620,8 @@
   // Threshold above which we skip timed rechecks (only keep document.fonts.ready)
   var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;
   // Elements to process per chunk before yielding to main thread
-  var WALKER_CHUNK_SIZE = 500;
+  // Increased from 500 to 2000 for faster completion on heavy pages like Forbes
+  var WALKER_CHUNK_SIZE = 2000;
 
   // Schedule delayed rechecks after initial walker completes
   // Catches lazy-loaded content and elements that appear after fonts finish loading
@@ -1669,14 +1670,9 @@
       console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
       var startTime = performance.now();
 
-      // Clear existing markers for all requested types
-      typesToWalk.forEach(function(ft) {
-        var existingMarked = document.querySelectorAll('[data-affo-font-type="' + ft + '"]');
-        elementLog('Clearing ' + existingMarked.length + ' existing ' + ft + ' markers');
-        existingMarked.forEach(function(el) {
-          el.removeAttribute('data-affo-font-type');
-        });
-      });
+      // Don't clear markers upfront — update them incrementally during the walk.
+      // This prevents the "revert flash" where markers are cleared synchronously
+      // but re-applied chunk-by-chunk with setTimeout(0) delays in between.
 
       // Walk all text-containing elements
       // Visibility checks moved to main loop (merged with getElementFontType's getComputedStyle)
@@ -1714,9 +1710,17 @@
           totalElements++;
           chunkCount++;
           var detectedType = getElementFontType(element, cs);
+          var currentMarker = element.getAttribute('data-affo-font-type');
+
+          // Update marker: set if type detected and in requested set, remove if not
           if (detectedType && typeSet[detectedType]) {
-            element.setAttribute('data-affo-font-type', detectedType);
+            if (currentMarker !== detectedType) {
+              element.setAttribute('data-affo-font-type', detectedType);
+            }
             markedCounts[detectedType]++;
+          } else if (currentMarker && typeSet[currentMarker]) {
+            // Element had a marker for one of the types we're walking, but shouldn't anymore
+            element.removeAttribute('data-affo-font-type');
           }
         }
 

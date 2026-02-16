@@ -37,7 +37,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
 | `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important` |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
-| `left-toolbar.js` | Toolbar overlay injected at `document_start` |
+| `left-toolbar.js` | Toolbar overlay injected at `document_start`; performs early font preloading by reading domain configs and injecting Google Fonts `<link>` tags + preconnect hints as soon as `document.head` is available, giving browser maximum lead time to fetch fonts before page renders |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
 | `whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) — detects font name, size, weight, variable axes (registered axes via CSS properties, custom axes via `font-variation-settings`) |
@@ -48,7 +48,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 - **Body Contact** — Single font applied to body text (excludes headings, code, nav, form controls, syntax highlighting, ARIA roles, metadata/bylines, widgets/ads). Per-origin persistence via `affoApplyMap`.
 - **Face-off** — Split-screen font comparison inside the popup. No page interaction.
-- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type` using a unified walker (`runElementWalkerAll`) that classifies all active types in a single DOM pass. Walker uses chunked processing (500 elements per chunk, yielding to main thread via `setTimeout(0)` between chunks) to avoid blocking the UI on large pages. Includes delayed rechecks (`document.fonts.ready`, plus 700ms/1600ms on pages under 5,000 elements) for dynamic/lazy-loaded content, and SPA navigation hooks to re-walk on route changes.
+- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type` using a unified walker (`runElementWalkerAll`) that classifies all active types in a single DOM pass. Walker uses chunked processing (2000 elements per chunk, yielding to main thread via `setTimeout(0)` between chunks) to avoid blocking the UI on large pages. Markers are updated incrementally without upfront clearing to prevent "revert flash" during rechecks. Includes delayed rechecks (`document.fonts.ready`, plus 700ms/1600ms on pages under 5,000 elements) for dynamic/lazy-loaded content, and SPA navigation hooks to re-walk on route changes.
 
 ### Storage Keys (browser.storage.local)
 
@@ -127,7 +127,15 @@ By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOr
 
 ### Async Architecture
 
-All async operations are Promise-based (2024 refactor complete). No setTimeout polling for sequencing. CSS injection, font loading, button state updates, and storage operations all use async/await. On page reload, CSS is injected immediately (before font files load) to prevent flash of original fonts; font loading runs in parallel and the browser swaps the font in via `font-display: swap`.
+All async operations are Promise-based (2024 refactor complete). No setTimeout polling for sequencing. CSS injection, font loading, button state updates, and storage operations all use async/await.
+
+**Font loading optimizations for page reload**:
+1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` and `affoCss2UrlCache` from storage; injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is even parsed.
+2. **Eager storage reads in `content.js`** (module load): `ensureCustomFontsLoaded()` and `ensureCss2UrlCache()` are kicked off immediately when the script loads, not lazily when first needed. By the time `reapplyStoredFonts` runs, these promises are likely already resolved.
+3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is injected immediately alongside the CSS `<style>` element, before entering the `loadFont()` async chain. Uses cached css2Url if available, otherwise falls back to simple URL.
+4. **CSS injection before font loads**: CSS rules targeting `[data-affo-font-type="..."]` are injected immediately, before font files load. The browser shows fallback fonts until the font file loads, then swaps in via `font-display: swap`.
+
+Result: Font loading starts at `document_start` (earliest possible), eliminating sequential async waits from the critical path.
 
 ### Debug Flag
 

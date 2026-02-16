@@ -22,9 +22,77 @@
     let unhideIcon = null;
     let quickPickMenu = null;
     let options = {};
-    
-    
-    
+
+    // --- Early font preloading (runs at document_start for maximum lead time) ---
+    // For domains with stored fonts, inject preconnect + <link> tags immediately
+    // so browser starts fetching fonts before page is fully loaded.
+    (function earlyFontPreload() {
+        try {
+            const origin = location.hostname;
+            browser.storage.local.get(['affoApplyMap', 'affoCss2UrlCache']).then(data => {
+                const map = data.affoApplyMap || {};
+                const entry = map[origin];
+                const css2UrlCache = data.affoCss2UrlCache || {};
+
+                if (!entry) return;
+
+                // Wait for document.head to be available
+                function injectWhenReady() {
+                    if (document.head) {
+                        injectPreloads();
+                    } else {
+                        setTimeout(injectWhenReady, 10);
+                    }
+                }
+
+                function injectPreloads() {
+                    // Inject preconnect hints first
+                    if (!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')) {
+                        const pc1 = document.createElement('link');
+                        pc1.rel = 'preconnect';
+                        pc1.href = 'https://fonts.googleapis.com';
+                        document.head.appendChild(pc1);
+                    }
+                    if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
+                        const pc2 = document.createElement('link');
+                        pc2.rel = 'preconnect';
+                        pc2.href = 'https://fonts.gstatic.com';
+                        pc2.crossOrigin = '';
+                        document.head.appendChild(pc2);
+                    }
+
+                    // Inject <link> tags for any Google fonts in stored config
+                    ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
+                        const fontConfig = entry[fontType];
+                        if (!fontConfig || !fontConfig.fontName) return;
+
+                        // Skip custom fonts (they have special handling in content.js)
+                        // We can't easily check customFontDefinitions here, so just inject all fonts
+                        const fontName = fontConfig.fontName;
+                        const linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+
+                        if (!document.getElementById(linkId)) {
+                            const cachedUrl = css2UrlCache[fontName];
+                            const href = cachedUrl || `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName).replace(/%20/g, '+')}&display=swap`;
+
+                            const link = document.createElement('link');
+                            link.id = linkId;
+                            link.rel = 'stylesheet';
+                            link.href = href;
+                            document.head.appendChild(link);
+                            console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${href}`);
+                        }
+                    });
+                }
+
+                injectWhenReady();
+            }).catch(e => {
+                console.warn('[AFFO Toolbar] Early font preload failed:', e);
+            });
+        } catch (e) {}
+    })();
+
+
     // Create the left toolbar iframe with robust DOM body checking (like Essential)
     function createLeftToolbar() {
         return new Promise((resolve) => {
