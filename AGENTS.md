@@ -116,13 +116,14 @@ x.com requires unique treatment due to aggressive style clearing:
 
 Both Body Contact and TMI walkers exclude elements that should not have their font replaced:
 - **Shared exclusions**: headings (h1-h6), code/pre/kbd, nav, form elements, ARIA roles (navigation, button, tab, toolbar, menu, alert, status, log), syntax highlighting classes, small-caps, metadata/bylines, widget/ad patterns, WhatFont compatibility
+- **Container exclusions (ancestor-aware)**: Elements inside `figcaption`, `button`, `.post-header`, or `[role="dialog"]` are excluded via `element.closest()` in the TMI walker. Body Contact CSS uses `:not(button):not(button *)`, `:not([class*="byline"])`, `:not([class*="subtitle"])`, `:not([role="dialog"]):not([role="dialog"] *)` selectors
 - **Guard mechanism**: Elements (or their ancestors) with class `.no-affo` or attribute `data-affo-guard` are skipped entirely by both walkers
 - **Preserved fonts** (`affoPreservedFonts`): Icon font families (Font Awesome, Material Icons, bootstrap-icons, etc.) are never replaced. Configurable via Options page; checked against computed `font-family` stack
 - **Implementation difference**: Body Contact uses CSS `:not()` selectors; TMI uses JS runtime checks in the element walker. Kept separate intentionally due to fundamentally different mechanisms
 
 ### Aggressive Mode (`affoAggressiveDomains`)
 
-By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOrigin: 'user'` for priority). Domains listed in `affoAggressiveDomains` get `!important` on all font declarations for sites with very strong style rules. Configurable via Options page textarea (one domain per line, defaults to empty).
+By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOrigin: 'user'` for priority). Domains listed in `affoAggressiveDomains` get `!important` on all font declarations for sites with very strong style rules. Configurable via Options page textarea (one domain per line, defaults to empty). On page reload, `affoAggressiveDomains` is loaded in the same `storage.local.get()` call as `affoApplyMap` to avoid a race condition where aggressive mode CSS would be generated without `!important`. CSS is injected immediately on reapply (before font file loads) to prevent flash of original fonts; the font file loads in parallel and the browser swaps it in via `font-display: swap`.
 
 ### Async Architecture
 
