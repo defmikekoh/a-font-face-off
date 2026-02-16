@@ -1757,36 +1757,24 @@
         var fontConfig = entry[fontType];
         if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
-          
-          // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
-          loadFont(fontConfig, fontType).then(function() {
-            debugLog(`[AFFO Content] Font ${fontConfig.fontName} loaded successfully, applying styles`);
-            
-            // Generate CSS for this font type after font loads
-          var css = '';
-          var lines = [];
-          
-          // Add custom @font-face rule if present
-          if (fontConfig.fontFaceRule) {
-            lines.push(fontConfig.fontFaceRule);
-          }
-          
+
           // Run element walker for Third Man In mode
           if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
             runElementWalker(fontType);
           }
-          // Generate CSS rules using shared helper
+
+          // Inject CSS immediately (before font loads) to prevent flash of original font
+          var lines = [];
+          if (fontConfig.fontFaceRule) {
+            lines.push(fontConfig.fontFaceRule);
+          }
           lines = lines.concat(generateCSSLines(fontConfig, fontType));
-          
-          css = lines.join('\n');
-          
+          var css = lines.join('\n');
+
           if (css) {
-            // Check if we should use inline apply for this domain
             if (shouldUseInlineApply()) {
-              // Apply styles inline directly to elements
               applyInlineStyles(fontConfig, fontType);
             } else {
-              // Apply CSS by creating style element (default behavior)
               var styleId = 'a-font-face-off-style-' + fontType;
               var existingStyle = document.getElementById(styleId);
               if (existingStyle) existingStyle.remove();
@@ -1798,9 +1786,11 @@
               debugLog(`[AFFO Content] Applied CSS for ${fontType} from storage change:`, css);
             }
           }
-        }).catch(function(e) {
-          console.warn(`[AFFO Content] Error applying styles after font load:`, e);
-        });
+
+          // Load font file in parallel (browser swaps in when ready)
+          loadFont(fontConfig, fontType).catch(function(e) {
+            console.warn(`[AFFO Content] Error loading font after storage change:`, e);
+          });
         }
       });
     } catch (e) {
@@ -1846,7 +1836,12 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
     
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function(data){
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains']).then(function(data){
+      // Ensure aggressiveDomains is populated before any reapply logic runs
+      // (the earlier fire-and-forget load at script top may not have resolved yet)
+      if (Array.isArray(data.affoAggressiveDomains)) {
+        aggressiveDomains = data.affoAggressiveDomains;
+      }
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
       if (!entry) {
@@ -1926,40 +1921,29 @@
             var fontConfig = entry[fontType];
             if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
-              
-              // Load font (handles Google Fonts, custom fonts, and FontFace-only domains)
-              loadFont(fontConfig, fontType).then(function() {
-                debugLog(`[AFFO Content] Font ${fontConfig.fontName} loaded successfully on page load, applying styles`);
-                
-                // Generate CSS for this font type after font loads
-              var css = '';
-              var lines = [];
-              
-              // Add custom @font-face rule if present
-              if (fontConfig.fontFaceRule) {
-                lines.push(fontConfig.fontFaceRule);
-              }
-              
+
               // Run element walker for Third Man In mode
               if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
                 runElementWalker(fontType);
               }
-              // Generate CSS rules using shared helper
+
+              // Inject CSS immediately (before font loads) to prevent flash of original font.
+              // The browser will show a fallback until the font file loads, then swap in.
+              var lines = [];
+              if (fontConfig.fontFaceRule) {
+                lines.push(fontConfig.fontFaceRule);
+              }
               lines = lines.concat(generateCSSLines(fontConfig, fontType));
-              
-              css = lines.join('\n');
-              
+              var css = lines.join('\n');
+
               if (css) {
-                // Check if we should use inline apply for this domain
                 if (shouldUseInlineApply()) {
-                  // Apply styles inline directly to elements
                   applyInlineStyles(fontConfig, fontType);
                 } else {
-                  // Apply CSS by creating style element (default behavior)
                   var styleId = 'a-font-face-off-style-' + fontType;
                   var existingStyle = document.getElementById(styleId);
                   if (existingStyle) existingStyle.remove();
-                  
+
                   var styleEl = document.createElement('style');
                   styleEl.id = styleId;
                   styleEl.textContent = css;
@@ -1967,8 +1951,10 @@
                   elementLog(`Applied CSS for ${fontType}:`, css);
                 }
               }
-              }).catch(function(e) {
-                console.warn(`[AFFO Content] Error applying styles after font load on page init:`, e);
+
+              // Load font file in parallel (browser swaps in when ready)
+              loadFont(fontConfig, fontType).catch(function(e) {
+                console.warn(`[AFFO Content] Error loading font on page init:`, e);
               });
             }
           });
