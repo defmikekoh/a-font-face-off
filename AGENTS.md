@@ -48,7 +48,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 - **Body Contact** — Single font applied to body text (excludes headings, code, nav, form controls, syntax highlighting, ARIA roles, metadata/bylines, widgets/ads). Per-origin persistence via `affoApplyMap`.
 - **Face-off** — Split-screen font comparison inside the popup. No page interaction.
-- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type` using a unified walker (`runElementWalkerAll`) that classifies all active types in a single DOM pass. Includes delayed rechecks (700ms/1600ms + `document.fonts.ready`) for dynamic/lazy-loaded content, and SPA navigation hooks to re-walk on route changes.
+- **Third Man In** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page. Content script marks elements with `data-affo-font-type` using a unified walker (`runElementWalkerAll`) that classifies all active types in a single DOM pass. Walker uses chunked processing (500 elements per chunk, yielding to main thread via `setTimeout(0)` between chunks) to avoid blocking the UI on large pages. Includes delayed rechecks (`document.fonts.ready`, plus 700ms/1600ms on pages under 5,000 elements) for dynamic/lazy-loaded content, and SPA navigation hooks to re-walk on route changes.
 
 ### Storage Keys (browser.storage.local)
 
@@ -102,7 +102,7 @@ The `affoApplyMap` storage change listener diffs `oldValue[origin]` vs `newValue
 
 ### Unified Element Walker (content.js)
 
-`runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. `getElementFontType(element)` is a module-scope function that returns the detected type or `null`. `runElementWalker(fontType)` is a thin wrapper for single-type calls (e.g. from runtime messages). `scheduleElementWalkerRechecks(fontTypes)` accepts an array and schedules one set of rechecks for all types together.
+`runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. Uses chunked processing (`WALKER_CHUNK_SIZE = 500` elements per chunk) with `setTimeout(0)` yielding between chunks to keep the UI responsive on large pages. A single `getComputedStyle` call per element serves both the visibility check and font type detection (passed as parameter to `getElementFontType`). `knownSerifFonts`, `knownSansFonts`, and `preservedFonts` are `Set` objects for O(1) lookup. `scheduleElementWalkerRechecks(fontTypes)` skips timed rechecks (700ms/1600ms) on large pages (>5,000 elements), keeping only `document.fonts.ready`.
 
 ### x.com Special Handling
 

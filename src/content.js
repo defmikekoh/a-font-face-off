@@ -124,8 +124,8 @@
   }
 
   // Known serif/sans font families for element walker classification
-  var knownSerifFonts = ['pt serif', 'mencken-std', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril'];
-  var knownSansFonts = [
+  var knownSerifFonts = new Set(['pt serif', 'mencken-std', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril']);
+  var knownSansFonts = new Set([
     'arial',
     'helvetica',
     'helvetica neue',
@@ -139,20 +139,20 @@
     '-apple-system',
     'segoe ui',
     'ui-sans-serif'
-  ];
+  ]);
 
   // Load user-defined serif/sans/preserved lists from storage
-  var preservedFonts = [];
+  var preservedFonts = new Set();
   try {
     browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoPreservedFonts']).then(function(opt) {
       if (Array.isArray(opt.affoKnownSerif)) {
-        knownSerifFonts = opt.affoKnownSerif.map(function(s) { return String(s || '').toLowerCase().trim(); });
+        knownSerifFonts = new Set(opt.affoKnownSerif.map(function(s) { return String(s || '').toLowerCase().trim(); }));
       }
       if (Array.isArray(opt.affoKnownSans)) {
-        knownSansFonts = opt.affoKnownSans.map(function(s) { return String(s || '').toLowerCase().trim(); });
+        knownSansFonts = new Set(opt.affoKnownSans.map(function(s) { return String(s || '').toLowerCase().trim(); }));
       }
       if (Array.isArray(opt.affoPreservedFonts)) {
-        preservedFonts = opt.affoPreservedFonts.map(function(s) { return String(s || '').toLowerCase().trim(); });
+        preservedFonts = new Set(opt.affoPreservedFonts.map(function(s) { return String(s || '').toLowerCase().trim(); }));
       }
       debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts, 'Preserved:', preservedFonts);
     }).catch(function() {});
@@ -1509,7 +1509,8 @@
   var elementWalkerRechecksScheduled = {};
 
   // Element type detection logic (module-scope so both single and unified walker can use it)
-  function getElementFontType(element) {
+  // computedStyle is passed from the walker to avoid a second getComputedStyle call
+  function getElementFontType(element, computedStyle) {
     var tagName = element.tagName.toLowerCase();
     var className = element.className || '';
     var style = element.style.fontFamily || '';
@@ -1548,16 +1549,15 @@
     var elId = element.id || '';
     if (elId && /whatfont/.test(elId)) return null;
 
-    // Get computed font-family (what WhatFont sees)
-    var computedStyle = window.getComputedStyle(element);
+    // Use computed font-family from the style already obtained by the walker
     var computedFontFamily = computedStyle.fontFamily || '';
 
     // Skip elements using preserved fonts (icon fonts, etc.)
     var computedParts = null;
-    if (preservedFonts.length > 0 && computedFontFamily) {
+    if (preservedFonts.size > 0 && computedFontFamily) {
       computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
       for (var pi = 0; pi < computedParts.length; pi++) {
-        if (preservedFonts.indexOf(computedParts[pi]) !== -1) return null;
+        if (preservedFonts.has(computedParts[pi])) return null;
       }
     }
 
@@ -1579,10 +1579,10 @@
     // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
     if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
     for (var i = 0; i < computedParts.length; i++) {
-      if (knownSerifFonts.indexOf(computedParts[i]) !== -1) {
+      if (knownSerifFonts.has(computedParts[i])) {
         return 'serif';
       }
-      if (knownSansFonts.indexOf(computedParts[i]) !== -1) {
+      if (knownSansFonts.has(computedParts[i])) {
         return 'sans';
       }
     }
@@ -1609,6 +1609,13 @@
     return null;
   }
 
+  // Track last walk element count (used to cap rechecks on large pages)
+  var lastWalkElementCount = 0;
+  // Threshold above which we skip timed rechecks (only keep document.fonts.ready)
+  var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;
+  // Elements to process per chunk before yielding to main thread
+  var WALKER_CHUNK_SIZE = 500;
+
   // Schedule delayed rechecks after initial walker completes
   // Catches lazy-loaded content and elements that appear after fonts finish loading
   function scheduleElementWalkerRechecks(fontTypes) {
@@ -1624,8 +1631,13 @@
       runElementWalkerAll(toSchedule);
     }
 
-    setTimeout(recheck, 700);
-    setTimeout(recheck, 1600);
+    // On large pages, skip timed rechecks — only recheck after fonts finish loading
+    if (lastWalkElementCount < LARGE_PAGE_ELEMENT_THRESHOLD) {
+      setTimeout(recheck, 700);
+      setTimeout(recheck, 1600);
+    } else {
+      debugLog('[AFFO Content] Large page (' + lastWalkElementCount + ' elements), skipping timed rechecks');
+    }
 
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(recheck).catch(function() {});
@@ -1633,6 +1645,7 @@
   }
 
   // Unified element walker — classifies all requested font types in a single DOM pass
+  // Uses chunked processing to avoid blocking the main thread on large pages
   function runElementWalkerAll(fontTypes) {
     try {
       // Filter to types not already completed
@@ -1660,21 +1673,12 @@
       });
 
       // Walk all text-containing elements
+      // Visibility checks moved to main loop (merged with getElementFontType's getComputedStyle)
       var walker = document.createTreeWalker(
         document.body,
         NodeFilter.SHOW_ELEMENT,
         {
           acceptNode: function(node) {
-            // Skip hidden elements, but don't rely on offsetParent:
-            // it is null for legitimate visible layouts (fixed/sticky/transformed wrappers),
-            // which can cause main article text to be missed on mobile sites.
-            if (node.tagName !== 'BODY') {
-              try {
-                var cs = window.getComputedStyle(node);
-                if (cs.display === 'none' || cs.visibility === 'hidden') return NodeFilter.FILTER_SKIP;
-                if (node.getClientRects && node.getClientRects().length === 0) return NodeFilter.FILTER_SKIP;
-              } catch(_) {}
-            }
             if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
             return NodeFilter.FILTER_ACCEPT;
           }
@@ -1684,33 +1688,58 @@
       var totalElements = 0;
       var markedCounts = {};
       typesToWalk.forEach(function(ft) { markedCounts[ft] = 0; });
-      var element;
 
-      while (element = walker.nextNode()) {
-        totalElements++;
-        var detectedType = getElementFontType(element);
-        if (detectedType && typeSet[detectedType]) {
-          element.setAttribute('data-affo-font-type', detectedType);
-          markedCounts[detectedType]++;
+      function processChunk() {
+        var chunkCount = 0;
+        var element;
+
+        while ((element = walker.nextNode()) && chunkCount < WALKER_CHUNK_SIZE) {
+          // Single getComputedStyle call per element — used for both visibility check and font type detection
+          var cs;
+          if (element.tagName !== 'BODY') {
+            try {
+              cs = window.getComputedStyle(element);
+              if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+            } catch(_) { continue; }
+          } else {
+            try { cs = window.getComputedStyle(element); } catch(_) { continue; }
+          }
+
+          totalElements++;
+          chunkCount++;
+          var detectedType = getElementFontType(element, cs);
+          if (detectedType && typeSet[detectedType]) {
+            element.setAttribute('data-affo-font-type', detectedType);
+            markedCounts[detectedType]++;
+          }
         }
 
-        if (totalElements % 500 === 0) {
-          console.log('[AFFO Content] Element walker progress: ' + totalElements + ' elements scanned');
+        if (element) {
+          // More elements to process — yield to main thread then continue
+          setTimeout(processChunk, 0);
+        } else {
+          // Walker finished
+          finishWalk();
         }
       }
 
-      var endTime = performance.now();
-      var duration = (endTime - startTime).toFixed(2);
-      var summary = typesToWalk.map(function(ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
-      console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
+      function finishWalk() {
+        lastWalkElementCount = totalElements;
+        var endTime = performance.now();
+        var duration = (endTime - startTime).toFixed(2);
+        var summary = typesToWalk.map(function(ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
+        console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
 
-      // Mark all walked types as completed
-      typesToWalk.forEach(function(ft) {
-        elementWalkerCompleted[ft] = true;
-      });
+        // Mark all walked types as completed
+        typesToWalk.forEach(function(ft) {
+          elementWalkerCompleted[ft] = true;
+        });
 
-      // Schedule delayed rechecks for lazy-loaded content
-      scheduleElementWalkerRechecks(typesToWalk);
+        // Schedule delayed rechecks for lazy-loaded content
+        scheduleElementWalkerRechecks(typesToWalk);
+      }
+
+      processChunk();
     } catch (e) {
       console.error('[AFFO Content] Unified element walker failed:', e);
     }

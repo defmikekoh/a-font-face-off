@@ -413,17 +413,26 @@ var focusHandlers = [];              // Array of callbacks invoked on focus/visi
 
 ### Unified Element Walker (content.js module-level)
 
-Single-pass DOM walker that classifies elements for all active TMI font types at once.
+Single-pass DOM walker that classifies elements for all active TMI font types at once. Uses chunked processing to avoid blocking the main thread on large pages (e.g. comment-heavy articles).
 
 ```javascript
 var elementWalkerCompleted = {};           // fontType → boolean (prevents redundant scans)
 var elementWalkerRechecksScheduled = {};   // fontType → boolean (prevents double-scheduling rechecks)
+var lastWalkElementCount = 0;              // element count from last walk (used to cap rechecks)
+var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;   // skip timed rechecks above this
+var WALKER_CHUNK_SIZE = 500;               // elements per chunk before yielding to main thread
 ```
 
-- **`getElementFontType(element)`** — Module-scope classification function. Returns `'serif'`, `'sans'`, `'mono'`, or `null`. Reads `preservedFonts`, `knownSerifFonts`, `knownSansFonts` from module scope.
-- **`runElementWalkerAll(fontTypes)`** — Accepts array of font types (e.g. `['serif', 'sans', 'mono']`). Filters to uncompleted types, clears existing markers, walks DOM once, marks elements with `data-affo-font-type`, schedules rechecks.
+**Performance optimizations:**
+- Single `getComputedStyle` call per element — used for both visibility check (display/visibility) and font type detection (fontFamily). The computed style is passed as a parameter to `getElementFontType`.
+- Chunked processing: walks 500 elements at a time, yields via `setTimeout(0)` between chunks
+- `knownSerifFonts`, `knownSansFonts`, `preservedFonts` are `Set` objects (O(1) `.has()` lookup instead of O(n) `indexOf`)
+- Large page recheck cap: pages with >5,000 elements skip the 700ms/1600ms timed rechecks (only `document.fonts.ready` recheck runs)
+
+- **`getElementFontType(element, computedStyle)`** — Module-scope classification function. Returns `'serif'`, `'sans'`, `'mono'`, or `null`. Receives pre-computed style from the walker loop. Reads `preservedFonts`, `knownSerifFonts`, `knownSansFonts` from module scope.
+- **`runElementWalkerAll(fontTypes)`** — Accepts array of font types (e.g. `['serif', 'sans', 'mono']`). Filters to uncompleted types, clears existing markers, walks DOM in chunks, marks elements with `data-affo-font-type`, schedules rechecks.
 - **`runElementWalker(fontType)`** — Thin wrapper: `runElementWalkerAll([fontType])`. Used by runtime message handler and individual-type callers.
-- **`scheduleElementWalkerRechecks(fontTypes)`** — Accepts array. Filters to unscheduled types, then schedules rechecks at 700ms, 1600ms, and `document.fonts.ready`.
+- **`scheduleElementWalkerRechecks(fontTypes)`** — Accepts array. Filters to unscheduled types. On small pages (<5,000 elements): schedules rechecks at 700ms, 1600ms, and `document.fonts.ready`. On large pages: only `document.fonts.ready` recheck (skips timed rechecks to avoid redundant full DOM walks).
 
 ### Inline-Apply Helpers (content.js module-level)
 
