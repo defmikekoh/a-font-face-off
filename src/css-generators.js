@@ -112,8 +112,8 @@ function generateBodyContactCSS(payload, aggressive) {
         lines.push(payload.fontFaceRule);
     }
 
-    const selector = `body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)`;
-    const weightSelector = `body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo)`;
+    const selector = `body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)`;
+    const weightSelector = `body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)`;
     let styleRule = `${selector} {`;
 
     if (payload.fontName) {

@@ -1517,11 +1517,8 @@
     // Exclude UI elements and form controls
     if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
-    // Exclude children of figcaption (captions contain multiple spans/elements)
-    if (element.closest && element.closest('figcaption')) return null;
-
-    // Exclude guard elements (.no-affo class or data-affo-guard attribute)
-    if (element.closest && element.closest('.no-affo, [data-affo-guard]')) return null;
+    // Exclude descendants of non-body containers: figcaptions, buttons, guards, article headers, dialogs
+    if (element.closest && element.closest('figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"]')) return null;
 
     // Exclude ARIA landmark roles
     var role = element.getAttribute && element.getAttribute('role');
