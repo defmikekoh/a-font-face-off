@@ -176,7 +176,13 @@
       }
     }).catch(function() {});
   } catch (e) {}
-  
+
+  // Eagerly start loading custom font definitions and css2Url cache.
+  // These are storage reads that loadFont() needs — starting them now
+  // eliminates sequential async waits from the critical reapply path.
+  try { ensureCss2UrlCache(); } catch(_) {}
+  try { ensureCustomFontsLoaded(); } catch(_) {}
+
   function shouldUseFontFaceOnly() {
     return fontFaceOnlyDomains.includes(currentOrigin);
   }
@@ -1787,7 +1793,25 @@
             }
           }
 
-          // Load font file in parallel (browser swaps in when ready)
+          // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain
+          if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
+            try {
+              var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+              if (!document.getElementById(linkId)) {
+                ensureGoogleFontsPreconnect();
+                var cachedUrl = getCss2Url(fontConfig.fontName);
+                var href = cachedUrl || buildGoogleFontUrl(fontConfig);
+                var link = document.createElement('link');
+                link.id = linkId;
+                link.rel = 'stylesheet';
+                link.href = href;
+                document.head.appendChild(link);
+                debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
+              }
+            } catch(_) {}
+          }
+
+          // Load font file (handles custom fonts, FontFace-only domains, etc.)
           loadFont(fontConfig, fontType).catch(function(e) {
             console.warn(`[AFFO Content] Error loading font after storage change:`, e);
           });
@@ -1952,7 +1976,27 @@
                 }
               }
 
-              // Load font file in parallel (browser swaps in when ready)
+              // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain.
+              // Domain-stored configs never have fontFaceRule, so if fontName is set it's
+              // likely a Google font. loadGoogleFontCSS checks for existing link and skips.
+              if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
+                try {
+                  var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+                  if (!document.getElementById(linkId)) {
+                    ensureGoogleFontsPreconnect();
+                    var cachedUrl = getCss2Url(fontConfig.fontName);
+                    var href = cachedUrl || buildGoogleFontUrl(fontConfig);
+                    var link = document.createElement('link');
+                    link.id = linkId;
+                    link.rel = 'stylesheet';
+                    link.href = href;
+                    document.head.appendChild(link);
+                    debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
+                  }
+                } catch(_) {}
+              }
+
+              // Load font file (handles custom fonts, FontFace-only domains, etc.)
               loadFont(fontConfig, fontType).catch(function(e) {
                 console.warn(`[AFFO Content] Error loading font on page init:`, e);
               });
@@ -1962,14 +2006,10 @@
           console.error('[AFFO Content] Error reapplying fonts:', e);
         }
       }
-      
-      // Wait for DOM to be ready before reapplying fonts
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', reapplyStoredFonts);
-      } else {
-        // DOM is already ready
-        setTimeout(reapplyStoredFonts, 100); // Small delay to ensure elements are rendered
-      }
+
+      // Reapply immediately — content script runs at document_end so DOM is already parsed.
+      // No delay needed; earlier injection reduces flash of original fonts.
+      reapplyStoredFonts();
 
       // Set up SPA navigation hooks for normal TMI mode (non-inline-apply domains)
       // On SPA nav, reset walker completion flags so TMI elements get re-marked

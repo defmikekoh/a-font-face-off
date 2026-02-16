@@ -34,13 +34,13 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers) — shared between popup.js and Node tests |
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
-| `content.js` | Injected into pages; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
+| `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
 | `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important` |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start` |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
-| `whatfont_core.js` | Font detection overlay — detects font name, size, weight, variable axes (registered axes via CSS properties, custom axes via `font-variation-settings`) |
+| `whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) — detects font name, size, weight, variable axes (registered axes via CSS properties, custom axes via `font-variation-settings`) |
 | `custom-fonts.css` | @font-face rules for non-Google custom fonts (BBC Reith, Graphik Trial, etc.) |
 | `data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
 
@@ -127,7 +127,7 @@ By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOr
 
 ### Async Architecture
 
-All async operations are Promise-based (2024 refactor complete). No setTimeout polling for sequencing. CSS injection, font loading, button state updates, and storage operations all use async/await.
+All async operations are Promise-based (2024 refactor complete). No setTimeout polling for sequencing. CSS injection, font loading, button state updates, and storage operations all use async/await. On page reload, CSS is injected immediately (before font files load) to prevent flash of original fonts; font loading runs in parallel and the browser swaps the font in via `font-display: swap`.
 
 ### Debug Flag
 

@@ -43,7 +43,12 @@
     },
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js", "jquery.js", "whatfont_core.js"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["jquery.js", "whatfont_core.js"],
       "run_at": "document_idle"
     }
   ],
