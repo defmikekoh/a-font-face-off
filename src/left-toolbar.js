@@ -441,6 +441,7 @@
 
         const overlay = document.createElement('div');
         overlay.id = 'affo-quick-pick-overlay';
+        overlay.setAttribute('data-affo-guard', '');
         overlay.style.cssText = `
             position: fixed;
             inset: 0;
@@ -461,6 +462,8 @@
             flex-direction: column;
             color: #495057;
             font-family: system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             overflow: hidden;
             max-height: 70vh;
@@ -539,6 +542,7 @@
         const buttonStyleFn = function(btn) {
             btn.style.cssText = `
                 padding: 0;
+                font-size: inherit;
                 background: #f8f9fa;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;

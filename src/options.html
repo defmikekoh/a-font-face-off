@@ -565,21 +565,8 @@
       <span id="status-toolbar" class="status"></span>
     </div>
     <div class="hint">Shows a floating vertical toolbar on the left side of web pages with Face-off, WhatFont, and navigation buttons. Position controls vertical centering. Page Up/Down buttons support longpress for different scroll distances.</div>
-  </div>
 
-  <div id="customSettings" style="display: none;">
-    <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
-    <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving.</p>
-    <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-    <div class="editor-actions">
-      <button id="reset-css" class="reset-css-button">Reset to Default</button>
-      <span id="css-status" class="status"></span>
-      <button id="save-css" class="save-button">Save</button>
-    </div>
-  </div>
-
-  <div id="advancedSettings" style="display: none;">
-    <div class="section">
+    <div class="section" style="margin-top: 20px;">
       <div class="section-title">Cloud Sync</div>
 
       <!-- Backend selector (shown when disconnected) -->
@@ -641,7 +628,20 @@
       </div>
       <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to your chosen cloud storage.</div>
     </div>
+  </div>
 
+  <div id="customSettings" style="display: none;">
+    <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
+    <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving.</p>
+    <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div class="editor-actions">
+      <button id="reset-css" class="reset-css-button">Reset to Default</button>
+      <span id="css-status" class="status"></span>
+      <button id="save-css" class="save-button">Save</button>
+    </div>
+  </div>
+
+  <div id="advancedSettings" style="display: none;">
     <div class="section">
       <div class="section-title">Known Serif Family Names</div>
       <label for="known-serif">Classification</label>

@@ -420,12 +420,12 @@ var elementWalkerCompleted = {};           // fontType → boolean (prevents red
 var elementWalkerRechecksScheduled = {};   // fontType → boolean (prevents double-scheduling rechecks)
 var lastWalkElementCount = 0;              // element count from last walk (used to cap rechecks)
 var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;   // skip timed rechecks above this
-var WALKER_CHUNK_SIZE = 500;               // elements per chunk before yielding to main thread
+var WALKER_CHUNK_SIZE = 2000;              // elements per chunk before yielding to main thread
 ```
 
 **Performance optimizations:**
 - Single `getComputedStyle` call per element — used for both visibility check (display/visibility) and font type detection (fontFamily). The computed style is passed as a parameter to `getElementFontType`.
-- Chunked processing: walks 500 elements at a time, yields via `setTimeout(0)` between chunks
+- Chunked processing: walks 2000 elements at a time, yields via `setTimeout(0)` between chunks
 - `knownSerifFonts`, `knownSansFonts`, `preservedFonts` are `Set` objects (O(1) `.has()` lookup instead of O(n) `indexOf`)
 - Large page recheck cap: pages with >5,000 elements skip the 700ms/1600ms timed rechecks (only `document.fonts.ready` recheck runs)
 

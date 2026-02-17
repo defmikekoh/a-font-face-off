@@ -1524,8 +1524,8 @@
     // Exclude UI elements and form controls
     if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
-    // Exclude descendants of non-body containers: figcaptions, buttons, guards, article headers, dialogs
-    if (element.closest && element.closest('figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"]')) return null;
+    // Exclude descendants of non-body containers: figcaptions, buttons, guards, article headers, dialogs, Substack comments
+    if (element.closest && element.closest('figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"], .comments-page')) return null;
 
     // Exclude ARIA landmark roles
     var role = element.getAttribute && element.getAttribute('role');
@@ -1620,8 +1620,8 @@
   // Threshold above which we skip timed rechecks (only keep document.fonts.ready)
   var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;
   // Elements to process per chunk before yielding to main thread
-  // Increased from 500 to 2000 for faster completion on heavy pages like Forbes
-  var WALKER_CHUNK_SIZE = 2000;
+  // Increased from 500 to 4000 for faster completion on heavy pages like Forbes
+  var WALKER_CHUNK_SIZE = 4000;
 
   // Schedule delayed rechecks after initial walker completes
   // Catches lazy-loaded content and elements that appear after fonts finish loading

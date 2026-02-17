@@ -37,7 +37,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
 | `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important` |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
-| `left-toolbar.js` | Toolbar overlay injected at `document_start`; performs early font preloading by reading domain configs and injecting Google Fonts `<link>` tags + preconnect hints as soon as `document.head` is available, giving browser maximum lead time to fetch fonts before page renders |
+| `left-toolbar.js` | Toolbar overlay injected at `document_start`; performs early font preloading by reading domain configs and injecting Google Fonts `<link>` tags + preconnect hints as soon as `document.head` is available. Also hosts the Quick Pick panel (injected into page DOM with `data-affo-guard` + Shadow DOM-style isolation via explicit baseline styles: `font-family: system-ui, sans-serif`, `font-size: 14px`) for applying top-5 favorites and toggling per-domain settings (FontFace-only, Inline Apply, Aggressive Override) |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
 | `whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) — detects font name, size, weight, variable axes (registered axes via CSS properties, custom axes via `font-variation-settings`) |
@@ -102,7 +102,7 @@ The `affoApplyMap` storage change listener diffs `oldValue[origin]` vs `newValue
 
 ### Unified Element Walker (content.js)
 
-`runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. Uses chunked processing (`WALKER_CHUNK_SIZE = 500` elements per chunk) with `setTimeout(0)` yielding between chunks to keep the UI responsive on large pages. A single `getComputedStyle` call per element serves both the visibility check and font type detection (passed as parameter to `getElementFontType`). `knownSerifFonts`, `knownSansFonts`, and `preservedFonts` are `Set` objects for O(1) lookup. `scheduleElementWalkerRechecks(fontTypes)` skips timed rechecks (700ms/1600ms) on large pages (>5,000 elements), keeping only `document.fonts.ready`.
+`runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. Uses chunked processing (`WALKER_CHUNK_SIZE = 2000` elements per chunk) with `setTimeout(0)` yielding between chunks to keep the UI responsive on large pages. A single `getComputedStyle` call per element serves both the visibility check and font type detection (passed as parameter to `getElementFontType`). `knownSerifFonts`, `knownSansFonts`, and `preservedFonts` are `Set` objects for O(1) lookup. `scheduleElementWalkerRechecks(fontTypes)` skips timed rechecks (700ms/1600ms) on large pages (>5,000 elements), keeping only `document.fonts.ready`.
 
 ### x.com Special Handling
 
@@ -116,8 +116,8 @@ x.com requires unique treatment due to aggressive style clearing:
 
 Both Body Contact and TMI walkers exclude elements that should not have their font replaced:
 - **Shared exclusions**: headings (h1-h6), code/pre/kbd, nav, form elements, ARIA roles (navigation, button, tab, toolbar, menu, alert, status, log), syntax highlighting classes, small-caps, metadata/bylines, widget/ad patterns, WhatFont compatibility
-- **Container exclusions (ancestor-aware)**: Elements inside `figcaption`, `button`, `.post-header`, or `[role="dialog"]` are excluded via `element.closest()` in the TMI walker. Body Contact CSS uses `:not(button):not(button *)`, `:not([class*="byline"])`, `:not([class*="subtitle"])`, `:not([role="dialog"]):not([role="dialog"] *)` selectors
-- **Guard mechanism**: Elements (or their ancestors) with class `.no-affo` or attribute `data-affo-guard` are skipped entirely by both walkers
+- **Container exclusions (ancestor-aware)**: Elements inside `figcaption`, `button`, `.post-header`, `[role="dialog"]`, or `.comments-page` (Substack comments) are excluded via `element.closest()` in the TMI walker. Body Contact CSS uses `:not(button):not(button *)`, `:not([class*="byline"])`, `:not([class*="subtitle"])`, `:not([role="dialog"]):not([role="dialog"] *)`, `:not(.comments-page):not(.comments-page *)` selectors
+- **Guard mechanism**: Elements (or their ancestors) with class `.no-affo` or attribute `data-affo-guard` are skipped entirely by both walkers and by all CSS selectors (Body, Body Contact, TMI). The `data-affo-guard` attribute is used on the quick pick overlay (`left-toolbar.js`) to fully isolate it from the extension's own font overrides. CSS selectors include `:not([data-affo-guard]):not([data-affo-guard] *)` to exclude guarded containers and their descendants
 - **Preserved fonts** (`affoPreservedFonts`): Icon font families (Font Awesome, Material Icons, bootstrap-icons, etc.) are never replaced. Configurable via Options page; checked against computed `font-family` stack
 - **Implementation difference**: Body Contact uses CSS `:not()` selectors; TMI uses JS runtime checks in the element walker. Kept separate intentionally due to fundamentally different mechanisms
 
