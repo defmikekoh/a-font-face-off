@@ -35,7 +35,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
 | `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
-| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important` |
+| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important`, italic/bold-italic rules for `<em>`/`<i>` elements |
 | `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start`; performs early font preloading by reading domain configs and injecting Google Fonts `<link>` tags + preconnect hints as soon as `document.head` is available. Also hosts the Quick Pick panel (injected into page DOM with `data-affo-guard` + Shadow DOM-style isolation via explicit baseline styles: `font-family: system-ui, sans-serif`, `font-size: 14px`) for applying top-5 favorites and toggling per-domain settings (FontFace-only, Inline Apply, Aggressive Override) |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |

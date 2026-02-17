@@ -395,6 +395,7 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 - **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
 - **`getEffectiveItalic(config)`** — Same pattern for ital. (Legacy `italVal` — same note as wdth.)
 - **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
+- **`buildItalicProps(payload, imp, weightOverride?)`** — Returns array of CSS property strings for italic/bold-italic rules. Always includes `font-style: italic`. For variable fonts: forces `ital` axis to `1`, forces `slnt` to `-10` if at default `0`, overrides `wght` axis when `weightOverride` is provided (for bold-italic). Used by all three CSS generators to target `:where(em, i)` and `:where(strong, b) :where(em, i)` elements.
 
 ### SPA Hook Registry (content.js module-level)
 
@@ -447,6 +448,15 @@ These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, a
 ### Bold Override Strategy
 
 Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. In the inline-apply path, bold elements are marked with `data-affo-was-bold="true"` so subsequent reapply cycles can detect them without relying on computed style.
+
+### Italic & Bold-Italic Override Strategy
+
+All three CSS generators produce explicit rules for italic elements (`<em>`, `<i>`) and bold-italic combinations (`<strong>/<b>` containing `<em>/<i>`). This ensures replaced fonts render true italic instead of relying on browser synthesis:
+
+- **Italic rule**: `:where(em, i)` gets `font-style: italic` plus variable font axis overrides (`ital` forced to `1`, `slnt` forced to `-10` if at default)
+- **Bold-italic rule**: `:where(strong, b) :where(em, i)` gets italic props plus `font-weight: 700` with `wght` axis override
+- Built via `buildItalicProps(payload, imp, weightOverride?)` in `css-generators.js`
+- TMI mode uses `[data-affo-font-type]` attribute selectors; body/body-contact use `body :where(...)` descendant selectors
 
 ### Dev-Mode Logging
 

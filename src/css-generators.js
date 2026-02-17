@@ -21,6 +21,28 @@ function formatAxisValue(axis, value) {
     }
 }
 
+function buildItalicProps(payload, imp, weightOverride) {
+    const props = [`font-style: italic${imp}`];
+    if (weightOverride) props.push(`font-weight: ${weightOverride}${imp}`);
+
+    if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
+        const axes = { ...payload.variableAxes };
+        // Force true italic via ital axis
+        if (axes.ital !== undefined) axes.ital = 1;
+        // Force slant if available and at default
+        if (axes.slnt !== undefined && Number(axes.slnt) === 0) axes.slnt = -10;
+        // Override weight for bold-italic
+        if (weightOverride && axes.wght !== undefined) axes.wght = weightOverride;
+
+        const settings = Object.entries(axes)
+            .filter(([, v]) => isFinite(Number(v)))
+            .map(([axis, value]) => `"${axis}" ${value}`)
+            .join(', ');
+        if (settings) props.push(`font-variation-settings: ${settings}${imp}`);
+    }
+    return props;
+}
+
 function getSiteSpecificRules(fontType, otherProps, hostname) {
     if (hostname && hostname.includes('wikipedia.org')) {
         return `html.mf-font-size-clientpref-small body.skin-minerva .content p[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content span[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`;
@@ -97,6 +119,15 @@ function generateBodyCSS(payload, aggressive) {
         css += `\nbody strong, body b, html body strong, html body b { ${boldRule}; }`;
     }
 
+    // Italic rule — ensure <em>/<i> render true italic with correct axis values
+    if (payload.fontName) {
+        const italicProps = buildItalicProps(payload, imp);
+        css += `\nbody :where(em, i) { ${italicProps.join('; ')}; }`;
+        // Bold-italic rule
+        const boldItalicProps = buildItalicProps(payload, imp, 700);
+        css += `\nbody :where(strong, b) :where(em, i) { ${boldItalicProps.join('; ')}; }`;
+    }
+
     return css;
 }
 
@@ -163,6 +194,15 @@ function generateBodyContactCSS(payload, aggressive) {
         lines.push(`body strong, body b { ${boldProps}; }`);
     }
 
+    // Italic rule — ensure <em>/<i> render true italic with correct axis values
+    if (payload.fontName) {
+        const italicProps = buildItalicProps(payload, imp);
+        lines.push(`body :where(em, i) { ${italicProps.join('; ')}; }`);
+        // Bold-italic rule
+        const boldItalicProps = buildItalicProps(payload, imp, 700);
+        lines.push(`body :where(strong, b) :where(em, i) { ${boldItalicProps.join('; ')}; }`);
+    }
+
     return lines.join('\n');
 }
 
@@ -218,6 +258,15 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
 
+    // Italic rule — ensure <em>/<i> render true italic with correct axis values
+    if (payload.fontName) {
+        const italicProps = buildItalicProps(payload, imp);
+        lines.push(`:where(em, i)[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] :where(em, i) { ${italicProps.join('; ')}; }`);
+        // Bold-italic rule
+        const boldItalicProps = buildItalicProps(payload, imp, 700);
+        lines.push(`[data-affo-font-type="${ft}"] :where(strong, b) :where(em, i) { ${boldItalicProps.join('; ')}; }`);
+    }
+
     // Other properties apply only to body text elements
     const otherProps = [];
     if (payload.fontSize && isFinite(payload.fontSize)) {
@@ -250,6 +299,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         formatAxisValue,
+        buildItalicProps,
         getSiteSpecificRules,
         generateBodyCSS,
         generateBodyContactCSS,
