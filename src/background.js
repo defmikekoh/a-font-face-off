@@ -1,8 +1,8 @@
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
 if (!AFFO_DEBUG) {
-  console.log = function() {};
-  console.warn = function() {};
+  console.log = function () { };
+  console.warn = function () { };
 }
 // Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
 const FONT_CACHE_KEY = 'affoFontCache';
@@ -239,7 +239,7 @@ function queueSyncMetaMutation(mutator) {
     await saveLocalSyncMeta(meta);
     return meta;
   });
-  syncMetaQueue = queued.catch(() => {});
+  syncMetaQueue = queued.catch(() => { });
   return queued;
 }
 
@@ -473,7 +473,7 @@ function startGDriveAuthViaTab() {
 
       // Close the OAuth tab
       if (details.tabId >= 0) {
-        browser.tabs.remove(details.tabId).catch(() => {});
+        browser.tabs.remove(details.tabId).catch(() => { });
       }
 
       if (error) {
@@ -531,7 +531,7 @@ async function disconnectGDrive() {
     fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
       method: 'POST',
       credentials: 'omit'
-    }).catch(() => {});
+    }).catch(() => { });
   }
   await browser.storage.local.remove([GDRIVE_TOKENS_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
   cachedAppFolderId = null;
@@ -845,7 +845,7 @@ function notifySyncFailure(errorMessage) {
   browser.runtime.sendMessage({
     type: 'affoSyncFailed',
     error: String(errorMessage || 'Unknown sync error')
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 async function getLocalSyncMeta() {
@@ -889,10 +889,6 @@ async function syncPush(backend, localState, filename, content, contentType) {
 }
 
 async function runSync() {
-  if (!navigator.onLine) {
-    console.log('[AFFO Background] Offline — skipping sync');
-    return { ok: true, skipped: true, reason: 'offline' };
-  }
 
   const backend = await getActiveBackend();
   if (!backend || !(await backend.isConfigured())) {
@@ -1228,7 +1224,7 @@ async function runSync() {
 }
 
 function scheduleAutoSync() {
-  enqueueSync({ notifyOnError: true }).catch(() => {});
+  enqueueSync({ notifyOnError: true }).catch(() => { });
 }
 
 function enqueueSync(options = {}) {
@@ -1236,8 +1232,8 @@ function enqueueSync(options = {}) {
   const queued = syncQueue
     .catch(() => undefined)
     .then(async () => {
-      if (!(await isSyncConfigured()) || !navigator.onLine) {
-        return { ok: true, skipped: true, reason: 'offline_or_not_configured' };
+      if (!(await isSyncConfigured())) {
+        return { ok: true, skipped: true, reason: 'not_configured' };
       }
       return runSync();
     });
@@ -1302,6 +1298,16 @@ if (hasAlarmsApi()) {
       console.log('[AFFO Background] Periodic sync alarm fired');
       scheduleAutoSync();
     }
+  });
+}
+
+// Sync when device comes back online (covers wake-from-sleep scenarios)
+if (typeof self !== 'undefined' && self.addEventListener) {
+  self.addEventListener('online', () => {
+    console.log('[AFFO Background] Network restored — triggering sync');
+    isSyncConfigured().then(configured => {
+      if (configured) scheduleAutoSync();
+    });
   });
 }
 

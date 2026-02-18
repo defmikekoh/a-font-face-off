@@ -64,7 +64,7 @@ Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state
 - Domain settings (`affoApplyMap`) are stored as a single `domains.json` file. Any change to any domain marks the whole file as modified.
 - Domain settings auto-sync from `background.js` when `affoApplyMap` changes. Favorites auto-sync when `affoFavorites` or `affoFavoritesOrder` changes. All other synced settings auto-sync on storage change.
 - Manual sync via "Sync Now" button in Advanced Options. "Clear Local Sync" button resets local sync metadata without disconnecting OAuth.
-- `navigator.onLine` check before sync; auto-sync skips silently when offline.
+- `self.addEventListener('online', ...)` triggers sync when connectivity returns (covers wake-from-sleep). `gdriveFetch()` throws when offline to prevent futile requests mid-sync.
 - Auto-sync failures emit `affoSyncFailed` runtime messages consumed by Options page modal retry UX.
 - Key functions: `runSync()` (core bidirectional merge), `gdriveFetch()` (auth + retry wrapper), `ensureAppFolder()`, `scheduleAutoSync()`, `markLocalItemModified()`.
 
