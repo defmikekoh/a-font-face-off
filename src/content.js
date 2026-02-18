@@ -335,7 +335,7 @@
 
   // --- Module-level selector & inline-apply helpers ---
   var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-  var BODY_EXCLUDE = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo)';
+  var BODY_EXCLUDE = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)';
 
   function getAffoSelector(ft) {
     if (ft === 'body') {
@@ -790,19 +790,25 @@
     return lines;
   }
 
+  var HYBRID_GUARD = ':not([data-affo-guard]):not([data-affo-guard] *)';
+
+  function addHybridGuard(sel) {
+    return sel.split(',').map(function(s) { return s.trim() + HYBRID_GUARD; }).join(', ');
+  }
+
   function getHybridSelector(fontType) {
     // For x.com, create selectors that capture the semantic intent but with broad coverage
     if (fontType === 'sans') {
       // Most x.com text is sans-serif, so target most text elements
-      return 'div[data-testid], span[data-testid], a[data-testid], button[data-testid], div[role], span[role], a[role], button[role], p, div:not([class*="icon"]):not([class*="svg"]), span:not([class*="icon"]):not([class*="svg"])';
+      return addHybridGuard('div[data-testid], span[data-testid], a[data-testid], button[data-testid], div[role], span[role], a[role], button[role], p, div:not([class*="icon"]):not([class*="svg"]), span:not([class*="icon"]):not([class*="svg"])');
     } else if (fontType === 'serif') {
       // For serif, target longer text content areas
-      return 'div[data-testid*="tweet"] span, div[data-testid*="text"] span, article span, p, blockquote, div[role="article"] span';
+      return addHybridGuard('div[data-testid*="tweet"] span, div[data-testid*="text"] span, article span, p, blockquote, div[role="article"] span');
     } else if (fontType === 'mono') {
       // For mono, target code-like elements
-      return 'code, pre, span[style*="font-family"][style*="mono"], div[style*="font-family"][style*="mono"]';
+      return addHybridGuard('code, pre, span[style*="font-family"][style*="mono"], div[style*="font-family"][style*="mono"]');
     }
-    
+
     // Fallback to marked elements
     return `[data-affo-font-type="${fontType}"]`;
   }
