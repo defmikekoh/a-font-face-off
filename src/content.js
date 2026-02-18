@@ -650,7 +650,6 @@
   // Shared CSS helpers for weight/axis handling.
   // Registered axes use high-level CSS properties (font-weight, font-stretch, font-style)
   // AND are included in font-variation-settings to bypass @font-face descriptor clamping.
-  var REGISTERED_AXES = { wght: true, wdth: true, slnt: true, ital: true, opsz: true };
 
   function getEffectiveWeight(config) {
     if (config.fontWeight != null && isFinite(Number(config.fontWeight))) return Number(config.fontWeight);

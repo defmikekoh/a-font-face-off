@@ -25,6 +25,7 @@ export default [
             sourceType: "script",
             globals: {
                 // Browser
+                self: "readonly",
                 window: "readonly",
                 document: "readonly",
                 console: "readonly",
@@ -83,6 +84,7 @@ export default [
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",
                 buildCustomAxisSettings: "readonly",
+                buildAllAxisSettings: "readonly",
                 // From css-generators.js (loaded before popup.js)
                 formatAxisValue: "readonly",
                 getSiteSpecificRules: "readonly",
@@ -180,6 +182,7 @@ export default [
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",
                 buildCustomAxisSettings: "readonly",
+                buildAllAxisSettings: "readonly",
             },
         },
         rules: {
