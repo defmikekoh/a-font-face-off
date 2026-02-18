@@ -31,7 +31,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 | File | Role |
 |---|---|
-| `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers) — shared between popup.js and Node tests |
+| `config-utils.js` | Pure logic functions (normalizeConfig, determineButtonState, axis helpers, buildAllAxisSettings) — shared between popup.js and Node tests |
 | `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `popup.html` / `popup.css` | Extension popup markup and styles |
 | `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
@@ -90,7 +90,7 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 
 ### Variable Font Axes
 
-Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to CSS properties. Custom axes use `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`. WhatFont (`whatfont_core.js`) detects registered axes by reading their high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) and mapping non-default values back to axis tags, since browsers don't expose them in `font-variation-settings`.
+Registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) map to high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) AND are also included in `font-variation-settings` via `buildAllAxisSettings()`. This dual strategy keeps high-level properties for cascade/inheritance while bypassing `@font-face` descriptor clamping (e.g. Google Fonts serving `font-weight: 400` single-value descriptors that silently clamp `font-weight: 470` to 400). Custom axes use only `font-variation-settings`. Only "activated" axes get applied. Metadata comes from `data/gf-axis-registry.json`. WhatFont (`whatfont_core.js`) detects registered axes by reading their high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) and mapping non-default values back to axis tags, since browsers don't expose them in `font-variation-settings`.
 
 ### SPA Hook Infrastructure (content.js)
 

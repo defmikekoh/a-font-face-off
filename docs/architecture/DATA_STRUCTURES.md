@@ -379,16 +379,16 @@ Shared helper functions used by all CSS generation paths (popup.js and content.j
 
 ### Registered vs Custom Axes
 
-Registered OpenType axes have corresponding high-level CSS properties and should NOT be placed in `font-variation-settings`. Only custom/unregistered axes use `font-variation-settings`.
+Registered OpenType axes map to high-level CSS properties AND are also included in `font-variation-settings` (via `buildAllAxisSettings`). This dual strategy keeps high-level properties for cascade/inheritance while bypassing `@font-face` descriptor clamping — e.g. Google Fonts serving `font-weight: 400` single-value `@font-face` descriptors that silently clamp `font-weight: 470` to 400. Per CSS Fonts L4 §7.2, `font-variation-settings` (Step 12) overrides `font-weight` (Step 2), ensuring the raw axis value is used.
 
-| Axis | CSS Property | Example |
-|------|-------------|---------|
-| `wght` | `font-weight` | `font-weight: 380` |
-| `wdth` | `font-stretch` | `font-stretch: 90%` |
-| `slnt` | `font-style` | `font-style: oblique -12deg` |
-| `ital` | `font-style` | `font-style: italic` |
-| `opsz` | `font-optical-sizing` | `font-optical-sizing: auto` |
-| `GRAD`, `CASL`, etc. | `font-variation-settings` | `font-variation-settings: "GRAD" 150` |
+| Axis | High-level CSS Property | Also in `font-variation-settings`? |
+|------|-------------|----|
+| `wght` | `font-weight: 380` | ✅ `"wght" 380` |
+| `wdth` | `font-stretch: 90%` | ✅ `"wdth" 90` |
+| `slnt` | `font-style: oblique -12deg` | ✅ `"slnt" -12` |
+| `ital` | `font-style: italic` | ✅ `"ital" 1` |
+| `opsz` | `font-optical-sizing: auto` | ✅ `"opsz" 14` |
+| `GRAD`, `CASL`, etc. | — | ✅ `"GRAD" 150` |
 
 **Detection note:** Browsers don't expose registered axes in `font-variation-settings` — they're resolved into the high-level CSS properties above. WhatFont's `detectVariableAxes()` reads both `font-variation-settings` (for custom axes) and the high-level CSS properties (for registered axes), mapping non-default values back to axis tags (e.g., `font-stretch: 75%` → `wdth: 75`).
 
@@ -398,7 +398,8 @@ Registered OpenType axes have corresponding high-level CSS properties and should
 - **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`. (Legacy `wdthVal` only exists in old stored domain data; new payloads use `variableAxes` exclusively.)
 - **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
 - **`getEffectiveItalic(config)`** — Same pattern for ital. (Legacy `italVal` — same note as wdth.)
-- **`buildCustomAxisSettings(config)`** — Returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
+- **`buildAllAxisSettings(config)`** — Returns array of `'"axis" value'` strings for ALL axes (registered + custom) from `config.variableAxes`. Used by all CSS generators so that `font-variation-settings` bypasses `@font-face` descriptor clamping.
+- **`buildCustomAxisSettings(config)`** — Backward-compatible: returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
 - **`buildItalicProps(payload, imp, weightOverride?)`** — Returns array of CSS property strings for italic/bold-italic rules. Always includes `font-style: italic`. For variable fonts: forces `ital` axis to `1`, forces `slnt` to `-10` if at default `0`, overrides `wght` axis when `weightOverride` is provided (for bold-italic). Used by all three CSS generators to target `:where(em, i)` and `:where(strong, b) :where(em, i)` elements.
 
 ### SPA Hook Registry (content.js module-level)

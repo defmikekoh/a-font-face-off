@@ -1,6 +1,6 @@
 /* css-generators.js — CSS generation functions for all three modes.
  *
- * Depends on: config-utils.js (REGISTERED_AXES, getEffective*, buildCustomAxisSettings)
+ * Depends on: config-utils.js (REGISTERED_AXES, getEffective*, buildAllAxisSettings)
  *
  * In the browser this file is loaded as a plain <script> before popup.js.
  * In Node (test runner) we export via module.exports so tests can require().
@@ -13,7 +13,7 @@ const GUARD_EXCLUDE = ':not([data-affo-guard]):not([data-affo-guard] *)';
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function formatAxisValue(axis, value) {
-    switch(axis) {
+    switch (axis) {
         case 'wdth':
             return value + '%';
         case 'opsz':
@@ -65,10 +65,10 @@ function generateBodyCSS(payload, aggressive) {
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const sel = 'body, ' +
-                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
     const weightSel = 'body, ' +
-                'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
 
     const decl = [];
 
@@ -97,8 +97,8 @@ function generateBodyCSS(payload, aggressive) {
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         decl.push(`font-style:oblique ${effectiveSlnt}deg${imp}`);
     }
-    // Custom axes only in font-variation-settings
-    const customAxes = buildCustomAxisSettings(payload);
+    // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
+    const customAxes = buildAllAxisSettings(payload);
     if (customAxes.length > 0) {
         decl.push(`font-variation-settings:${customAxes.join(', ')}${imp}`);
     }
@@ -176,7 +176,7 @@ function generateBodyContactCSS(payload, aggressive) {
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         styleRule += ` font-style: oblique ${effectiveSlnt}deg${imp};`;
     }
-    const customAxes = buildCustomAxisSettings(payload);
+    const customAxes = buildAllAxisSettings(payload);
     if (customAxes.length > 0) {
         styleRule += ` font-variation-settings: ${customAxes.join(', ')}${imp};`;
     }
@@ -224,7 +224,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
 
     const ft = fontType;
 
-    const customAxes = buildCustomAxisSettings(payload);
+    const customAxes = buildAllAxisSettings(payload);
     const effectiveWeight = getEffectiveWeight(payload);
 
     // Comprehensive rule for non-bold marked elements

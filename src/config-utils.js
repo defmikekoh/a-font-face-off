@@ -85,6 +85,21 @@ function getEffectiveItalic(payload) {
     return null;
 }
 
+// Returns '"axis" value' strings for ALL axes (registered + custom).
+// Used for font-variation-settings to bypass @font-face descriptor clamping.
+function buildAllAxisSettings(payload) {
+    const settings = [];
+    if (payload.variableAxes) {
+        Object.entries(payload.variableAxes).forEach(([axis, value]) => {
+            if (isFinite(Number(value))) {
+                settings.push(`"${axis}" ${value}`);
+            }
+        });
+    }
+    return settings;
+}
+
+// Backward-compatible: returns only CUSTOM (unregistered) axes.
 function buildCustomAxisSettings(payload) {
     const settings = [];
     if (payload.variableAxes) {
@@ -108,6 +123,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getEffectiveWidth,
         getEffectiveSlant,
         getEffectiveItalic,
+        buildAllAxisSettings,
         buildCustomAxisSettings,
     };
 }

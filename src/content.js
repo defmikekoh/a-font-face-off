@@ -1,13 +1,13 @@
 // Content script: cleanup and storage monitoring only
 // All font injection is now handled by popup.js using insertCSS
 
-(function(){
+(function () {
   // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
   try {
     if (!document.documentElement.hasAttribute('data-affo-base')) {
       var fam = '';
-      try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch(_) {}
-      var parts = fam.replace(/["']'/g,'').split(',').map(function(s){ return s.trim().toLowerCase(); }).filter(Boolean);
+      try { fam = String(getComputedStyle(document.body || document.documentElement).fontFamily || ''); } catch (_) { }
+      var parts = fam.replace(/["']'/g, '').split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
       var hasSansGen = parts.indexOf('sans-serif') !== -1;
       var hasSerifGen = parts.indexOf('serif') !== -1;
       // Prefer explicit generic if present; treat "Merriweather, sans-serif" as sans
@@ -16,26 +16,26 @@
       else if (hasSerifGen) base = 'serif';
       else {
         // Fall back to name hints
-        var serifNames = ['pt serif','georgia','times','times new roman','merriweather','garamond','charter','spectral','lora','abril'];
-        var isSerifName = parts.some(function(p){ return serifNames.indexOf(p) !== -1; });
+        var serifNames = ['pt serif', 'georgia', 'times', 'times new roman', 'merriweather', 'garamond', 'charter', 'spectral', 'lora', 'abril'];
+        var isSerifName = parts.some(function (p) { return serifNames.indexOf(p) !== -1; });
         base = isSerifName ? 'serif' : 'sans';
       }
       document.documentElement.setAttribute('data-affo-base', base);
       // Asynchronously refine using user-provided lists
       try {
-        browser.storage.local.get(['affoKnownSerif','affoKnownSans']).then(function(opt){
+        browser.storage.local.get(['affoKnownSerif', 'affoKnownSans']).then(function (opt) {
           try {
-            var ks = Array.isArray(opt.affoKnownSerif) ? opt.affoKnownSerif.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
-            var kn = Array.isArray(opt.affoKnownSans) ? opt.affoKnownSans.map(function(s){return String(s||'').toLowerCase().trim();}) : [];
-            var nameHitSerif = parts.some(function(p){ return ks.indexOf(p) !== -1; });
-            var nameHitSans = parts.some(function(p){ return kn.indexOf(p) !== -1; });
+            var ks = Array.isArray(opt.affoKnownSerif) ? opt.affoKnownSerif.map(function (s) { return String(s || '').toLowerCase().trim(); }) : [];
+            var kn = Array.isArray(opt.affoKnownSans) ? opt.affoKnownSans.map(function (s) { return String(s || '').toLowerCase().trim(); }) : [];
+            var nameHitSerif = parts.some(function (p) { return ks.indexOf(p) !== -1; });
+            var nameHitSans = parts.some(function (p) { return kn.indexOf(p) !== -1; });
             if (nameHitSans && !hasSansGen) document.documentElement.setAttribute('data-affo-base', 'sans');
             else if (nameHitSerif && !hasSerifGen) document.documentElement.setAttribute('data-affo-base', 'serif');
-          } catch(_){ }
-        }).catch(function(){});
-      } catch(_){ }
+          } catch (_) { }
+        }).catch(function () { });
+      } catch (_) { }
     }
-  } catch(_){}
+  } catch (_) { }
 
   // Helper functions for font loading
   var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
@@ -45,8 +45,8 @@
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production
   var AFFO_DEBUG = true;
   if (!AFFO_DEBUG) {
-    console.log = function() {};
-    console.warn = function() {};
+    console.log = function () { };
+    console.warn = function () { };
   }
 
   function debugLog() { console.log.apply(console, arguments); }
@@ -74,34 +74,34 @@
     spaHooksInstalled = true;
 
     function onSpaNavigation() {
-      spaNavigationHandlers.forEach(function(fn) {
-        try { fn(); } catch(_) {}
+      spaNavigationHandlers.forEach(function (fn) {
+        try { fn(); } catch (_) { }
       });
     }
 
     try {
       var _origPush = history.pushState;
-      history.pushState = function() {
+      history.pushState = function () {
         var r = _origPush.apply(this, arguments);
-        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+        try { setTimeout(onSpaNavigation, 100); } catch (_) { }
         return r;
       };
-    } catch(_) {}
+    } catch (_) { }
 
     try {
       var _origReplace = history.replaceState;
-      history.replaceState = function() {
+      history.replaceState = function () {
         var r = _origReplace.apply(this, arguments);
-        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+        try { setTimeout(onSpaNavigation, 100); } catch (_) { }
         return r;
       };
-    } catch(_) {}
+    } catch (_) { }
 
     try {
-      window.addEventListener('popstate', function() {
-        try { setTimeout(onSpaNavigation, 100); } catch(_) {}
+      window.addEventListener('popstate', function () {
+        try { setTimeout(onSpaNavigation, 100); } catch (_) { }
       }, true);
-    } catch(_) {}
+    } catch (_) { }
   }
 
   function registerFocusHandler(fn) {
@@ -112,15 +112,15 @@
     focusHooksInstalled = true;
 
     try {
-      window.addEventListener('focus', function() {
-        focusHandlers.forEach(function(h) { try { h(); } catch(_) {} });
+      window.addEventListener('focus', function () {
+        focusHandlers.forEach(function (h) { try { h(); } catch (_) { } });
       }, true);
-      document.addEventListener('visibilitychange', function() {
+      document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
-          focusHandlers.forEach(function(h) { try { h(); } catch(_) {} });
+          focusHandlers.forEach(function (h) { try { h(); } catch (_) { } });
         }
       }, true);
-    } catch(_) {}
+    } catch (_) { }
   }
 
   // Known serif/sans font families for element walker classification
@@ -144,24 +144,24 @@
   // Load user-defined serif/sans/preserved lists from storage
   var preservedFonts = new Set();
   try {
-    browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoPreservedFonts']).then(function(opt) {
+    browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoPreservedFonts']).then(function (opt) {
       if (Array.isArray(opt.affoKnownSerif)) {
-        knownSerifFonts = new Set(opt.affoKnownSerif.map(function(s) { return String(s || '').toLowerCase().trim(); }));
+        knownSerifFonts = new Set(opt.affoKnownSerif.map(function (s) { return String(s || '').toLowerCase().trim(); }));
       }
       if (Array.isArray(opt.affoKnownSans)) {
-        knownSansFonts = new Set(opt.affoKnownSans.map(function(s) { return String(s || '').toLowerCase().trim(); }));
+        knownSansFonts = new Set(opt.affoKnownSans.map(function (s) { return String(s || '').toLowerCase().trim(); }));
       }
       if (Array.isArray(opt.affoPreservedFonts)) {
-        preservedFonts = new Set(opt.affoPreservedFonts.map(function(s) { return String(s || '').toLowerCase().trim(); }));
+        preservedFonts = new Set(opt.affoPreservedFonts.map(function (s) { return String(s || '').toLowerCase().trim(); }));
       }
       debugLog('[AFFO Content] Loaded known fonts - Serif:', knownSerifFonts, 'Sans:', knownSansFonts, 'Preserved:', preservedFonts);
-    }).catch(function() {});
-  } catch(_) {}
-  
+    }).catch(function () { });
+  } catch (_) { }
+
   // Load FontFace-only domains, inline apply domains, and aggressive domains from storage
   var aggressiveDomains = [];
   try {
-    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains']).then(function(data) {
+    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
         fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
         debugLog(`[AFFO Content] FontFace-only domains:`, fontFaceOnlyDomains);
@@ -174,19 +174,19 @@
         aggressiveDomains = data.affoAggressiveDomains;
         debugLog(`[AFFO Content] Aggressive override domains:`, aggressiveDomains);
       }
-    }).catch(function() {});
-  } catch (e) {}
+    }).catch(function () { });
+  } catch (e) { }
 
   // Eagerly start loading custom font definitions and css2Url cache.
   // These are storage reads that loadFont() needs — starting them now
   // eliminates sequential async waits from the critical reapply path.
-  try { ensureCss2UrlCache(); } catch(_) {}
-  try { ensureCustomFontsLoaded(); } catch(_) {}
+  try { ensureCss2UrlCache(); } catch (_) { }
+  try { ensureCustomFontsLoaded(); } catch (_) { }
 
   function shouldUseFontFaceOnly() {
     return fontFaceOnlyDomains.includes(currentOrigin);
   }
-  
+
   function shouldUseInlineApply() {
     return inlineApplyDomains.includes(currentOrigin);
   }
@@ -230,9 +230,9 @@
           if (/substack/i.test(ldScripts[i].textContent || '')) {
             _isSubstack = true; return true;
           }
-        } catch(_) {}
+        } catch (_) { }
       }
-    } catch(_) {}
+    } catch (_) { }
     return false;
   }
 
@@ -244,11 +244,11 @@
   function ensureCss2UrlCache() {
     if (css2UrlCache !== null) return Promise.resolve(css2UrlCache);
     if (!css2UrlCachePromise) {
-      css2UrlCachePromise = browser.storage.local.get('affoCss2UrlCache').then(function(result) {
+      css2UrlCachePromise = browser.storage.local.get('affoCss2UrlCache').then(function (result) {
         css2UrlCache = result.affoCss2UrlCache || {};
         debugLog('[AFFO Content] Loaded css2Url cache:', Object.keys(css2UrlCache).length, 'entries');
         return css2UrlCache;
-      }).catch(function(e) {
+      }).catch(function (e) {
         debugLog('[AFFO Content] Failed to load css2Url cache:', e);
         css2UrlCache = {};
         return css2UrlCache;
@@ -274,7 +274,7 @@
     var blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
     var byName = {};
 
-    blocks.forEach(function(block) {
+    blocks.forEach(function (block) {
       var match = block.match(/font-family\s*:\s*(['"]?)([^;'"]+)\1\s*;/i);
       if (!match) return;
       var name = match[2].trim();
@@ -286,7 +286,7 @@
     });
 
     var defs = {};
-    Object.keys(byName).forEach(function(name) {
+    Object.keys(byName).forEach(function (name) {
       defs[name] = { fontFaceRule: byName[name].join('\n') };
     });
 
@@ -296,7 +296,7 @@
   function ensureCustomFontsLoaded() {
     if (customFontsLoaded) return Promise.resolve();
     if (!customFontsPromise) {
-      customFontsPromise = browser.storage.local.get('affoCustomFontsCss').then(function(stored) {
+      customFontsPromise = browser.storage.local.get('affoCustomFontsCss').then(function (stored) {
         var cssText = stored.affoCustomFontsCss;
         var promises = [];
 
@@ -304,12 +304,12 @@
         if (!cssText) {
           promises.push(
             fetch(browser.runtime.getURL('custom-fonts-starter.css'))
-              .then(function(response) { return response.text(); })
-              .then(function(text) {
+              .then(function (response) { return response.text(); })
+              .then(function (text) {
                 var parsed = parseCustomFontsFromCss(text);
                 Object.assign(customFontDefinitions, parsed);
               })
-              .catch(function(e) {
+              .catch(function (e) {
                 debugLog('[AFFO Content] Failed to load custom-fonts-starter.css:', e);
               })
           );
@@ -318,11 +318,11 @@
           Object.assign(customFontDefinitions, parsed);
         }
 
-        return Promise.all(promises).then(function() {
+        return Promise.all(promises).then(function () {
           customFontsLoaded = true;
           debugLog('[AFFO Content] Loaded custom font definitions:', Object.keys(customFontDefinitions));
         });
-      }).catch(function(e) {
+      }).catch(function (e) {
         debugLog('[AFFO Content] Failed to load custom fonts:', e);
       });
     }
@@ -345,7 +345,7 @@
   }
 
   function applyAffoProtection(el, propsObj) {
-    Object.entries(propsObj).forEach(function([prop, value]) {
+    Object.entries(propsObj).forEach(function ([prop, value]) {
       el.style.setProperty(prop, value, 'important');
       el.style.setProperty('--affo-' + prop, value, 'important');
       el.setAttribute('data-affo-' + prop, value);
@@ -368,7 +368,7 @@
         var cw = window.getComputedStyle(el).fontWeight;
         isBold = cw && Number(cw) >= 700;
       }
-    } catch(_) {}
+    } catch (_) { }
 
     applyAffoProtection(el, propsObj);
 
@@ -389,23 +389,23 @@
       try {
         activeObservers[fontType].disconnect();
         debugLog(`[AFFO Content] Cleaned up MutationObserver for ${fontType}`);
-      } catch(e) {}
+      } catch (e) { }
       delete activeObservers[fontType];
     }
     if (activeTimers[fontType]) {
-      activeTimers[fontType].forEach(function(timerId) {
+      activeTimers[fontType].forEach(function (timerId) {
         try {
           clearTimeout(timerId);
           clearInterval(timerId);
-        } catch(e) {}
+        } catch (e) { }
       });
       debugLog(`[AFFO Content] Cleaned up ${activeTimers[fontType].length} timers for ${fontType}`);
       delete activeTimers[fontType];
     }
-    
+
     // For domains with restrictive CSP (like x.com), provide fallback fonts
     var fallbackChain = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-    
+
     // Add common system fonts as fallbacks for better compatibility
     if (fontType === 'serif') {
       fallbackChain = 'Georgia, "Times New Roman", Times, serif';
@@ -414,19 +414,19 @@
     } else {
       fallbackChain = 'Arial, Helvetica, sans-serif';
     }
-    
+
     var cssPropsObject = {};
 
     // Only include font-family if fontName is actually set
     if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
       cssPropsObject['font-family'] = `"${fontConfig.fontName}", ${fallbackChain}`;
     }
-    
+
     // Include fontSize if present
     if (fontConfig.fontSize) {
       cssPropsObject['font-size'] = `${fontConfig.fontSize}px`;
     }
-    
+
     // Registered axes → high-level CSS properties
     var inlineEffectiveWeight = getEffectiveWeight(fontConfig);
     if (inlineEffectiveWeight !== null) {
@@ -450,26 +450,26 @@
       cssPropsObject['font-style'] = 'oblique ' + inlineEffectiveSlnt + 'deg';
     }
 
-    // Custom axes only in font-variation-settings
-    var inlineCustomAxes = buildCustomAxisSettings(fontConfig);
+    // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
+    var inlineCustomAxes = buildAllAxisSettings(fontConfig);
     if (inlineCustomAxes.length > 0) {
       cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
-    
+
     // Apply styles to elements based on font type
     try {
       if (fontType === 'body') {
         // Apply to body and most descendants (excluding headers for Third Man In mode)
         var bodyElements = document.querySelectorAll('body, ' + getAffoSelector('body'));
-        bodyElements.forEach(function(el) {
-          Object.entries(cssPropsObject).forEach(function([prop, value]) {
+        bodyElements.forEach(function (el) {
+          Object.entries(cssPropsObject).forEach(function ([prop, value]) {
             el.style.setProperty(prop, value, 'important');
           });
         });
         // Override bold elements to preserve visual boldness in the custom font
         if (inlineEffectiveWeight !== null) {
           var boldElements = document.querySelectorAll('body strong, body b');
-          boldElements.forEach(function(el) {
+          boldElements.forEach(function (el) {
             el.style.setProperty('font-weight', '700', 'important');
             if (inlineCustomAxes.length > 0) {
               el.style.setProperty('font-variation-settings', inlineCustomAxes.join(', '), 'important');
@@ -479,7 +479,7 @@
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
       } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
         var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
-        tmiElements.forEach(function(el) {
+        tmiElements.forEach(function (el) {
           applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
         });
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
@@ -487,15 +487,15 @@
     } catch (e) {
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
     }
-    
+
     // Add SPA resilience for x.com and other dynamic sites
     try {
       var _fontFamily = cssPropsObject['font-family'];
-      
+
       // MutationObserver to re-apply styles to newly added elements
-      var mo = new MutationObserver(function(muts) {
-        muts.forEach(function(m) {
-          (m.addedNodes || []).forEach(function(n) {
+      var mo = new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          (m.addedNodes || []).forEach(function (n) {
             try {
               if (n && n.nodeType === 1) {
                 var newElements = [];
@@ -503,33 +503,33 @@
 
                 try {
                   if (n.matches && n.matches(sel)) newElements.push(n);
-                } catch(_) {}
+                } catch (_) { }
                 try {
                   if (n.querySelectorAll) {
                     newElements = newElements.concat(Array.from(n.querySelectorAll(sel)));
                   }
-                } catch(_) {}
+                } catch (_) { }
 
                 // Apply enhanced protection to new elements
-                newElements.forEach(function(el) {
+                newElements.forEach(function (el) {
                   try {
                     if (fontType === 'body') {
                       applyAffoProtection(el, cssPropsObject);
                     } else {
                       applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
                     }
-                  } catch(_) {}
+                  } catch (_) { }
                 });
-                
+
                 if (newElements.length > 0) {
                   elementLog(`Applied inline styles to ${newElements.length} new ${fontType} elements`);
                 }
               }
-            } catch(_) {}
+            } catch (_) { }
           });
         });
       });
-      
+
       mo.observe(document.documentElement || document, { childList: true, subtree: true });
 
       // Track the observer for cleanup
@@ -540,16 +540,16 @@
 
       // Reduced resiliency window for inline domains (3 minutes)
       // With fast caching, fonts apply almost instantly, so shorter window is sufficient
-      var disconnectTimer = setTimeout(function() {
-        try { mo.disconnect(); } catch(_) {}
+      var disconnectTimer = setTimeout(function () {
+        try { mo.disconnect(); } catch (_) { }
       }, 180000); // 3 minutes (was 10 minutes)
       activeTimers[fontType].push(disconnectTimer);
-      
+
       // Re-apply styles on SPA navigations (history API hooks)
       function reapplyInlineStyles() {
         try {
           var elements = document.querySelectorAll(getAffoSelector(fontType));
-          elements.forEach(function(el) {
+          elements.forEach(function (el) {
             if (fontType === 'body') {
               applyAffoProtection(el, cssPropsObject);
             } else {
@@ -557,15 +557,15 @@
             }
           });
           elementLog(`Re-applied inline styles to ${elements.length} ${fontType} elements after SPA navigation`);
-        } catch(e) {
+        } catch (e) {
           debugLog(`[AFFO Content] Error re-applying inline styles after SPA navigation:`, e);
         }
       }
-      
+
       registerSpaHandler(reapplyInlineStyles);
-      
+
       // Enhanced monitoring with reduced frequency now that fonts load instantly from cache
-      var monitoringTimer = setTimeout(function() {
+      var monitoringTimer = setTimeout(function () {
         try {
           // Inline-apply domains (aggressive SPAs) get faster polling since they fight style changes
           var isInline = shouldUseInlineApply();
@@ -573,20 +573,20 @@
           var laterFrequency = 10000;
           var initialDuration = isInline ? 30000 : 60000;
           var totalDuration = 180000; // 3 minutes total (was 10 min)
-          
+
           debugLog(`[AFFO Content] Starting enhanced monitoring for ${fontType} - initial: ${initialFrequency}ms, later: ${laterFrequency}ms`);
-          
+
           var checkCount = 0;
-          
+
           // Frequent monitoring initially
-          var initialInterval = setInterval(function() {
+          var initialInterval = setInterval(function () {
             try {
               checkCount++;
               reapplyInlineStyles();
               if (checkCount % 10 === 0) {
                 debugLog(`[AFFO Content] Performed ${checkCount} style checks for ${fontType}`);
               }
-            } catch(e) {
+            } catch (e) {
               debugLog(`[AFFO Content] Error in frequent style check:`, e);
             }
           }, initialFrequency);
@@ -596,20 +596,20 @@
           activeTimers[fontType].push(initialInterval);
 
           // Switch to less frequent monitoring after initial period
-          var switchTimer = setTimeout(function() {
+          var switchTimer = setTimeout(function () {
             clearInterval(initialInterval);
             debugLog(`[AFFO Content] Switching to less frequent monitoring for ${fontType}`);
-            
-            var laterInterval = setInterval(function() {
+
+            var laterInterval = setInterval(function () {
               try {
                 checkCount++;
                 reapplyInlineStyles();
-                
+
                 // Additional protection: Check for and restore any cleared styles
                 if (isInline) {
                   restoreManipulatedStyles(fontType, cssPropsObject);
                 }
-              } catch(e) {
+              } catch (e) {
                 debugLog(`[AFFO Content] Error in periodic style check:`, e);
               }
             }, laterFrequency);
@@ -618,9 +618,9 @@
             activeTimers[fontType].push(laterInterval);
 
             // Stop monitoring after total duration
-            var stopTimer = setTimeout(function() {
+            var stopTimer = setTimeout(function () {
               clearInterval(laterInterval);
-              debugLog(`[AFFO Content] Stopped style monitoring for ${fontType} after ${totalDuration/1000} seconds (${checkCount} total checks)`);
+              debugLog(`[AFFO Content] Stopped style monitoring for ${fontType} after ${totalDuration / 1000} seconds (${checkCount} total checks)`);
             }, totalDuration - initialDuration);
 
             // Track the stop timer for cleanup (must be inside switchTimer callback where stopTimer is scoped)
@@ -630,26 +630,26 @@
 
           // Track the switch timer for cleanup
           activeTimers[fontType].push(switchTimer);
-          
-        } catch(e) {
+
+        } catch (e) {
           debugLog(`[AFFO Content] Error setting up enhanced monitoring for ${fontType}:`, e);
         }
       }, 1000);
       activeTimers[fontType].push(monitoringTimer);
-      
+
       // Re-apply styles when page becomes visible
       registerFocusHandler(reapplyInlineStyles);
-      
+
       debugLog(`[AFFO Content] Added enhanced SPA resilience for ${fontType} fonts on ${currentOrigin}`);
-      
+
     } catch (e) {
       console.error(`[AFFO Content] Error setting up SPA resilience for ${fontType}:`, e);
     }
   }
-  
+
   // Shared CSS helpers for weight/axis handling.
-  // Registered axes use high-level CSS properties (font-weight, font-stretch, font-style).
-  // Only custom/unregistered axes go into font-variation-settings.
+  // Registered axes use high-level CSS properties (font-weight, font-stretch, font-style)
+  // AND are included in font-variation-settings to bypass @font-face descriptor clamping.
   var REGISTERED_AXES = { wght: true, wdth: true, slnt: true, ital: true, opsz: true };
 
   function getEffectiveWeight(config) {
@@ -676,12 +676,13 @@
     return null;
   }
 
-  // Returns array of '"axis" value' strings for CUSTOM (unregistered) axes only.
-  function buildCustomAxisSettings(config) {
+  // Returns array of '"axis" value' strings for ALL axes (registered + custom).
+  // Bypasses @font-face descriptor clamping for registered axes.
+  function buildAllAxisSettings(config) {
     var settings = [];
     if (config.variableAxes) {
-      Object.entries(config.variableAxes).forEach(function([axis, value]) {
-        if (!REGISTERED_AXES[axis] && isFinite(Number(value))) {
+      Object.entries(config.variableAxes).forEach(function ([axis, value]) {
+        if (isFinite(Number(value))) {
           settings.push('"' + axis + '" ' + value);
         }
       });
@@ -695,7 +696,7 @@
     var lines = [];
     var imp = shouldUseAggressive() ? ' !important' : '';
 
-    var customAxes = buildCustomAxisSettings(fontConfig);
+    var customAxes = buildAllAxisSettings(fontConfig);
     var effectiveWeight = getEffectiveWeight(fontConfig);
     var effectiveWdth = getEffectiveWidth(fontConfig);
     var effectiveSlnt = getEffectiveSlant(fontConfig);
@@ -719,7 +720,7 @@
       } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         cssProps.push('font-style: oblique ' + effectiveSlnt + 'deg' + imp);
       }
-      // Custom axes only in font-variation-settings
+      // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
       if (customAxes.length > 0) {
         cssProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
@@ -756,7 +757,7 @@
       } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         nonBoldProps.push('font-style: oblique ' + effectiveSlnt + 'deg' + imp);
       }
-      // Custom axes only in font-variation-settings
+      // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
       if (customAxes.length > 0) {
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
@@ -793,7 +794,7 @@
   var HYBRID_GUARD = ':not([data-affo-guard]):not([data-affo-guard] *)';
 
   function addHybridGuard(sel) {
-    return sel.split(',').map(function(s) { return s.trim() + HYBRID_GUARD; }).join(', ');
+    return sel.split(',').map(function (s) { return s.trim() + HYBRID_GUARD; }).join(', ');
   }
 
   function getHybridSelector(fontType) {
@@ -812,13 +813,13 @@
     // Fallback to marked elements
     return `[data-affo-font-type="${fontType}"]`;
   }
-  
+
   function restoreManipulatedStyles(fontType, cssPropsObject) {
     try {
       var elements = document.querySelectorAll(getAffoSelector(fontType));
       var restoredCount = 0;
 
-      elements.forEach(function(el) {
+      elements.forEach(function (el) {
         var currentFontFamily = window.getComputedStyle(el).fontFamily;
 
         // If the font doesn't match what we expect, restore it
@@ -835,11 +836,11 @@
           restoredCount++;
         }
       });
-      
+
       if (restoredCount > 0) {
         elementLog(`Restored manipulated styles on ${restoredCount} ${fontType} elements`);
       }
-    } catch(e) {
+    } catch (e) {
       debugLog(`[AFFO Content] Error restoring manipulated styles:`, e);
     }
   }
@@ -861,7 +862,7 @@
 
     // Create the loading promise and track it
     // Load both custom fonts and css2Url cache in parallel
-    var loadingPromise = Promise.all([ensureCustomFontsLoaded(), ensureCss2UrlCache()]).then(function() {
+    var loadingPromise = Promise.all([ensureCustomFontsLoaded(), ensureCss2UrlCache()]).then(function () {
       // Look up fontFaceRule from parsed custom font definitions
       var fontFaceRule = getFontFaceRule(fontName);
 
@@ -869,7 +870,7 @@
         fontName: fontConfig.fontName,
         isCustomFont: !!fontFaceRule,
         fontFaceRuleLength: fontFaceRule ? fontFaceRule.length : 0,
-        otherKeys: Object.keys(fontConfig).filter(function(k) { return k !== 'fontName'; })
+        otherKeys: Object.keys(fontConfig).filter(function (k) { return k !== 'fontName'; })
       });
 
       // If font has custom @font-face rule (non-Google font), handle it
@@ -902,7 +903,7 @@
       else {
         return tryFontFaceAPI(fontConfig);
       }
-    }).catch(function(e) {
+    }).catch(function (e) {
       debugLog(`[AFFO Content] Error loading font ${fontName}:`, e);
       return Promise.resolve();
     });
@@ -914,17 +915,17 @@
 
     // Store the promise and clean up when done
     fontsCurrentlyLoading[fontName] = loadingPromise;
-    loadingPromise.then(function() {
+    loadingPromise.then(function () {
       delete fontsCurrentlyLoading[fontName];
       debugLog(`[AFFO Content] Font ${fontName} loading completed, removed from tracking`);
-    }).catch(function(e) {
+    }).catch(function (e) {
       delete fontsCurrentlyLoading[fontName];
       debugLog(`[AFFO Content] Font ${fontName} loading failed, removed from tracking:`, e);
     });
 
     return loadingPromise;
   }
-  
+
   // Ensure preconnect hints for Google Fonts are present in the page
   var preconnectsInjected = false;
   function ensureGoogleFontsPreconnect() {
@@ -944,7 +945,7 @@
         pc2.crossOrigin = '';
         document.head.appendChild(pc2);
       }
-    } catch(_) {}
+    } catch (_) { }
   }
 
   function loadGoogleFontCSS(fontConfig) {
@@ -983,8 +984,8 @@
     debugLog(`[AFFO Content] Using fallback Google Font URL for ${fontName} (css2Url not available): ${url}`);
     return url;
   }
-  
-  
+
+
   function tryCustomFontFaceAPI(fontName, fontFaceRule) {
     if (!window.FontFace || !document.fonts) {
       debugLog(`[AFFO Content] FontFace API not supported for custom font ${fontName}`);
@@ -995,7 +996,7 @@
       // Check if font is already loaded in document.fonts
       var fontAlreadyLoaded = false;
       try {
-        document.fonts.forEach(function(fontFace) {
+        document.fonts.forEach(function (fontFace) {
           if (fontFace.family === fontName && fontFace.status === 'loaded') {
             fontAlreadyLoaded = true;
           }
@@ -1013,10 +1014,10 @@
 
       // Parse @font-face rule to extract WOFF2 URLs and font descriptors
       var fontFaceBlocks = fontFaceRule.split('@font-face').filter(block => block.trim().length > 0);
-      
+
       debugLog(`[AFFO Content] Found ${fontFaceBlocks.length} @font-face blocks for ${fontName}`);
-      
-      var loadPromises = fontFaceBlocks.map(function(block, index) {
+
+      var loadPromises = fontFaceBlocks.map(function (block, index) {
         // Extract src URL - handle HTTP URLs, data: URLs, and WOFF/WOFF2 formats
         var srcMatch = block.match(/src:\s*url\(["']?([^"'\)]+)["']?\)/i);
         if (!srcMatch) {
@@ -1065,10 +1066,10 @@
             var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
             document.fonts.add(fontFace);
 
-            return fontFace.load().then(function() {
+            return fontFace.load().then(function () {
               debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} data: URL variant ${index + 1}`);
               return true;
-            }).catch(function(e) {
+            }).catch(function (e) {
               debugLog(`[AFFO Content] Custom FontFace API failed for ${fontName} data: URL variant ${index + 1}:`, e);
               return false;
             });
@@ -1086,7 +1087,7 @@
           type: 'affoFetch',
           url: fontUrl,
           binary: true
-        }).then(function(response) {
+        }).then(function (response) {
           if (response && response.ok && response.binary && response.data) {
             var cacheStatus = response.cached ? 'cached' : 'downloaded';
             debugLog(`[AFFO Content] Custom font ${cacheStatus} ${index + 1} successful for ${fontName}`);
@@ -1101,10 +1102,10 @@
             var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
             document.fonts.add(fontFace);
 
-            return fontFace.load().then(function() {
+            return fontFace.load().then(function () {
               debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} variant ${index + 1}`);
               return true;
-            }).catch(function(e) {
+            }).catch(function (e) {
               debugLog(`[AFFO Content] Custom FontFace API failed for ${fontName} variant ${index + 1}:`, e);
               return false;
             });
@@ -1113,26 +1114,26 @@
             debugLog(`[AFFO Content] Custom font download ${index + 1} failed for ${fontUrl}`);
             return false;
           }
-        }).catch(function(e) {
+        }).catch(function (e) {
           debugLog(`[AFFO Content] Custom font download ${index + 1} exception:`, e);
           return false;
         });
       });
-      
+
       // Wait for all font variants to load
-      return Promise.all(loadPromises).then(function(results) {
+      return Promise.all(loadPromises).then(function (results) {
         var successCount = results.filter(Boolean).length;
         elementLog(`Loaded ${successCount}/${results.length} custom font variants for ${fontName}`);
-        
+
         // For x.com with inline apply, trigger style re-application after font loading
         if (shouldUseInlineApply() && successCount > 0) {
           debugLog(`[AFFO Content] Custom font ${fontName} loaded (${successCount} variants), triggering style re-application for x.com`);
-          
+
           // Check if fonts are actually available in document.fonts
           try {
-            document.fonts.ready.then(function() {
+            document.fonts.ready.then(function () {
               debugLog(`[AFFO Content] document.fonts.ready confirmed for ${fontName}`);
-              
+
               // Additional check to see if font is loaded
               var testElement = document.createElement('span');
               testElement.style.fontFamily = `"${fontName}", monospace`;
@@ -1140,40 +1141,40 @@
               testElement.style.left = '-9999px';
               testElement.textContent = 'test';
               document.body.appendChild(testElement);
-              
+
               var computedFont = window.getComputedStyle(testElement).fontFamily;
               document.body.removeChild(testElement);
-              
+
               debugLog(`[AFFO Content] Font availability test for ${fontName}: computed font =`, computedFont);
-              
+
               // Delay to ensure fonts are fully available
-              setTimeout(function() {
+              setTimeout(function () {
                 try {
                   // Re-trigger inline styles application for the loaded custom font
-                  document.dispatchEvent(new CustomEvent('affo-custom-font-loaded', { 
-                    detail: { fontName: fontName } 
+                  document.dispatchEvent(new CustomEvent('affo-custom-font-loaded', {
+                    detail: { fontName: fontName }
                   }));
-                } catch(e) {
+                } catch (e) {
                   debugLog(`[AFFO Content] Error dispatching custom font loaded event:`, e);
                 }
               }, 200);
             });
-          } catch(e) {
+          } catch (e) {
             debugLog(`[AFFO Content] Error with document.fonts.ready:`, e);
             // Fallback to simple timeout
-            setTimeout(function() {
+            setTimeout(function () {
               try {
-                document.dispatchEvent(new CustomEvent('affo-custom-font-loaded', { 
-                  detail: { fontName: fontName } 
+                document.dispatchEvent(new CustomEvent('affo-custom-font-loaded', {
+                  detail: { fontName: fontName }
                 }));
-              } catch(e) {
+              } catch (e) {
                 debugLog(`[AFFO Content] Error dispatching custom font loaded event:`, e);
               }
             }, 300);
           }
         }
       });
-      
+
     } catch (e) {
       debugLog(`[AFFO Content] Custom FontFace API exception for ${fontName}:`, e);
       return Promise.resolve();
@@ -1206,9 +1207,9 @@
   function parseUnicodeRanges(rangeStr) {
     if (!rangeStr) return [];
     return rangeStr.split(',')
-      .map(function(part) { return part.trim(); })
+      .map(function (part) { return part.trim(); })
       .filter(Boolean)
-      .map(function(part) {
+      .map(function (part) {
         var cleaned = part.replace(/u\+/i, '');
         if (cleaned.indexOf('?') !== -1 && cleaned.indexOf('-') === -1) {
           var startWildcard = cleaned.replace(/\?/g, '0');
@@ -1222,7 +1223,7 @@
         var val = parseInt(cleaned, 16);
         return [val, val];
       })
-      .filter(function(pair) { return isFinite(pair[0]) && isFinite(pair[1]); });
+      .filter(function (pair) { return isFinite(pair[0]) && isFinite(pair[1]); });
   }
 
   var FONTFACE_SUBSET_SAMPLE_LIMIT = 20000;
@@ -1234,7 +1235,7 @@
     if (!urls || urls.length === 0) return [];
     var seen = new Set();
     var unique = [];
-    urls.forEach(function(url) {
+    urls.forEach(function (url) {
       if (!seen.has(url)) {
         seen.add(url);
         unique.push(url);
@@ -1244,7 +1245,7 @@
   }
 
   function buildUrlToRanges(entries) {
-    return entries.reduce(function(map, entry) {
+    return entries.reduce(function (map, entry) {
       if (!entry || !entry.url) return map;
       if (!map[entry.url]) map[entry.url] = [];
       if (entry.ranges && entry.ranges.length) {
@@ -1271,7 +1272,7 @@
       }
       // If nothing was captured (empty pages), bias toward basic Latin so pages still render
       if (needed.size === 0) {
-        'Hello'.split('').forEach(function(ch) { needed.add(ch.charCodeAt(0)); });
+        'Hello'.split('').forEach(function (ch) { needed.add(ch.charCodeAt(0)); });
       }
     } catch (e) {
       debugLog('[AFFO Content] Failed to collect needed code points:', e);
@@ -1296,7 +1297,7 @@
 
     var scored = [];
 
-    uniqueUrls.forEach(function(url, index) {
+    uniqueUrls.forEach(function (url, index) {
       var ranges = urlToRanges[url];
       if (!ranges || ranges.length === 0) return;
 
@@ -1318,18 +1319,18 @@
     });
 
     if (scored.length === 0) {
-      var latinFallback = uniqueUrls.filter(function(url) { return url.includes('latin'); });
+      var latinFallback = uniqueUrls.filter(function (url) { return url.includes('latin'); });
       var fallbackUrls = latinFallback.length > 0 ? latinFallback : uniqueUrls;
       if (maxUrls && fallbackUrls.length > maxUrls) return fallbackUrls.slice(0, maxUrls);
       return fallbackUrls;
     }
 
-    scored.sort(function(a, b) {
+    scored.sort(function (a, b) {
       if (b.score !== a.score) return b.score - a.score;
       return a.index - b.index;
     });
 
-    var selectedUrls = scored.map(function(entry) { return entry.url; });
+    var selectedUrls = scored.map(function (entry) { return entry.url; });
     if (maxUrls && selectedUrls.length > maxUrls) {
       selectedUrls = selectedUrls.slice(0, maxUrls);
     }
@@ -1343,19 +1344,19 @@
     var inFlight = 0;
     var maxParallel = Math.max(1, limit || 1);
 
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       function launchNext() {
         if (nextIndex >= items.length && inFlight === 0) {
           resolve(results);
           return;
         }
         while (inFlight < maxParallel && nextIndex < items.length) {
-          (function(index) {
+          (function (index) {
             inFlight++;
             Promise.resolve(handler(items[index], index))
-              .then(function(result) { results[index] = result; })
-              .catch(function() { results[index] = false; })
-              .then(function() {
+              .then(function (result) { results[index] = result; })
+              .catch(function () { results[index] = false; })
+              .then(function () {
                 inFlight--;
                 launchNext();
               });
@@ -1377,7 +1378,7 @@
       // Check if font is already loaded in document.fonts
       var fontAlreadyLoaded = false;
       try {
-        document.fonts.forEach(function(fontFace) {
+        document.fonts.forEach(function (fontFace) {
           if (fontFace.family === fontName && fontFace.status === 'loaded') {
             fontAlreadyLoaded = true;
           }
@@ -1399,24 +1400,24 @@
       if (cachedUrl) {
         debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
       }
-      
+
       return browser.runtime.sendMessage({
         type: 'affoFetch',
         url: cssUrl,
         binary: false
-      }).then(function(response) {
+      }).then(function (response) {
         if (response && response.ok && !response.binary && response.data) {
           debugLog(`[AFFO Content] Got Google Fonts CSS for ${fontName}`);
-          
+
           // Parse CSS to extract WOFF2 URLs
           var css = response.data;
           var woff2Matches = css.match(/url\(([^)]+\.woff2[^)]*)\)/g);
-          
+
           if (woff2Matches && woff2Matches.length > 0) {
             debugLog(`[AFFO Content] Found ${woff2Matches.length} WOFF2 URLs in CSS (different subsets/styles)`);
 
             // Extract all WOFF2 URLs first
-            var woff2Urls = woff2Matches.map(function(match) {
+            var woff2Urls = woff2Matches.map(function (match) {
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
             });
             var uniqueWoff2Urls = dedupeUrls(woff2Urls);
@@ -1429,18 +1430,18 @@
             });
 
             if (FONTFACE_MAX_SUBSET_DOWNLOADS && uniqueWoff2Urls.length > filteredUrls.length &&
-                filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
+              filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
               console.warn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
             }
 
             // Prioritize Latin subsets for faster initial render
-            var latinUrls = filteredUrls.filter(function(url) {
+            var latinUrls = filteredUrls.filter(function (url) {
               return url.includes('latin') && !url.includes('ext');
             });
-            var latinExtUrls = filteredUrls.filter(function(url) {
+            var latinExtUrls = filteredUrls.filter(function (url) {
               return url.includes('latin-ext');
             });
-            var otherUrls = filteredUrls.filter(function(url) {
+            var otherUrls = filteredUrls.filter(function (url) {
               return !url.includes('latin');
             });
 
@@ -1454,49 +1455,49 @@
               return Promise.resolve();
             }
 
-            return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function(woff2Url, index) {
+            return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function (woff2Url, index) {
               debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${prioritizedUrls.length}: ${woff2Url}`);
 
               return browser.runtime.sendMessage({
                 type: 'affoFetch',
                 url: woff2Url,
                 binary: true
-              }).then(function(woff2Response) {
+              }).then(function (woff2Response) {
                 if (woff2Response && woff2Response.ok && woff2Response.binary && woff2Response.data) {
                   debugLog(`[AFFO Content] WOFF2 download ${index + 1} successful for ${fontName}`);
-                  
+
                   // Convert binary data to ArrayBuffer
                   var uint8Array = new Uint8Array(woff2Response.data);
                   var arrayBuffer = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength);
-                  
+
                   debugLog(`[AFFO Content] Created ArrayBuffer ${index + 1} for ${fontName} (${arrayBuffer.byteLength} bytes)`);
-                  
+
                   // Create FontFace with ArrayBuffer - load each subset
                   var fontFace = new FontFace(fontName, arrayBuffer);
                   document.fonts.add(fontFace);
-                  
-                  return fontFace.load().then(function() {
+
+                  return fontFace.load().then(function () {
                     debugLog(`[AFFO Content] FontFace API successful for ${fontName} subset ${index + 1}`);
                     return true;
-                  }).catch(function(e) {
+                  }).catch(function (e) {
                     debugLog(`[AFFO Content] FontFace API failed for ${fontName} subset ${index + 1}:`, e);
                     return false;
                   });
-                  
+
                 } else {
                   debugLog(`[AFFO Content] WOFF2 download ${index + 1} failed for ${woff2Url}`);
                   return false;
                 }
-              }).catch(function(e) {
+              }).catch(function (e) {
                 debugLog(`[AFFO Content] WOFF2 download ${index + 1} exception:`, e);
                 return false;
               });
-            }).then(function(results) {
+            }).then(function (results) {
               var successCount = results.filter(Boolean).length;
               debugLog(`[AFFO Content] Loaded ${successCount}/${results.length} font subsets for ${fontName}`);
               return results;
             });
-            
+
           } else {
             debugLog(`[AFFO Content] No WOFF2 URLs found in Google Fonts CSS for ${fontName}`);
             return Promise.resolve();
@@ -1505,11 +1506,11 @@
           debugLog(`[AFFO Content] Failed to get Google Fonts CSS for ${fontName}:`, response ? response.error : 'No response');
           return Promise.resolve();
         }
-      }).catch(function(e) {
+      }).catch(function (e) {
         debugLog(`[AFFO Content] Google Fonts CSS fetch exception for ${fontName}:`, e);
         return Promise.resolve();
       });
-      
+
     } catch (e) {
       debugLog(`[AFFO Content] FontFace API data URL exception for ${fontName}:`, e);
       return Promise.resolve();
@@ -1567,7 +1568,7 @@
     // Skip elements using preserved fonts (icon fonts, etc.)
     var computedParts = null;
     if (preservedFonts.size > 0 && computedFontFamily) {
-      computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+      computedParts = computedFontFamily.split(',').map(function (s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
       for (var pi = 0; pi < computedParts.length; pi++) {
         if (preservedFonts.has(computedParts[pi])) return null;
       }
@@ -1578,7 +1579,7 @@
 
     // Check for monospace keywords
     if (/\b(monospace|mono|code)\b/.test(classText) ||
-        /\b(monospace|mono)\b/.test(styleText)) return 'mono';
+      /\b(monospace|mono)\b/.test(styleText)) return 'mono';
 
     // Check for sans-serif as complete phrase first
     if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
@@ -1589,7 +1590,7 @@
     // Check known font names FIRST (before generic keywords) so specific fonts take priority
     // e.g. "Spectral", serif, ..., sans-serif → Spectral is known serif, don't misclassify as sans
     // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
-    if (!computedParts) computedParts = computedFontFamily.split(',').map(function(s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
+    if (!computedParts) computedParts = computedFontFamily.split(',').map(function (s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
     for (var i = 0; i < computedParts.length; i++) {
       if (knownSerifFonts.has(computedParts[i])) {
         return 'serif';
@@ -1601,17 +1602,17 @@
 
     // Fall back to generic keywords in computed font-family
     if (/\bsans-serif\b/.test(computedText)) {
-        return 'sans';
+      return 'sans';
     }
 
     if (/\bserif\b/.test(computedText.replace('sans-serif', ''))) {
-        return 'serif';
+      return 'serif';
     }
 
     // Check for serif (but not sans-serif) in class names and inline styles
     if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
-        /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
-        return 'serif';
+      /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
+      return 'serif';
     }
 
     // Tag-based detection for monospace
@@ -1633,14 +1634,14 @@
   // Catches lazy-loaded content and elements that appear after fonts finish loading
   function scheduleElementWalkerRechecks(fontTypes) {
     // Filter to types not already scheduled
-    var toSchedule = fontTypes.filter(function(ft) {
+    var toSchedule = fontTypes.filter(function (ft) {
       return !elementWalkerRechecksScheduled[ft];
     });
     if (toSchedule.length === 0) return;
-    toSchedule.forEach(function(ft) { elementWalkerRechecksScheduled[ft] = true; });
+    toSchedule.forEach(function (ft) { elementWalkerRechecksScheduled[ft] = true; });
 
     function recheck() {
-      toSchedule.forEach(function(ft) { elementWalkerCompleted[ft] = false; });
+      toSchedule.forEach(function (ft) { elementWalkerCompleted[ft] = false; });
       runElementWalkerAll(toSchedule);
     }
 
@@ -1653,7 +1654,7 @@
     }
 
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(recheck).catch(function() {});
+      document.fonts.ready.then(recheck).catch(function () { });
     }
   }
 
@@ -1662,7 +1663,7 @@
   function runElementWalkerAll(fontTypes) {
     try {
       // Filter to types not already completed
-      var typesToWalk = fontTypes.filter(function(ft) {
+      var typesToWalk = fontTypes.filter(function (ft) {
         return !elementWalkerCompleted[ft];
       });
       if (typesToWalk.length === 0) {
@@ -1671,7 +1672,7 @@
       }
 
       var typeSet = {};
-      typesToWalk.forEach(function(ft) { typeSet[ft] = true; });
+      typesToWalk.forEach(function (ft) { typeSet[ft] = true; });
 
       console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
       var startTime = performance.now();
@@ -1686,7 +1687,7 @@
         document.body,
         NodeFilter.SHOW_ELEMENT,
         {
-          acceptNode: function(node) {
+          acceptNode: function (node) {
             if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
             return NodeFilter.FILTER_ACCEPT;
           }
@@ -1695,7 +1696,7 @@
 
       var totalElements = 0;
       var markedCounts = {};
-      typesToWalk.forEach(function(ft) { markedCounts[ft] = 0; });
+      typesToWalk.forEach(function (ft) { markedCounts[ft] = 0; });
 
       function processChunk() {
         var chunkCount = 0;
@@ -1708,9 +1709,9 @@
             try {
               cs = window.getComputedStyle(element);
               if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-            } catch(_) { continue; }
+            } catch (_) { continue; }
           } else {
-            try { cs = window.getComputedStyle(element); } catch(_) { continue; }
+            try { cs = window.getComputedStyle(element); } catch (_) { continue; }
           }
 
           totalElements++;
@@ -1743,11 +1744,11 @@
         lastWalkElementCount = totalElements;
         var endTime = performance.now();
         var duration = (endTime - startTime).toFixed(2);
-        var summary = typesToWalk.map(function(ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
+        var summary = typesToWalk.map(function (ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
         console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
 
         // Mark all walked types as completed
-        typesToWalk.forEach(function(ft) {
+        typesToWalk.forEach(function (ft) {
           elementWalkerCompleted[ft] = true;
         });
 
@@ -1769,7 +1770,7 @@
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry) {
     try {
-      ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
+      ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
         if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
@@ -1818,11 +1819,11 @@
                 document.head.appendChild(link);
                 debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
               }
-            } catch(_) {}
+            } catch (_) { }
           }
 
           // Load font file (handles custom fonts, FontFace-only domains, etc.)
-          loadFont(fontConfig, fontType).catch(function(e) {
+          loadFont(fontConfig, fontType).catch(function (e) {
             console.warn(`[AFFO Content] Error loading font after storage change:`, e);
           });
         }
@@ -1834,19 +1835,19 @@
 
   // Listen for custom font loaded events to re-apply styles on x.com
   try {
-    document.addEventListener('affo-custom-font-loaded', function(event) {
+    document.addEventListener('affo-custom-font-loaded', function (event) {
       debugLog(`[AFFO Content] Custom font loaded event received:`, event.detail.fontName);
-      
+
       // Re-apply styles for all active font types after custom font loads
-      browser.storage.local.get('affoApplyMap').then(function(data) {
+      browser.storage.local.get('affoApplyMap').then(function (data) {
         var map = data && data.affoApplyMap ? data.affoApplyMap : {};
         var entry = map[currentOrigin];
         if (entry) {
-          ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
+          ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = entry[fontType];
             if (fontConfig && fontConfig.fontName === event.detail.fontName) {
               elementLog(`Re-applying ${fontType} styles after custom font ${event.detail.fontName} loaded`);
-              
+
               if (shouldUseInlineApply()) {
                 // For Third Man In mode, run element walker first if needed
                 if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
@@ -1857,11 +1858,11 @@
             }
           });
         }
-      }).catch(function(e) {
+      }).catch(function (e) {
         debugLog(`[AFFO Content] Error re-applying styles after custom font load:`, e);
       });
     });
-  } catch(e) {
+  } catch (e) {
     debugLog(`[AFFO Content] Error setting up custom font loaded listener:`, e);
   }
 
@@ -1869,8 +1870,8 @@
   try {
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
-    
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains']).then(function(data){
+
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains']).then(function (data) {
       // Ensure aggressiveDomains is populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoAggressiveDomains)) {
@@ -1880,7 +1881,7 @@
       var entry = map[origin];
       if (!entry) {
         // Clean up all stale styles if no entry exists
-        ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ try { var n=document.getElementById(id); if(n) n.remove(); } catch(e){} });
+        ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
 
         // --- Substack Roulette ---
         var rouletteEnabled = data.affoSubstackRoulette !== false; // default true
@@ -1910,12 +1911,12 @@
             if (!shouldUseInlineApply()) {
               function reapplyRouletteAfterNavigation() {
                 try {
-                  ['serif', 'sans'].forEach(function(ft) {
+                  ['serif', 'sans'].forEach(function (ft) {
                     elementWalkerCompleted[ft] = false;
                     elementWalkerRechecksScheduled[ft] = false;
                   });
                   runElementWalkerAll(['serif', 'sans']);
-                } catch(_) {}
+                } catch (_) { }
               }
               registerSpaHandler(reapplyRouletteAfterNavigation);
             }
@@ -1930,28 +1931,28 @@
 
         return;
       }
-      
+
       // Content script handles cleanup AND reapplies stored fonts on page load
       debugLog(`[AFFO Content] Reapplying stored fonts for origin: ${origin}`, entry);
-      
+
       // Remove style elements for fonts that are not applied
       if (!entry.body) {
-        try{ var s3=document.getElementById('a-font-face-off-style-body'); if(s3) s3.remove(); }catch(e){}
+        try { var s3 = document.getElementById('a-font-face-off-style-body'); if (s3) s3.remove(); } catch (e) { }
       }
       if (!entry.serif) {
-        try{ var s=document.getElementById('a-font-face-off-style-serif'); if(s) s.remove(); }catch(e){}
+        try { var s = document.getElementById('a-font-face-off-style-serif'); if (s) s.remove(); } catch (e) { }
       }
       if (!entry.sans) {
-        try{ var s2=document.getElementById('a-font-face-off-style-sans'); if(s2) s2.remove(); }catch(e){}
+        try { var s2 = document.getElementById('a-font-face-off-style-sans'); if (s2) s2.remove(); } catch (e) { }
       }
       if (!entry.mono) {
-        try{ var s4=document.getElementById('a-font-face-off-style-mono'); if(s4) s4.remove(); }catch(e){}
+        try { var s4 = document.getElementById('a-font-face-off-style-mono'); if (s4) s4.remove(); } catch (e) { }
       }
-      
+
       // Reapply stored fonts on page load - wait for DOM to be ready
       function reapplyStoredFonts() {
         try {
-          ['body', 'serif', 'sans', 'mono'].forEach(function(fontType) {
+          ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = entry[fontType];
             if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
@@ -2003,11 +2004,11 @@
                     document.head.appendChild(link);
                     debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
                   }
-                } catch(_) {}
+                } catch (_) { }
               }
 
               // Load font file (handles custom fonts, FontFace-only domains, etc.)
-              loadFont(fontConfig, fontType).catch(function(e) {
+              loadFont(fontConfig, fontType).catch(function (e) {
                 console.warn(`[AFFO Content] Error loading font on page init:`, e);
               });
             }
@@ -2027,22 +2028,22 @@
       if (hasTmiEntries && !shouldUseInlineApply()) {
         function reapplyTmiAfterNavigation() {
           try {
-            var activeTmiTypes = ['serif', 'sans', 'mono'].filter(function(ft) { return !!entry[ft]; });
-            activeTmiTypes.forEach(function(ft) {
+            var activeTmiTypes = ['serif', 'sans', 'mono'].filter(function (ft) { return !!entry[ft]; });
+            activeTmiTypes.forEach(function (ft) {
               elementWalkerCompleted[ft] = false;
               elementWalkerRechecksScheduled[ft] = false;
             });
             runElementWalkerAll(activeTmiTypes);
-          } catch(_) {}
+          } catch (_) { }
         }
         registerSpaHandler(reapplyTmiAfterNavigation);
       }
-    }).catch(function(){});
-  } catch (e) {}
+    }).catch(function () { });
+  } catch (e) { }
 
   // Storage change listener - only handles cleanup
   try {
-    browser.storage.onChanged.addListener(function(changes, area){
+    browser.storage.onChanged.addListener(function (changes, area) {
       if (area !== 'local' || !changes.affoApplyMap) return;
       try {
         var origin = location.hostname;
@@ -2058,18 +2059,18 @@
         }
 
         debugLog(`[AFFO Content] Storage changed for origin ${origin}`);
-        
+
         // Remove all existing styles
-        ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id){ 
-          try { 
-            var n=document.getElementById(id); 
-            if(n) {
+        ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
+          try {
+            var n = document.getElementById(id);
+            if (n) {
               debugLog(`[AFFO Content] Removing existing style element:`, id);
-              n.remove(); 
+              n.remove();
             }
-          } catch(e){} 
+          } catch (e) { }
         });
-        
+
         // Apply fonts when storage changes (both immediate apply and reload persistence)
         if (entry) {
           debugLog(`[AFFO Content] Entry found - reapplying fonts:`, entry);
@@ -2087,11 +2088,11 @@
 
   // Message listener - handles cleanup, fonts applied by popup insertCSS
   try {
-    browser.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+    browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       if (message.type === 'affoFilterFontSubsets') {
         try {
           var cssText = typeof message.cssText === 'string' ? message.cssText : '';
-          var urls = Array.isArray(message.urls) ? message.urls.filter(function(url) { return typeof url === 'string'; }) : [];
+          var urls = Array.isArray(message.urls) ? message.urls.filter(function (url) { return typeof url === 'string'; }) : [];
           var entries = extractFontFaceEntries(cssText);
           var neededCodePoints = collectNeededCodePoints();
           var maxUrls = (typeof message.maxUrls === 'number') ? message.maxUrls : undefined;
@@ -2104,7 +2105,7 @@
       } else if (message.type === 'applyFonts') {
         // All font application is now handled by popup insertCSS
         debugLog('Content script received applyFonts message - fonts applied by popup insertCSS');
-        sendResponse({success: true});
+        sendResponse({ success: true });
       } else if (message.type === 'resetFonts') {
         try {
           // Remove the font style element for this panel
@@ -2114,10 +2115,10 @@
             styleElement.remove();
             debugLog('Removed font styling for panel:', message.panelId);
           }
-          sendResponse({success: true});
+          sendResponse({ success: true });
         } catch (error) {
           console.error('Error resetting fonts:', error);
-          sendResponse({success: false, error: error.message});
+          sendResponse({ success: false, error: error.message });
         }
       } else if (message.type === 'runElementWalker') {
         try {
@@ -2137,11 +2138,11 @@
       } else if (message.action === 'restoreOriginal') {
         try {
           // Remove all A Font Face-off CSS style elements
-          ['a-font-face-off-style-body','a-font-face-off-style-serif','a-font-face-off-style-sans','a-font-face-off-style-mono'].forEach(function(id) {
+          ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
             try {
               var element = document.getElementById(id);
               if (element) element.remove();
-            } catch(e) {}
+            } catch (e) { }
           });
 
           // Remove Google Fonts links efficiently - check for known patterns first
@@ -2153,7 +2154,7 @@
                 link.remove();
               }
             }
-          } catch(e) {}
+          } catch (e) { }
 
           // Remove custom font @font-face style elements efficiently
           try {
@@ -2164,20 +2165,20 @@
                 style.remove();
               }
             }
-          } catch(e) {}
+          } catch (e) { }
 
           // Remove any Third Man In data attributes
           try {
-            document.querySelectorAll('[data-affo-font-type]').forEach(function(el) {
+            document.querySelectorAll('[data-affo-font-type]').forEach(function (el) {
               el.removeAttribute('data-affo-font-type');
             });
-          } catch(e) {}
-          
+          } catch (e) { }
+
           debugLog('Restored original page fonts');
-          sendResponse({success: true});
+          sendResponse({ success: true });
         } catch (error) {
           console.error('Error restoring original:', error);
-          sendResponse({success: false, error: error.message});
+          sendResponse({ success: false, error: error.message });
         }
       }
     });

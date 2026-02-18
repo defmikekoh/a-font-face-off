@@ -8,6 +8,7 @@ const {
     getEffectiveWidth,
     getEffectiveSlant,
     getEffectiveItalic,
+    buildAllAxisSettings,
     buildCustomAxisSettings,
 } = require('../src/config-utils.js');
 
@@ -262,5 +263,42 @@ describe('REGISTERED_AXES', () => {
     it('does not contain custom axes', () => {
         assert.ok(!REGISTERED_AXES.has('CASL'));
         assert.ok(!REGISTERED_AXES.has('CRSV'));
+    });
+});
+
+// ── buildAllAxisSettings ─────────────────────────────────────────────────────
+
+describe('buildAllAxisSettings', () => {
+    it('returns empty array when no axes', () => {
+        assert.deepEqual(buildAllAxisSettings({}), []);
+        assert.deepEqual(buildAllAxisSettings({ variableAxes: {} }), []);
+    });
+
+    it('includes registered axes (bypasses @font-face clamping)', () => {
+        const result = buildAllAxisSettings({
+            variableAxes: { wght: 470, wdth: 80 },
+        });
+        assert.deepEqual(result, ['"wght" 470', '"wdth" 80']);
+    });
+
+    it('includes custom axes', () => {
+        const result = buildAllAxisSettings({
+            variableAxes: { CASL: 1, CRSV: 0.5 },
+        });
+        assert.deepEqual(result, ['"CASL" 1', '"CRSV" 0.5']);
+    });
+
+    it('includes both registered and custom axes', () => {
+        const result = buildAllAxisSettings({
+            variableAxes: { wght: 470, CASL: 1, slnt: -5, MONO: 0 },
+        });
+        assert.deepEqual(result, ['"wght" 470', '"CASL" 1', '"slnt" -5', '"MONO" 0']);
+    });
+
+    it('skips non-finite values', () => {
+        const result = buildAllAxisSettings({
+            variableAxes: { wght: 'abc', CASL: 1 },
+        });
+        assert.deepEqual(result, ['"CASL" 1']);
     });
 });
