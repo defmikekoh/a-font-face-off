@@ -1903,22 +1903,27 @@
 
             debugLog('[AFFO Content] Substack Roulette: applying serif=' + serifConfig.fontName + ', sans=' + sansConfig.fontName);
 
-            // Apply via existing TMI path
-            reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
+            // Ensure css2Url cache is loaded before applying, so the eager <link>
+            // injection in reapplyStoredFontsFromEntry uses the correct variable-font URL
+            // (with axis ranges like wght@100..900) instead of the fallback static-weight URL.
+            ensureCss2UrlCache().then(function () {
+              // Apply via existing TMI path
+              reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
 
-            // Set up SPA navigation hooks for roulette TMI fonts
-            if (!shouldUseInlineApply()) {
-              function reapplyRouletteAfterNavigation() {
-                try {
-                  ['serif', 'sans'].forEach(function (ft) {
-                    elementWalkerCompleted[ft] = false;
-                    elementWalkerRechecksScheduled[ft] = false;
-                  });
-                  runElementWalkerAll(['serif', 'sans']);
-                } catch (_) { }
+              // Set up SPA navigation hooks for roulette TMI fonts
+              if (!shouldUseInlineApply()) {
+                function reapplyRouletteAfterNavigation() {
+                  try {
+                    ['serif', 'sans'].forEach(function (ft) {
+                      elementWalkerCompleted[ft] = false;
+                      elementWalkerRechecksScheduled[ft] = false;
+                    });
+                    runElementWalkerAll(['serif', 'sans']);
+                  } catch (_) { }
+                }
+                registerSpaHandler(reapplyRouletteAfterNavigation);
               }
-              registerSpaHandler(reapplyRouletteAfterNavigation);
-            }
+            });
           }
 
           if (document.readyState === 'loading') {
