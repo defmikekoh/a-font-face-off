@@ -373,6 +373,10 @@ Unified panel toggle for all modes. For face-off panels (top/bottom): manages gr
 
 Shared helper functions used by all CSS generation paths (popup.js and content.js each have their own copies since they run in different contexts).
 
+### Constants (`css-generators.js`)
+
+- **`GUARD_EXCLUDE`** — `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to all broad CSS selectors (Body mode `sel`/`weightSel`, Body Contact `selector`/`weightSelector`) to prevent the extension's own injected CSS from matching guarded overlays (e.g. quick pick panel).
+
 ### Registered vs Custom Axes
 
 Registered OpenType axes have corresponding high-level CSS properties and should NOT be placed in `font-variation-settings`. Only custom/unregistered axes use `font-variation-settings`.
@@ -439,9 +443,11 @@ var WALKER_CHUNK_SIZE = 2000;              // elements per chunk before yielding
 
 These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, and the MutationObserver/reapply logic. They live at module level so all inline-apply code paths share them.
 
-- **`BODY_EXCLUDE`** — Constant: `:not(h1):not(h2)...:not(.no-affo)`. The base exclusion chain for body-mode selectors.
+- **`BODY_EXCLUDE`** — Constant: `:not(h1):not(h2)...:not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)`. The base exclusion chain for body-mode selectors. Includes the guard exclusion so inline-apply paths skip guarded overlays (e.g. quick pick).
 - **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com. Controls hybrid selector only; polling/restore behavior uses `shouldUseInlineApply()`.
-- **`getAffoSelector(fontType)`** — Returns the CSS selector for a given font type. Body mode uses `BODY_EXCLUDE`; TMI mode uses `getHybridSelector()` on x.com or `[data-affo-font-type]` elsewhere.
+- **`HYBRID_GUARD`** — Constant: `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to every term in `getHybridSelector()` results via `addHybridGuard()`.
+- **`addHybridGuard(sel)`** — Splits a comma-separated selector string, appends `HYBRID_GUARD` to each term, rejoins. Used by `getHybridSelector` to prevent x.com inline styles from matching guarded overlays.
+- **`getAffoSelector(fontType)`** — Returns the CSS selector for a given font type. Body mode uses `BODY_EXCLUDE`; TMI mode uses `getHybridSelector()` on x.com (broad selectors with guard exclusion) or `[data-affo-font-type]` elsewhere.
 - **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience.
 - **`applyTmiProtection(el, propsObj, effectiveWeight)`** — Wraps `applyAffoProtection` with bold detection. Checks tag name, `data-affo-was-bold` marker, or computed `fontWeight >= 700` before applying, then restores weight to 700 for bold elements.
 
