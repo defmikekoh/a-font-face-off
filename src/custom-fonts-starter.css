@@ -1,4 +1,19 @@
 @font-face {
+  font-family: "Bluu Next";
+  src: url("https://raw.githubusercontent.com/defmikekoh/BluuNext/master/Fonts/webfonts/bluunext-bold-webfont.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bluu Next";
+  src: url("https://raw.githubusercontent.com/defmikekoh/BluuNext/master/Fonts/webfonts/bluunext-bolditalic-webfont.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Cheltenham Classic";
   src: url("https://raw.githubusercontent.com/defmikekoh/cheltenham-classic/main/docs/font-files/CheltenhamClassic.woff2") format("woff2");
   font-style: normal;
@@ -40,20 +55,7 @@
   font-weight: 700;
   font-display: swap;
 }
-@font-face {
-  font-family: "Bluu Next";
-  src: url("https://raw.githubusercontent.com/defmikekoh/BluuNext/master/Fonts/webfonts/bluunext-bold-webfont.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Bluu Next";
-  src: url("https://raw.githubusercontent.com/defmikekoh/BluuNext/master/Fonts/webfonts/bluunext-bolditalic-webfont.woff2") format("woff2");
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-}
+
 @font-face {
   font-family: "Sporting Grotesque";
   src: url("https://raw.githubusercontent.com/defmikekoh/Sporting-Grotesque/master/webfonts/Regular/Sporting_Grotesque-Regular_web.woff2") format("woff2");
