@@ -424,6 +424,7 @@ Single-pass DOM walker that classifies elements for all active TMI font types at
 ```javascript
 var elementWalkerCompleted = {};           // fontType → boolean (prevents redundant scans)
 var elementWalkerRechecksScheduled = {};   // fontType → boolean (prevents double-scheduling rechecks)
+var elementWalkerInFlight = {};            // fontType → Promise (in-flight coalescing — same promise stored under each type key)
 var lastWalkElementCount = 0;              // element count from last walk (used to cap rechecks)
 var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;   // skip timed rechecks above this
 var WALKER_CHUNK_SIZE = 2000;              // elements per chunk before yielding to main thread
@@ -436,13 +437,27 @@ var WALKER_CHUNK_SIZE = 2000;              // elements per chunk before yielding
 - Large page recheck cap: pages with >5,000 elements skip the 700ms/1600ms timed rechecks (only `document.fonts.ready` recheck runs)
 
 - **`getElementFontType(element, computedStyle)`** — Module-scope classification function. Returns `'serif'`, `'sans'`, `'mono'`, or `null`. Receives pre-computed style from the walker loop. Reads `preservedFonts`, `knownSerifFonts`, `knownSansFonts` from module scope.
-- **`runElementWalkerAll(fontTypes)`** — Accepts array of font types (e.g. `['serif', 'sans', 'mono']`). Filters to uncompleted types, clears existing markers, walks DOM in chunks, marks elements with `data-affo-font-type`, schedules rechecks.
-- **`runElementWalker(fontType)`** — Thin wrapper: `runElementWalkerAll([fontType])`. Used by runtime message handler and individual-type callers.
+- **`runElementWalkerAll(fontTypes)`** — Accepts array of font types (e.g. `['serif', 'sans', 'mono']`). Returns a `Promise<markedCounts>` that resolves when the chunked walk finishes (or `Promise.resolve({})` when all types are already completed). In-flight coalescing: if all requested types already have an in-flight promise in `elementWalkerInFlight`, returns the existing promise instead of starting a concurrent walk. The same promise is stored under each type key; cleared on resolve or error.
+- **`runElementWalker(fontType)`** — Thin wrapper: `return runElementWalkerAll([fontType])`. Propagates the promise. Used by runtime message handler (which uses `return true` for async `sendResponse`) and individual-type callers (which ignore the returned promise).
 - **`scheduleElementWalkerRechecks(fontTypes)`** — Accepts array. Filters to unscheduled types. On small pages (<5,000 elements): schedules rechecks at 700ms, 1600ms, and `document.fonts.ready`. On large pages: only `document.fonts.ready` recheck (skips timed rechecks to avoid redundant full DOM walks).
 
 ### Inline-Apply Helpers (content.js module-level)
 
-These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, and the MutationObserver/reapply logic. They live at module level so all inline-apply code paths share them.
+These helpers are used by `applyInlineStyles()`, `restoreManipulatedStyles()`, and the shared MutationObserver/reapply logic. They live at module level so all inline-apply code paths share them.
+
+**Shared inline-apply infrastructure** — a single MutationObserver and a single polling interval serve all active font types (instead of per-type observers/timers):
+
+```javascript
+var inlineConfigs = {};         // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
+var sharedInlineObserver = null; // single MutationObserver for all inline types
+var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, switch/stop timers)
+```
+
+- **`ensureSharedInlineObserver()`** — Creates the shared MutationObserver on first call. Callback loops `addedNodes` once, then iterates `Object.keys(inlineConfigs)` to match selectors and apply per-type protection.
+- **`ensureSharedInlinePolling()`** — Creates shared polling timers (frequency ramp: fast → slow → stop) on first call. Each tick iterates all active types.
+- **`reapplyAllInlineStyles()`** — Shared SPA/focus handler that re-applies inline styles for all active types.
+- **`checkExpiredInlineTypes()`** — Removes types whose `expiresAt` has passed from `inlineConfigs`. Calls `cleanupSharedInlineInfra()` when no types remain.
+- **`cleanupSharedInlineInfra()`** — Disconnects the shared observer and clears all shared timers.
 
 - **`BODY_EXCLUDE`** — Constant: `:not(h1):not(h2)...:not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)`. The base exclusion chain for body-mode selectors. Includes the guard exclusion so inline-apply paths skip guarded overlays (e.g. quick pick).
 - **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com. Controls hybrid selector only; polling/restore behavior uses `shouldUseInlineApply()`.

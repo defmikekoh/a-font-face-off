@@ -52,9 +52,10 @@
   function debugLog() { console.log.apply(console, arguments); }
   function elementLog() { console.log.apply(console, arguments); }
 
-  // Global cleanup tracking to prevent flipping between settings
-  var activeObservers = {}; // Track MutationObservers by fontType
-  var activeTimers = {}; // Track timeout/interval IDs by fontType
+  // Shared inline-apply infrastructure — single observer + single polling timer for all font types
+  var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
+  var sharedInlineObserver = null; // single MutationObserver for all inline types
+  var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
 
   // Idempotent SPA hook infrastructure — installed once, routes to registered handlers
   var spaHooksInstalled = false;
@@ -395,23 +396,11 @@
   function applyInlineStyles(fontConfig, fontType) {
     elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
 
-    // Cleanup previous observers and timers for this fontType to prevent flipping
-    if (activeObservers[fontType]) {
-      try {
-        activeObservers[fontType].disconnect();
-        debugLog(`[AFFO Content] Cleaned up MutationObserver for ${fontType}`);
-      } catch (e) { }
-      delete activeObservers[fontType];
-    }
-    if (activeTimers[fontType]) {
-      activeTimers[fontType].forEach(function (timerId) {
-        try {
-          clearTimeout(timerId);
-          clearInterval(timerId);
-        } catch (e) { }
-      });
-      debugLog(`[AFFO Content] Cleaned up ${activeTimers[fontType].length} timers for ${fontType}`);
-      delete activeTimers[fontType];
+    // Remove this type from shared inline config registry (will be re-added below)
+    delete inlineConfigs[fontType];
+    // If no types remain, tear down shared observer and timers
+    if (Object.keys(inlineConfigs).length === 0) {
+      cleanupSharedInlineInfra();
     }
 
     // For domains with restrictive CSP (like x.com), provide fallback fonts
@@ -499,163 +488,198 @@
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
     }
 
+    // Register this type into the shared inline config registry
+    inlineConfigs[fontType] = {
+      cssPropsObject: cssPropsObject,
+      inlineEffectiveWeight: inlineEffectiveWeight,
+      expiresAt: Date.now() + 180000 // 3 minutes
+    };
+
     // Add SPA resilience for x.com and other dynamic sites
     try {
-      var _fontFamily = cssPropsObject['font-family'];
-
-      // MutationObserver to re-apply styles to newly added elements
-      var mo = new MutationObserver(function (muts) {
-        muts.forEach(function (m) {
-          (m.addedNodes || []).forEach(function (n) {
-            try {
-              if (n && n.nodeType === 1) {
-                var newElements = [];
-                var sel = getAffoSelector(fontType);
-
-                try {
-                  if (n.matches && n.matches(sel)) newElements.push(n);
-                } catch (_) { }
-                try {
-                  if (n.querySelectorAll) {
-                    newElements = newElements.concat(Array.from(n.querySelectorAll(sel)));
-                  }
-                } catch (_) { }
-
-                // Apply enhanced protection to new elements
-                newElements.forEach(function (el) {
-                  try {
-                    if (fontType === 'body') {
-                      applyAffoProtection(el, cssPropsObject);
-                    } else {
-                      applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
-                    }
-                  } catch (_) { }
-                });
-
-                if (newElements.length > 0) {
-                  elementLog(`Applied inline styles to ${newElements.length} new ${fontType} elements`);
-                }
-              }
-            } catch (_) { }
-          });
-        });
-      });
-
-      mo.observe(document.documentElement || document, { childList: true, subtree: true });
-
-      // Track the observer for cleanup
-      activeObservers[fontType] = mo;
-
-      // Initialize timers array for this fontType
-      if (!activeTimers[fontType]) activeTimers[fontType] = [];
-
-      // Reduced resiliency window for inline domains (3 minutes)
-      // With fast caching, fonts apply almost instantly, so shorter window is sufficient
-      var disconnectTimer = setTimeout(function () {
-        try { mo.disconnect(); } catch (_) { }
-      }, 180000); // 3 minutes (was 10 minutes)
-      activeTimers[fontType].push(disconnectTimer);
+      // Ensure shared MutationObserver exists (created once, handles all types)
+      ensureSharedInlineObserver();
 
       // Re-apply styles on SPA navigations (history API hooks)
-      function reapplyInlineStyles() {
-        try {
-          var elements = document.querySelectorAll(getAffoSelector(fontType));
-          elements.forEach(function (el) {
-            if (fontType === 'body') {
-              applyAffoProtection(el, cssPropsObject);
-            } else {
-              applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
-            }
-          });
-          elementLog(`Re-applied inline styles to ${elements.length} ${fontType} elements after SPA navigation`);
-        } catch (e) {
-          debugLog(`[AFFO Content] Error re-applying inline styles after SPA navigation:`, e);
-        }
-      }
+      // Uses a single shared handler that iterates all active types
+      registerSpaHandler(reapplyAllInlineStyles);
 
-      registerSpaHandler(reapplyInlineStyles);
-
-      // Enhanced monitoring with reduced frequency now that fonts load instantly from cache
-      var monitoringTimer = setTimeout(function () {
-        try {
-          // Inline-apply domains (aggressive SPAs) get faster polling since they fight style changes
-          var isInline = shouldUseInlineApply();
-          var initialFrequency = isInline ? 2000 : 5000;
-          var laterFrequency = 10000;
-          var initialDuration = isInline ? 30000 : 60000;
-          var totalDuration = 180000; // 3 minutes total (was 10 min)
-
-          debugLog(`[AFFO Content] Starting enhanced monitoring for ${fontType} - initial: ${initialFrequency}ms, later: ${laterFrequency}ms`);
-
-          var checkCount = 0;
-
-          // Frequent monitoring initially
-          var initialInterval = setInterval(function () {
-            try {
-              checkCount++;
-              reapplyInlineStyles();
-              if (checkCount % 10 === 0) {
-                debugLog(`[AFFO Content] Performed ${checkCount} style checks for ${fontType}`);
-              }
-            } catch (e) {
-              debugLog(`[AFFO Content] Error in frequent style check:`, e);
-            }
-          }, initialFrequency);
-
-          // Track the interval timer for cleanup
-          if (!activeTimers[fontType]) activeTimers[fontType] = [];
-          activeTimers[fontType].push(initialInterval);
-
-          // Switch to less frequent monitoring after initial period
-          var switchTimer = setTimeout(function () {
-            clearInterval(initialInterval);
-            debugLog(`[AFFO Content] Switching to less frequent monitoring for ${fontType}`);
-
-            var laterInterval = setInterval(function () {
-              try {
-                checkCount++;
-                reapplyInlineStyles();
-
-                // Additional protection: Check for and restore any cleared styles
-                if (isInline) {
-                  restoreManipulatedStyles(fontType, cssPropsObject);
-                }
-              } catch (e) {
-                debugLog(`[AFFO Content] Error in periodic style check:`, e);
-              }
-            }, laterFrequency);
-
-            // Track the later interval for cleanup
-            activeTimers[fontType].push(laterInterval);
-
-            // Stop monitoring after total duration
-            var stopTimer = setTimeout(function () {
-              clearInterval(laterInterval);
-              debugLog(`[AFFO Content] Stopped style monitoring for ${fontType} after ${totalDuration / 1000} seconds (${checkCount} total checks)`);
-            }, totalDuration - initialDuration);
-
-            // Track the stop timer for cleanup (must be inside switchTimer callback where stopTimer is scoped)
-            activeTimers[fontType].push(stopTimer);
-
-          }, initialDuration);
-
-          // Track the switch timer for cleanup
-          activeTimers[fontType].push(switchTimer);
-
-        } catch (e) {
-          debugLog(`[AFFO Content] Error setting up enhanced monitoring for ${fontType}:`, e);
-        }
-      }, 1000);
-      activeTimers[fontType].push(monitoringTimer);
+      // Ensure shared polling timers are running
+      ensureSharedInlinePolling();
 
       // Re-apply styles when page becomes visible
-      registerFocusHandler(reapplyInlineStyles);
+      registerFocusHandler(reapplyAllInlineStyles);
 
-      debugLog(`[AFFO Content] Added enhanced SPA resilience for ${fontType} fonts on ${currentOrigin}`);
+      debugLog(`[AFFO Content] Added shared SPA resilience for ${fontType} fonts on ${currentOrigin} (${Object.keys(inlineConfigs).length} active types)`);
 
     } catch (e) {
       console.error(`[AFFO Content] Error setting up SPA resilience for ${fontType}:`, e);
     }
+  }
+
+  // Re-apply inline styles for all active types (shared SPA/focus handler)
+  function reapplyAllInlineStyles() {
+    var types = Object.keys(inlineConfigs);
+    if (types.length === 0) return;
+    types.forEach(function (ft) {
+      try {
+        var cfg = inlineConfigs[ft];
+        if (!cfg) return;
+        var elements = document.querySelectorAll(getAffoSelector(ft));
+        elements.forEach(function (el) {
+          if (ft === 'body') {
+            applyAffoProtection(el, cfg.cssPropsObject);
+          } else {
+            applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+          }
+        });
+        elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
+      } catch (e) {
+        debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
+      }
+    });
+  }
+
+  // Create or reuse the single shared MutationObserver for all inline types
+  function ensureSharedInlineObserver() {
+    if (sharedInlineObserver) return;
+    sharedInlineObserver = new MutationObserver(function (muts) {
+      var types = Object.keys(inlineConfigs);
+      if (types.length === 0) return;
+      muts.forEach(function (m) {
+        (m.addedNodes || []).forEach(function (n) {
+          try {
+            if (n && n.nodeType === 1) {
+              types.forEach(function (ft) {
+                var cfg = inlineConfigs[ft];
+                if (!cfg) return;
+                var newElements = [];
+                var sel = getAffoSelector(ft);
+                try { if (n.matches && n.matches(sel)) newElements.push(n); } catch (_) { }
+                try { if (n.querySelectorAll) newElements = newElements.concat(Array.from(n.querySelectorAll(sel))); } catch (_) { }
+                newElements.forEach(function (el) {
+                  try {
+                    if (ft === 'body') {
+                      applyAffoProtection(el, cfg.cssPropsObject);
+                    } else {
+                      applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+                    }
+                  } catch (_) { }
+                });
+                if (newElements.length > 0) {
+                  elementLog('Applied inline styles to ' + newElements.length + ' new ' + ft + ' elements');
+                }
+              });
+            }
+          } catch (_) { }
+        });
+      });
+    });
+    sharedInlineObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    debugLog('[AFFO Content] Created shared inline MutationObserver');
+  }
+
+  // Set up shared polling timers (frequency ramp: fast → slow → stop)
+  function ensureSharedInlinePolling() {
+    if (sharedInlineTimers.length > 0) return; // already running
+
+    var isInline = shouldUseInlineApply();
+    var initialFrequency = isInline ? 2000 : 5000;
+    var laterFrequency = 10000;
+    var initialDuration = isInline ? 30000 : 60000;
+    var totalDuration = 180000; // 3 minutes total
+
+    debugLog('[AFFO Content] Starting shared inline monitoring - initial: ' + initialFrequency + 'ms, later: ' + laterFrequency + 'ms');
+
+    var checkCount = 0;
+
+    // Start monitoring after 1s delay (same as before)
+    var monitoringTimer = setTimeout(function () {
+      try {
+        var initialInterval = setInterval(function () {
+          try {
+            // Check for expired types and remove them
+            checkExpiredInlineTypes();
+            if (Object.keys(inlineConfigs).length === 0) return;
+            checkCount++;
+            reapplyAllInlineStyles();
+            if (checkCount % 10 === 0) {
+              debugLog('[AFFO Content] Performed ' + checkCount + ' shared style checks (' + Object.keys(inlineConfigs).length + ' types)');
+            }
+          } catch (e) {
+            debugLog('[AFFO Content] Error in shared frequent style check:', e);
+          }
+        }, initialFrequency);
+        sharedInlineTimers.push(initialInterval);
+
+        // Switch to less frequent monitoring after initial period
+        var switchTimer = setTimeout(function () {
+          clearInterval(initialInterval);
+          debugLog('[AFFO Content] Switching to less frequent shared monitoring');
+
+          var laterInterval = setInterval(function () {
+            try {
+              checkExpiredInlineTypes();
+              if (Object.keys(inlineConfigs).length === 0) return;
+              checkCount++;
+              reapplyAllInlineStyles();
+
+              // Additional protection on inline-apply domains
+              if (isInline) {
+                Object.keys(inlineConfigs).forEach(function (ft) {
+                  var cfg = inlineConfigs[ft];
+                  if (cfg) restoreManipulatedStyles(ft, cfg.cssPropsObject);
+                });
+              }
+            } catch (e) {
+              debugLog('[AFFO Content] Error in shared periodic style check:', e);
+            }
+          }, laterFrequency);
+          sharedInlineTimers.push(laterInterval);
+
+          // Stop monitoring after total duration
+          var stopTimer = setTimeout(function () {
+            clearInterval(laterInterval);
+            debugLog('[AFFO Content] Stopped shared style monitoring after ' + (totalDuration / 1000) + ' seconds (' + checkCount + ' total checks)');
+            cleanupSharedInlineInfra();
+          }, totalDuration - initialDuration);
+          sharedInlineTimers.push(stopTimer);
+
+        }, initialDuration);
+        sharedInlineTimers.push(switchTimer);
+
+      } catch (e) {
+        debugLog('[AFFO Content] Error setting up shared enhanced monitoring:', e);
+      }
+    }, 1000);
+    sharedInlineTimers.push(monitoringTimer);
+  }
+
+  // Remove expired types from the inline config registry
+  function checkExpiredInlineTypes() {
+    var now = Date.now();
+    Object.keys(inlineConfigs).forEach(function (ft) {
+      if (inlineConfigs[ft] && inlineConfigs[ft].expiresAt <= now) {
+        debugLog('[AFFO Content] Inline config expired for ' + ft);
+        delete inlineConfigs[ft];
+      }
+    });
+    if (Object.keys(inlineConfigs).length === 0) {
+      cleanupSharedInlineInfra();
+    }
+  }
+
+  // Tear down all shared inline infrastructure
+  function cleanupSharedInlineInfra() {
+    if (sharedInlineObserver) {
+      try { sharedInlineObserver.disconnect(); } catch (_) { }
+      sharedInlineObserver = null;
+      debugLog('[AFFO Content] Disconnected shared inline MutationObserver');
+    }
+    sharedInlineTimers.forEach(function (timerId) {
+      try { clearTimeout(timerId); clearInterval(timerId); } catch (_) { }
+    });
+    sharedInlineTimers = [];
   }
 
   // Shared CSS helpers for weight/axis handling.
@@ -1542,6 +1566,8 @@
   // Track which font types have been walked on this page to avoid redundant scans
   var elementWalkerCompleted = {};
   var elementWalkerRechecksScheduled = {};
+  // In-flight promise cache — prevents concurrent walkers for the same types
+  var elementWalkerInFlight = {}; // fontType → Promise
 
   // Element type detection logic (module-scope so both single and unified walker can use it)
   // computedStyle is passed from the walker to avoid a second getComputedStyle call
@@ -1682,111 +1708,131 @@
 
   // Unified element walker — classifies all requested font types in a single DOM pass
   // Uses chunked processing to avoid blocking the main thread on large pages
+  // Returns a Promise that resolves with markedCounts when the walk finishes
   function runElementWalkerAll(fontTypes) {
-    try {
-      // Filter to types not already completed
-      var typesToWalk = fontTypes.filter(function (ft) {
-        return !elementWalkerCompleted[ft];
-      });
-      if (typesToWalk.length === 0) {
-        debugLog('[AFFO Content] All requested font types already walked, skipping');
-        return;
-      }
-
-      var typeSet = {};
-      typesToWalk.forEach(function (ft) { typeSet[ft] = true; });
-
-      console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
-      var startTime = performance.now();
-
-      // Don't clear markers upfront — update them incrementally during the walk.
-      // This prevents the "revert flash" where markers are cleared synchronously
-      // but re-applied chunk-by-chunk with setTimeout(0) delays in between.
-
-      // Walk all text-containing elements
-      // Visibility checks moved to main loop (merged with getElementFontType's getComputedStyle)
-      var walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_ELEMENT,
-        {
-          acceptNode: function (node) {
-            if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        }
-      );
-
-      var totalElements = 0;
-      var markedCounts = {};
-      typesToWalk.forEach(function (ft) { markedCounts[ft] = 0; });
-
-      function processChunk() {
-        var chunkCount = 0;
-        var element;
-
-        while ((element = walker.nextNode()) && chunkCount < WALKER_CHUNK_SIZE) {
-          // Single getComputedStyle call per element — used for both visibility check and font type detection
-          var cs;
-          if (element.tagName !== 'BODY') {
-            try {
-              cs = window.getComputedStyle(element);
-              if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-            } catch (_) { continue; }
-          } else {
-            try { cs = window.getComputedStyle(element); } catch (_) { continue; }
-          }
-
-          totalElements++;
-          chunkCount++;
-          var detectedType = getElementFontType(element, cs);
-          var currentMarker = element.getAttribute('data-affo-font-type');
-
-          // Update marker: set if type detected and in requested set, remove if not
-          if (detectedType && typeSet[detectedType]) {
-            if (currentMarker !== detectedType) {
-              element.setAttribute('data-affo-font-type', detectedType);
-            }
-            markedCounts[detectedType]++;
-          } else if (currentMarker && typeSet[currentMarker]) {
-            // Element had a marker for one of the types we're walking, but shouldn't anymore
-            element.removeAttribute('data-affo-font-type');
-          }
-        }
-
-        if (element) {
-          // More elements to process — yield to main thread then continue
-          setTimeout(processChunk, 0);
-        } else {
-          // Walker finished
-          finishWalk();
-        }
-      }
-
-      function finishWalk() {
-        lastWalkElementCount = totalElements;
-        var endTime = performance.now();
-        var duration = (endTime - startTime).toFixed(2);
-        var summary = typesToWalk.map(function (ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
-        console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
-
-        // Mark all walked types as completed
-        typesToWalk.forEach(function (ft) {
-          elementWalkerCompleted[ft] = true;
-        });
-
-        // Schedule delayed rechecks for lazy-loaded content
-        scheduleElementWalkerRechecks(typesToWalk);
-      }
-
-      processChunk();
-    } catch (e) {
-      console.error('[AFFO Content] Unified element walker failed:', e);
+    // Filter to types not already completed
+    var typesToWalk = fontTypes.filter(function (ft) {
+      return !elementWalkerCompleted[ft];
+    });
+    if (typesToWalk.length === 0) {
+      debugLog('[AFFO Content] All requested font types already walked, skipping');
+      return Promise.resolve({});
     }
+
+    // In-flight coalescing: if all requested types already have an in-flight promise, return it
+    var allInFlight = typesToWalk.every(function (ft) { return elementWalkerInFlight[ft]; });
+    if (allInFlight) {
+      debugLog('[AFFO Content] All requested types already in-flight, coalescing');
+      return elementWalkerInFlight[typesToWalk[0]];
+    }
+
+    var promise = new Promise(function (resolve) {
+      try {
+        var typeSet = {};
+        typesToWalk.forEach(function (ft) { typeSet[ft] = true; });
+
+        console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
+        var startTime = performance.now();
+
+        // Don't clear markers upfront — update them incrementally during the walk.
+        // This prevents the "revert flash" where markers are cleared synchronously
+        // but re-applied chunk-by-chunk with setTimeout(0) delays in between.
+
+        // Walk all text-containing elements
+        // Visibility checks moved to main loop (merged with getElementFontType's getComputedStyle)
+        var walker = document.createTreeWalker(
+          document.body,
+          NodeFilter.SHOW_ELEMENT,
+          {
+            acceptNode: function (node) {
+              if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          }
+        );
+
+        var totalElements = 0;
+        var markedCounts = {};
+        typesToWalk.forEach(function (ft) { markedCounts[ft] = 0; });
+
+        function processChunk() {
+          var chunkCount = 0;
+          var element;
+
+          while ((element = walker.nextNode()) && chunkCount < WALKER_CHUNK_SIZE) {
+            // Single getComputedStyle call per element — used for both visibility check and font type detection
+            var cs;
+            if (element.tagName !== 'BODY') {
+              try {
+                cs = window.getComputedStyle(element);
+                if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+              } catch (_) { continue; }
+            } else {
+              try { cs = window.getComputedStyle(element); } catch (_) { continue; }
+            }
+
+            totalElements++;
+            chunkCount++;
+            var detectedType = getElementFontType(element, cs);
+            var currentMarker = element.getAttribute('data-affo-font-type');
+
+            // Update marker: set if type detected and in requested set, remove if not
+            if (detectedType && typeSet[detectedType]) {
+              if (currentMarker !== detectedType) {
+                element.setAttribute('data-affo-font-type', detectedType);
+              }
+              markedCounts[detectedType]++;
+            } else if (currentMarker && typeSet[currentMarker]) {
+              // Element had a marker for one of the types we're walking, but shouldn't anymore
+              element.removeAttribute('data-affo-font-type');
+            }
+          }
+
+          if (element) {
+            // More elements to process — yield to main thread then continue
+            setTimeout(processChunk, 0);
+          } else {
+            // Walker finished
+            finishWalk();
+          }
+        }
+
+        function finishWalk() {
+          lastWalkElementCount = totalElements;
+          var endTime = performance.now();
+          var duration = (endTime - startTime).toFixed(2);
+          var summary = typesToWalk.map(function (ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
+          console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
+
+          // Mark all walked types as completed and clear in-flight cache
+          typesToWalk.forEach(function (ft) {
+            elementWalkerCompleted[ft] = true;
+            delete elementWalkerInFlight[ft];
+          });
+
+          // Schedule delayed rechecks for lazy-loaded content
+          scheduleElementWalkerRechecks(typesToWalk);
+          resolve(markedCounts);
+        }
+
+        processChunk();
+      } catch (e) {
+        console.error('[AFFO Content] Unified element walker failed:', e);
+        // Clear in-flight cache on error
+        typesToWalk.forEach(function (ft) { delete elementWalkerInFlight[ft]; });
+        resolve({});
+      }
+    });
+
+    // Store the same promise under each type key for in-flight coalescing
+    typesToWalk.forEach(function (ft) { elementWalkerInFlight[ft] = promise; });
+
+    return promise;
   }
 
   // Single-type wrapper (for runtime messages and individual type calls)
   function runElementWalker(fontType) {
-    runElementWalkerAll([fontType]);
+    return runElementWalkerAll([fontType]);
   }
 
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
@@ -2148,22 +2194,24 @@
           sendResponse({ success: false, error: error.message });
         }
       } else if (message.type === 'runElementWalker') {
-        try {
-          var ft = message.fontType;
-          if (ft === 'serif' || ft === 'sans' || ft === 'mono') {
-            elementWalkerCompleted[ft] = false;
-            runElementWalker(ft);
-            var marked = document.querySelectorAll('[data-affo-font-type="' + ft + '"]');
-            sendResponse({ success: true, markedCount: marked.length });
-          } else {
-            sendResponse({ success: false, error: 'Invalid fontType: ' + ft });
-          }
-        } catch (error) {
-          console.error('[AFFO Content] Error running element walker:', error);
-          sendResponse({ success: false, error: error.message });
+        var ft = message.fontType;
+        if (ft === 'serif' || ft === 'sans' || ft === 'mono') {
+          elementWalkerCompleted[ft] = false;
+          runElementWalker(ft).then(function (markedCounts) {
+            sendResponse({ success: true, markedCount: (markedCounts && markedCounts[ft]) || 0 });
+          }).catch(function (e) {
+            sendResponse({ success: false, error: e.message });
+          });
+          return true; // signal async sendResponse to Firefox
+        } else {
+          sendResponse({ success: false, error: 'Invalid fontType: ' + ft });
         }
       } else if (message.action === 'restoreOriginal') {
         try {
+          // Clean up shared inline-apply infrastructure
+          inlineConfigs = {};
+          cleanupSharedInlineInfra();
+
           // Remove all A Font Face-off CSS style elements
           ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
             try {
