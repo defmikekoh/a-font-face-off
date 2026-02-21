@@ -518,9 +518,9 @@ function startGDriveAuthViaTab() {
 }
 
 async function startGDriveAuth() {
-  if (typeof browser.identity !== 'undefined' && browser.identity.launchWebAuthFlow) {
-    return startGDriveAuthIdentity();
-  }
+  // Always use tab-based OAuth with loopback redirect (native app flow).
+  // Works on both desktop and Android Firefox without needing
+  // platform-specific OAuth client types or redirect URIs.
   return startGDriveAuthViaTab();
 }
 
