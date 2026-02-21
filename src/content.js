@@ -264,6 +264,17 @@
     return null;
   }
 
+  // Re-read cache from storage (for when popup.js updates it after our initial load)
+  function refreshCss2UrlCache() {
+    return browser.storage.local.get('affoCss2UrlCache').then(function (result) {
+      css2UrlCache = result.affoCss2UrlCache || {};
+      debugLog('[AFFO Content] Refreshed css2Url cache:', Object.keys(css2UrlCache).length, 'entries');
+      return css2UrlCache;
+    }).catch(function () {
+      return css2UrlCache || {};
+    });
+  }
+
   // --- Custom font definitions ---
   // Parse custom-fonts-starter.css (or user-customized version) to get @font-face rules on-demand
   var customFontDefinitions = {};
@@ -958,17 +969,29 @@
 
       // Lookup css2Url from global cache (populated by popup.js)
       var cachedUrl = getCss2Url(fontName);
-      var href = cachedUrl || buildGoogleFontUrl(fontConfig);
-
-      var link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-      debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}${cachedUrl ? ' (from cache)' : ' (fallback)'}`);
+      if (cachedUrl) {
+        injectGoogleFontLink(linkId, fontName, cachedUrl, true);
+      } else {
+        // Cache may be stale (popup.js updated it after our initial load) — refresh and retry
+        refreshCss2UrlCache().then(function () {
+          if (document.getElementById(linkId)) return; // Loaded while we were refreshing
+          var refreshedUrl = getCss2Url(fontName);
+          var href = refreshedUrl || buildGoogleFontUrl(fontConfig);
+          injectGoogleFontLink(linkId, fontName, href, !!refreshedUrl);
+        });
+      }
     } catch (e) {
       console.error(`[AFFO Content] Failed to load Google Font CSS ${fontConfig.fontName}:`, e);
     }
+  }
+
+  function injectGoogleFontLink(linkId, fontName, href, fromCache) {
+    var link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+    debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}${fromCache ? ' (from cache)' : ' (fallback)'}`);
   }
 
   function buildGoogleFontUrl(fontConfig) {

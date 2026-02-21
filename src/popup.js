@@ -2271,7 +2271,7 @@ async function applyThirdManInFont(fontType, config) {
 
             // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
-            const css2Url = payload.css2Url;
+            const css2Url = payload._css2Url;
 
             let fontLinkPromise = Promise.resolve();
             if (css2Url) {
@@ -2423,12 +2423,15 @@ async function buildPayload(position, providedConfig = null) {
 
     // Compute and cache css2Url for Google Fonts (skip for custom fonts)
     // Note: css2Url is NOT included in payload - content.js will lookup from cache
+    // But we attach it as a non-enumerable _css2Url for callers that need it immediately
     const isCustomFont = cfg.fontName && fontDefinitions[cfg.fontName];
     if (cfg.fontName && !isCustomFont) {
         const css2Url = cfg.css2Url || await buildCss2Url(cfg.fontName, cfg);
         if (css2Url) {
             // Store in global cache for content.js to lookup
             await storeCss2UrlInCache(cfg.fontName, css2Url);
+            // Attach for immediate use by callers (not stored in domain storage)
+            payload._css2Url = css2Url;
         }
     }
 
@@ -4894,7 +4897,7 @@ function applyAllThirdManInFonts() {
                     }
 
                     // Inject Google Fonts CSS link if needed (before element walker)
-                    const css2Url = payload.css2Url;
+                    const css2Url = payload._css2Url;
                     if (css2Url) {
                         const linkId = `a-font-face-off-style-${job.type}-link`;
                         const linkScript = `
