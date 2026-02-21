@@ -1691,18 +1691,21 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
 
         // Save to storage
-        const result = await browser.storage.local.get(APPLY_MAP_KEY);
+        const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][position] = payload;
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
 
+        const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
+        const aggressive = aggressiveDomains.includes(origin);
+
         // Run DOM walker via content script message
         await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType: position });
 
         // Generate and inject CSS
-        const css = generateThirdManInCSS(position, payload, origin);
+        const css = generateThirdManInCSS(position, payload, aggressive);
         await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
 
         console.log('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
@@ -1751,6 +1754,46 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Unapply failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Handle quick-rewalk from toolbar (re-walk DOM + re-inject CSS for all active TMI types)
+    if (msg.type === 'quickRewalk') {
+      try {
+        const { origin } = msg;
+        const tabId = sender.tab ? sender.tab.id : null;
+
+        if (!origin || !tabId) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
+        const applyMap = result[APPLY_MAP_KEY] || {};
+        const domainData = applyMap[origin];
+
+        if (!domainData) {
+          return { success: false, error: 'No fonts applied for this domain' };
+        }
+
+        const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
+        const aggressive = aggressiveDomains.includes(origin);
+
+        for (const fontType of ['serif', 'sans', 'mono']) {
+          if (!domainData[fontType]) continue;
+
+          await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType });
+
+          const css = generateThirdManInCSS(fontType, domainData[fontType], aggressive);
+          if (css) {
+            await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
+          }
+        }
+
+        console.log('[AFFO Background] Rewalk completed for', origin);
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] Rewalk failed:', e);
         return { success: false, error: e.message };
       }
     }

@@ -566,6 +566,30 @@
             body.appendChild(btn);
         }
 
+        // Add rewalk button (for TMI mode - re-walks DOM to pick up dynamic content)
+        const rewalkBtn = document.createElement('button');
+        rewalkBtn.id = 'affo-quick-pick-rewalk';
+        rewalkBtn.textContent = 'Rewalk';
+        rewalkBtn.style.cssText = `
+            padding: 10px 12px;
+            background: #0d6efd;
+            border: 1px solid #0b5ed7;
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 13px;
+            display: none;
+            font-weight: 500;
+            transition: all 150ms ease;
+            text-align: center;
+            margin-top: 4px;
+        `;
+        rewalkBtn.onmouseover = function() { if (!this.disabled) { this.style.background = '#0b5ed7'; this.style.borderColor = '#0a58ca'; } };
+        rewalkBtn.onmouseout = function() { if (!this.disabled) { this.style.background = '#0d6efd'; this.style.borderColor = '#0b5ed7'; } };
+        rewalkBtn.onmousedown = function() { if (!this.disabled) this.style.background = '#0a58ca'; };
+        rewalkBtn.onmouseup = function() { if (!this.disabled) this.style.background = '#0b5ed7'; };
+        body.appendChild(rewalkBtn);
+
         // Add unapply button (red danger button matching popup style)
         const unapplyBtn = document.createElement('button');
         unapplyBtn.id = 'affo-quick-pick-unapply';
@@ -697,6 +721,11 @@
         if (unapplyBtn) {
             unapplyBtn.disabled = disabled;
             unapplyBtn.style.opacity = disabled ? '0.5' : '1';
+        }
+        const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
+        if (rewalkBtn) {
+            rewalkBtn.disabled = disabled;
+            rewalkBtn.style.opacity = disabled ? '0.5' : '1';
         }
     }
 
@@ -865,6 +894,40 @@
             };
         } else {
             unapplyBtn.style.display = 'none';
+        }
+
+        // Show rewalk button if TMI fonts are applied
+        const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
+        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono);
+        if (rewalkBtn && hasTmiFonts) {
+            rewalkBtn.disabled = false;
+            rewalkBtn.style.opacity = '1';
+            rewalkBtn.style.display = 'block';
+            rewalkBtn.onclick = () => {
+                setQuickPickButtonsDisabled(true);
+                message.textContent = 'Rewalking...';
+                message.style.display = 'block';
+
+                browserAPI.runtime.sendMessage({
+                    type: 'quickRewalk',
+                    origin: currentOrigin
+                }).then(response => {
+                    if (response && response.success) {
+                        setQuickPickButtonsDisabled(false);
+                        hideQuickPickMenu();
+                    } else {
+                        console.error('[Left Toolbar] Rewalk failed:', response?.error);
+                        message.textContent = 'Rewalk failed. Try popup.';
+                        setQuickPickButtonsDisabled(false);
+                    }
+                }).catch(err => {
+                    console.error('[Left Toolbar] Error rewalking:', err);
+                    message.textContent = 'Error rewalking.';
+                    setQuickPickButtonsDisabled(false);
+                });
+            };
+        } else if (rewalkBtn) {
+            rewalkBtn.style.display = 'none';
         }
     }
 
