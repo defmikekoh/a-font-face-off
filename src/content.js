@@ -1878,20 +1878,23 @@
             }
           }
 
-          // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain
+          // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain.
+          // Only inject early if css2Url cache is already resolved — otherwise the fallback
+          // URL lacks axis params and may render differently. loadFont() handles it correctly.
           if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
             try {
-              var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-              if (!document.getElementById(linkId)) {
-                ensureGoogleFontsPreconnect();
-                var cachedUrl = getCss2Url(fontConfig.fontName);
-                var href = cachedUrl || buildGoogleFontUrl(fontConfig);
-                var link = document.createElement('link');
-                link.id = linkId;
-                link.rel = 'stylesheet';
-                link.href = href;
-                document.head.appendChild(link);
-                debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
+              var cachedUrl = getCss2Url(fontConfig.fontName);
+              if (cachedUrl) {
+                var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+                if (!document.getElementById(linkId)) {
+                  ensureGoogleFontsPreconnect();
+                  var link = document.createElement('link');
+                  link.id = linkId;
+                  link.rel = 'stylesheet';
+                  link.href = cachedUrl;
+                  document.head.appendChild(link);
+                  debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${cachedUrl}`);
+                }
               }
             } catch (_) { }
           }
@@ -2069,19 +2072,23 @@
               // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain.
               // Domain-stored configs never have fontFaceRule, so if fontName is set it's
               // likely a Google font. loadGoogleFontCSS checks for existing link and skips.
+              // Only inject early if css2Url cache is already resolved — otherwise the fallback
+              // URL lacks axis params (e.g. opsz) and may render differently. loadFont() will
+              // handle it correctly once the cache resolves.
               if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
                 try {
-                  var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-                  if (!document.getElementById(linkId)) {
-                    ensureGoogleFontsPreconnect();
-                    var cachedUrl = getCss2Url(fontConfig.fontName);
-                    var href = cachedUrl || buildGoogleFontUrl(fontConfig);
-                    var link = document.createElement('link');
-                    link.id = linkId;
-                    link.rel = 'stylesheet';
-                    link.href = href;
-                    document.head.appendChild(link);
-                    debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${href}`);
+                  var cachedUrl = getCss2Url(fontConfig.fontName);
+                  if (cachedUrl) {
+                    var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+                    if (!document.getElementById(linkId)) {
+                      ensureGoogleFontsPreconnect();
+                      var link = document.createElement('link');
+                      link.id = linkId;
+                      link.rel = 'stylesheet';
+                      link.href = cachedUrl;
+                      document.head.appendChild(link);
+                      debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${cachedUrl}`);
+                    }
                   }
                 } catch (_) { }
               }

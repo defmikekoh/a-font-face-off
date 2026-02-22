@@ -1206,37 +1206,42 @@
             });
     }
 
-    // Start initialization immediately like Essential
-    initializeToolbar();
+    // Only initialize toolbar on mobile (desktop uses browser_action popup)
+    const isMobile = /Mobile|Tablet|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        initializeToolbar();
+    }
     
-    // Listen for toolbar option changes from background script
-    try {
-        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-        if (browserAPI && browserAPI.runtime) {
-            browserAPI.runtime.onMessage.addListener(function(message, _sender, _sendResponse) {
-                
-                if (message.type === 'toolbarOptionsChanged') {
-                    
-                    // Update options
-                    if (message.options.affoToolbarEnabled !== undefined) options.enabled = message.options.affoToolbarEnabled;
-                    if (message.options.affoToolbarWidth !== undefined) options.width = message.options.affoToolbarWidth;
-                    if (message.options.affoToolbarHeight !== undefined) options.height = message.options.affoToolbarHeight;
-                    if (message.options.affoToolbarPosition !== undefined) options.position = message.options.affoToolbarPosition;
-                    if (message.options.affoToolbarTransparency !== undefined) options.transparency = message.options.affoToolbarTransparency;
-                    if (message.options.affoToolbarGap !== undefined) options.gap = message.options.affoToolbarGap;
-                    
-                    // Recreate toolbar with new settings
-                    if (leftToolbarIframe) {
-                        leftToolbarIframe.remove();
-                        leftToolbarIframe = null;
+    // Listen for toolbar option changes from background script (mobile only)
+    if (isMobile) {
+        try {
+            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+            if (browserAPI && browserAPI.runtime) {
+                browserAPI.runtime.onMessage.addListener(function(message, _sender, _sendResponse) {
+
+                    if (message.type === 'toolbarOptionsChanged') {
+
+                        // Update options
+                        if (message.options.affoToolbarEnabled !== undefined) options.enabled = message.options.affoToolbarEnabled;
+                        if (message.options.affoToolbarWidth !== undefined) options.width = message.options.affoToolbarWidth;
+                        if (message.options.affoToolbarHeight !== undefined) options.height = message.options.affoToolbarHeight;
+                        if (message.options.affoToolbarPosition !== undefined) options.position = message.options.affoToolbarPosition;
+                        if (message.options.affoToolbarTransparency !== undefined) options.transparency = message.options.affoToolbarTransparency;
+                        if (message.options.affoToolbarGap !== undefined) options.gap = message.options.affoToolbarGap;
+
+                        // Recreate toolbar with new settings
+                        if (leftToolbarIframe) {
+                            leftToolbarIframe.remove();
+                            leftToolbarIframe = null;
+                        }
+
+                        createLeftToolbar();
                     }
-                    
-                    createLeftToolbar();
-                }
-            });
+                });
+            }
+        } catch (e) {
+            console.warn('[Left Toolbar] Could not set up runtime message listener:', e);
         }
-    } catch (e) {
-        console.warn('[Left Toolbar] Could not set up runtime message listener:', e);
     }
     
     
