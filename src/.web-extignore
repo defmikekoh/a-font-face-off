@@ -3,6 +3,7 @@
 
 # Example config files
 custom-fonts-example.css
+custom-fonts-example-data-blob.css
 gdrive-config.example.js
 
 # Docs that may be in src/
