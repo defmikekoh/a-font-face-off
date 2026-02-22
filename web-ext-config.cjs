@@ -6,6 +6,10 @@ module.exports = {
   },
   ignoreFiles: [
     'custom-fonts-example.css',
+    'custom-fonts-example-data-blob.css',
     'gdrive-config.example.js',
+    '*.md',
+    '.DS_Store',
+    'Thumbs.db',
   ],
 };
