@@ -64,6 +64,80 @@ let syncWriteDepth = 0;
 // Cached folder ID (cleared on background script restart)
 let cachedAppFolderId = null;
 
+// Ensure affoCss2UrlCache has a css2Url for the given Google Font.
+// Reads cached GF metadata from storage to compute the URL if missing.
+async function ensureCss2UrlCached(fontName) {
+  if (!fontName) return;
+  try {
+    const data = await browser.storage.local.get(['affoCss2UrlCache', 'gfMetadataCache']);
+    const cache = data.affoCss2UrlCache || {};
+    if (cache[fontName]) return; // Already cached
+
+    const url = buildCss2UrlFromMetadata(fontName, data.gfMetadataCache);
+    if (url) {
+      cache[fontName] = url;
+      await browser.storage.local.set({ affoCss2UrlCache: cache });
+      console.log(`[AFFO Background] Cached css2Url for ${fontName}`);
+    }
+  } catch (e) {
+    console.warn(`[AFFO Background] Failed to cache css2Url for ${fontName}:`, e);
+  }
+}
+
+// Build a Google Fonts CSS2 URL with full axis ranges from cached metadata.
+// Returns null if metadata is unavailable or font not found.
+function buildCss2UrlFromMetadata(fontName, metadata) {
+  if (!metadata) return null;
+  const list = metadata.familyMetadataList || metadata.familyMetadata || metadata.families || [];
+  const fam = list.find(f => (f.family || f.name) === fontName);
+  if (!fam) return null;
+
+  const familyParam = fontName.trim().replace(/\s+/g, '+');
+  const axes = Array.isArray(fam.axes) ? fam.axes : [];
+  const fontsMap = fam.fonts || {};
+  const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
+
+  const tagsSet = new Set();
+  const ranges = {};
+  for (const ax of axes) {
+    const tag = String(ax.tag || ax.axis || '').trim();
+    if (!tag) continue;
+    tagsSet.add(tag);
+    if (typeof ax.min === 'number' && typeof ax.max === 'number') {
+      ranges[tag] = [ax.min, ax.max];
+    }
+  }
+  if (hasItalic) tagsSet.add('ital');
+
+  const allTags = Array.from(tagsSet);
+  if (!allTags.length) {
+    return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+  }
+
+  const filtered = allTags.filter(tag => {
+    if (tag === 'ital') return true;
+    const r = ranges[tag];
+    return Array.isArray(r) && r.length === 2 && isFinite(r[0]) && isFinite(r[1]);
+  });
+  const lower = filtered.filter(t => /^[a-z]+$/.test(t)).sort();
+  const upper = filtered.filter(t => /^[A-Z]+$/.test(t)).sort();
+  const orderedTags = [...lower, ...upper];
+
+  if (!orderedTags.length) {
+    return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+  }
+
+  const hasItalTag = orderedTags.includes('ital');
+  const makeTuple = (italVal) => orderedTags.map(tag => {
+    if (tag === 'ital') return String(italVal);
+    const r = ranges[tag];
+    return `${r[0]}..${r[1]}`;
+  }).join(',');
+  const tuples = hasItalTag ? [makeTuple(0), makeTuple(1)] : [makeTuple('')];
+
+  return `https://fonts.googleapis.com/css2?family=${familyParam}:${orderedTags.join(',')}@${tuples.join(';')}&display=swap`;
+}
+
 function sanitizeTimestamp(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
@@ -1669,6 +1743,11 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
         if (fontConfig.fontWeight) payload.fontWeight = fontConfig.fontWeight;
         if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
+
+        // Ensure css2Url is cached for this font (content.js needs it to load the correct @font-face)
+        if (fontConfig.fontName && !fontConfig.fontFaceRule) {
+          await ensureCss2UrlCached(fontConfig.fontName);
+        }
 
         // Save to storage
         const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);

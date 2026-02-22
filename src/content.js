@@ -999,14 +999,17 @@
       // Lookup css2Url from global cache (populated by popup.js)
       var cachedUrl = getCss2Url(fontName);
       if (cachedUrl) {
-        injectGoogleFontLink(linkId, fontName, cachedUrl, true);
+        injectGoogleFontLink(linkId, fontName, cachedUrl);
       } else {
         // Cache may be stale (popup.js updated it after our initial load) — refresh and retry
         refreshCss2UrlCache().then(function () {
           if (document.getElementById(linkId)) return; // Loaded while we were refreshing
           var refreshedUrl = getCss2Url(fontName);
-          var href = refreshedUrl || buildGoogleFontUrl(fontConfig);
-          injectGoogleFontLink(linkId, fontName, href, !!refreshedUrl);
+          if (!refreshedUrl) {
+            debugLog(`[AFFO Content] No css2Url for ${fontName} after cache refresh — skipping (will load on next popup open)`);
+            return;
+          }
+          injectGoogleFontLink(linkId, fontName, refreshedUrl);
         });
       }
     } catch (e) {
@@ -1014,27 +1017,15 @@
     }
   }
 
-  function injectGoogleFontLink(linkId, fontName, href, fromCache) {
+  function injectGoogleFontLink(linkId, fontName, href) {
     var link = document.createElement('link');
     link.id = linkId;
     link.rel = 'stylesheet';
     link.href = href;
     document.head.appendChild(link);
-    debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}${fromCache ? ' (from cache)' : ' (fallback)'}`);
+    debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
   }
 
-  function buildGoogleFontUrl(fontConfig) {
-    var fontName = fontConfig.fontName;
-    var familyParam = encodeURIComponent(fontName).replace(/%20/g, '+');
-
-    // FALLBACK: This should rarely be used - popup.js should always compute css2Url
-    // Use simple URL without variable axes to avoid MIME type errors
-    // If user needs variable axes, they should be getting css2Url from popup.js
-    var url = 'https://fonts.googleapis.com/css2?family=' + familyParam + '&display=swap';
-
-    debugLog(`[AFFO Content] Using fallback Google Font URL for ${fontName} (css2Url not available): ${url}`);
-    return url;
-  }
 
 
   function tryCustomFontFaceAPI(fontName, fontFaceRule) {
@@ -1447,10 +1438,12 @@
 
       // Lookup css2Url from global cache (populated by popup.js)
       var cachedUrl = getCss2Url(fontName);
-      var cssUrl = cachedUrl || buildGoogleFontUrl(fontConfig);
-      if (cachedUrl) {
-        debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
+      if (!cachedUrl) {
+        debugLog(`[AFFO Content] No css2Url for ${fontName} — skipping FontFace download (will load on next popup open)`);
+        return Promise.resolve();
       }
+      var cssUrl = cachedUrl;
+      debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
 
       return browser.runtime.sendMessage({
         type: 'affoFetch',

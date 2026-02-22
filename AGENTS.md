@@ -36,7 +36,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `popup.html` / `popup.css` | Extension popup markup and styles |
 | `content.js` | Injected into pages at `document_end`; handles font application, inline styles, MutationObserver, SPA resilience (idempotent hook registry), unified element walker, preconnect hints |
 | `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) with conditional `!important`, italic/bold-italic rules for `<em>`/`<i>` elements |
-| `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync, Quick Pick message handlers (`quickApplyFavorite`, `quickUnapplyFonts`, `quickRewalk`) |
+| `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching (80MB cap), Google Drive sync, Quick Pick message handlers (`quickApplyFavorite`, `quickUnapplyFonts`, `quickRewalk`), css2Url caching for Quick Pick (`ensureCss2UrlCached` computes from `gfMetadataCache` if missing) |
 | `left-toolbar.js` | Toolbar overlay injected at `document_start`; performs early font preloading by reading domain configs and injecting Google Fonts `<link>` tags + preconnect hints as soon as `document.head` is available. Also hosts the Quick Pick panel (injected into page DOM with `data-affo-guard` + Shadow DOM-style isolation via explicit baseline styles: `font-family: system-ui, sans-serif`, `font-size: 14px`) for applying top-5 favorites, Rewalk (re-walks DOM for dynamic content when TMI fonts are applied), and toggling per-domain settings (FontFace-only, Inline Apply, Aggressive Override). Scroll settings (overlap, longpress overlap, scroll type) are cached in the `options` object at startup and invalidated via `storage.onChanged` — page-up/down handlers read synchronously from cache instead of async storage round-trips |
 | `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `options.js` / `options.html` | Settings page for domain configs and cache management |
@@ -77,7 +77,7 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 - `getCurrentUIConfig(position)` — reads current UI state into canonical config (respects active/unset controls); includes `fontFaceRule` for custom fonts
 - `normalizeConfig(raw)` — converts any external data (favorites, domain storage, legacy formats) into canonical config
 - `buildPayload(position, config?)` — builds payload for domain storage; adds `styleId` for TMI; does NOT include `fontFaceRule` or `css2Url` (both looked up on-demand to avoid per-domain duplication)
-- `storeCss2UrlInCache(fontName, css2Url)` — stores Google Fonts URL in global `affoCss2UrlCache`
+- `storeCss2UrlInCache(fontName, css2Url)` — stores Google Fonts URL in global `affoCss2UrlCache` (popup.js). background.js has `ensureCss2UrlCached(fontName)` which computes from `gfMetadataCache` if missing (used by Quick Pick)
 - `getFontMemory(position)` — returns runtime font memory object for a panel position
 - `MODE_CONFIG` — data-driven mode metadata (positions, stateKeys, useDomain) used by save/switch/applied-check functions
 - `PANEL_ROUTE` — routing table mapping `(mode, panelId)` → `{ apply, unapply }` functions, replacing mode-branching if/else chains
@@ -133,7 +133,7 @@ All async operations are Promise-based (2024 refactor complete). No setTimeout p
 **Font loading optimizations for page reload**:
 1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` and `affoCss2UrlCache` from storage; injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is even parsed.
 2. **Eager storage reads in `content.js`** (module load): `ensureCustomFontsLoaded()` and `ensureCss2UrlCache()` are kicked off immediately when the script loads, not lazily when first needed. By the time `reapplyStoredFonts` runs, these promises are likely already resolved.
-3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is injected immediately alongside the CSS `<style>` element, before entering the `loadFont()` async chain. Uses cached css2Url if available, otherwise falls back to simple URL.
+3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is injected immediately alongside the CSS `<style>` element, before entering the `loadFont()` async chain. Only injects if cached css2Url is available (skips if not — no fallback URL).
 4. **CSS injection before font loads**: CSS rules targeting `[data-affo-font-type="..."]` are injected immediately, before font files load. The browser shows fallback fonts until the font file loads, then swaps in via `font-display: swap`.
 
 Result: Font loading starts at `document_start` (earliest possible), eliminating sequential async waits from the critical path.

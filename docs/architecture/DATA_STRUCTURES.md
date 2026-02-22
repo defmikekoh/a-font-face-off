@@ -67,7 +67,7 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
-| `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL) | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
+| `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL). Written by popup.js (`storeCss2UrlInCache`) and background.js (`ensureCss2UrlCached` during Quick Pick). Read by left-toolbar.js (early preload), content.js (font loading). Not synced. | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
@@ -298,7 +298,7 @@ Used when loading from: favorites, domain storage (`affoApplyMap`), any external
 #### `buildPayload(position, providedConfig?)`
 Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. **Note:** Does NOT include `fontFaceRule`, `css2Url`, or `styleId` in the payload to eliminate per-domain duplication:
 - `fontFaceRule`: content.js looks up custom font @font-face rules on-demand by parsing custom-fonts.css and ap-fonts.css
-- `css2Url`: Stored in global `affoCss2UrlCache` (fontName → URL mapping); content.js looks up by fontName
+- `css2Url`: Stored in global `affoCss2UrlCache` (fontName → URL mapping); written by popup.js (`storeCss2UrlInCache`) and background.js (`ensureCss2UrlCached` for Quick Pick); content.js looks up by fontName
 - `styleId`: content.js computes it as `'a-font-face-off-style-' + fontType` (deterministic, no need to store)
 
 This eliminates storage duplication - the same multi-KB `fontFaceRule` and identical `css2Url` are no longer stored per-domain, and computed values like `styleId` are derived at runtime. Replaces the former `buildCurrentPayload`, `buildThirdManInPayload`, and `buildThirdManInPayloadFromConfig`.
