@@ -297,6 +297,17 @@
                     <input type="range" id="body-line-height" min="0.8" max="2.5" step="0.01" value="1.6" class="slider-input">
                 </div>
             </div>
+            <div class="control-group unset" data-control="letter-spacing">
+                <label for="body-letter-spacing">Letter Spacing:</label>
+                <div class="control-row input-row">
+                    <span class="axis-reset-btn" data-control="letter-spacing" title="Reset letter spacing">↻</span>
+                    <input type="text" id="body-letter-spacing-text" class="text-input numeric-trigger" readonly value="0" step="0.001" min="-0.05" max="0.15" data-type="letterSpacing" data-position="body">
+                    <span id="body-letter-spacing-value" class="value-display">0em</span>
+                </div>
+                <div class="control-row slider-row">
+                    <input type="range" id="body-letter-spacing" min="-0.05" max="0.15" step="0.001" value="0" class="slider-input">
+                </div>
+            </div>
             <div class="control-group unset" data-control="weight">
                 <label for="body-font-weight">Font Weight:</label>
                 <div class="control-row input-row">

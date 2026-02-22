@@ -60,7 +60,7 @@ function generateBodyCSS(payload, aggressive) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
-    const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.fontWeight || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
+    const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.letterSpacing != null || payload.fontWeight || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
     if (!hasAnyProperties) return '';
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
@@ -81,6 +81,9 @@ function generateBodyCSS(payload, aggressive) {
     }
     if (payload.lineHeight !== null && payload.lineHeight !== undefined) {
         decl.push(`line-height:${payload.lineHeight}${imp}`);
+    }
+    if (payload.letterSpacing != null && isFinite(payload.letterSpacing)) {
+        decl.push(`letter-spacing:${payload.letterSpacing}em${imp}`);
     }
     if (payload.fontColor) {
         decl.push(`color:${payload.fontColor}${imp}`);
@@ -160,6 +163,9 @@ function generateBodyContactCSS(payload, aggressive) {
     }
     if (payload.lineHeight && isFinite(payload.lineHeight)) {
         styleRule += ` line-height: ${payload.lineHeight}${imp};`;
+    }
+    if (payload.letterSpacing != null && isFinite(payload.letterSpacing)) {
+        styleRule += ` letter-spacing: ${payload.letterSpacing}em${imp};`;
     }
     if (payload.fontColor) {
         styleRule += ` color: ${payload.fontColor}${imp};`;
@@ -278,6 +284,9 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
     }
     if (payload.lineHeight && isFinite(payload.lineHeight)) {
         otherProps.push(`line-height: ${payload.lineHeight}${imp}`);
+    }
+    if (payload.letterSpacing != null && isFinite(payload.letterSpacing)) {
+        otherProps.push(`letter-spacing: ${payload.letterSpacing}em${imp}`);
     }
 
     if (otherProps.length > 0) {

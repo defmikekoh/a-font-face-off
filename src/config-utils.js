@@ -28,6 +28,7 @@ function normalizeConfig(raw) {
     const rawFontSize = raw.fontSizePx != null ? raw.fontSizePx : raw.fontSize;
     if (rawFontSize != null) config.fontSize = Number(rawFontSize);
     if (raw.lineHeight != null) config.lineHeight = Number(raw.lineHeight);
+    if (raw.letterSpacing != null) config.letterSpacing = Number(raw.letterSpacing);
     if (raw.fontWeight != null) config.fontWeight = Number(raw.fontWeight);
     if (raw.fontColor && raw.fontColor !== 'default') config.fontColor = raw.fontColor;
     if (raw.fontFaceRule) config.fontFaceRule = raw.fontFaceRule;

@@ -97,6 +97,10 @@ function generateDetailedFavoritePreview(config) {
         config.lineHeight) {
         lines.push(`Line Height: ${config.lineHeight}`);
     }
+    if (hasInCollection(config && config.activeControls, 'letter-spacing') &&
+        config.letterSpacing != null) {
+        lines.push(`Letter Spacing: ${config.letterSpacing}em`);
+    }
     if (hasInCollection(config && config.activeControls, 'weight') &&
         config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
@@ -142,6 +146,9 @@ function generateFontConfigName(position) {
     }
     if (config.lineHeight) {
         parts.push(`${config.lineHeight}lh`);
+    }
+    if (config.letterSpacing != null) {
+        parts.push(`${config.letterSpacing}ls`);
     }
     if (config.fontColor) {
         parts.push('colored');
@@ -200,6 +207,9 @@ function generateConfigPreview(position) {
     }
     if (config.lineHeight) {
         lines.push(`Line Height: ${config.lineHeight}`);
+    }
+    if (config.letterSpacing != null) {
+        lines.push(`Letter Spacing: ${config.letterSpacing}em`);
     }
     if (config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);

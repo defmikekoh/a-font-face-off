@@ -57,7 +57,7 @@ Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state
 ### Google Drive Sync
 
 - Google Drive sync covers `custom-fonts.css`, domain settings (`affoApplyMap`), favorites (`affoFavorites`, `affoFavoritesOrder`), aggressive domains, preserved fonts, and Substack roulette settings.
-- OAuth via `browser.identity.launchWebAuthFlow()` with PKCE. Tokens stored in `affoGDriveTokens`.
+- OAuth via tab-based flow with PKCE (opens tab + intercepts redirect via webRequest; works on both desktop and Android Firefox). Tokens stored in `affoGDriveTokens`.
 - Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive. All synced items are single files in the root folder (no subfolders): `domains.json`, `favorites.json`, `custom-fonts.css`, `known-serif.json`, `known-sans.json`, `fontface-only-domains.json`, `inline-apply-domains.json`, `aggressive-domains.json`, `preserved-fonts.json`, `substack-roulette.json`.
 - A `sync-manifest.json` tracks modification timestamps for all synced items.
 - **Bidirectional merge**: compares local vs remote timestamps per item; newer version wins. Entire file is atomic (no per-entry merge within a file).
@@ -70,7 +70,7 @@ Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state
 
 ### Font Config "No Key" Architecture
 
-Only store properties with actual values — no nulls, no defaults. `fontName` is always present when configured; `variableAxes` is always an object (even if empty `{}`). Primitive properties like `fontSize`, `fontColor` only appear when explicitly set.
+Only store properties with actual values — no nulls, no defaults. `fontName` is always present when configured; `variableAxes` is always an object (even if empty `{}`). Primitive properties like `fontSize`, `fontColor` only appear when explicitly set. `letterSpacing` (em units, range -0.05 to 0.15) uses `!= null` checks everywhere since `0` is a valid value (falsy in JS).
 
 ### Key Config Functions (popup.js)
 

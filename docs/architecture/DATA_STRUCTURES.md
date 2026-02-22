@@ -126,7 +126,7 @@ One backend active at a time (`affoSyncBackend`). Both use the same sync algorit
 - `remove(name)` → void
 
 ### Google Drive specifics
-- Uses OAuth PKCE via `browser.identity.launchWebAuthFlow`
+- Uses OAuth PKCE via tab-based flow (opens tab + intercepts redirect via webRequest; desktop + Android)
 - Files in visible "A Font Face-off{suffix}" folder
 - Optimistic concurrency via `remoteRev` (file version fingerprints)
 
@@ -168,6 +168,7 @@ undefined  // No font configured (not null or empty object)
   "fontName": "Comic Neue",           // Font family name (always present)
   "fontSize": 16,                     // Font size in px (only if set)
   "lineHeight": 1.5,                  // Line height (only if set)
+  "letterSpacing": 0.05,             // Letter spacing in em (only if set; 0 is valid)
   "fontWeight": 400,                  // Font weight (only if set)
   "fontColor": "#333333",             // Font color (only if set, NOT 'default')
   "variableAxes": {                   // ALWAYS present (even if empty {})
@@ -288,7 +289,7 @@ const panelStates = {
 #### `normalizeConfig(raw)`
 Single entry point for converting any external config (favorites, domain storage, legacy formats) into canonical format. Handles:
 - `fontSizePx` → `fontSize` legacy rename
-- Coercion to `Number` for all numeric properties
+- Coercion to `Number` for all numeric properties (including `letterSpacing` where `0` is a valid value)
 - `fontFaceRule` passthrough for backward compatibility (from old stored data; not used in new saves)
 - Legacy axis props (`wdthVal`, `slntVal`, `italVal`) folded into `variableAxes`
 
@@ -352,7 +353,7 @@ Pure function returning `{ action: 'apply'|'reset'|'none', changeCount }`. Share
 Returns `{ preview, buttons, save }` callbacks appropriate for a panel position. Body calls `updateBodyPreview` + `updateBodyButtons`; TMI calls `updateThirdManInPreview` + `updateAllThirdManInButtons`; face-off calls `applyFont`.
 
 #### `setupSliderControl(position, controlId, options?)`
-Generic factory for slider input, text keydown/blur, and value display handlers. Used for font-size, line-height, and font-weight across all 6 positions. Options: `{ format, suffix, clampMin, clampMax }`.
+Generic factory for slider input, text keydown/blur, and value display handlers. Used for font-size, line-height, letter-spacing, and font-weight across all 6 positions. Options: `{ format, suffix, clampMin, clampMax }`.
 
 #### `cloneControlPanel(position)`
 Clones the `body-font-controls` template to create control panels for top, bottom, serif, sans, and mono positions at startup. Replaces all `body-` ID prefixes, updates headings (e.g. "Top Font", "Serif"), button text ("Apply All"/"Reset All" for TMI positions), aria-labels, and titles. All 5 panels are cloned before any other initialization code runs.
@@ -361,7 +362,7 @@ Clones the `body-font-controls` template to create control panels for top, botto
 Routing table mapping `(mode, panelId)` → `{ apply, unapply }` functions. Replaces mode-branching if/else chains in `applyPanelConfiguration()` and `unapplyPanelConfiguration()`.
 
 #### `resetFontForPosition(position)`
-Generic reset for any panel position. Resets slider values (17, 1.6, 400), text inputs, value displays, marks all control groups as `unset`, resets variable axes using `getEffectiveFontDefinition()`, and calls `applyFont(position)`.
+Generic reset for any panel position. Resets slider values (font-size: 17, line-height: 1.5, letter-spacing: 0, weight: 400), text inputs, value displays, marks all control groups as `unset`, resets variable axes using `getEffectiveFontDefinition()`, and calls `applyFont(position)`.
 
 #### `togglePanel(panelId)`
 Unified panel toggle for all modes. For face-off panels (top/bottom): manages grip active/aria state, overlay visibility, and narrow-screen single-panel enforcement. For body/TMI panels: simple classList toggle.

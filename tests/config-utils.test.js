@@ -35,10 +35,12 @@ describe('normalizeConfig', () => {
             fontName: 'Inter',
             fontSize: '18',
             lineHeight: '1.5',
+            letterSpacing: '0.05',
             fontWeight: '400',
         });
         assert.equal(result.fontSize, 18);
         assert.equal(result.lineHeight, 1.5);
+        assert.equal(result.letterSpacing, 0.05);
         assert.equal(result.fontWeight, 400);
     });
 
@@ -104,9 +106,15 @@ describe('normalizeConfig', () => {
         const result = normalizeConfig({ fontName: 'Roboto' });
         assert.equal(result.hasOwnProperty('fontSize'), false);
         assert.equal(result.hasOwnProperty('lineHeight'), false);
+        assert.equal(result.hasOwnProperty('letterSpacing'), false);
         assert.equal(result.hasOwnProperty('fontWeight'), false);
         assert.equal(result.hasOwnProperty('fontColor'), false);
         assert.equal(result.hasOwnProperty('fontFaceRule'), false);
+    });
+
+    it('preserves letterSpacing of 0', () => {
+        const result = normalizeConfig({ fontName: 'Roboto', letterSpacing: 0 });
+        assert.equal(result.letterSpacing, 0);
     });
 });
 

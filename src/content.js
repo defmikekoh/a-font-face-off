@@ -435,6 +435,9 @@
     if (fontConfig.lineHeight) {
       cssPropsObject['line-height'] = fontConfig.lineHeight;
     }
+    if (fontConfig.letterSpacing != null) {
+      cssPropsObject['letter-spacing'] = fontConfig.letterSpacing + 'em';
+    }
     if (fontConfig.fontColor) {
       cssPropsObject['color'] = fontConfig.fontColor;
     }
@@ -746,6 +749,7 @@
       }
       if (fontConfig.fontSize) cssProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) cssProps.push('line-height: ' + fontConfig.lineHeight + imp);
+      if (fontConfig.letterSpacing != null) cssProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       if (fontConfig.fontColor) cssProps.push('color: ' + fontConfig.fontColor + imp);
       // Registered axes → high-level CSS properties
       if (effectiveWdth !== null) cssProps.push('font-stretch: ' + effectiveWdth + '%' + imp);
@@ -816,6 +820,7 @@
       var otherProps = [];
       if (fontConfig.fontSize) otherProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) otherProps.push('line-height: ' + fontConfig.lineHeight + imp);
+      if (fontConfig.letterSpacing != null) otherProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       if (fontConfig.fontColor) otherProps.push('color: ' + fontConfig.fontColor + imp);
       if (otherProps.length > 0) {
         lines.push('html body p[data-affo-font-type="' + fontType + '"], html body span[data-affo-font-type="' + fontType + '"], html body td[data-affo-font-type="' + fontType + '"], html body th[data-affo-font-type="' + fontType + '"], html body li[data-affo-font-type="' + fontType + '"] { ' + otherProps.join('; ') + '; }');
@@ -1841,7 +1846,7 @@
     try {
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
-        if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
+        if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.letterSpacing != null || fontConfig.fontColor)) {
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
 
           // Run element walker for Third Man In mode
@@ -2028,7 +2033,7 @@
         try {
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = entry[fontType];
-            if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.fontColor)) {
+            if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.letterSpacing != null || fontConfig.fontColor)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
 
               // Run element walker for Third Man In mode

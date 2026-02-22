@@ -875,6 +875,7 @@
             if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
             if (fav.fontWeight) previewParts.push(`wt${fav.fontWeight}`);
             if (fav.lineHeight) previewParts.push(`${fav.lineHeight}lh`);
+            if (fav.letterSpacing != null) previewParts.push(`${fav.letterSpacing}ls`);
             previewEl.textContent = previewParts.length === 0 ? 'Default styles' : `(${previewParts.join(', ')})`;
 
             contentWrapper.appendChild(nameEl);

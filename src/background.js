@@ -429,28 +429,7 @@ function buildAuthUrl(codeChallenge, redirectUri) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-// Primary auth: uses browser.identity.launchWebAuthFlow (desktop Firefox)
-async function startGDriveAuthIdentity() {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
-  const redirectUri = browser.identity.getRedirectURL();
-  const authUrl = buildAuthUrl(codeChallenge, redirectUri);
-
-  const responseUrl = await browser.identity.launchWebAuthFlow({
-    url: authUrl,
-    interactive: true
-  });
-
-  const url = new URL(responseUrl);
-  const code = url.searchParams.get('code');
-  if (!code) {
-    throw new Error('No authorization code received');
-  }
-
-  return exchangeCodeForTokens(code, codeVerifier, redirectUri);
-}
-
-// Fallback auth: opens tab + intercepts redirect via webRequest (Firefox Android)
+// Tab-based auth: opens tab + intercepts redirect via webRequest (desktop + Android)
 function startGDriveAuthViaTab() {
   return new Promise(async (resolve, reject) => {
     let settled = false;
@@ -1686,6 +1665,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
         };
         if (fontConfig.fontSize) payload.fontSize = fontConfig.fontSize;
         if (fontConfig.lineHeight) payload.lineHeight = fontConfig.lineHeight;
+        if (fontConfig.letterSpacing != null) payload.letterSpacing = fontConfig.letterSpacing;
         if (fontConfig.fontWeight) payload.fontWeight = fontConfig.fontWeight;
         if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;

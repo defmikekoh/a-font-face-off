@@ -300,7 +300,7 @@ async function loadModeSettings() {
             // Load top font - face-off mode always needs a font family
             if (modeState.topFont && modeState.topFont.fontName) {
                 await applyFontConfig('top', modeState.topFont);
-            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.fontWeight || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
+            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('top', 'ABeeZee');
                 await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
@@ -312,7 +312,7 @@ async function loadModeSettings() {
             // Load bottom font - face-off mode always needs a font family
             if (modeState.bottomFont && modeState.bottomFont.fontName) {
                 await applyFontConfig('bottom', modeState.bottomFont);
-            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.fontWeight || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
+            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('bottom', 'Zilla Slab Highlight');
                 await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
@@ -1030,6 +1030,12 @@ function configsEqual(config1, config2) {
         if (lineHeight1 !== lineHeight2) return false;
     }
 
+    if (activeControls1.has('letter-spacing')) {
+        const ls1 = Number(config1.letterSpacing);
+        const ls2 = Number(config2.letterSpacing);
+        if (ls1 !== ls2) return false;
+    }
+
     if (activeControls1.has('weight')) {
         const fontWeight1 = Number(config1.fontWeight);
         const fontWeight2 = Number(config2.fontWeight);
@@ -1185,6 +1191,7 @@ function getActiveControlsFromConfig(config) {
     const active = new Set();
     if (config && config.fontSize !== null && config.fontSize !== undefined) active.add('font-size');
     if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
+    if (config && config.letterSpacing != null) active.add('letter-spacing');
     if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
     if (config && config.fontColor && config.fontColor !== 'default') active.add('color');
     return active;
@@ -1198,11 +1205,13 @@ function getActiveControlsFromUI(position) {
     const activeControls = new Set();
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
+    const letterSpacingGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
     if (sizeGroup && !sizeGroup.classList.contains('unset')) activeControls.add('font-size');
     if (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) activeControls.add('line-height');
+    if (letterSpacingGroup && !letterSpacingGroup.classList.contains('unset')) activeControls.add('letter-spacing');
     if (weightGroup && !weightGroup.classList.contains('unset')) activeControls.add('weight');
     if (colorGroup && !colorGroup.classList.contains('unset')) activeControls.add('color');
 
@@ -1251,6 +1260,7 @@ function getCurrentUIConfig(position) {
     const fontDisplay = document.getElementById(`${position}-font-display`);
     const fontSizeControl = document.getElementById(`${position}-font-size`);
     const lineHeightControl = document.getElementById(`${position}-line-height`);
+    const letterSpacingControl = document.getElementById(`${position}-letter-spacing`);
     const fontWeightControl = document.getElementById(`${position}-font-weight`);
     const fontColorControl = document.getElementById(`${position}-font-color`);
 
@@ -1283,11 +1293,13 @@ function getCurrentUIConfig(position) {
         // Check if any controls are active even without a specific font
         const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
         const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
+        const letterSpacingGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
         const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
         const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
         const hasActiveControls = (sizeGroup && !sizeGroup.classList.contains('unset')) ||
                                  (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) ||
+                                 (letterSpacingGroup && !letterSpacingGroup.classList.contains('unset')) ||
                                  (weightGroup && !weightGroup.classList.contains('unset')) ||
                                  (colorGroup && !colorGroup.classList.contains('unset'));
 
@@ -1304,6 +1316,7 @@ function getCurrentUIConfig(position) {
 
     const fontSize = fontSizeControl.value;
     const lineHeight = lineHeightControl.value;
+    const letterSpacing = letterSpacingControl ? letterSpacingControl.value : null;
     const fontWeight = fontWeightControl.value;
     const fontColor = hasColorControl ? fontColorControl.value : null;
 
@@ -1328,12 +1341,14 @@ function getCurrentUIConfig(position) {
     // Get control groups to determine what's currently active (not unset)
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
+    const letterSpacingGroup2 = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
     // Determine which controls are currently active (user has explicitly interacted with them)
     const activeFontSize = sizeGroup && !sizeGroup.classList.contains('unset');
     const activeLineHeight = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
+    const activeLetterSpacing = letterSpacingGroup2 && !letterSpacingGroup2.classList.contains('unset');
     const activeWeight = weightGroup && !weightGroup.classList.contains('unset');
     const activeColor = colorGroup && !colorGroup.classList.contains('unset');
 
@@ -1362,6 +1377,7 @@ function getCurrentUIConfig(position) {
     // Only include active basic controls directly on config (no null values)
     if (activeFontSize) config.fontSize = parseFloat(fontSize);
     if (activeLineHeight) config.lineHeight = parseFloat(lineHeight);
+    if (activeLetterSpacing && letterSpacing != null) config.letterSpacing = parseFloat(letterSpacing);
     if (activeWeight) config.fontWeight = parseInt(fontWeight);
     if (activeColor && fontColor !== 'default') config.fontColor = fontColor;
 
@@ -1450,6 +1466,7 @@ async function applyFontConfig(position, config) {
         console.log(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.5);
         const fontSizeControl = document.getElementById(`${position}-font-size`);
         const lineHeightControl = document.getElementById(`${position}-line-height`);
+        const letterSpacingCtrl = document.getElementById(`${position}-letter-spacing`);
         const fontWeightControl = document.getElementById(`${position}-font-weight`);
         const fontColorControl = document.getElementById(`${position}-font-color`);
 
@@ -1460,6 +1477,7 @@ async function applyFontConfig(position, config) {
             // Force sync by setting attribute as well
             lineHeightControl.setAttribute('value', lineHeightValue);
         }
+        if (letterSpacingCtrl) letterSpacingCtrl.value = config.letterSpacing != null ? config.letterSpacing : 0;
         if (fontWeightControl) fontWeightControl.value = config.fontWeight || 400;
         if (fontColorControl) {
             // Set to saved color if present, otherwise set to 'default' to clear any stale values
@@ -1469,6 +1487,7 @@ async function applyFontConfig(position, config) {
         // Set text input values
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
+        const letterSpacingTextInput = document.getElementById(`${position}-letter-spacing-text`);
         if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
         if (lineHeightTextInput) {
             const lineHeightValue = config.lineHeight || 1.5;
@@ -1477,6 +1496,7 @@ async function applyFontConfig(position, config) {
             // Force sync by setting attribute as well
             lineHeightTextInput.setAttribute('value', lineHeightValue);
         }
+        if (letterSpacingTextInput) letterSpacingTextInput.value = config.letterSpacing != null ? config.letterSpacing : 0;
 
         // Debug: Verify values are set correctly after assignment
         console.log(`applyFontConfig(${position}): After setting - range slider value:`, lineHeightControl ? lineHeightControl.value : 'not found');
@@ -1489,6 +1509,8 @@ async function applyFontConfig(position, config) {
         if (fsVal) fsVal.textContent = (config.fontSize || 17) + 'px';
         const lhVal = document.getElementById(`${position}-line-height-value`);
         if (lhVal) lhVal.textContent = config.lineHeight || 1.5;
+        const lsVal = document.getElementById(`${position}-letter-spacing-value`);
+        if (lsVal) lsVal.textContent = (config.letterSpacing != null ? config.letterSpacing : 0) + 'em';
         const fwVal = document.getElementById(`${position}-font-weight-value`);
         if (fwVal) fwVal.textContent = config.fontWeight || 400;
 
@@ -1502,6 +1524,7 @@ async function applyFontConfig(position, config) {
                 // Remove "unset" class from control groups for active controls
                 const controlName = control === 'font-size' ? 'font-size' :
                                    control === 'line-height' ? 'line-height' :
+                                   control === 'letter-spacing' ? 'letter-spacing' :
                                    control === 'weight' ? 'weight' :
                                    control === 'color' ? 'color' : null;
 
@@ -1516,7 +1539,7 @@ async function applyFontConfig(position, config) {
         });
 
         // Also ensure all non-active controls are marked as unset
-        ['font-size', 'line-height', 'weight', 'color'].forEach(control => {
+        ['font-size', 'line-height', 'letter-spacing', 'weight', 'color'].forEach(control => {
             if (!activeControlsFromConfig.has(control)) {
                 const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="${control}"]`);
                 if (controlGroup) {
@@ -2140,7 +2163,7 @@ async function applyFontToPage(position, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 console.log('applyFontToPage: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2247,7 +2270,7 @@ async function applyThirdManInFont(fontType, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 console.log('applyThirdManInFont: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2416,6 +2439,7 @@ async function buildPayload(position, providedConfig = null) {
     }
     if (cfg.fontSize != null) payload.fontSize = Number(cfg.fontSize);
     if (cfg.lineHeight != null) payload.lineHeight = Number(cfg.lineHeight);
+    if (cfg.letterSpacing != null) payload.letterSpacing = Number(cfg.letterSpacing);
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
 
@@ -2522,6 +2546,7 @@ function restoreFontSettings(position, fontName) {
     const basicControls = [
         { key: 'fontSize', controlId: `${position}-font-size`, textId: `${position}-font-size-text`, dataControl: 'font-size' },
         { key: 'lineHeight', controlId: `${position}-line-height`, textId: `${position}-line-height-text`, dataControl: 'line-height' },
+        { key: 'letterSpacing', controlId: `${position}-letter-spacing`, textId: `${position}-letter-spacing-text`, dataControl: 'letter-spacing' },
         { key: 'fontWeight', controlId: `${position}-font-weight`, textId: null, dataControl: 'weight' },
     ];
 
@@ -2591,6 +2616,7 @@ function applyFont(position) {
     let style = `font-family: ${fontFamily};`;
     if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
+    if (cfg.letterSpacing != null) style += ` letter-spacing: ${cfg.letterSpacing}em;`;
     if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
     if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
 
@@ -2900,7 +2926,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -2926,7 +2952,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -3013,7 +3039,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (v == null) return null;
         const str = String(v).trim();
         if (!str) return null;
-        const m = str.match(/^\s*([0-9]+(?:\.[0-9]+)?)\s*(px)?\s*$/i);
+        const m = str.match(/^\s*(-?[0-9]+(?:\.[0-9]+)?)\s*(px|em)?\s*$/i);
         if (!m) return null;
         return Number(m[1]);
     }
@@ -3072,6 +3098,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Line-height slider + text input handlers
     ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'line-height', { format: decimalFormat, clampMin: 0.8, clampMax: 2.5 }));
+
+    // Letter-spacing slider + text input handlers
+    const letterSpacingFormat = v => Number(v).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+    ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'letter-spacing', { format: letterSpacingFormat, suffix: 'em', clampMin: -0.05, clampMax: 0.15 }));
 
     // Font-weight slider handlers (no text input)
     ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'font-weight'));
@@ -3289,6 +3319,41 @@ document.addEventListener('DOMContentLoaded', async function() {
                 setTimeout(() => {
                     e.target.blur();
                     // Force focus to body to ensure button loses focus
+                    document.body.focus();
+                }, 10);
+                setTimeout(() => e.target.blur(), 100);
+
+                applyFont(position);
+                saveExtensionState();
+            }
+        }
+
+        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'letter-spacing') {
+            const panel = e.target.closest('.controls-panel');
+            let position;
+            if (panel.id.includes('top')) position = 'top';
+            else if (panel.id.includes('bottom')) position = 'bottom';
+            else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
+            else return;
+
+            const activeControls = getActiveControls(position);
+            const group = e.target.closest('.control-group');
+            const slider = document.getElementById(`${position}-letter-spacing`);
+            const textInput = document.getElementById(`${position}-letter-spacing-text`);
+            const span = document.getElementById(`${position}-letter-spacing-value`);
+            if (slider) {
+                slider.value = 0;
+                if (textInput) textInput.value = 0;
+                if (span) span.textContent = '0em';
+                activeControls.delete('letter-spacing');
+                if (group) group.classList.add('unset');
+
+                e.target.blur();
+                setTimeout(() => {
+                    e.target.blur();
                     document.body.focus();
                 }, 10);
                 setTimeout(() => e.target.blur(), 100);
@@ -3700,30 +3765,38 @@ function resetFontForPosition(position) {
     // Reset basic slider values
     const sizeSlider = document.getElementById(`${position}-font-size`);
     const lhSlider = document.getElementById(`${position}-line-height`);
+    const lsSlider = document.getElementById(`${position}-letter-spacing`);
     const weightSlider = document.getElementById(`${position}-font-weight`);
     if (sizeSlider) sizeSlider.value = 17;
     if (lhSlider) lhSlider.value = 1.5;
+    if (lsSlider) lsSlider.value = 0;
     if (weightSlider) weightSlider.value = 400;
 
     // Reset text inputs
     const sizeText = document.getElementById(`${position}-font-size-text`);
     const lhText = document.getElementById(`${position}-line-height-text`);
+    const lsText = document.getElementById(`${position}-letter-spacing-text`);
     if (sizeText) sizeText.value = 17;
     if (lhText) lhText.value = 1.5;
+    if (lsText) lsText.value = 0;
 
     // Reset display values
     const sizeValue = document.getElementById(`${position}-font-size-value`);
     const lhValue = document.getElementById(`${position}-line-height-value`);
+    const lsValue = document.getElementById(`${position}-letter-spacing-value`);
     const weightValue = document.getElementById(`${position}-font-weight-value`);
     if (sizeValue) sizeValue.textContent = '17px';
     if (lhValue) lhValue.textContent = '1.5';
+    if (lsValue) lsValue.textContent = '0em';
     if (weightValue) weightValue.textContent = '400';
 
-    // Mark weight and line-height controls as unset/dimmed
+    // Mark weight, line-height, and letter-spacing controls as unset/dimmed
     const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     if (weightControl) weightControl.classList.add('unset');
     const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     if (lineHeightControl) lineHeightControl.classList.add('unset');
+    const letterSpacingControl = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
+    if (letterSpacingControl) letterSpacingControl.classList.add('unset');
 
     // Reset variable axes and make them unset/dimmed
     if (fontDef && fontDef.axes.length > 0) {
@@ -3760,6 +3833,7 @@ function payloadEquals(a, b) {
     if (!numEq(a.fontWeight, b.fontWeight)) return false;
     if (!numEq(a.fontSize, b.fontSize)) return false;
     if (!numEq(a.lineHeight, b.lineHeight)) return false;
+    if (!numEq(a.letterSpacing, b.letterSpacing)) return false;
     if (a.fontColor !== b.fontColor) return false;
     // Normalize axes: fold legacy wdthVal/slntVal/italVal into variableAxes for comparison
     const normalize = (obj) => {
@@ -4012,7 +4086,7 @@ function restoreUIFromDomainStorage() {
                 const savedFont = domainData[fontType];
 
                 // Check if saved font has any meaningful properties
-                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.lineHeight || savedFont.fontColor);
+                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
 
                 if (hasValidSavedFont) {
                     console.log(`🔄 restoreUIFromDomainStorage: Restoring ${fontType} font: ${savedFont.fontName}`);
@@ -4060,6 +4134,15 @@ function restoreUIFromDomainStorage() {
                         if (lineHeightSlider) lineHeightSlider.value = savedFont.lineHeight;
                         if (lineHeightTextInput) lineHeightTextInput.value = savedFont.lineHeight;
                         if (lineHeightValue) lineHeightValue.textContent = savedFont.lineHeight;
+                    }
+
+                    if (savedFont.letterSpacing != null) {
+                        const lsSlider = document.getElementById(`${fontType}-letter-spacing`);
+                        const lsTextInput = document.getElementById(`${fontType}-letter-spacing-text`);
+                        const lsValueEl = document.getElementById(`${fontType}-letter-spacing-value`);
+                        if (lsSlider) lsSlider.value = savedFont.letterSpacing;
+                        if (lsTextInput) lsTextInput.value = savedFont.letterSpacing;
+                        if (lsValueEl) lsValueEl.textContent = savedFont.letterSpacing + 'em';
                     }
 
                     if (savedFont.fontColor) {
@@ -4777,7 +4860,7 @@ function applyAllThirdManInFonts() {
                 console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
 
                 // Check if config has any meaningful properties
-                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.lineHeight || config.fontColor);
+                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor);
 
                 if (hasValidConfig) {
                     // Convert applied config to same format for comparison
@@ -4789,6 +4872,7 @@ function applyAllThirdManInFonts() {
                     if (appliedConfig && appliedForComparison) {
                         if (appliedConfig.fontSize) appliedForComparison.fontSize = appliedConfig.fontSize;
                         if (appliedConfig.lineHeight) appliedForComparison.lineHeight = appliedConfig.lineHeight;
+                        if (appliedConfig.letterSpacing != null) appliedForComparison.letterSpacing = appliedConfig.letterSpacing;
                         if (appliedConfig.fontWeight) appliedForComparison.fontWeight = appliedConfig.fontWeight;
                         if (appliedConfig.fontColor) appliedForComparison.fontColor = appliedConfig.fontColor;
                         if (appliedConfig.fontFaceRule) appliedForComparison.fontFaceRule = appliedConfig.fontFaceRule;
@@ -5012,7 +5096,7 @@ function countThirdManInDifferences() {
                 const applied = domainData ? domainData[type] : null;
 
                 // Font is considered default/unset if config is missing or has no meaningful properties
-                const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && !current.fontColor);
+                const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
 
                 console.log(`countThirdManInDifferences: ${type} current:`, current);
                 console.log(`countThirdManInDifferences: ${type} applied:`, applied);
@@ -5039,6 +5123,7 @@ function countThirdManInDifferences() {
                         if (applied && appliedConfig) {
                             if (applied.fontSize) appliedConfig.fontSize = applied.fontSize;
                             if (applied.lineHeight) appliedConfig.lineHeight = applied.lineHeight;
+                            if (applied.letterSpacing != null) appliedConfig.letterSpacing = applied.letterSpacing;
                             if (applied.fontWeight) appliedConfig.fontWeight = applied.fontWeight;
                             if (applied.fontColor) appliedConfig.fontColor = applied.fontColor;
                             if (applied.fontFaceRule) appliedConfig.fontFaceRule = applied.fontFaceRule;
@@ -5078,7 +5163,7 @@ function countThirdManInDifferences() {
             const current = getCurrentUIConfig(type);
 
             // Font is considered default/unset if config is missing or has no meaningful properties
-            const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && !current.fontColor);
+            const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
 
             if (!isDefaultFont) {
                 changeCount++;
@@ -5116,7 +5201,7 @@ function applyPanelConfiguration(panelId) {
 
     // Allow configurations with font properties even without fontName for body and third-man-in modes
     if (!config.fontName) {
-        const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.fontColor;
+        const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
         if (!hasOtherProperties) {
             console.log('applyPanelConfiguration: No valid config found (needs fontName or other properties)');
             return Promise.resolve(false);
@@ -5468,6 +5553,7 @@ function unsetAllPanelControls(panelId) {
         fontTextElement.style.fontSize = '';
         fontTextElement.style.fontWeight = '';
         fontTextElement.style.lineHeight = '';
+        fontTextElement.style.letterSpacing = '';
         fontTextElement.style.color = '';
     }
 
@@ -5632,6 +5718,8 @@ function showNumericModal(input) {
         title.textContent = `Font Size (${position})`;
     } else if (type === 'lineHeight') {
         title.textContent = `Line Height (${position})`;
+    } else if (type === 'letterSpacing') {
+        title.textContent = `Letter Spacing (${position})`;
     } else if (type === 'variableAxis') {
         title.textContent = `${axis} (${position})`;
     } else {
@@ -5715,6 +5803,13 @@ function applyNumericValue(input, value) {
         if (slider) {
             slider.value = value;
             // Trigger the slider's change event to update everything
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    } else if (type === 'letterSpacing') {
+        input.value = value;
+        const slider = document.getElementById(`${position}-letter-spacing`);
+        if (slider) {
+            slider.value = value;
             slider.dispatchEvent(new Event('input', { bubbles: true }));
         }
     } else if (type === 'variableAxis') {
