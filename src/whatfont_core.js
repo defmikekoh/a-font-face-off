@@ -114,6 +114,7 @@ function _whatFont() {
             this.style = this.element.css('font-style');
             this.size = TypeInfo.roundFloatWithPxUnit(this.element.css('font-size'));
             this.lineHeight = TypeInfo.roundFloatWithPxUnit(this.element.css('line-height'));
+            this.letterSpacing = this.element.css('letter-spacing');
             this.color = this.element.css('color');
             this.variableAxes = this.detectVariableAxes();
         },
@@ -554,6 +555,7 @@ function _whatFont() {
                 '<div class="panel_content">' + '<ul class="panel_properties">' + '<li>' + '<dl class="font_family">' + '<dt class="panel_label">Font Family</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</li>' +
 
                 '<li>' + '<div class="size_line_height clearfix">' + '<dl class="size section">' + '<dt class="panel_label">Font Size</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '<dl class="line_height">' + '<dt class="panel_label">Line Height</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</div>' + '</li>' +
+                '<li class="letter_spacing_row" style="display:none;">' + '<dl class="letter_spacing">' + '<dt class="panel_label">Letter Spacing</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</li>' +
 
                 '<li class="variable_axes_section" style="display:none;">' + 
                 '<div class="variable_axes_container">' +
@@ -670,10 +672,19 @@ function _whatFont() {
 
         sizeLineHeight: function(typeInfo, newPanel) {
             var size = typeInfo.size,
-                lh = typeInfo.lineHeight;
+                lh = typeInfo.lineHeight,
+                ls = typeInfo.letterSpacing;
 
             $(newPanel).find(".size>dd").text(size);
             $(newPanel).find(".line_height>dd").text(lh);
+
+            var lsRow = $(newPanel).find(".letter_spacing_row");
+            if (ls && ls !== 'normal' && parseFloat(ls) !== 0) {
+                $(newPanel).find(".letter_spacing>dd").text(ls);
+                lsRow.show();
+            } else {
+                lsRow.hide();
+            }
 
             return newPanel;
         },
