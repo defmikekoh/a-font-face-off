@@ -1597,7 +1597,8 @@
     if (classText && /\blanguage-/.test(classText)) return null;
 
     // Exclude small-caps classes
-    if (classText && /\b(small-caps|smallcaps|smcp|sc)\b/.test(classText)) return null;
+    if (classText && /\b(small-caps|smallcaps|smcp)\b/.test(classText)) return null;
+    if (classText && /(?:^|\s)sc(?:\s|$)/.test(classText)) return null;
 
     // Exclude metadata and byline patterns
     if (classText && /\b(byline|author|date|meta)\b/.test(classText)) return null;
