@@ -67,20 +67,20 @@
                         if (!fontConfig || !fontConfig.fontName) return;
 
                         // Skip custom fonts (they have special handling in content.js)
-                        // We can't easily check customFontDefinitions here, so just inject all fonts
+                        // Only preload fonts that have a cached Google Fonts URL
                         const fontName = fontConfig.fontName;
+                        const cachedUrl = css2UrlCache[fontName];
+                        if (!cachedUrl) return;
+
                         const linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
 
                         if (!document.getElementById(linkId)) {
-                            const cachedUrl = css2UrlCache[fontName];
-                            const href = cachedUrl || `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName).replace(/%20/g, '+')}&display=swap`;
-
                             const link = document.createElement('link');
                             link.id = linkId;
                             link.rel = 'stylesheet';
-                            link.href = href;
+                            link.href = cachedUrl;
                             document.head.appendChild(link);
-                            console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${href}`);
+                            if (AFFO_DEBUG) console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${cachedUrl}`);
                         }
                     });
                 }
@@ -557,7 +557,7 @@
 
         // Aggressive Override checkbox (above favorites for visibility)
         const aggressiveLbl = document.createElement('label');
-        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 0 4px 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
         const aggressiveCb = document.createElement('input');
         aggressiveCb.type = 'checkbox';
         aggressiveCb.id = 'affo-quick-pick-aggressive';
@@ -567,7 +567,7 @@
         body.appendChild(aggressiveLbl);
 
         const aggressiveHr = document.createElement('hr');
-        aggressiveHr.style.cssText = 'border: none; border-top: 1px solid #dee2e6; margin: 4px 0;';
+        aggressiveHr.style.cssText = 'border: none; border-top: 1px solid #dee2e6; margin: 2px 0;';
         body.appendChild(aggressiveHr);
 
         // Create 5 favorite buttons (matching Load Favorites modal button styling)
@@ -621,6 +621,8 @@
             font-weight: 500 !important;
             transition: all 150ms ease;
             text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
             margin-top: 4px;
             line-height: 1.4 !important;
             letter-spacing: normal !important;
@@ -651,6 +653,8 @@
             font-weight: 500 !important;
             transition: all 150ms ease;
             text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
             margin-top: 4px;
             line-height: 1.4 !important;
             letter-spacing: normal !important;
@@ -858,7 +862,7 @@
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 12px 16px !important; pointer-events: none; gap: 4px !important;';
+            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 16px !important; pointer-events: none; gap: 4px !important;';
 
             const nameEl = document.createElement('div');
             nameEl.style.cssText = 'font-weight: 500 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
