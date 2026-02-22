@@ -443,27 +443,33 @@
         overlay.id = 'affo-quick-pick-overlay';
         overlay.setAttribute('data-affo-guard', '');
         overlay.style.cssText = `
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
+            position: fixed !important;
+            inset: 0 !important;
+            background: rgba(0, 0, 0, 0.6) !important;
             display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 2147483647;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2147483647 !important;
+            font-family: system-ui, sans-serif !important;
+            font-size: 14px !important;
         `;
 
         const content = document.createElement('div');
         content.id = 'affo-quick-pick-content';
         content.style.cssText = `
-            background: #ffffff;
-            border-radius: 8px;
-            max-width: 320px;
-            display: flex;
-            flex-direction: column;
-            color: #495057;
-            font-family: system-ui, sans-serif;
-            font-size: 14px;
-            line-height: 1.4;
+            background: #ffffff !important;
+            border-radius: 8px !important;
+            max-width: 320px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            color: #495057 !important;
+            font-family: system-ui, sans-serif !important;
+            font-size: 14px !important;
+            line-height: 1.4 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+            word-spacing: normal !important;
+            font-style: normal !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             overflow: hidden;
             max-height: 70vh;
@@ -472,20 +478,24 @@
         // Add header
         const header = document.createElement('div');
         header.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 1px solid #dee2e6;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 12px 16px !important;
+            border-bottom: 1px solid #dee2e6 !important;
         `;
 
         const headerTitle = document.createElement('h3');
         headerTitle.textContent = 'Quick Pick';
         headerTitle.style.cssText = `
-            margin: 0;
-            font-size: 14px;
-            color: #495057;
-            font-weight: 600;
+            margin: 0 !important;
+            font-size: 14px !important;
+            font-family: inherit !important;
+            color: #495057 !important;
+            font-weight: 600 !important;
+            line-height: 1.4 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
         `;
         header.appendChild(headerTitle);
 
@@ -493,22 +503,26 @@
         const headerCloseBtn = document.createElement('button');
         headerCloseBtn.textContent = '✕';
         headerCloseBtn.style.cssText = `
-            background: none;
-            border: none;
-            color: #6c757d;
-            font-size: 16px;
+            background: none !important;
+            border: none !important;
+            color: #6c757d !important;
+            font-size: 16px !important;
+            font-family: inherit !important;
             cursor: pointer;
-            padding: 0;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
+            padding: 0 !important;
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            min-height: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 50% !important;
             transition: all 0.2s ease;
+            line-height: 1 !important;
         `;
-        headerCloseBtn.onmouseover = function() { this.style.background = '#dc3545'; this.style.color = 'white'; };
-        headerCloseBtn.onmouseout = function() { this.style.background = 'none'; this.style.color = '#6c757d'; };
+        headerCloseBtn.onmouseover = function() { this.style.setProperty('background', '#dc3545', 'important'); this.style.setProperty('color', 'white', 'important'); };
+        headerCloseBtn.onmouseout = function() { this.style.setProperty('background', 'none', 'important'); this.style.setProperty('color', '#6c757d', 'important'); };
         headerCloseBtn.onclick = hideQuickPickMenu;
         header.appendChild(headerCloseBtn);
 
@@ -517,10 +531,10 @@
         // Add body container
         const body = document.createElement('div');
         body.style.cssText = `
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            padding: 16px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
             overflow-y: auto;
         `;
 
@@ -530,33 +544,57 @@
         message.style.cssText = `
             padding: 8px;
             text-align: center;
-            color: #6c757d;
-            font-size: 13px;
-            line-height: 1.5;
+            color: #6c757d !important;
+            font-size: 13px !important;
+            font-family: inherit !important;
+            line-height: 1.5 !important;
             display: none;
-            font-weight: 500;
+            font-weight: 500 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
         `;
         body.appendChild(message);
+
+        // Aggressive Override checkbox (above favorites for visibility)
+        const aggressiveLbl = document.createElement('label');
+        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 0 4px 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+        const aggressiveCb = document.createElement('input');
+        aggressiveCb.type = 'checkbox';
+        aggressiveCb.id = 'affo-quick-pick-aggressive';
+        aggressiveCb.style.cssText = 'cursor: pointer; margin: 0;';
+        aggressiveLbl.appendChild(aggressiveCb);
+        aggressiveLbl.appendChild(document.createTextNode('Aggressive Override Domain'));
+        body.appendChild(aggressiveLbl);
+
+        const aggressiveHr = document.createElement('hr');
+        aggressiveHr.style.cssText = 'border: none; border-top: 1px solid #dee2e6; margin: 4px 0;';
+        body.appendChild(aggressiveHr);
 
         // Create 5 favorite buttons (matching Load Favorites modal button styling)
         const buttonStyleFn = function(btn) {
             btn.style.cssText = `
-                padding: 0;
-                font-size: inherit;
-                background: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                color: #495057;
+                padding: 0 !important;
+                font-size: inherit !important;
+                font-family: inherit !important;
+                background: #f8f9fa !important;
+                border: 1px solid #dee2e6 !important;
+                border-radius: 4px !important;
+                color: #495057 !important;
                 cursor: pointer;
                 display: none;
-                font-weight: 500;
+                font-weight: 500 !important;
                 transition: all 150ms ease;
-                text-align: left;
+                text-align: left !important;
+                line-height: 1.4 !important;
+                letter-spacing: normal !important;
+                text-transform: none !important;
+                min-height: 0 !important;
+                box-sizing: border-box !important;
             `;
-            btn.onmouseover = function() { if (!this.disabled) { this.style.background = '#e9ecef'; this.style.borderColor = '#495057'; } };
-            btn.onmouseout = function() { if (!this.disabled) { this.style.background = '#f8f9fa'; this.style.borderColor = '#dee2e6'; } };
-            btn.onmousedown = function() { if (!this.disabled) this.style.background = '#dee2e6'; };
-            btn.onmouseup = function() { if (!this.disabled) this.style.background = '#e9ecef'; };
+            btn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#e9ecef', 'important'); this.style.setProperty('border-color', '#495057', 'important'); } };
+            btn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', '#f8f9fa', 'important'); this.style.setProperty('border-color', '#dee2e6', 'important'); } };
+            btn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#dee2e6', 'important'); };
+            btn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#e9ecef', 'important'); };
         };
 
         for (let i = 1; i <= 5; i++) {
@@ -571,23 +609,29 @@
         rewalkBtn.id = 'affo-quick-pick-rewalk';
         rewalkBtn.textContent = 'Rewalk';
         rewalkBtn.style.cssText = `
-            padding: 10px 12px;
-            background: #0d6efd;
-            border: 1px solid #0b5ed7;
-            border-radius: 4px;
-            color: #ffffff;
+            padding: 10px 12px !important;
+            background: #0d6efd !important;
+            border: 1px solid #0b5ed7 !important;
+            border-radius: 4px !important;
+            color: #ffffff !important;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 13px !important;
+            font-family: inherit !important;
             display: none;
-            font-weight: 500;
+            font-weight: 500 !important;
             transition: all 150ms ease;
-            text-align: center;
+            text-align: center !important;
             margin-top: 4px;
+            line-height: 1.4 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+            min-height: 0 !important;
+            box-sizing: border-box !important;
         `;
-        rewalkBtn.onmouseover = function() { if (!this.disabled) { this.style.background = '#0b5ed7'; this.style.borderColor = '#0a58ca'; } };
-        rewalkBtn.onmouseout = function() { if (!this.disabled) { this.style.background = '#0d6efd'; this.style.borderColor = '#0b5ed7'; } };
-        rewalkBtn.onmousedown = function() { if (!this.disabled) this.style.background = '#0a58ca'; };
-        rewalkBtn.onmouseup = function() { if (!this.disabled) this.style.background = '#0b5ed7'; };
+        rewalkBtn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#0b5ed7', 'important'); this.style.setProperty('border-color', '#0a58ca', 'important'); } };
+        rewalkBtn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', '#0d6efd', 'important'); this.style.setProperty('border-color', '#0b5ed7', 'important'); } };
+        rewalkBtn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#0a58ca', 'important'); };
+        rewalkBtn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#0b5ed7', 'important'); };
         body.appendChild(rewalkBtn);
 
         // Add unapply button (red danger button matching popup style)
@@ -595,23 +639,29 @@
         unapplyBtn.id = 'affo-quick-pick-unapply';
         unapplyBtn.textContent = 'Unapply';
         unapplyBtn.style.cssText = `
-            padding: 10px 12px;
-            background: #dc3545;
-            border: 1px solid #c82333;
-            border-radius: 4px;
-            color: #ffffff;
+            padding: 10px 12px !important;
+            background: #dc3545 !important;
+            border: 1px solid #c82333 !important;
+            border-radius: 4px !important;
+            color: #ffffff !important;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 13px !important;
+            font-family: inherit !important;
             display: none;
-            font-weight: 500;
+            font-weight: 500 !important;
             transition: all 150ms ease;
-            text-align: center;
+            text-align: center !important;
             margin-top: 4px;
+            line-height: 1.4 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+            min-height: 0 !important;
+            box-sizing: border-box !important;
         `;
-        unapplyBtn.onmouseover = function() { if (!this.disabled) { this.style.background = '#c82333'; this.style.borderColor = '#a71d2a'; } };
-        unapplyBtn.onmouseout = function() { if (!this.disabled) { this.style.background = '#dc3545'; this.style.borderColor = '#c82333'; } };
-        unapplyBtn.onmousedown = function() { if (!this.disabled) this.style.background = '#a71d2a'; };
-        unapplyBtn.onmouseup = function() { if (!this.disabled) this.style.background = '#c82333'; };
+        unapplyBtn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#c82333', 'important'); this.style.setProperty('border-color', '#a71d2a', 'important'); } };
+        unapplyBtn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', '#dc3545', 'important'); this.style.setProperty('border-color', '#c82333', 'important'); } };
+        unapplyBtn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#a71d2a', 'important'); };
+        unapplyBtn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#c82333', 'important'); };
         body.appendChild(unapplyBtn);
 
         // Domain setting checkboxes
@@ -620,20 +670,19 @@
             border-top: 1px solid #dee2e6;
             margin-top: 8px;
             padding-top: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 6px !important;
         `;
 
         const checkboxDefs = [
             { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
             { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
-            { id: 'affo-quick-pick-aggressive', label: 'Aggressive Override Domain' },
         ];
 
         for (const def of checkboxDefs) {
             const lbl = document.createElement('label');
-            lbl.style.cssText = 'display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #495057; margin: 0;';
+            lbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.id = def.id;
@@ -794,13 +843,13 @@
 
             // Reset button state from previous use
             btn.disabled = false;
-            btn.style.opacity = '1';
+            btn.style.setProperty('opacity', '1', 'important');
 
             // Create content with name and preview
             btn.innerHTML = '';
-            btn.style.display = 'flex';
-            btn.style.position = 'relative';
-            btn.style.overflow = 'hidden';
+            btn.style.setProperty('display', 'flex', 'important');
+            btn.style.setProperty('position', 'relative', 'important');
+            btn.style.setProperty('overflow', 'hidden', 'important');
 
             // Left side indicator (serif)
             const leftHint = document.createElement('div');
@@ -809,14 +858,14 @@
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 16px; pointer-events: none; gap: 4px;';
+            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 12px 16px !important; pointer-events: none; gap: 4px !important;';
 
             const nameEl = document.createElement('div');
-            nameEl.style.cssText = 'font-weight: 500; color: #495057;';
+            nameEl.style.cssText = 'font-weight: 500 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
             nameEl.textContent = fav.name || fav.fontName || `Font ${i + 1}`;
 
             const previewEl = document.createElement('div');
-            previewEl.style.cssText = 'font-size: 11px; color: #6c757d; line-height: 1.2;';
+            previewEl.style.cssText = 'font-size: 11px !important; font-family: inherit !important; color: #6c757d !important; line-height: 1.2 !important; letter-spacing: normal !important; text-transform: none !important;';
 
             const previewParts = [];
             if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
