@@ -472,7 +472,7 @@
             font-style: normal !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             overflow: hidden;
-            max-height: 70vh;
+            max-height: 90vh;
         `;
 
         // Add header
@@ -588,7 +588,7 @@
                 line-height: 1.4 !important;
                 letter-spacing: normal !important;
                 text-transform: none !important;
-                min-height: 0 !important;
+                min-height: 40px !important;
                 box-sizing: border-box !important;
             `;
             btn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#e9ecef', 'important'); this.style.setProperty('border-color', '#495057', 'important'); } };
@@ -680,8 +680,8 @@
         `;
 
         const checkboxDefs = [
-            { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
             { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
+            { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
         ];
 
         for (const def of checkboxDefs) {
@@ -862,7 +862,7 @@
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 16px !important; pointer-events: none; gap: 4px !important;';
+            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 4px 16px !important; pointer-events: none; gap: 2px !important;';
 
             const nameEl = document.createElement('div');
             nameEl.style.cssText = 'font-weight: 500 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
@@ -921,7 +921,7 @@
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;
             unapplyBtn.style.opacity = '1';
-            unapplyBtn.style.display = 'block';
+            unapplyBtn.style.setProperty('display', 'flex', 'important');
             unapplyBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
                 message.textContent = 'Removing fonts...';
@@ -955,7 +955,7 @@
         if (rewalkBtn && hasTmiFonts) {
             rewalkBtn.disabled = false;
             rewalkBtn.style.opacity = '1';
-            rewalkBtn.style.display = 'block';
+            rewalkBtn.style.setProperty('display', 'flex', 'important');
             rewalkBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
                 message.textContent = 'Rewalking...';

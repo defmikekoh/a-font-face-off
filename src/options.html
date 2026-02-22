@@ -678,14 +678,14 @@
     </div>
 
     <div class="section">
-      <div class="section-title">FontFace-only Domains</div>
-      <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
+      <div class="section-title">Aggressive Override Domains</div>
+      <textarea id="aggressive-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
       <div class="row">
-        <button id="reset-ffonly">Reset to Default</button>
-        <button id="save-ffonly">Save Domains</button>
-        <span id="status-ffonly" class="status"></span>
+        <button id="reset-aggressive">Reset to Default</button>
+        <button id="save-aggressive">Save Domains</button>
+        <span id="status-aggressive" class="status"></span>
       </div>
-      <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
+      <div class="hint">On these domains, apply fonts with !important to override strong site styles. Leave empty for normal specificity.</div>
     </div>
 
     <div class="section">
@@ -700,14 +700,14 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Aggressive Override Domains</div>
-      <textarea id="aggressive-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
+      <div class="section-title">FontFace-only Domains</div>
+      <textarea id="ff-only-domains" placeholder="One domain per line (e.g., x.com)"></textarea>
       <div class="row">
-        <button id="reset-aggressive">Reset to Default</button>
-        <button id="save-aggressive">Save Domains</button>
-        <span id="status-aggressive" class="status"></span>
+        <button id="reset-ffonly">Reset to Default</button>
+        <button id="save-ffonly">Save Domains</button>
+        <span id="status-ffonly" class="status"></span>
       </div>
-      <div class="hint">On these domains, apply fonts with !important to override strong site styles. Leave empty for normal specificity.</div>
+      <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
     </div>
 
     <div class="section">
