@@ -48,7 +48,7 @@ const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GDRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 // Loopback redirect URI (native app OAuth flow) — intercepted via webRequest, port is arbitrary
-const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/affo-oauth';
+const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/';
 
 // WebDAV constants
 const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';     // { serverUrl, username, password, anonymous }
@@ -489,7 +489,7 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
   return { ok: true };
 }
 
-function buildAuthUrl(codeChallenge, redirectUri) {
+function buildAuthUrl(codeChallenge, redirectUri, state) {
   const params = new URLSearchParams({
     client_id: GDRIVE_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -498,7 +498,8 @@ function buildAuthUrl(codeChallenge, redirectUri) {
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     access_type: 'offline',
-    prompt: 'consent'
+    prompt: 'consent',
+    state
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
@@ -510,7 +511,8 @@ function startGDriveAuthViaTab() {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     const redirectUri = GDRIVE_FALLBACK_REDIRECT;
-    const authUrl = buildAuthUrl(codeChallenge, redirectUri);
+    const state = generateCodeVerifier(); // random string for CSRF protection
+    const authUrl = buildAuthUrl(codeChallenge, redirectUri, state);
 
     const listener = (details) => {
       if (settled) return;
@@ -518,6 +520,7 @@ function startGDriveAuthViaTab() {
       // so verify this is actually our redirect before acting
       if (!details.url.startsWith(redirectUri)) return;
       const url = new URL(details.url);
+      if (url.searchParams.get('state') !== state) return; // CSRF check
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
 
