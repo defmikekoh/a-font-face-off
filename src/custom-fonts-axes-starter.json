@@ -1,0 +1,10 @@
+{
+  "Lil Grotesk": [
+    {
+      "tag": "wght",
+      "min": 100,
+      "max": 900,
+      "defaultValue": 400
+    }
+  ]
+}

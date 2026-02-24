@@ -458,6 +458,39 @@ li button {
     box-sizing: border-box;
 }
 
+#custom-axes-editor {
+    width: 100%;
+    min-height: 150px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--box-background);
+    color: var(--text-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    padding: 12px;
+    resize: vertical;
+    tab-size: 2;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+    box-sizing: border-box;
+}
+
+.axes-example {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    background: var(--box-background);
+    color: var(--text-color);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 6px 0 10px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .editor-actions {
     display: flex;
     align-items: center;

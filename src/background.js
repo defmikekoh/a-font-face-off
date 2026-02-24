@@ -28,12 +28,14 @@ const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
 const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
+const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
 const KNOWN_SERIF_KEY = 'affoKnownSerif';
 const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
 const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
 const AGGRESSIVE_DOMAINS_KEY = 'affoAggressiveDomains';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
+const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
 const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
 const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
@@ -1194,6 +1196,60 @@ async function runSync() {
     }
   }
 
+  // ── Simple JSON object settings (custom font axes) ──
+  const jsonObjectItems = [
+    { key: CUSTOM_FONT_AXES_KEY, filename: SYNC_CUSTOM_FONT_AXES_NAME, label: 'Custom font axes' }
+  ];
+  for (const item of jsonObjectItems) {
+    try {
+      const localState = localMeta.items[item.filename] || {};
+      const localModified = (localMeta.items[item.filename] || {}).modified || 0;
+      const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
+
+      if (firstSync) {
+        const fileResult = await backend.get(item.filename);
+        if (!fileResult.notFound) {
+          const parsed = JSON.parse(fileResult.data);
+          await setStorageDuringSync({ [item.key]: parsed });
+          const modified = remoteModified || now;
+          setModified(localMeta.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
+          setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
+          manifestChanged = true;
+        } else {
+          const stored = await browser.storage.local.get(item.key);
+          const obj = stored[item.key];
+          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+            const modified = localModified || now;
+            const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(obj, null, 2), 'application/json');
+            setModified(remoteManifest.items, item.filename, modified, { remoteRev });
+            setModified(localMeta.items, item.filename, modified, { remoteRev });
+            manifestChanged = true;
+          }
+        }
+      } else if (remoteModified > localModified) {
+        const fileResult = await backend.get(item.filename);
+        if (!fileResult.notFound) {
+          const parsed = JSON.parse(fileResult.data);
+          await setStorageDuringSync({ [item.key]: parsed });
+          setModified(localMeta.items, item.filename, remoteModified, { remoteRev: fileResult.remoteRev });
+        }
+      } else if (localModified > remoteModified) {
+        const stored = await browser.storage.local.get(item.key);
+        const obj = stored[item.key];
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          const modified = localModified || now;
+          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(obj, null, 2), 'application/json');
+          setModified(remoteManifest.items, item.filename, modified, { remoteRev });
+          setModified(localMeta.items, item.filename, modified, { remoteRev });
+          manifestChanged = true;
+        }
+      }
+    } catch (e) {
+      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      errors.push(e);
+    }
+  }
+
   // ── Substack Roulette (compound object: enabled + serif/sans name arrays) ──
   try {
     const rouletteItemKey = SYNC_SUBSTACK_ROULETTE_NAME;
@@ -1936,6 +1992,9 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
   if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
     markLocalItemModified(SYNC_PRESERVED_FONTS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[CUSTOM_FONT_AXES_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONT_AXES_KEY])) {
+    markLocalItemModified(SYNC_CUSTOM_FONT_AXES_NAME).then(() => scheduleAutoSync());
   }
   if (trackSyncManagedChanges) {
     const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))

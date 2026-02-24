@@ -547,9 +547,9 @@ let customFontsCssText = '';
 let customFontsLoaded = false;
 let customFontsPromise = null;
 
-// Manual axis metadata for custom variable fonts (from fvar table inspection).
-// Static custom fonts don't need entries here — they get empty axes by default.
-const CUSTOM_FONT_AXES = {};
+// Axis metadata for custom variable fonts, populated from affoCustomFontAxes storage.
+// Format: { fontName: { axes: ['wght', ...], defaults: { wght: 400 }, ranges: { wght: { min, max } } } }
+let CUSTOM_FONT_AXES = {};
 
 function parseCustomFontsFromCss(cssText) {
     const blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
@@ -586,12 +586,34 @@ function parseCustomFontsFromCss(cssText) {
     return { names, defs };
 }
 
+// Convert affoCustomFontAxes storage format to internal CUSTOM_FONT_AXES format.
+// Storage: { "Font Name": [{ tag, min, max, defaultValue }] }
+// Internal: { "Font Name": { axes: ['wght'], defaults: { wght: 400 }, ranges: { wght: { min: 100, max: 900 } } } }
+function buildCustomFontAxes(stored) {
+    const result = {};
+    if (!stored || typeof stored !== 'object') return result;
+    for (const [fontName, axesList] of Object.entries(stored)) {
+        if (!Array.isArray(axesList)) continue;
+        const axes = [];
+        const defaults = {};
+        const ranges = {};
+        for (const axis of axesList) {
+            if (!axis.tag) continue;
+            axes.push(axis.tag);
+            defaults[axis.tag] = axis.defaultValue;
+            ranges[axis.tag] = { min: axis.min, max: axis.max };
+        }
+        if (axes.length > 0) result[fontName] = { axes, defaults, ranges };
+    }
+    return result;
+}
+
 async function ensureCustomFontsLoaded() {
     if (customFontsLoaded) return;
     if (!customFontsPromise) {
         customFontsPromise = (async () => {
             try {
-                const stored = await browser.storage.local.get('affoCustomFontsCss');
+                const stored = await browser.storage.local.get(['affoCustomFontsCss', 'affoCustomFontAxes']);
                 let cssText = stored.affoCustomFontsCss;
                 if (!cssText) {
                     const url = browser.runtime.getURL('custom-fonts-starter.css');
@@ -599,6 +621,19 @@ async function ensureCustomFontsLoaded() {
                     cssText = await response.text();
                 }
                 customFontsCssText = cssText || '';
+
+                // Load custom font axes from storage (fall back to starter file)
+                let axesData = stored.affoCustomFontAxes;
+                if (!axesData || typeof axesData !== 'object' || Object.keys(axesData).length === 0) {
+                    try {
+                        const axesUrl = browser.runtime.getURL('custom-fonts-axes-starter.json');
+                        const axesResponse = await fetch(axesUrl);
+                        axesData = await axesResponse.json();
+                    } catch (_e) {
+                        axesData = {};
+                    }
+                }
+                CUSTOM_FONT_AXES = buildCustomFontAxes(axesData);
 
                 const parsed = parseCustomFontsFromCss(customFontsCssText);
                 CUSTOM_FONTS = parsed.names;

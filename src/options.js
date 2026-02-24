@@ -131,8 +131,8 @@
             ? 'rgba(0, 51, 160, 0.2)' : '#ffffff';
         }
 
-        // Load custom CSS when switching to that tab
-        if (tab.id === 'customTab') loadCustomCss();
+        // Load custom CSS and axes when switching to that tab
+        if (tab.id === 'customTab') { loadCustomCss(); loadCustomAxes(); }
       });
     });
   }
@@ -179,6 +179,78 @@
       setTimeout(() => { status.textContent = ''; }, 2000);
     } catch (e) {
       status.textContent = 'Failed to load default CSS.';
+    }
+  }
+
+  // Custom Font Axes editor
+  let customAxesLoaded = false;
+
+  async function loadCustomAxes() {
+    if (customAxesLoaded) return;
+    const editor = document.getElementById('custom-axes-editor');
+    const stored = await browser.storage.local.get('affoCustomFontAxes');
+    let axesData = stored.affoCustomFontAxes;
+    if (!axesData || typeof axesData !== 'object' || Object.keys(axesData).length === 0) {
+      try {
+        const response = await fetch(browser.runtime.getURL('custom-fonts-axes-starter.json'));
+        axesData = await response.json();
+      } catch (_e) {
+        axesData = {};
+      }
+    }
+    editor.value = Object.keys(axesData).length > 0 ? JSON.stringify(axesData, null, 2) : '';
+    customAxesLoaded = true;
+  }
+
+  function validateAxesJson(text) {
+    if (!text.trim()) return { valid: true, data: {} };
+    const data = JSON.parse(text);
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      throw new Error('Must be a JSON object (font name → axes array)');
+    }
+    for (const [fontName, axes] of Object.entries(data)) {
+      if (!Array.isArray(axes)) throw new Error(`"${fontName}" must map to an array of axes`);
+      for (const axis of axes) {
+        if (!axis.tag || typeof axis.tag !== 'string') throw new Error(`Axis in "${fontName}" missing "tag" string`);
+        if (typeof axis.min !== 'number') throw new Error(`Axis "${axis.tag}" in "${fontName}" missing numeric "min"`);
+        if (typeof axis.max !== 'number') throw new Error(`Axis "${axis.tag}" in "${fontName}" missing numeric "max"`);
+        if (typeof axis.defaultValue !== 'number') throw new Error(`Axis "${axis.tag}" in "${fontName}" missing numeric "defaultValue"`);
+      }
+    }
+    return { valid: true, data };
+  }
+
+  async function saveCustomAxes() {
+    const editor = document.getElementById('custom-axes-editor');
+    const status = document.getElementById('axes-status');
+    try {
+      const result = validateAxesJson(editor.value);
+      await browser.storage.local.set({ affoCustomFontAxes: result.data });
+      // Re-format the editor with pretty-printed JSON
+      if (Object.keys(result.data).length > 0) {
+        editor.value = JSON.stringify(result.data, null, 2);
+      }
+      status.textContent = 'Saved!';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (e) {
+      status.textContent = 'Error: ' + (e.message || e);
+      setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+  }
+
+  async function resetCustomAxes() {
+    if (!confirm('Reset custom font axes to the default starter content?')) return;
+    const editor = document.getElementById('custom-axes-editor');
+    const status = document.getElementById('axes-status');
+    try {
+      const response = await fetch(browser.runtime.getURL('custom-fonts-axes-starter.json'));
+      const axesData = await response.json();
+      editor.value = Object.keys(axesData).length > 0 ? JSON.stringify(axesData, null, 2) : '';
+      await browser.storage.local.set({ affoCustomFontAxes: axesData });
+      status.textContent = 'Reset to default!';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (e) {
+      status.textContent = 'Failed to load default axes.';
     }
   }
 
@@ -874,6 +946,8 @@
     load();
     document.getElementById('save-css').addEventListener('click', saveCustomCss);
     document.getElementById('reset-css').addEventListener('click', resetCustomCss);
+    document.getElementById('save-axes').addEventListener('click', saveCustomAxes);
+    document.getElementById('reset-axes').addEventListener('click', resetCustomAxes);
     document.getElementById('save-serif').addEventListener('click', saveSerif);
     document.getElementById('save-sans').addEventListener('click', saveSans);
     document.getElementById('reset-serif').addEventListener('click', resetSerif);

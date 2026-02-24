@@ -639,6 +639,18 @@
       <span id="css-status" class="status"></span>
       <button id="save-css" class="save-button">Save</button>
     </div>
+
+    <div style="margin-top: 24px;">
+      <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font Axes</label>
+      <p class="description">Define variable axis metadata for custom fonts. Use JSON format: font family name maps to an array of axes, each with tag, min, max, and defaultValue. Example:</p>
+      <pre class="axes-example">{ "Lil Grotesk": [{ "tag": "wght", "min": 100, "max": 900, "defaultValue": 400 }] }</pre>
+      <textarea id="custom-axes-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder='{ "Font Name": [{ "tag": "wght", "min": 100, "max": 900, "defaultValue": 400 }] }'></textarea>
+      <div class="editor-actions">
+        <button id="reset-axes" class="reset-css-button">Reset to Default</button>
+        <span id="axes-status" class="status"></span>
+        <button id="save-axes" class="save-button">Save</button>
+      </div>
+    </div>
   </div>
 
   <div id="advancedSettings" style="display: none;">
