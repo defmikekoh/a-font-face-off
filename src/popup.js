@@ -588,7 +588,8 @@ function parseCustomFontsFromCss(cssText) {
 
 // Convert affoCustomFontAxes storage format to internal CUSTOM_FONT_AXES format.
 // Storage: { "Font Name": [{ tag, min, max, defaultValue }] }
-// Internal: { "Font Name": { axes: ['wght'], defaults: { wght: 400 }, ranges: { wght: { min: 100, max: 900 } } } }
+// Internal: { "Font Name": { axes: ['wght'], defaults: { wght: 400 }, ranges: { wght: [100, 900] } } }
+// Ranges use [min, max] array format to match getOrCreateFontDefinition / slider code.
 function buildCustomFontAxes(stored) {
     const result = {};
     if (!stored || typeof stored !== 'object') return result;
@@ -601,7 +602,7 @@ function buildCustomFontAxes(stored) {
             if (!axis.tag) continue;
             axes.push(axis.tag);
             defaults[axis.tag] = axis.defaultValue;
-            ranges[axis.tag] = { min: axis.min, max: axis.max };
+            ranges[axis.tag] = [axis.min, axis.max];
         }
         if (axes.length > 0) result[fontName] = { axes, defaults, ranges };
     }
