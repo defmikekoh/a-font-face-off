@@ -3708,6 +3708,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
         saveFavoritesToStorage();
 
+        // Pre-cache css2Url for Google Fonts so Substack Roulette / Quick Pick
+        // can load this font even if it was only ever used in Face-off mode
+        const isCustomFont = config.fontName && fontDefinitions[config.fontName];
+        if (config.fontName && !isCustomFont) {
+            buildCss2Url(config.fontName, config).then(css2Url => {
+                if (css2Url) storeCss2UrlInCache(config.fontName, css2Url);
+            });
+        }
+
         hideSaveModal();
         showCustomAlert(`Saved "${name}" to favorites!`);
     });
