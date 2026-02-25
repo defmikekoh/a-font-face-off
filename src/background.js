@@ -354,7 +354,15 @@ async function isGDriveConfigured() {
   return !!(tokens && tokens.accessToken && tokens.refreshToken);
 }
 
+let _refreshPromise = null;
+
 async function refreshAccessToken() {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = _doRefreshAccessToken();
+  return _refreshPromise.finally(() => { _refreshPromise = null; });
+}
+
+async function _doRefreshAccessToken() {
   const tokens = await getGDriveTokens();
   if (!tokens || !tokens.refreshToken) {
     throw new Error('No refresh token available — please reconnect Google Drive');
@@ -378,7 +386,7 @@ async function refreshAccessToken() {
   const data = await res.json();
   const updated = {
     accessToken: data.access_token,
-    refreshToken: tokens.refreshToken,
+    refreshToken: data.refresh_token || tokens.refreshToken,
     expiresAt: Date.now() + (data.expires_in || 3600) * 1000
   };
   await saveGDriveTokens(updated);
