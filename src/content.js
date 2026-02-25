@@ -147,10 +147,11 @@
   try {
     browser.storage.local.get(['affoKnownSerif', 'affoKnownSans', 'affoPreservedFonts']).then(function (opt) {
       if (Array.isArray(opt.affoKnownSerif)) {
-        knownSerifFonts = new Set(opt.affoKnownSerif.map(function (s) { return String(s || '').toLowerCase().trim(); }));
+        // Merge user-defined fonts with hardcoded defaults (don't replace)
+        opt.affoKnownSerif.forEach(function (s) { knownSerifFonts.add(String(s || '').toLowerCase().trim()); });
       }
       if (Array.isArray(opt.affoKnownSans)) {
-        knownSansFonts = new Set(opt.affoKnownSans.map(function (s) { return String(s || '').toLowerCase().trim(); }));
+        opt.affoKnownSans.forEach(function (s) { knownSansFonts.add(String(s || '').toLowerCase().trim()); });
       }
       if (Array.isArray(opt.affoPreservedFonts)) {
         preservedFonts = new Set(opt.affoPreservedFonts.map(function (s) { return String(s || '').toLowerCase().trim(); }));
@@ -520,15 +521,24 @@
     }
   }
 
-  // Re-apply inline styles for all active types (shared SPA/focus handler)
+  // Re-apply inline styles for all active types (shared SPA/focus handler).
+  // For TMI types, if no marked elements are found, re-run the element walker
+  // to re-mark new DOM nodes (e.g. after SPA navigation or React re-renders)
+  // then apply inline styles to the freshly marked elements.
   function reapplyAllInlineStyles() {
     var types = Object.keys(inlineConfigs);
     if (types.length === 0) return;
+    var tmiTypesToRewalk = [];
     types.forEach(function (ft) {
       try {
         var cfg = inlineConfigs[ft];
         if (!cfg) return;
         var elements = document.querySelectorAll(getAffoSelector(ft));
+        if (elements.length === 0 && ft !== 'body') {
+          // No marked elements — DOM was likely replaced; queue a re-walk
+          tmiTypesToRewalk.push(ft);
+          return;
+        }
         elements.forEach(function (el) {
           if (ft === 'body') {
             applyAffoProtection(el, cfg.cssPropsObject);
@@ -541,6 +551,27 @@
         debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
       }
     });
+    // Re-walk any TMI types that lost their markers, then apply inline styles
+    if (tmiTypesToRewalk.length > 0) {
+      debugLog('[AFFO Content] Re-walking for inline types with 0 marked elements: ' + tmiTypesToRewalk.join(', '));
+      tmiTypesToRewalk.forEach(function (ft) {
+        elementWalkerCompleted[ft] = false;
+        elementWalkerRechecksScheduled[ft] = false;
+      });
+      runElementWalkerAll(tmiTypesToRewalk).then(function () {
+        tmiTypesToRewalk.forEach(function (ft) {
+          try {
+            var cfg = inlineConfigs[ft];
+            if (!cfg) return;
+            var elements = document.querySelectorAll(getAffoSelector(ft));
+            elements.forEach(function (el) {
+              applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+            });
+            elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
+          } catch (_) { }
+        });
+      });
+    }
   }
 
   // Create or reuse the single shared MutationObserver for all inline types
@@ -1843,9 +1874,8 @@
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
 
           // Run element walker for Third Man In mode
-          if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-            runElementWalker(fontType);
-          }
+          var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
+          var walkerPromise = isTmi ? runElementWalker(fontType) : null;
 
           // Inject CSS immediately (before font loads) to prevent flash of original font
           var lines = [];
@@ -1857,7 +1887,12 @@
 
           if (css) {
             if (shouldUseInlineApply()) {
-              applyInlineStyles(fontConfig, fontType);
+              // For TMI types, wait for walker to mark elements before applying inline styles
+              if (isTmi && walkerPromise) {
+                walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
+              } else {
+                applyInlineStyles(fontConfig, fontType);
+              }
             } else {
               var styleId = 'a-font-face-off-style-' + fontType;
               var existingStyle = document.getElementById(styleId);
@@ -2033,9 +2068,8 @@
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
 
               // Run element walker for Third Man In mode
-              if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-                runElementWalker(fontType);
-              }
+              var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
+              var walkerPromise = isTmi ? runElementWalker(fontType) : null;
 
               // Inject CSS immediately (before font loads) to prevent flash of original font.
               // The browser will show a fallback until the font file loads, then swap in.
@@ -2048,7 +2082,12 @@
 
               if (css) {
                 if (shouldUseInlineApply()) {
-                  applyInlineStyles(fontConfig, fontType);
+                  // For TMI types, wait for walker to mark elements before applying inline styles
+                  if (isTmi && walkerPromise) {
+                    walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
+                  } else {
+                    applyInlineStyles(fontConfig, fontType);
+                  }
                 } else {
                   var styleId = 'a-font-face-off-style-' + fontType;
                   var existingStyle = document.getElementById(styleId);

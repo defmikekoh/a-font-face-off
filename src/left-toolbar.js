@@ -1206,14 +1206,16 @@
             });
     }
 
-    // Only initialize toolbar on mobile (desktop uses browser_action popup)
-    const isMobile = /Mobile|Tablet|Android/i.test(navigator.userAgent);
-    if (isMobile) {
+    // Show toolbar on mobile devices and touchscreen laptops
+    const showToolbar = /Mobile|Tablet|Android/i.test(navigator.userAgent) ||
+                        'ontouchstart' in window ||
+                        navigator.maxTouchPoints > 0;
+    if (showToolbar) {
         initializeToolbar();
     }
-    
-    // Listen for toolbar option changes from background script (mobile only)
-    if (isMobile) {
+
+    // Listen for toolbar option changes from background script
+    if (showToolbar) {
         try {
             const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
             if (browserAPI && browserAPI.runtime) {
