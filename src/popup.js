@@ -2490,8 +2490,8 @@ async function buildPayload(position, providedConfig = null) {
         if (css2Url) {
             // Store in global cache for content.js to lookup
             await storeCss2UrlInCache(cfg.fontName, css2Url);
-            // Attach for immediate use by callers (not stored in domain storage)
-            payload._css2Url = css2Url;
+            // Attach as non-enumerable for immediate use by callers (JSON.stringify skips it)
+            Object.defineProperty(payload, '_css2Url', { value: css2Url, enumerable: false });
         }
     }
 
@@ -2760,6 +2760,10 @@ async function migrateRemoveDuplicatedFields() {
                     }
                     if ('css2Url' in config) {
                         delete config.css2Url;
+                        modified = true;
+                    }
+                    if ('_css2Url' in config) {
+                        delete config._css2Url;
                         modified = true;
                     }
                     if ('styleId' in config) {

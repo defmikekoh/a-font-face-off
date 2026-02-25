@@ -26,6 +26,7 @@ const SYNC_KNOWN_SANS_NAME = 'known-sans.json';
 const SYNC_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
 const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
 const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
+const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
@@ -34,6 +35,7 @@ const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
 const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
 const AGGRESSIVE_DOMAINS_KEY = 'affoAggressiveDomains';
+const WAITFORIT_DOMAINS_KEY = 'affoWaitForItDomains';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
 const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
@@ -1142,6 +1144,7 @@ async function runSync() {
     { key: FFONLY_DOMAINS_KEY, filename: SYNC_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
     { key: INLINE_DOMAINS_KEY, filename: SYNC_INLINE_DOMAINS_NAME, label: 'Inline apply domains' },
     { key: AGGRESSIVE_DOMAINS_KEY, filename: SYNC_AGGRESSIVE_DOMAINS_NAME, label: 'Aggressive domains' },
+    { key: WAITFORIT_DOMAINS_KEY, filename: SYNC_WAITFORIT_DOMAINS_NAME, label: 'Wait For It domains' },
     { key: PRESERVED_FONTS_KEY, filename: SYNC_PRESERVED_FONTS_NAME, label: 'Preserved fonts' }
   ];
   for (const item of jsonArrayItems) {
@@ -1989,6 +1992,9 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
   if (changes[AGGRESSIVE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[AGGRESSIVE_DOMAINS_KEY])) {
     markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
+  }
+  if (changes[WAITFORIT_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[WAITFORIT_DOMAINS_KEY])) {
+    markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
   }
   if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
     markLocalItemModified(SYNC_PRESERVED_FONTS_NAME).then(() => scheduleAutoSync());
