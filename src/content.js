@@ -160,10 +160,11 @@
     }).catch(function () { });
   } catch (_) { }
 
-  // Load FontFace-only domains, inline apply domains, and aggressive domains from storage
+  // Load FontFace-only domains, inline apply domains, aggressive domains, and wait-for-it domains from storage
   var aggressiveDomains = [];
+  var waitForItDomains = [];
   try {
-    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains']).then(function (data) {
+    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
         fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
         debugLog(`[AFFO Content] FontFace-only domains:`, fontFaceOnlyDomains);
@@ -175,6 +176,10 @@
       if (Array.isArray(data.affoAggressiveDomains)) {
         aggressiveDomains = data.affoAggressiveDomains;
         debugLog(`[AFFO Content] Aggressive override domains:`, aggressiveDomains);
+      }
+      if (Array.isArray(data.affoWaitForItDomains)) {
+        waitForItDomains = data.affoWaitForItDomains;
+        debugLog(`[AFFO Content] Wait For It domains:`, waitForItDomains);
       }
     }).catch(function () { });
   } catch (e) { }
@@ -1976,11 +1981,14 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains']).then(function (data) {
-      // Ensure aggressiveDomains is populated before any reapply logic runs
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
+      // Ensure aggressiveDomains and waitForItDomains are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoAggressiveDomains)) {
         aggressiveDomains = data.affoAggressiveDomains;
+      }
+      if (Array.isArray(data.affoWaitForItDomains)) {
+        waitForItDomains = data.affoWaitForItDomains;
       }
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
@@ -2138,7 +2146,10 @@
 
       // Reapply immediately — content script runs at document_end so DOM is already parsed.
       // No delay needed; earlier injection reduces flash of original fonts.
-      reapplyStoredFonts();
+      // Wait For It domains skip auto-reapply; fonts applied on demand via toolbar long-press.
+      if (!waitForItDomains.includes(currentOrigin)) {
+        reapplyStoredFonts();
+      }
 
       // Set up SPA navigation hooks for normal TMI mode (non-inline-apply domains)
       // On SPA nav, reset walker completion flags so TMI elements get re-marked
@@ -2305,5 +2316,17 @@
   } catch (e) {
     console.error(`[AFFO Content] Error setting up message listener:`, e);
   }
+
+  // Wait For It: listen for custom event from left-toolbar.js to manually apply fonts
+  document.addEventListener('affo-wait-for-it-apply', function () {
+    browser.storage.local.get('affoApplyMap').then(function (data) {
+      var map = data && data.affoApplyMap ? data.affoApplyMap : {};
+      var entry = map[location.hostname];
+      if (entry) {
+        debugLog('[AFFO Content] Wait For It: manually applying fonts for', location.hostname);
+        reapplyStoredFontsFromEntry(entry);
+      }
+    }).catch(function () { });
+  });
 
 })();

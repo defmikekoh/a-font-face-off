@@ -29,12 +29,16 @@
     (function earlyFontPreload() {
         try {
             const origin = location.hostname;
-            browser.storage.local.get(['affoApplyMap', 'affoCss2UrlCache']).then(data => {
+            browser.storage.local.get(['affoApplyMap', 'affoCss2UrlCache', 'affoWaitForItDomains']).then(data => {
                 const map = data.affoApplyMap || {};
                 const entry = map[origin];
                 const css2UrlCache = data.affoCss2UrlCache || {};
 
                 if (!entry) return;
+
+                // Skip preloading on Wait For It domains — fonts loaded on demand via long-press
+                const waitForItDomains = data.affoWaitForItDomains || [];
+                if (waitForItDomains.includes(origin)) return;
 
                 // Wait for document.head to be available
                 function injectWhenReady() {
@@ -248,6 +252,9 @@
             case 'initWhatFont':
                 handleInitWhatFont();
                 break;
+            case 'whatfontLongpress':
+                handleWaitForItApply();
+                break;
             case 'openPopup':
                 handleOpenPopup();
                 break;
@@ -281,6 +288,11 @@
         }
     });
     
+    // Handle Wait For It apply — dispatch custom event for content.js to pick up
+    function handleWaitForItApply() {
+        document.dispatchEvent(new CustomEvent('affo-wait-for-it-apply'));
+    }
+
     // Handle WhatFont initialization - using original working architecture
     function handleInitWhatFont() {
         
@@ -682,6 +694,7 @@
         const checkboxDefs = [
             { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
             { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
+            { id: 'affo-quick-pick-waitforit', label: 'Wait For It Domain' },
         ];
 
         for (const def of checkboxDefs) {
@@ -715,7 +728,7 @@
             const origin = location.hostname;
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
-                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains'
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains'
             ]);
             const favorites = data.affoFavorites || {};
             const order = data.affoFavoritesOrder || [];
@@ -726,6 +739,7 @@
                 ffonly: data.affoFontFaceOnlyDomains || [],
                 inline: data.affoInlineApplyDomains || [],
                 aggressive: data.affoAggressiveDomains || [],
+                waitforit: data.affoWaitForItDomains || [],
             };
 
             // Get top 5 favorites (preserve both name and config like Load Favorites modal)
@@ -796,6 +810,7 @@
             { id: 'affo-quick-pick-ffonly', key: 'affoFontFaceOnlyDomains', listKey: 'ffonly' },
             { id: 'affo-quick-pick-inline', key: 'affoInlineApplyDomains', listKey: 'inline' },
             { id: 'affo-quick-pick-aggressive', key: 'affoAggressiveDomains', listKey: 'aggressive' },
+            { id: 'affo-quick-pick-waitforit', key: 'affoWaitForItDomains', listKey: 'waitforit' },
         ];
 
         for (const cfg of checkboxConfig) {

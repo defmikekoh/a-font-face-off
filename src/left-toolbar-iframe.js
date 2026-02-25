@@ -9,6 +9,11 @@
         // Send message to parent window to handle WhatFont
         parent.postMessage({ type: 'initWhatFont' }, '*');
     }
+
+    // WhatFont long-press — trigger Wait For It apply
+    function whatfontLongpress() {
+        parent.postMessage({ type: 'whatfontLongpress' }, '*');
+    }
     
     // Hide toolbar
     function hideToolbar() {
@@ -234,7 +239,7 @@
         }
         
         if (whatfontButton) {
-            handleButtonPress(whatfontButton, initWhatFont, '[Left Toolbar] WhatFont button clicked');
+            handleButtonPress(whatfontButton, initWhatFont, '[Left Toolbar] WhatFont button clicked', whatfontLongpress);
         }
         
         handleButtonPress(hideToolbarButton, hideToolbar, '[Left Toolbar] Hide toolbar button clicked');

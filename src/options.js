@@ -100,6 +100,7 @@
   const DEFAULT_FFONLY = ['x.com'];
   const DEFAULT_INLINE = ['x.com'];
   const DEFAULT_AGGRESSIVE = [];
+  const DEFAULT_WAITFORIT = [];
 
   // Tab functionality
   function initTabs() {
@@ -561,6 +562,7 @@
         'affoFontFaceOnlyDomains',
         'affoInlineApplyDomains',
         'affoAggressiveDomains',
+        'affoWaitForItDomains',
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
@@ -589,6 +591,8 @@
       document.getElementById('inline-domains').value = toTextarea(inline);
       const aggressive = Array.isArray(data.affoAggressiveDomains) ? data.affoAggressiveDomains : DEFAULT_AGGRESSIVE.slice();
       document.getElementById('aggressive-domains').value = toTextarea(aggressive);
+      const waitforit = Array.isArray(data.affoWaitForItDomains) ? data.affoWaitForItDomains : DEFAULT_WAITFORIT.slice();
+      document.getElementById('waitforit-domains').value = toTextarea(waitforit);
 
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
@@ -742,6 +746,23 @@
       await browser.storage.local.set({ affoAggressiveDomains: DEFAULT_AGGRESSIVE.slice() });
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
       const s = document.getElementById('status-aggressive'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function saveWaitForIt(){
+    try {
+      const raw = document.getElementById('waitforit-domains').value;
+      const list = fromTextarea(raw);
+      await browser.storage.local.set({ affoWaitForItDomains: list });
+      const s = document.getElementById('status-waitforit'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function resetWaitForIt(){
+    try {
+      await browser.storage.local.set({ affoWaitForItDomains: DEFAULT_WAITFORIT.slice() });
+      document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
+      const s = document.getElementById('status-waitforit'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {}
   }
 
@@ -905,6 +926,7 @@
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
+      document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
 
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
@@ -960,6 +982,8 @@
     document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('save-aggressive').addEventListener('click', saveAggressive);
     document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
+    document.getElementById('save-waitforit').addEventListener('click', saveWaitForIt);
+    document.getElementById('reset-waitforit').addEventListener('click', resetWaitForIt);
     document.getElementById('save-substack-roulette').addEventListener('click', saveSubstackRoulette);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();
