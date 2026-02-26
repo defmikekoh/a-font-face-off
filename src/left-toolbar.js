@@ -482,9 +482,9 @@
             text-transform: none !important;
             word-spacing: normal !important;
             font-style: normal !important;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            overflow: hidden;
-            max-height: 90vh;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+            overflow: hidden !important;
+            max-height: 90vh !important;
         `;
 
         // Add header
@@ -495,12 +495,17 @@
             align-items: center !important;
             padding: 12px 16px !important;
             border-bottom: 1px solid #dee2e6 !important;
+            flex-shrink: 0 !important;
+            flex-direction: row !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         `;
 
         const headerTitle = document.createElement('h3');
         headerTitle.textContent = 'Quick Pick';
         headerTitle.style.cssText = `
             margin: 0 !important;
+            padding: 0 !important;
             font-size: 14px !important;
             font-family: inherit !important;
             color: #495057 !important;
@@ -508,6 +513,7 @@
             line-height: 1.4 !important;
             letter-spacing: normal !important;
             text-transform: none !important;
+            flex-shrink: 0 !important;
         `;
         header.appendChild(headerTitle);
 
@@ -526,12 +532,19 @@
             height: 20px !important;
             min-width: 20px !important;
             min-height: 20px !important;
+            max-width: 20px !important;
+            max-height: 20px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             border-radius: 50% !important;
-            transition: all 0.2s ease;
+            transition: all 0.2s ease !important;
             line-height: 1 !important;
+            position: static !important;
+            float: none !important;
+            flex-shrink: 0 !important;
+            margin: 0 !important;
+            margin-left: auto !important;
         `;
         headerCloseBtn.onmouseover = function() { this.style.setProperty('background', '#dc3545', 'important'); this.style.setProperty('color', 'white', 'important'); };
         headerCloseBtn.onmouseout = function() { this.style.setProperty('background', 'none', 'important'); this.style.setProperty('color', '#6c757d', 'important'); };
@@ -543,24 +556,24 @@
         // Add body container
         const body = document.createElement('div');
         body.style.cssText = `
-            padding: 16px !important;
+            padding: 8px 16px 16px 16px !important;
             display: flex !important;
             flex-direction: column !important;
             gap: 8px !important;
-            overflow-y: auto;
+            overflow-y: auto !important;
         `;
 
         // Add message element
         const message = document.createElement('div');
         message.id = 'affo-quick-pick-message';
         message.style.cssText = `
-            padding: 8px;
-            text-align: center;
+            padding: 8px !important;
+            text-align: center !important;
             color: #6c757d !important;
             font-size: 13px !important;
             font-family: inherit !important;
             line-height: 1.5 !important;
-            display: none;
+            display: none !important;
             font-weight: 500 !important;
             letter-spacing: normal !important;
             text-transform: none !important;
@@ -569,17 +582,17 @@
 
         // Aggressive Override checkbox (above favorites for visibility)
         const aggressiveLbl = document.createElement('label');
-        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
         const aggressiveCb = document.createElement('input');
         aggressiveCb.type = 'checkbox';
         aggressiveCb.id = 'affo-quick-pick-aggressive';
-        aggressiveCb.style.cssText = 'cursor: pointer; margin: 0;';
+        aggressiveCb.style.cssText = 'cursor: pointer; margin: 0 !important; appearance: checkbox !important; -webkit-appearance: checkbox !important; display: inline-block !important; width: 13px !important; height: 13px !important; opacity: 1 !important; position: static !important; pointer-events: auto !important;';
         aggressiveLbl.appendChild(aggressiveCb);
         aggressiveLbl.appendChild(document.createTextNode('Aggressive Override Domain'));
         body.appendChild(aggressiveLbl);
 
         const aggressiveHr = document.createElement('hr');
-        aggressiveHr.style.cssText = 'border: none; border-top: 1px solid #dee2e6; margin: 2px 0;';
+        aggressiveHr.style.cssText = 'border: none !important; border-top: 1px solid #dee2e6 !important; margin: 2px 0 !important;';
         body.appendChild(aggressiveHr);
 
         // Create 5 favorite buttons (matching Load Favorites modal button styling)
@@ -592,10 +605,10 @@
                 border: 1px solid #dee2e6 !important;
                 border-radius: 4px !important;
                 color: #495057 !important;
-                cursor: pointer;
+                cursor: pointer !important;
                 display: none;
                 font-weight: 500 !important;
-                transition: all 150ms ease;
+                transition: all 150ms ease !important;
                 text-align: left !important;
                 line-height: 1.4 !important;
                 letter-spacing: normal !important;
@@ -626,16 +639,16 @@
             border: 1px solid #0b5ed7 !important;
             border-radius: 4px !important;
             color: #ffffff !important;
-            cursor: pointer;
+            cursor: pointer !important;
             font-size: 13px !important;
             font-family: inherit !important;
             display: none;
             font-weight: 500 !important;
-            transition: all 150ms ease;
+            transition: all 150ms ease !important;
             text-align: center !important;
             justify-content: center !important;
             align-items: center !important;
-            margin-top: 4px;
+            margin-top: 4px !important;
             line-height: 1.4 !important;
             letter-spacing: normal !important;
             text-transform: none !important;
@@ -658,16 +671,16 @@
             border: 1px solid #c82333 !important;
             border-radius: 4px !important;
             color: #ffffff !important;
-            cursor: pointer;
+            cursor: pointer !important;
             font-size: 13px !important;
             font-family: inherit !important;
             display: none;
             font-weight: 500 !important;
-            transition: all 150ms ease;
+            transition: all 150ms ease !important;
             text-align: center !important;
             justify-content: center !important;
             align-items: center !important;
-            margin-top: 4px;
+            margin-top: 4px !important;
             line-height: 1.4 !important;
             letter-spacing: normal !important;
             text-transform: none !important;
@@ -683,9 +696,9 @@
         // Domain setting checkboxes
         const checkboxSection = document.createElement('div');
         checkboxSection.style.cssText = `
-            border-top: 1px solid #dee2e6;
-            margin-top: 8px;
-            padding-top: 8px;
+            border-top: 1px solid #dee2e6 !important;
+            margin-top: 8px !important;
+            padding-top: 8px !important;
             display: flex !important;
             flex-direction: column !important;
             gap: 6px !important;
@@ -699,11 +712,11 @@
 
         for (const def of checkboxDefs) {
             const lbl = document.createElement('label');
-            lbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+            lbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.id = def.id;
-            cb.style.cssText = 'cursor: pointer; margin: 0;';
+            cb.style.cssText = 'cursor: pointer; margin: 0 !important; appearance: checkbox !important; -webkit-appearance: checkbox !important; display: inline-block !important; width: 13px !important; height: 13px !important; opacity: 1 !important; position: static !important; pointer-events: auto !important;';
             lbl.appendChild(cb);
             lbl.appendChild(document.createTextNode(def.label));
             checkboxSection.appendChild(lbl);
@@ -713,6 +726,18 @@
 
         content.appendChild(body);
         overlay.appendChild(content);
+
+        // Inject a reset stylesheet that reverts ALL page CSS on Quick Pick elements.
+        // This is a nuclear reset — `all: revert !important` undoes every page style at once.
+        // Our inline !important styles then override it for properties we care about
+        // (inline !important beats stylesheet !important in the cascade).
+        if (!document.getElementById('affo-quick-pick-reset-style')) {
+            const resetStyle = document.createElement('style');
+            resetStyle.id = 'affo-quick-pick-reset-style';
+            resetStyle.textContent = '[data-affo-guard] *, [data-affo-guard] *::before, [data-affo-guard] *::after { all: revert !important; }';
+            document.head.appendChild(resetStyle);
+        }
+
         document.body.appendChild(overlay);
 
         quickPickMenu = overlay;
@@ -782,17 +807,17 @@
         allBtns.forEach(b => {
             if (b && b.style.display !== 'none') {
                 b.disabled = disabled;
-                b.style.opacity = disabled ? '0.5' : '1';
+                b.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
             }
         });
         if (unapplyBtn) {
             unapplyBtn.disabled = disabled;
-            unapplyBtn.style.opacity = disabled ? '0.5' : '1';
+            unapplyBtn.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
         }
         const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
         if (rewalkBtn) {
             rewalkBtn.disabled = disabled;
-            rewalkBtn.style.opacity = disabled ? '0.5' : '1';
+            rewalkBtn.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
         }
     }
 
@@ -835,24 +860,24 @@
         // Hide all favorite buttons first
         for (let i = 1; i <= 5; i++) {
             const btn = document.getElementById(`affo-quick-pick-font-${i}`);
-            if (btn) btn.style.display = 'none';
+            if (btn) btn.style.setProperty('display', 'none', 'important');
         }
 
         if (noFavorites) {
             message.textContent = 'No favorites saved. Add favorites in the popup.';
-            message.style.display = 'block';
-            unapplyBtn.style.display = 'none';
+            message.style.setProperty('display', 'block', 'important');
+            unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
         if (showBodyModeMessage) {
             message.textContent = 'Domain has already been set in Body Mode. Use popup.';
-            message.style.display = 'block';
-            unapplyBtn.style.display = 'none';
+            message.style.setProperty('display', 'block', 'important');
+            unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
-        message.style.display = 'none';
+        message.style.setProperty('display', 'none', 'important');
 
         // Show favorite buttons and set up click handlers
         for (let i = 0; i < Math.min(favorites.length, 5); i++) {
@@ -872,12 +897,12 @@
 
             // Left side indicator (serif)
             const leftHint = document.createElement('div');
-            leftHint.style.cssText = 'position: absolute; left: 0; top: 0; bottom: 0; width: 50%; pointer-events: none; border-right: 1px dashed #dee2e6;';
+            leftHint.style.cssText = 'position: absolute !important; left: 0 !important; top: 0 !important; bottom: 0 !important; width: 50% !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; border-left: none !important; border-top: none !important; border-bottom: none !important; margin: 0 !important; padding: 0 !important;';
             btn.appendChild(leftHint);
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
-            contentWrapper.style.cssText = 'flex: 1; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 4px 16px !important; pointer-events: none; gap: 2px !important;';
+            contentWrapper.style.cssText = 'flex: 1 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 4px 16px !important; pointer-events: none !important; gap: 2px !important;';
 
             const nameEl = document.createElement('div');
             nameEl.style.cssText = 'font-weight: 500 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
@@ -905,7 +930,7 @@
 
                 setQuickPickButtonsDisabled(true);
                 message.textContent = `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`;
-                message.style.display = 'block';
+                message.style.setProperty('display', 'block', 'important');
 
                 browserAPI.runtime.sendMessage({
                     type: 'quickApplyFavorite',
@@ -929,19 +954,19 @@
             };
 
             btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
-            btn.style.cursor = 'pointer';
+            btn.style.setProperty('cursor', 'pointer', 'important');
         }
 
         // Show unapply button if fonts are applied
         const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body);
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;
-            unapplyBtn.style.opacity = '1';
+            unapplyBtn.style.setProperty('opacity', '1', 'important');
             unapplyBtn.style.setProperty('display', 'flex', 'important');
             unapplyBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
                 message.textContent = 'Removing fonts...';
-                message.style.display = 'block';
+                message.style.setProperty('display', 'block', 'important');
 
                 browserAPI.runtime.sendMessage({
                     type: 'quickUnapplyFonts',
@@ -962,7 +987,7 @@
                 });
             };
         } else {
-            unapplyBtn.style.display = 'none';
+            unapplyBtn.style.setProperty('display', 'none', 'important');
         }
 
         // Show rewalk button if TMI fonts are applied
@@ -970,12 +995,12 @@
         const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono);
         if (rewalkBtn && hasTmiFonts) {
             rewalkBtn.disabled = false;
-            rewalkBtn.style.opacity = '1';
+            rewalkBtn.style.setProperty('opacity', '1', 'important');
             rewalkBtn.style.setProperty('display', 'flex', 'important');
             rewalkBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
                 message.textContent = 'Rewalking...';
-                message.style.display = 'block';
+                message.style.setProperty('display', 'block', 'important');
 
                 browserAPI.runtime.sendMessage({
                     type: 'quickRewalk',
@@ -996,7 +1021,7 @@
                 });
             };
         } else if (rewalkBtn) {
-            rewalkBtn.style.display = 'none';
+            rewalkBtn.style.setProperty('display', 'none', 'important');
         }
     }
 
