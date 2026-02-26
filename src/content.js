@@ -163,6 +163,7 @@
   // Load FontFace-only domains, inline apply domains, aggressive domains, and wait-for-it domains from storage
   var aggressiveDomains = [];
   var waitForItDomains = [];
+  var pendingSubstackRoulette = null;
   try {
     browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -2040,10 +2041,16 @@
             });
           }
 
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', trySubstackRoulette);
-          } else {
-            setTimeout(trySubstackRoulette, 100);
+          // Store for Wait For It manual trigger
+          pendingSubstackRoulette = trySubstackRoulette;
+
+          // Wait For It domains skip auto-roulette; applied on demand via toolbar long-press.
+          if (!waitForItDomains.includes(currentOrigin)) {
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', trySubstackRoulette);
+            } else {
+              setTimeout(trySubstackRoulette, 100);
+            }
           }
         }
 
@@ -2325,6 +2332,9 @@
       if (entry) {
         debugLog('[AFFO Content] Wait For It: manually applying fonts for', location.hostname);
         reapplyStoredFontsFromEntry(entry);
+      } else if (pendingSubstackRoulette) {
+        debugLog('[AFFO Content] Wait For It: manually triggering Substack Roulette for', location.hostname);
+        pendingSubstackRoulette();
       }
     }).catch(function () { });
   });
