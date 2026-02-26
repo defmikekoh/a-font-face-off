@@ -33,3 +33,7 @@ Google Fonts CSS2 API URLs are cached globally in `affoCss2UrlCache` (fontName �
 - **Domain storage (affoApplyMap)**: Does NOT store `fontFaceRule` (eliminated duplication)
 - **UI state & favorites**: DOES include `fontFaceRule` (from `getCurrentUIConfig`, used for popup preview)
 - AP fonts use `data:font/woff2;base64,...` URLs in `ap-fonts.css`. On FontFace-only domains (x.com), `tryCustomFontFaceAPI` detects data: URLs, decodes base64 → ArrayBuffer → FontFace
+
+## Firefox Popup `data:` URL Limitation
+
+The extension popup **will not render fonts from `data:` URLs** in @font-face rules, even with `data:` in CSP `font-src`. This fails silently. Workaround: convert data URLs to blob URLs at runtime (`atob` → `Uint8Array` → `Blob` → `URL.createObjectURL`). Requires `blob:` in CSP `font-src`. AP/APVar fonts use this path: base64 in `ap-fonts.css`, converted to blob URLs by `injectApFonts()` in popup.js.

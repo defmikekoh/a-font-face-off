@@ -19,27 +19,28 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - Generally, don't create fallbacks to fix errors unless specifically told to.
+- ESLint config (`eslint.config.mjs`) uses flat config format — all `files` patterns must use `src/` prefix (e.g., `"src/*.js"`). Without it, rules silently don't apply.
 - `zothercode/fontonic-firefox-android/` is another font changing extension that may occasionally be used as a point of reference.
 - zothercode/fontonic-android-styler-v2.user.js is a user script that changed Substack fonts which this extension largely does also.
 - use ztemp/ as temporary area instead of /tmp/
 - at ztemp/violentmonkey is a cloned copy of the violentmonkey extension
 
-## Source Files (no build step — raw JS served directly)
+## Source Files (in `src/` — no build step, no ES modules, raw JS served directly)
 
 | File | Role |
 |---|---|
-| `config-utils.js` | Pure logic functions shared between popup.js and Node tests |
-| `popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
-| `popup.html` / `popup.css` | Extension popup markup and styles |
-| `content.js` | Injected into pages; font application, element walker, SPA resilience |
-| `css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) |
-| `background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching, cloud sync, Quick Pick handlers |
-| `left-toolbar.js` | Toolbar overlay injected at `document_start`; early font preloading, Quick Pick panel |
-| `left-toolbar-iframe.js` | Iframe-based toolbar implementation |
-| `options.js` / `options.html` | Settings page for domain configs and cache management |
-| `whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) |
-| `custom-fonts.css` | @font-face rules for non-Google custom fonts |
-| `data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
+| `src/config-utils.js` | Pure logic functions shared between popup.js and Node tests |
+| `src/popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
+| `src/popup.html` / `src/popup.css` | Extension popup markup and styles |
+| `src/content.js` | Injected into pages; font application, element walker, SPA resilience |
+| `src/css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) |
+| `src/background.js` | Non-persistent background script; CORS-safe font fetching, WOFF2 caching, cloud sync, Quick Pick handlers |
+| `src/left-toolbar.js` | Toolbar overlay injected at `document_start`; early font preloading, Quick Pick panel |
+| `src/left-toolbar-iframe.js` | Iframe-based toolbar implementation |
+| `src/options.js` / `src/options.html` | Settings page for domain configs and cache management |
+| `src/whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) |
+| `src/custom-fonts.css` | @font-face rules for non-Google custom fonts |
+| `src/data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
 
 ## Three View Modes
 
