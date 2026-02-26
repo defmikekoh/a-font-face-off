@@ -31,6 +31,15 @@ I created this extension because looking at the Spectral font on my Android tabl
 - Add your own font-face css at-rules in the options UI!
 - No tracking, no data collection — all code is open source
 
+## Less Obvious Features
+
+- **Built-in SIL fonts** — Andika (sans), Charis (serif), and Gentium (serif) are bundled as full non-subsetted fonts from [SIL International](https://software.sil.org/). Google Fonts serves broken subsets of these that can't render IPA tone letters and combining diacritical marks correctly.
+- **Quick Pick** — Press the top-most button in the left toolbar (hockey stick and mask icon) to open a favorites panel directly on the page. Apply saved fonts without opening the popup.
+- **Wait For It** — Long-press the WhatFont button to delay font detection until the page finishes loading dynamic content. Configure per-domain in quick pick or options.
+- **Substack Roulette** — Randomly applies a different favorite font each time you visit a Substack page. Configure which favorites participate in options.
+- **Cloud sync** — Sync domain settings, favorites, and custom fonts CSS via Google Drive or WebDAV.
+- **Page Up/Down & Close Tab** — Toolbar buttons to scroll up or down by one viewport height (configurable overlap, long-press for alternate overlap), plus a close-tab button.
+
 ## Install
 
 Firefox Android only. Download and install the signed `.xpi` directly.

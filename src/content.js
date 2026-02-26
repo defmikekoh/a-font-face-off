@@ -337,6 +337,19 @@
           Object.assign(customFontDefinitions, parsed);
         }
 
+        // Always load built-in SIL fonts
+        promises.push(
+          fetch(browser.runtime.getURL('sil-fonts.css'))
+            .then(function (response) { return response.text(); })
+            .then(function (text) {
+              var parsed = parseCustomFontsFromCss(text);
+              Object.assign(customFontDefinitions, parsed);
+            })
+            .catch(function (e) {
+              debugLog('[AFFO Content] Failed to load sil-fonts.css:', e);
+            })
+        );
+
         return Promise.all(promises).then(function () {
           customFontsLoaded = true;
           debugLog('[AFFO Content] Loaded custom font definitions:', Object.keys(customFontDefinitions));
@@ -1309,6 +1322,9 @@
   var FONTFACE_MAX_UNIQUE_CODEPOINTS = 2000;
   var FONTFACE_MAX_SUBSET_DOWNLOADS = 16;
   var FONTFACE_MAX_PARALLEL_DOWNLOADS = 4;
+  var FONTFACE_FULL_SUBSET_FONTS = [
+    'Charis SIL', 'Gentium Plus', 'Gentium Book Plus', 'Noto Sans Mono'
+  ];
 
   function dedupeUrls(urls) {
     if (!urls || urls.length === 0) return [];
@@ -1503,16 +1519,24 @@
             });
             var uniqueWoff2Urls = dedupeUrls(woff2Urls);
 
-            // Build unicode-range map per URL so we can mimic browser subset selection
-            var fontFaceEntries = extractFontFaceEntries(css);
-            var neededCodePoints = collectNeededCodePoints();
-            var filteredUrls = selectUrlsByUnicodeRange(uniqueWoff2Urls, fontFaceEntries, neededCodePoints, {
-              maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS
-            });
+            // Skip subset filtering for fonts with comprehensive IPA/Unicode coverage
+            var skipSubsetFiltering = FONTFACE_FULL_SUBSET_FONTS.indexOf(fontName) !== -1;
+            var filteredUrls;
+            if (skipSubsetFiltering) {
+              filteredUrls = uniqueWoff2Urls;
+              debugLog('[AFFO Content] Skipping subset filtering for IPA-complete font: ' + fontName);
+            } else {
+              // Build unicode-range map per URL so we can mimic browser subset selection
+              var fontFaceEntries = extractFontFaceEntries(css);
+              var neededCodePoints = collectNeededCodePoints();
+              filteredUrls = selectUrlsByUnicodeRange(uniqueWoff2Urls, fontFaceEntries, neededCodePoints, {
+                maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS
+              });
 
-            if (FONTFACE_MAX_SUBSET_DOWNLOADS && uniqueWoff2Urls.length > filteredUrls.length &&
-              filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
-              console.warn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
+              if (FONTFACE_MAX_SUBSET_DOWNLOADS && uniqueWoff2Urls.length > filteredUrls.length &&
+                filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
+                console.warn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
+              }
             }
 
             // Prioritize Latin subsets for faster initial render

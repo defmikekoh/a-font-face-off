@@ -639,6 +639,19 @@ async function ensureCustomFontsLoaded() {
                 const parsed = parseCustomFontsFromCss(customFontsCssText);
                 CUSTOM_FONTS = parsed.names;
                 fontDefinitions = parsed.defs;
+
+                // Load built-in SIL fonts (always merged, not user-editable)
+                try {
+                    const silUrl = browser.runtime.getURL('sil-fonts.css');
+                    const silResponse = await fetch(silUrl);
+                    const silCss = await silResponse.text();
+                    const silParsed = parseCustomFontsFromCss(silCss);
+                    silParsed.names.forEach(name => {
+                        if (!fontDefinitions[name]) CUSTOM_FONTS.push(name);
+                        fontDefinitions[name] = silParsed.defs[name];
+                    });
+                } catch (_e) { /* sil-fonts.css missing or failed */ }
+
                 customFontsLoaded = true;
             } catch (e) {
                 console.warn('Failed to load custom fonts CSS:', e);

@@ -1,0 +1,192 @@
+/*
+ * Full (non-subsetted) SIL International fonts.
+ * Google Fonts hosts these but serves subsetted versions that break composite
+ * glyphs (IPA tone letters, combining diacritical marks). These load the
+ * complete fonts from https://github.com/defmikekoh/sil-font-mirror
+ * Licensed under SIL Open Font License 1.1.
+ */
+
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-MediumItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-SemiBoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Andika";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Andika/Andika-BoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-MediumItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-SemiBoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Charis";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Charis/Charis-BoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-MediumItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-SemiBoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-BoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-ExtraBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gentium";
+  src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-ExtraBoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+}
