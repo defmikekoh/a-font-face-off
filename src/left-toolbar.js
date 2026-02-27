@@ -485,6 +485,9 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
             overflow: hidden !important;
             max-height: 90vh !important;
+            direction: ltr !important;
+            text-align: left !important;
+            align-items: stretch !important;
         `;
 
         // Add header
@@ -559,8 +562,11 @@
             padding: 8px 16px 16px 16px !important;
             display: flex !important;
             flex-direction: column !important;
+            align-items: stretch !important;
             gap: 8px !important;
             overflow-y: auto !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         `;
 
         // Add message element
@@ -582,7 +588,7 @@
 
         // Aggressive Override checkbox (above favorites for visibility)
         const aggressiveLbl = document.createElement('label');
-        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+        aggressiveLbl.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important; width: 100% !important; box-sizing: border-box !important; text-align: left !important; direction: ltr !important;';
         const aggressiveCb = document.createElement('input');
         aggressiveCb.type = 'checkbox';
         aggressiveCb.id = 'affo-quick-pick-aggressive';
@@ -701,7 +707,10 @@
             padding-top: 8px !important;
             display: flex !important;
             flex-direction: column !important;
+            align-items: stretch !important;
             gap: 6px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         `;
 
         const checkboxDefs = [
@@ -712,7 +721,7 @@
 
         for (const def of checkboxDefs) {
             const lbl = document.createElement('label');
-            lbl.style.cssText = 'display: flex !important; align-items: center !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+            lbl.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important; width: 100% !important; box-sizing: border-box !important; text-align: left !important; direction: ltr !important;';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.id = def.id;
