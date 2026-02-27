@@ -2348,6 +2348,22 @@
     console.error(`[AFFO Content] Error setting up message listener:`, e);
   }
 
+  // Element walker trigger from popup.js via executeScript → custom event bridge
+  // (browser.tabs.sendMessage is unreliable from popup context in Firefox)
+  window.__affoWalkerDone = {};
+  document.addEventListener('affo-run-walker', function (evt) {
+    var ft = evt.detail && evt.detail.fontType;
+    if (ft === 'serif' || ft === 'sans' || ft === 'mono') {
+      window.__affoWalkerDone[ft] = false;
+      elementWalkerCompleted[ft] = false;
+      runElementWalker(ft).then(function (markedCounts) {
+        window.__affoWalkerDone[ft] = { done: true, count: (markedCounts && markedCounts[ft]) || 0 };
+      }).catch(function () {
+        window.__affoWalkerDone[ft] = { done: true, count: 0 };
+      });
+    }
+  });
+
   // Wait For It: listen for custom event from left-toolbar.js to manually apply fonts
   document.addEventListener('affo-wait-for-it-apply', function () {
     browser.storage.local.get('affoApplyMap').then(function (data) {

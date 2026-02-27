@@ -365,9 +365,36 @@ function executeScriptInTargetTab(options) {
     }
 }
 
-// Helper: run element walker in the target tab via content.js message
+// Helper: run element walker in the target tab via custom event bridge
+// (browser.tabs.sendMessage from popup is unreliable in Firefox — use executeScript instead)
 function runElementWalkerInTargetTab(fontType) {
-    return sendMessageToTargetTab({ type: 'runElementWalker', fontType: fontType });
+    // Dispatch custom event to trigger walker in content.js
+    return executeScriptInTargetTab({
+        code: `window.__affoWalkerDone && (window.__affoWalkerDone['${fontType}'] = false); document.dispatchEvent(new CustomEvent('affo-run-walker', {detail:{fontType:'${fontType}'}})); true;`
+    }).then(() => {
+        // Poll for walker completion via executeScript
+        return new Promise((resolve) => {
+            let attempts = 0;
+            function poll() {
+                executeScriptInTargetTab({
+                    code: `window.__affoWalkerDone && window.__affoWalkerDone['${fontType}']`
+                }).then(result => {
+                    const val = result && result[0];
+                    if (val && val.done) {
+                        resolve(val);
+                    } else if (++attempts > 100) {
+                        console.warn(`runElementWalkerInTargetTab: Timeout waiting for ${fontType} walker`);
+                        resolve({ done: true, count: 0 });
+                    } else {
+                        setTimeout(poll, 100);
+                    }
+                }).catch(() => {
+                    resolve({ done: true, count: 0 });
+                });
+            }
+            setTimeout(poll, 50);
+        });
+    });
 }
 
 // Helper: insert CSS in the correct tab (source tab if available, otherwise active tab)
