@@ -277,9 +277,12 @@ button {
 
 /* Reset buttons use secondary color like essential-buttons-toolbar */
 #reset-serif,
-#reset-sans, 
+#reset-sans,
 #reset-ffonly,
-#reset-inline {
+#reset-inline,
+#reset-preserved,
+#reset-aggressive,
+#reset-waitforit {
     border: 1px solid var(--secondary-color);
 }
 

@@ -724,6 +724,43 @@
 
         body.appendChild(checkboxSection);
 
+        // Sync Now section (hidden by default, shown when sync is configured)
+        const syncSection = document.createElement('div');
+        syncSection.id = 'affo-quick-pick-sync-section';
+        syncSection.style.cssText = 'display: none !important;';
+
+        const syncHr = document.createElement('hr');
+        syncHr.style.cssText = 'border: none !important; border-top: 1px solid #dee2e6 !important; margin: 0 0 8px 0 !important;';
+        syncSection.appendChild(syncHr);
+
+        const syncBtn = document.createElement('button');
+        syncBtn.id = 'affo-quick-pick-sync-now';
+        syncBtn.textContent = 'Sync Now';
+        syncBtn.style.cssText = `
+            display: block !important;
+            width: 100% !important;
+            padding: 8px 12px !important;
+            background: white !important;
+            color: #0d6efd !important;
+            border: 1px solid #0d6efd !important;
+            border-radius: 6px !important;
+            font-size: 13px !important;
+            font-family: inherit !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            text-align: center !important;
+            line-height: 1.4 !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+        `;
+        syncBtn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#e7f1ff', 'important'); } };
+        syncBtn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', 'white', 'important'); } };
+        syncBtn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#d0e2ff', 'important'); };
+        syncBtn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#e7f1ff', 'important'); };
+        syncSection.appendChild(syncBtn);
+
+        body.appendChild(syncSection);
+
         content.appendChild(body);
         overlay.appendChild(content);
 
@@ -753,7 +790,8 @@
             const origin = location.hostname;
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
-                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains'
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains',
+                'affoSyncBackend'
             ]);
             const favorites = data.affoFavorites || {};
             const order = data.affoFavoritesOrder || [];
@@ -784,6 +822,7 @@
                 domainData,
                 origin,
                 domainLists,
+                syncBackend: data.affoSyncBackend || null,
             });
 
             // Show menu
@@ -822,7 +861,7 @@
     }
 
     // Populate menu with favorites (in page context)
-    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists }) {
+    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists, syncBackend }) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         createQuickPickMenuIfNeeded();
 
@@ -855,6 +894,49 @@
                 }
                 await browserAPI.storage.local.set({ [cfg.key]: current });
             };
+        }
+
+        // Sync Now button — show only when a sync backend is configured
+        const syncSection = document.getElementById('affo-quick-pick-sync-section');
+        const syncBtn = document.getElementById('affo-quick-pick-sync-now');
+        if (syncSection && syncBtn) {
+            if (syncBackend === 'gdrive' || syncBackend === 'webdav') {
+                const syncLabel = syncBackend === 'gdrive' ? 'Google Sync Now' : 'WebDAV Sync Now';
+                syncSection.style.setProperty('display', 'block', 'important');
+                syncBtn.disabled = false;
+                syncBtn.textContent = syncLabel;
+                syncBtn.style.setProperty('opacity', '1', 'important');
+                syncBtn.onclick = async function() {
+                    syncBtn.disabled = true;
+                    syncBtn.textContent = 'Syncing\u2026';
+                    syncBtn.style.setProperty('opacity', '0.7', 'important');
+                    try {
+                        const result = await browserAPI.runtime.sendMessage({ type: 'affoSyncNow' });
+                        if (result && result.ok) {
+                            syncBtn.textContent = 'Synced!';
+                        } else {
+                            syncBtn.textContent = 'Sync Failed';
+                            syncBtn.style.setProperty('color', '#dc3545', 'important');
+                            syncBtn.style.setProperty('border-color', '#dc3545', 'important');
+                            syncBtn.style.setProperty('background', '#fff5f5', 'important');
+                        }
+                    } catch (e) {
+                        syncBtn.textContent = 'Sync Failed';
+                        syncBtn.style.setProperty('background', '#dc3545', 'important');
+                        syncBtn.style.setProperty('border-color', '#c82333', 'important');
+                    }
+                    setTimeout(() => {
+                        syncBtn.disabled = false;
+                        syncBtn.textContent = syncLabel;
+                        syncBtn.style.setProperty('opacity', '1', 'important');
+                        syncBtn.style.setProperty('background', 'white', 'important');
+                        syncBtn.style.setProperty('border-color', '#0d6efd', 'important');
+                        syncBtn.style.setProperty('color', '#0d6efd', 'important');
+                    }, 2000);
+                };
+            } else {
+                syncSection.style.setProperty('display', 'none', 'important');
+            }
         }
 
         // Hide all favorite buttons first
