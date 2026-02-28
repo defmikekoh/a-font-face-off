@@ -81,6 +81,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
     const seed = {
         affoSyncBackend: 'gdrive',
         affoGDriveTokens: { accessToken: 'test-token', refreshToken: 'test-refresh' },
+        affoLegacySyncDataConsent: true,
         ...localSeed,
     };
     const storage = createStorageStub(seed);
@@ -239,7 +240,8 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
 function createQueueHarness() {
     const storage = createStorageStub({
         affoSyncBackend: 'gdrive',
-        affoGDriveTokens: { accessToken: 'access-token', refreshToken: 'refresh-token' }
+        affoGDriveTokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
+        affoLegacySyncDataConsent: true
     });
     const notifications = [];
 
