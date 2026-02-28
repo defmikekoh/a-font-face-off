@@ -4,7 +4,7 @@
 
 # A Font Face-off
 
-**A Firefox Android extension that replaces fonts and changes font sizes on Firefox web pages and also can compare how they look on your Android device.**
+**A Firefox Android extension that replaces font families and sizes on Firefox web pages. Can also compare how 2 different ones look on your Android device before deciding to apply.**
 
 <p align="center">
   <img src="docs/affo-face-off-mode.png" alt="A Font Face-off screenshot showing font comparison on Android" width="300">
@@ -18,7 +18,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 
 ## Three Ways to Use It
 
-- **Body Contact** — Swap the reading font on any page. Settings persist per-site so your picks come back when you do.
+- **Body Contact** — Swap the reading font on any page.
 - **Face-off** — Compare two fonts side-by-side in the popup. Pure comparison, no page changes.
 - **Third Man In** — Three panels for Serif, Sans, and Mono. Each targets its font family type on the page independently.
 
@@ -28,12 +28,13 @@ I created this extension because looking at the Spectral font on my Android tabl
 - Variable axes sliders auto-generated from Google Fonts metadata. Go nuts on the Roboto Flex and Recursive fonts' multiple axes!
 - Save favorites per panel, drag to reorder, load them back instantly
 - Efficient CSS injection handles (mostly) everything — can adapt to aggressive style-clearing sites
-- Add your own font-face css at-rules in the options UI!
+- Add your own font-face css at-rules in the options UI. Can even be a variable font!
 - No tracking, no data collection — all code is open source
 
 ## Less Obvious Features
 
 - **Built-in SIL fonts** — Andika (sans), Charis (serif), and Gentium (serif) are bundled as full non-subsetted fonts from [SIL International](https://software.sil.org/). Google Fonts serves broken subsets of these that can't render IPA tone letters and combining diacritical marks correctly.
+  - Just want a simple Violentmonkey/Tampermonkey user.js for the SIL fonts and don't want the full extension? There's one in userscripts/.
 - **Quick Pick** — Press the top-most button in the left toolbar (hockey stick and mask icon) to open a favorites panel directly on the page. Apply saved fonts without opening the popup.
 - **Wait For It** — Long-press the WhatFont button to delay font detection until the page finishes loading dynamic content. Configure per-domain in quick pick or options.
 - **Substack Roulette** — Randomly applies a different favorite font each time you visit a Substack page. Configure which favorites participate in options.
@@ -42,7 +43,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 
 ## Install
 
-Firefox Android only. Download and install the signed `.xpi` directly.
+Firefox Android only. Download and install the signed `.xpi` from https://github.com/defmikekoh/a-font-face-off/releases/tag/android-test-latest .
 
 ## Acknowledgments
 
@@ -55,5 +56,3 @@ Built on the shoulders of:
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-⚠️ **Alpha Software**: This extension is experimental and under active development. Use at your own risk.

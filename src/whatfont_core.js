@@ -1,3 +1,13 @@
+/**
+ * WhatFont Bookmarklet
+ * https://github.com/chengyin/WhatFont-Bookmarklet
+ *
+ * Copyright (c) 2011, Chengyin Liu, Riobard G. Zhan. All rights reserved.
+ * Licensed under the NCSA Open Source License.
+ * See https://github.com/chengyin/WhatFont-Bookmarklet/blob/master/LICENSE
+ *
+ * Modified for use in A Font Face-off browser extension.
+ */
 /*jslint browser: true, regexp: true, white: true, newcap: false, nomen: true, plusplus: true, vars: true */
 /*global jQuery */
 
