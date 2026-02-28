@@ -1832,6 +1832,10 @@
     }
 
     // Fall back to generic keywords in computed font-family
+    if (/\b(ui-monospace|monospace)\b/.test(computedText)) {
+      return 'mono';
+    }
+
     if (/\bsans-serif\b/.test(computedText)) {
       return 'sans';
     }
