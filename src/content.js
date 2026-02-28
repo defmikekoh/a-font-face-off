@@ -56,6 +56,20 @@
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
   var sharedInlineObserver = null; // single MutationObserver for all inline types
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
+  var sharedInlineDebounceTimer = null; // debounced re-apply timer for inline observer
+
+  // Inline observer thresholds: only reapply on meaningful content additions
+  var INLINE_REAPPLY_DEBOUNCE_MS = 250;
+  var INLINE_MEANINGFUL_MIN_TEXT = 10;
+  var INLINE_MEANINGFUL_MIN_CHILDREN = 1;
+  var INLINE_MEANINGFUL_IGNORE_TAGS = {
+    SCRIPT: true,
+    STYLE: true,
+    LINK: true,
+    META: true,
+    NOSCRIPT: true,
+    TEMPLATE: true
+  };
 
   // Idempotent SPA hook infrastructure — installed once, routes to registered handlers
   var spaHooksInstalled = false;
@@ -593,43 +607,60 @@
     }
   }
 
+  function isMeaningfulInlineAddedNode(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
+
+    // Ignore pure SVG tree additions (icon swaps, etc.) to avoid noisy re-applies.
+    if (node.namespaceURI === 'http://www.w3.org/2000/svg') return false;
+
+    try {
+      if (node.children && node.children.length >= INLINE_MEANINGFUL_MIN_CHILDREN) {
+        return true;
+      }
+    } catch (_) { }
+
+    try {
+      var textLen = String(node.textContent || '').trim().length;
+      if (textLen >= INLINE_MEANINGFUL_MIN_TEXT) return true;
+    } catch (_) { }
+
+    return false;
+  }
+
   // Create or reuse the single shared MutationObserver for all inline types
   function ensureSharedInlineObserver() {
     if (sharedInlineObserver) return;
     sharedInlineObserver = new MutationObserver(function (muts) {
       var types = Object.keys(inlineConfigs);
       if (types.length === 0) return;
-      muts.forEach(function (m) {
-        (m.addedNodes || []).forEach(function (n) {
+
+      var hasMeaningfulAddition = false;
+      muts.some(function (m) {
+        return Array.prototype.some.call(m.addedNodes || [], function (n) {
           try {
-            if (n && n.nodeType === 1) {
-              types.forEach(function (ft) {
-                var cfg = inlineConfigs[ft];
-                if (!cfg) return;
-                var newElements = [];
-                var sel = getAffoSelector(ft);
-                try { if (n.matches && n.matches(sel)) newElements.push(n); } catch (_) { }
-                try { if (n.querySelectorAll) newElements = newElements.concat(Array.from(n.querySelectorAll(sel))); } catch (_) { }
-                newElements.forEach(function (el) {
-                  try {
-                    if (ft === 'body') {
-                      applyAffoProtection(el, cfg.cssPropsObject);
-                    } else {
-                      applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
-                    }
-                  } catch (_) { }
-                });
-                if (newElements.length > 0) {
-                  elementLog('Applied inline styles to ' + newElements.length + ' new ' + ft + ' elements');
-                }
-              });
-            }
-          } catch (_) { }
+            if (!isMeaningfulInlineAddedNode(n)) return false;
+            hasMeaningfulAddition = true;
+            return true;
+          } catch (_) {
+            return false;
+          }
         });
       });
+
+      if (!hasMeaningfulAddition) return;
+
+      if (sharedInlineDebounceTimer) {
+        clearTimeout(sharedInlineDebounceTimer);
+      }
+      sharedInlineDebounceTimer = setTimeout(function () {
+        sharedInlineDebounceTimer = null;
+        if (Object.keys(inlineConfigs).length === 0) return;
+        reapplyAllInlineStyles();
+      }, INLINE_REAPPLY_DEBOUNCE_MS);
     });
     sharedInlineObserver.observe(document.documentElement || document, { childList: true, subtree: true });
-    debugLog('[AFFO Content] Created shared inline MutationObserver');
+    debugLog('[AFFO Content] Created shared inline MutationObserver (meaningful additions + debounce)');
   }
 
   // Set up shared polling timers (frequency ramp: fast → slow → stop)
@@ -728,6 +759,10 @@
       try { sharedInlineObserver.disconnect(); } catch (_) { }
       sharedInlineObserver = null;
       debugLog('[AFFO Content] Disconnected shared inline MutationObserver');
+    }
+    if (sharedInlineDebounceTimer) {
+      try { clearTimeout(sharedInlineDebounceTimer); } catch (_) { }
+      sharedInlineDebounceTimer = null;
     }
     sharedInlineTimers.forEach(function (timerId) {
       try { clearTimeout(timerId); clearInterval(timerId); } catch (_) { }
