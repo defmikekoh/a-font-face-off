@@ -46,7 +46,7 @@ Users can:
 ## Internal checklist before submit
 
 - [ ] Ensure AMO "Permissions and Data" answers match `src/manifest.json` `data_collection_permissions`
-- [ ] Current manifest intent: `required: ["browsingActivity"]`, `optional: ["authenticationInfo", "technicalAndInteraction"]`
+- [ ] Current manifest intent: `required: ["none"]`, `optional: ["browsingActivity", "authenticationInfo", "technicalAndInteraction"]`
 - [ ] Verify sync UI requests optional data consent before connect/test/sync actions
 - [ ] Verify older Firefox fallback consent prompt is shown before sync/auth actions when built-in data consent API is unavailable
 - [ ] Ensure wording matches `PRIVACY.md` exactly (no contradictory claims)

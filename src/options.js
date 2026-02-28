@@ -101,20 +101,8 @@
   const DEFAULT_INLINE = ['x.com'];
   const DEFAULT_AGGRESSIVE = [];
   const DEFAULT_WAITFORIT = [];
-  const SYNC_OPTIONAL_DATA_COLLECTION = ['authenticationInfo', 'technicalAndInteraction'];
+  const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
   const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
-
-  async function hasDataCollectionPermissionsApi() {
-    if (!browser.permissions || typeof browser.permissions.getAll !== 'function') {
-      return false;
-    }
-    try {
-      const permissions = await browser.permissions.getAll();
-      return !!(permissions && Object.prototype.hasOwnProperty.call(permissions, 'data_collection'));
-    } catch (_) {
-      return false;
-    }
-  }
 
   async function hasLegacySyncDataConsent() {
     try {
@@ -138,27 +126,53 @@
     return true;
   }
 
-  async function ensureSyncDataCollectionConsent() {
-    if (
-      !browser.permissions ||
-      typeof browser.permissions.contains !== 'function' ||
-      typeof browser.permissions.request !== 'function'
-    ) {
-      return ensureLegacySyncDataConsent();
+  async function requestBuiltInSyncDataCollectionConsent() {
+    if (!browser.permissions || typeof browser.permissions.request !== 'function') {
+      return { supported: false, granted: false };
     }
 
-    const hasDataCollectionApi = await hasDataCollectionPermissionsApi();
-    if (!hasDataCollectionApi) return ensureLegacySyncDataConsent();
+    try {
+      // Must be called directly from a user input handler.
+      const granted = await browser.permissions.request({
+        data_collection: SYNC_OPTIONAL_DATA_COLLECTION
+      });
+      return { supported: true, granted: !!granted };
+    } catch (e) {
+      const message = e && e.message ? e.message : String(e);
 
-    const alreadyGranted = await browser.permissions.contains({
-      data_collection: SYNC_OPTIONAL_DATA_COLLECTION
-    });
-    if (alreadyGranted) return true;
+      if (/data_collection|unexpected property|invalid permission/i.test(message)) {
+        return { supported: false, granted: false };
+      }
 
-    const granted = await browser.permissions.request({
-      data_collection: SYNC_OPTIONAL_DATA_COLLECTION
-    });
-    if (!granted) {
+      if (/user input handler/i.test(message)) {
+        let alreadyGranted = false;
+        if (browser.permissions && typeof browser.permissions.contains === 'function') {
+          try {
+            alreadyGranted = await browser.permissions.contains({
+              data_collection: SYNC_OPTIONAL_DATA_COLLECTION
+            });
+          } catch (_) {}
+        }
+        if (alreadyGranted) return { supported: true, granted: true };
+      }
+
+      throw e;
+    }
+  }
+
+  async function ensureSyncDataCollectionConsent() {
+    // Request built-in consent first while still in direct click flow.
+    const builtIn = await requestBuiltInSyncDataCollectionConsent();
+    if (builtIn.supported) {
+      if (!builtIn.granted) {
+        throw new Error('Sync consent was not granted');
+      }
+      return true;
+    }
+
+    // Older Firefox fallback path.
+    const legacyGranted = await ensureLegacySyncDataConsent();
+    if (!legacyGranted) {
       throw new Error('Sync consent was not granted');
     }
     return true;

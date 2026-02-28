@@ -43,7 +43,7 @@ const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
 const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
 const SYNC_ALARM_NAME = 'affoPeriodicSync';
 const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
-const SYNC_OPTIONAL_DATA_COLLECTION = ['authenticationInfo', 'technicalAndInteraction'];
+const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
 const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
 // Google Drive constants
