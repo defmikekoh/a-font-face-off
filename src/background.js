@@ -43,6 +43,8 @@ const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
 const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
 const SYNC_ALARM_NAME = 'affoPeriodicSync';
 const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
+const SYNC_OPTIONAL_DATA_COLLECTION = ['authenticationInfo', 'technicalAndInteraction'];
+const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
 // Google Drive constants
 const GDRIVE_TOKENS_KEY = 'affoGDriveTokens';
@@ -907,6 +909,51 @@ async function isSyncConfigured() {
   return backend ? backend.isConfigured() : false;
 }
 
+async function hasDataCollectionPermissionsApi() {
+  if (!browser.permissions || typeof browser.permissions.getAll !== 'function') {
+    return false;
+  }
+  try {
+    const permissions = await browser.permissions.getAll();
+    return !!(permissions && Object.prototype.hasOwnProperty.call(permissions, 'data_collection'));
+  } catch (_) {
+    return false;
+  }
+}
+
+async function hasSyncDataCollectionConsent() {
+  async function hasLegacySyncDataConsent() {
+    try {
+      const data = await browser.storage.local.get(SYNC_LEGACY_DATA_CONSENT_KEY);
+      return data[SYNC_LEGACY_DATA_CONSENT_KEY] === true;
+    } catch (e) {
+      console.warn('[AFFO Background] Failed checking legacy sync consent:', e);
+      return false;
+    }
+  }
+
+  if (!browser.permissions || typeof browser.permissions.contains !== 'function') {
+    return hasLegacySyncDataConsent();
+  }
+  const hasDataCollectionApi = await hasDataCollectionPermissionsApi();
+  if (!hasDataCollectionApi) return hasLegacySyncDataConsent();
+  try {
+    return await browser.permissions.contains({
+      data_collection: SYNC_OPTIONAL_DATA_COLLECTION
+    });
+  } catch (e) {
+    console.warn('[AFFO Background] Failed checking sync data consent:', e);
+    return false;
+  }
+}
+
+async function assertSyncDataCollectionConsent() {
+  const granted = await hasSyncDataCollectionConsent();
+  if (!granted) {
+    throw new Error('Sync consent was not granted');
+  }
+}
+
 // ─── Sync Algorithm ───────────────────────────────────────────────────
 
 function notifySyncFailure(errorMessage) {
@@ -957,6 +1004,10 @@ async function syncPush(backend, localState, filename, content, contentType) {
 }
 
 async function runSync() {
+  if (!(await hasSyncDataCollectionConsent())) {
+    console.warn('[AFFO Background] Sync skipped — optional data collection consent not granted');
+    return { ok: true, skipped: true, reason: 'data_consent_not_granted' };
+  }
 
   const backend = await getActiveBackend();
   if (!backend || !(await backend.isConfigured())) {
@@ -1613,6 +1664,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
     if (msg.type === 'affoGDriveAuth') {
       try {
+        await assertSyncDataCollectionConsent();
         return await startGDriveAuth();
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
@@ -1629,6 +1681,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
     if (msg.type === 'affoWebDavConnect') {
       try {
+        await assertSyncDataCollectionConsent();
         return await connectWebDav(msg.config);
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
@@ -1645,6 +1698,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
     if (msg.type === 'affoWebDavTest') {
       try {
+        await assertSyncDataCollectionConsent();
         return await testWebDavConnection(msg.config);
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
@@ -1663,6 +1717,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
     if (msg.type === 'affoSyncNow') {
       try {
+        await assertSyncDataCollectionConsent();
         return await enqueueSync({ notifyOnError: true });
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
@@ -1671,6 +1726,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
     if (msg.type === 'affoSyncRetry') {
       try {
+        await assertSyncDataCollectionConsent();
         return await enqueueSync({ notifyOnError: true });
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };

@@ -29,7 +29,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 - Save favorites per panel, drag to reorder, load them back instantly
 - Efficient CSS injection handles (mostly) everything — can adapt to aggressive style-clearing sites
 - Add your own font-face css at-rules in the options UI. Can even be a variable font!
-- No tracking, no data collection — all code is open source
+- No advertising SDKs or third-party analytics trackers — all code is open source
 
 ## Less Obvious Features
 
@@ -44,6 +44,17 @@ I created this extension because looking at the Spectral font on my Android tabl
 ## Install
 
 Firefox Android only. Download and install the signed `.xpi` from https://github.com/defmikekoh/a-font-face-off/releases/tag/android-test-latest .
+
+## Privacy
+
+This extension can process browsing activity (current tab URL/origin) to apply per-site font settings and support optional cloud sync features.
+
+- Not sold to data brokers
+- Not used for advertising
+- Not used for creditworthiness, lending, housing, insurance, education admissions, criminal justice, employment, or healthcare decisions
+- Optional sync backends (Google Drive or WebDAV) only transmit extension settings/configuration data needed for sync
+
+See [PRIVACY.md](PRIVACY.md) for details.
 
 ## Acknowledgments
 

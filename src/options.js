@@ -101,6 +101,68 @@
   const DEFAULT_INLINE = ['x.com'];
   const DEFAULT_AGGRESSIVE = [];
   const DEFAULT_WAITFORIT = [];
+  const SYNC_OPTIONAL_DATA_COLLECTION = ['authenticationInfo', 'technicalAndInteraction'];
+  const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
+
+  async function hasDataCollectionPermissionsApi() {
+    if (!browser.permissions || typeof browser.permissions.getAll !== 'function') {
+      return false;
+    }
+    try {
+      const permissions = await browser.permissions.getAll();
+      return !!(permissions && Object.prototype.hasOwnProperty.call(permissions, 'data_collection'));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function hasLegacySyncDataConsent() {
+    try {
+      const data = await browser.storage.local.get(SYNC_LEGACY_DATA_CONSENT_KEY);
+      return data[SYNC_LEGACY_DATA_CONSENT_KEY] === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function ensureLegacySyncDataConsent() {
+    const alreadyGranted = await hasLegacySyncDataConsent();
+    if (alreadyGranted) return true;
+
+    const promptText = 'Cloud sync sends extension settings and sync credentials/configuration to your selected provider (Google Drive or WebDAV). Allow sync data sharing?';
+    const granted = window.confirm(promptText);
+    if (!granted) {
+      throw new Error('Sync consent was not granted');
+    }
+    await browser.storage.local.set({ [SYNC_LEGACY_DATA_CONSENT_KEY]: true });
+    return true;
+  }
+
+  async function ensureSyncDataCollectionConsent() {
+    if (
+      !browser.permissions ||
+      typeof browser.permissions.contains !== 'function' ||
+      typeof browser.permissions.request !== 'function'
+    ) {
+      return ensureLegacySyncDataConsent();
+    }
+
+    const hasDataCollectionApi = await hasDataCollectionPermissionsApi();
+    if (!hasDataCollectionApi) return ensureLegacySyncDataConsent();
+
+    const alreadyGranted = await browser.permissions.contains({
+      data_collection: SYNC_OPTIONAL_DATA_COLLECTION
+    });
+    if (alreadyGranted) return true;
+
+    const granted = await browser.permissions.request({
+      data_collection: SYNC_OPTIONAL_DATA_COLLECTION
+    });
+    if (!granted) {
+      throw new Error('Sync consent was not granted');
+    }
+    return true;
+  }
 
   // Tab functionality
   function initTabs() {
@@ -431,6 +493,8 @@
   async function connectGDrive() {
     const statusEl = document.getElementById('status-gdrive-connect');
     try {
+      statusEl.textContent = 'Awaiting consent...';
+      await ensureSyncDataCollectionConsent();
       statusEl.textContent = 'Connecting...';
       const res = await browser.runtime.sendMessage({ type: 'affoGDriveAuth' });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
@@ -446,6 +510,8 @@
   async function connectWebDav() {
     const statusEl = document.getElementById('status-webdav-connect');
     try {
+      statusEl.textContent = 'Awaiting consent...';
+      await ensureSyncDataCollectionConsent();
       const config = {
         serverUrl: (document.getElementById('webdav-server-url').value || '').trim(),
         username: (document.getElementById('webdav-username').value || '').trim(),
@@ -471,6 +537,8 @@
   async function testWebDav() {
     const statusEl = document.getElementById('status-webdav-connect');
     try {
+      statusEl.textContent = 'Awaiting consent...';
+      await ensureSyncDataCollectionConsent();
       const config = {
         serverUrl: (document.getElementById('webdav-server-url').value || '').trim(),
         username: (document.getElementById('webdav-username').value || '').trim(),
@@ -525,13 +593,19 @@
   async function syncNow() {
     const statusEl = document.getElementById('status-sync');
     try {
+      statusEl.textContent = 'Awaiting consent...';
+      await ensureSyncDataCollectionConsent();
       statusEl.textContent = 'Syncing...';
       const res = await browser.runtime.sendMessage({ type: 'affoSyncNow' });
       if (!res) throw new Error('No response from background');
       if (res.skipped) {
-        statusEl.textContent = res.reason === 'offline'
-          ? 'You appear to be offline'
-          : 'Sync not connected';
+        if (res.reason === 'offline') {
+          statusEl.textContent = 'You appear to be offline';
+        } else if (res.reason === 'data_consent_not_granted') {
+          statusEl.textContent = 'Sync consent not granted';
+        } else {
+          statusEl.textContent = 'Sync not connected';
+        }
       } else if (!res.ok) {
         throw new Error(res.error || 'Sync failed');
       } else {
