@@ -57,6 +57,8 @@
   var sharedInlineObserver = null; // single MutationObserver for all inline types
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
   var sharedInlineDebounceTimer = null; // debounced re-apply timer for inline observer
+  var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
+  var styleOrderChaserMoving = false;
 
   // Inline observer thresholds: only reapply on meaningful content additions
   var INLINE_REAPPLY_DEBOUNCE_MS = 250;
@@ -425,6 +427,92 @@
       el.setAttribute('data-affo-font-weight', '700');
       el.setAttribute('data-affo-was-bold', 'true');
     }
+  }
+
+  function hasAffoStyleNodes() {
+    try {
+      return !!(document.head && (
+        document.getElementById('a-font-face-off-style-body') ||
+        document.getElementById('a-font-face-off-style-serif') ||
+        document.getElementById('a-font-face-off-style-sans') ||
+        document.getElementById('a-font-face-off-style-mono')
+      ));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function maybeStopNonAggressiveStyleOrderChaser() {
+    if (!styleOrderChaserObserver) return;
+    if (hasAffoStyleNodes()) return;
+    try { styleOrderChaserObserver.disconnect(); } catch (_) { }
+    styleOrderChaserObserver = null;
+    styleOrderChaserMoving = false;
+    debugLog('[AFFO Content] Stopped non-aggressive style-order chaser');
+  }
+
+  function moveAffoStylesToEnd() {
+    if (shouldUseAggressive() || shouldUseInlineApply()) return;
+    if (styleOrderChaserMoving) return;
+    var head = document.head;
+    if (!head) return;
+
+    var nodes = [];
+    try {
+      nodes = [
+        document.getElementById('a-font-face-off-style-body'),
+        document.getElementById('a-font-face-off-style-serif'),
+        document.getElementById('a-font-face-off-style-sans'),
+        document.getElementById('a-font-face-off-style-mono')
+      ].filter(function (node) { return !!(node && node.tagName === 'STYLE' && node.parentNode === head); });
+    } catch (_) { }
+
+    if (nodes.length === 0) {
+      maybeStopNonAggressiveStyleOrderChaser();
+      return;
+    }
+
+    var lastAffo = nodes[nodes.length - 1];
+    if (head.lastElementChild === lastAffo) return;
+
+    styleOrderChaserMoving = true;
+    try {
+      nodes.forEach(function (node) {
+        try { if (node.parentNode === head) head.appendChild(node); } catch (_) { }
+      });
+    } finally {
+      setTimeout(function () { styleOrderChaserMoving = false; }, 50);
+    }
+  }
+
+  function ensureNonAggressiveStyleOrderChaser() {
+    if (shouldUseAggressive() || shouldUseInlineApply()) return;
+    if (!document.head) return;
+    if (styleOrderChaserObserver) {
+      moveAffoStylesToEnd();
+      return;
+    }
+
+    styleOrderChaserObserver = new MutationObserver(function (muts) {
+      if (styleOrderChaserMoving) return;
+      if (shouldUseAggressive() || shouldUseInlineApply()) return;
+
+      var sawStyleOrLink = muts.some(function (m) {
+        return Array.prototype.some.call(m.addedNodes || [], function (n) {
+          return !!(n && n.nodeType === 1 && (n.nodeName === 'STYLE' || n.nodeName === 'LINK'));
+        });
+      });
+      if (!sawStyleOrLink) return;
+      moveAffoStylesToEnd();
+    });
+    styleOrderChaserObserver.observe(document.head, { childList: true });
+
+    // Reassert ordering after SPA navigations/focus restores.
+    registerSpaHandler(moveAffoStylesToEnd);
+    registerFocusHandler(moveAffoStylesToEnd);
+
+    debugLog('[AFFO Content] Started non-aggressive style-order chaser');
+    moveAffoStylesToEnd();
   }
 
   function applyInlineStyles(fontConfig, fontType) {
@@ -1967,6 +2055,7 @@
               styleEl.id = styleId;
               styleEl.textContent = css;
               document.head.appendChild(styleEl);
+              ensureNonAggressiveStyleOrderChaser();
               debugLog(`[AFFO Content] Applied CSS for ${fontType} from storage change:`, css);
             }
           }
@@ -2055,6 +2144,7 @@
       if (!entry) {
         // Clean up all stale styles if no entry exists
         ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
+        maybeStopNonAggressiveStyleOrderChaser();
 
         // --- Substack Roulette ---
         var rouletteEnabled = data.affoSubstackRoulette !== false; // default true
@@ -2171,6 +2261,7 @@
                   styleEl.id = styleId;
                   styleEl.textContent = css;
                   document.head.appendChild(styleEl);
+                  ensureNonAggressiveStyleOrderChaser();
                   elementLog(`Applied CSS for ${fontType}:`, css);
                 }
               }
@@ -2272,6 +2363,7 @@
           reapplyStoredFontsFromEntry(entry);
         } else {
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
+          maybeStopNonAggressiveStyleOrderChaser();
         }
       } catch (e) {
         console.error(`[AFFO Content] Error in storage change handler:`, e);
@@ -2363,6 +2455,8 @@
               }
             }
           } catch (e) { }
+
+          maybeStopNonAggressiveStyleOrderChaser();
 
           // Remove any Third Man In data attributes
           try {
