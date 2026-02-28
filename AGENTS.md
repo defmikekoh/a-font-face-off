@@ -20,10 +20,6 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - ESLint config (`eslint.config.mjs`) uses flat config format — all `files` patterns must use `src/` prefix (e.g., `"src/*.js"`). Without it, rules silently don't apply.
-- `zothercode/fontonic-firefox-android/` is another font changing extension that may occasionally be used as a point of reference.
-- zothercode/fontonic-android-styler-v2.user.js is a user script that changed Substack fonts which this extension largely does also.
-- use ztemp/ as temporary area instead of /tmp/
-- at ztemp/violentmonkey is a cloned copy of the violentmonkey extension
 
 ## Source Files (in `src/` — no build step, no ES modules, raw JS served directly)
 
