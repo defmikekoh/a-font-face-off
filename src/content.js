@@ -1831,6 +1831,16 @@
       }
     }
 
+    // Family-suffix fallback for names like "Stack Sans" / "Stack Serif".
+    // Treat "... Sans Serif" as sans (same intent as generic sans-serif).
+    for (var si = 0; si < computedParts.length; si++) {
+      var family = computedParts[si];
+      if (!family) continue;
+      if (/\bsans(?:-|\s)+serif$/.test(family)) return 'sans';
+      if (/\bsans$/.test(family)) return 'sans';
+      if (/\bserif$/.test(family)) return 'serif';
+    }
+
     // Fall back to generic keywords in computed font-family
     if (/\b(ui-monospace|monospace)\b/.test(computedText)) {
       return 'mono';
