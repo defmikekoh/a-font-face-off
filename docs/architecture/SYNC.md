@@ -9,7 +9,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap`), favorite
 - `gdriveBackend` / `webdavBackend` objects with `init()`, `isConfigured()`, `get()`, `put()`, `remove()`
 - One active at a time: `affoSyncBackend` storage key = `'gdrive'` | `'webdav'`
 - `runSync()` is backend-agnostic, uses `getActiveBackend()` to select
-- `syncPush()` helper wraps revision check (GDrive) or direct put (WebDAV)
+- `syncPush()` helper wraps revision checks for both backends (GDrive remote revision, WebDAV ETag when available)
 
 ## Google Drive
 
@@ -19,7 +19,10 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap`), favorite
 
 ## WebDAV
 
-- Basic auth or anonymous, no ETags/remoteRev, `credentials: 'omit'`, MKCOL for folder
+- Basic auth or anonymous, `credentials: 'omit'`, MKCOL for folder
+- Uses `ETag` as `remoteRev` when server provides it
+- Sends `If-Match` on `PUT` when an existing item has a stored WebDAV ETag (optimistic concurrency)
+- If server omits `ETag`, writes continue without optimistic revision protection for that item
 
 ## Bidirectional Merge
 

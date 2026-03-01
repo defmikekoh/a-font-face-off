@@ -822,6 +822,24 @@ function webdavHeaders(config) {
   return headers;
 }
 
+function normalizeWebDavEtag(rawEtag) {
+  if (typeof rawEtag !== 'string') return null;
+  const etag = rawEtag.trim();
+  return etag ? etag : null;
+}
+
+function buildWebDavRemoteRevision(etag) {
+  const normalized = normalizeWebDavEtag(etag);
+  return normalized ? `webdav-etag:${normalized}` : null;
+}
+
+function parseWebDavRemoteRevision(remoteRev) {
+  const raw = (typeof remoteRev === 'string') ? remoteRev.trim() : '';
+  if (!raw.startsWith('webdav-etag:')) return null;
+  const etag = normalizeWebDavEtag(raw.slice('webdav-etag:'.length));
+  return etag ? { etag } : null;
+}
+
 async function webdavInit() {
   const config = await getWebDavConfig();
   if (!config || !config.serverUrl) throw new Error('WebDAV not configured');
@@ -845,7 +863,7 @@ async function webdavInit() {
 // ─── Sync Backend Interface ───────────────────────────────────────────
 // Each backend provides: init(), isConfigured(), get(name), put(name, content, contentType), remove(name)
 // get returns { data, remoteRev } | { notFound: true }
-// put returns { remoteRev } (null for backends without revision tracking)
+// put returns { remoteRev } (if backend supports revision tracking)
 
 const gdriveBackend = {
   name: 'gdrive',
@@ -877,17 +895,27 @@ const webdavBackend = {
     if (res.status === 404) return { notFound: true };
     if (!res.ok) throw new Error('WebDAV GET failed: ' + res.status);
     const data = await res.text();
-    return { data, remoteRev: null };
+    const remoteRev = buildWebDavRemoteRevision(res.headers.get('ETag'));
+    return { data, remoteRev };
   },
-  async put(name, content, contentType) {
+  async put(name, content, contentType, options = {}) {
+    const expected = parseWebDavRemoteRevision(options.expectedRemoteRev);
+    const headers = { ...this._headers, 'Content-Type': contentType };
+    if (expected && expected.etag) {
+      headers['If-Match'] = expected.etag;
+    }
     const res = await fetch(this._baseUrl + encodeURIComponent(name), {
       method: 'PUT',
-      headers: { ...this._headers, 'Content-Type': contentType },
+      headers,
       body: content,
       credentials: 'omit'
     });
+    if (res.status === 412) {
+      throw new Error(`Remote revision changed for ${name}; WebDAV If-Match precondition failed`);
+    }
     if (!res.ok) throw new Error('WebDAV PUT failed: ' + res.status);
-    return { remoteRev: null };
+    const remoteRev = buildWebDavRemoteRevision(res.headers.get('ETag'));
+    return { remoteRev };
   },
   async remove(name) {
     const res = await fetch(this._baseUrl + encodeURIComponent(name), {
@@ -1000,7 +1028,8 @@ async function syncPush(backend, localState, filename, content, contentType) {
     const putResult = await backend.put(filename, content, contentType);
     return putResult.remoteRev || revCheck.currentRemoteRev || null;
   }
-  const putResult = await backend.put(filename, content, contentType);
+  const expectedRemoteRev = getExpectedRemoteRevision(localState);
+  const putResult = await backend.put(filename, content, contentType, { expectedRemoteRev });
   return putResult.remoteRev || null;
 }
 
