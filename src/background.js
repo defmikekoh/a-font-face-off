@@ -8,6 +8,7 @@ if (!AFFO_DEBUG) {
 const FONT_CACHE_KEY = 'affoFontCache';
 const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
 const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
+const AFFO_FETCH_TIMEOUT_MS = 15000; // 15s timeout for remote CSS/font fetches
 const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
 const APPLY_MAP_KEY = 'affoApplyMap';
 const FAVORITES_KEY = 'affoFavorites';
@@ -1996,7 +1997,17 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       }
     }
 
-    const res = await fetch(url, { credentials: 'omit' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function () {
+      try { controller.abort(); } catch (_) { }
+    }, AFFO_FETCH_TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(url, { credentials: 'omit', signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
 
     if (binary) {
