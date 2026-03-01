@@ -11,6 +11,7 @@ const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Fi
 const AFFO_FETCH_TIMEOUT_MS = 15000; // 15s timeout for remote CSS/font fetches
 const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
 const APPLY_MAP_KEY = 'affoApplyMap';
+const APPLY_MAP_META_KEY = 'affoApplyMapMeta';
 const FAVORITES_KEY = 'affoFavorites';
 const FAVORITES_ORDER_KEY = 'affoFavoritesOrder';
 
@@ -20,23 +21,32 @@ const SYNC_META_KEY = 'affoSyncMeta';
 const SYNC_FOLDER_NAME = 'A Font Face-off';
 const SYNC_MANIFEST_NAME = 'sync-manifest.json';
 const SYNC_DOMAINS_NAME = 'domains.json';
+const SYNC_DOMAINS_META_NAME = 'domains-meta.json';
 const SYNC_FAVORITES_NAME = 'favorites.json';
 const SYNC_CUSTOM_FONTS_NAME = 'custom-fonts.css';
 const SYNC_KNOWN_SERIF_NAME = 'known-serif.json';
 const SYNC_KNOWN_SANS_NAME = 'known-sans.json';
 const SYNC_FFONLY_DOMAINS_NAME = 'fontface-only-domains.json';
+const SYNC_FFONLY_DOMAINS_META_NAME = 'fontface-only-domains-meta.json';
 const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
+const SYNC_INLINE_DOMAINS_META_NAME = 'inline-apply-domains-meta.json';
 const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
+const SYNC_AGGRESSIVE_DOMAINS_META_NAME = 'aggressive-domains-meta.json';
 const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
+const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
 const KNOWN_SERIF_KEY = 'affoKnownSerif';
 const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
+const FFONLY_DOMAINS_META_KEY = 'affoFontFaceOnlyDomainsMeta';
 const INLINE_DOMAINS_KEY = 'affoInlineApplyDomains';
+const INLINE_DOMAINS_META_KEY = 'affoInlineApplyDomainsMeta';
 const AGGRESSIVE_DOMAINS_KEY = 'affoAggressiveDomains';
+const AGGRESSIVE_DOMAINS_META_KEY = 'affoAggressiveDomainsMeta';
 const WAITFORIT_DOMAINS_KEY = 'affoWaitForItDomains';
+const WAITFORIT_DOMAINS_META_KEY = 'affoWaitForItDomainsMeta';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
 const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
@@ -170,6 +180,187 @@ function sanitizeSyncContainer(raw) {
     out[key] = sanitizeSyncItem(value);
   }
   return out;
+}
+
+function sanitizeApplyMap(rawMap) {
+  const source = (rawMap && typeof rawMap === 'object') ? rawMap : {};
+  const out = {};
+  for (const origin of Object.keys(source).sort()) {
+    const value = source[origin];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      out[origin] = value;
+    }
+  }
+  return out;
+}
+
+function sanitizeApplyMapMeta(rawMeta) {
+  const source = (rawMeta && typeof rawMeta === 'object') ? rawMeta : {};
+  const maybeByOrigin = (source.byOrigin && typeof source.byOrigin === 'object')
+    ? source.byOrigin
+    : source;
+  const byOrigin = {};
+  for (const origin of Object.keys(maybeByOrigin).sort()) {
+    const item = sanitizeSyncItem(maybeByOrigin[origin]);
+    if (item.modified > 0) {
+      byOrigin[origin] = item;
+    }
+  }
+  return {
+    version: 1,
+    byOrigin
+  };
+}
+
+function getApplyMapMetaMaxModified(metaByOrigin) {
+  let max = 0;
+  for (const item of Object.values(metaByOrigin || {})) {
+    const modified = sanitizeSyncItem(item).modified;
+    if (modified > max) max = modified;
+  }
+  return max;
+}
+
+function compareSyncItems(localItemRaw, remoteItemRaw) {
+  const local = sanitizeSyncItem(localItemRaw);
+  const remote = sanitizeSyncItem(remoteItemRaw);
+
+  if (local.modified > remote.modified) return 1;
+  if (remote.modified > local.modified) return -1;
+
+  const localDeletedAt = sanitizeTimestamp(local.deletedAt);
+  const remoteDeletedAt = sanitizeTimestamp(remote.deletedAt);
+  if (localDeletedAt > remoteDeletedAt) return 1;
+  if (remoteDeletedAt > localDeletedAt) return -1;
+  if (localDeletedAt > 0 && remoteDeletedAt === 0) return 1;
+  if (remoteDeletedAt > 0 && localDeletedAt === 0) return -1;
+  return 0;
+}
+
+function jsonEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+async function markApplyMapOriginsModified(change) {
+  const oldMap = sanitizeApplyMap(change && change.oldValue);
+  const newMap = sanitizeApplyMap(change && change.newValue);
+  const allOrigins = new Set([...Object.keys(oldMap), ...Object.keys(newMap)]);
+  const changedOrigins = [];
+  for (const origin of allOrigins) {
+    if (!jsonEqual(oldMap[origin], newMap[origin])) {
+      changedOrigins.push(origin);
+    }
+  }
+  if (!changedOrigins.length) return false;
+
+  const now = Date.now();
+  const stored = await browser.storage.local.get(APPLY_MAP_META_KEY);
+  const nextMeta = sanitizeApplyMapMeta(stored[APPLY_MAP_META_KEY]);
+
+  for (const origin of changedOrigins.sort()) {
+    if (Object.prototype.hasOwnProperty.call(newMap, origin)) {
+      nextMeta.byOrigin[origin] = { modified: now };
+    } else {
+      nextMeta.byOrigin[origin] = { modified: now, deletedAt: now };
+    }
+  }
+
+  await browser.storage.local.set({ [APPLY_MAP_META_KEY]: nextMeta });
+  await queueSyncMetaMutation((meta) => {
+    setModified(meta.items, SYNC_DOMAINS_NAME, now);
+    setModified(meta.items, SYNC_DOMAINS_META_NAME, now);
+  });
+  return true;
+}
+
+function sanitizeDomainOriginArray(rawArray) {
+  if (!Array.isArray(rawArray)) return [];
+  const uniq = new Set();
+  for (const item of rawArray) {
+    const origin = (typeof item === 'string') ? item.trim() : '';
+    if (origin) uniq.add(origin);
+  }
+  return Array.from(uniq).sort();
+}
+
+function sanitizeDomainOriginMeta(rawMeta) {
+  return sanitizeApplyMapMeta(rawMeta);
+}
+
+function seedDomainMetaFromArray(meta, origins, fallbackModified, now) {
+  const modified = sanitizeTimestamp(fallbackModified) || now;
+  for (const origin of origins) {
+    if (!meta.byOrigin[origin]) {
+      meta.byOrigin[origin] = { modified };
+    }
+  }
+}
+
+function mergeDomainOriginMeta(localMeta, remoteMeta) {
+  const allOrigins = new Set([
+    ...Object.keys(localMeta.byOrigin),
+    ...Object.keys(remoteMeta.byOrigin)
+  ]);
+  const mergedByOrigin = {};
+
+  for (const origin of Array.from(allOrigins).sort()) {
+    const localItem = localMeta.byOrigin[origin] || null;
+    const remoteItem = remoteMeta.byOrigin[origin] || null;
+    const cmp = compareSyncItems(localItem, remoteItem);
+    const winning = sanitizeSyncItem(
+      cmp < 0 || (cmp === 0 && remoteItem)
+        ? remoteItem
+        : localItem
+    );
+    if (winning.modified > 0) {
+      if (sanitizeTimestamp(winning.deletedAt) > 0) {
+        mergedByOrigin[origin] = { modified: winning.modified, deletedAt: winning.deletedAt };
+      } else {
+        mergedByOrigin[origin] = { modified: winning.modified };
+      }
+    }
+  }
+
+  const mergedMeta = { version: 1, byOrigin: mergedByOrigin };
+  const mergedOrigins = Object.keys(mergedByOrigin).filter((origin) => !sanitizeTimestamp(mergedByOrigin[origin].deletedAt)).sort();
+  return { mergedMeta, mergedOrigins };
+}
+
+async function markDomainOriginArrayModified(change, options) {
+  const {
+    localMetaStorageKey,
+    syncArrayFilename,
+    syncMetaFilename
+  } = options;
+  const oldOrigins = sanitizeDomainOriginArray(change && change.oldValue);
+  const newOrigins = sanitizeDomainOriginArray(change && change.newValue);
+  const allOrigins = new Set([...oldOrigins, ...newOrigins]);
+  const oldSet = new Set(oldOrigins);
+  const newSet = new Set(newOrigins);
+  const changedOrigins = [];
+  for (const origin of allOrigins) {
+    if (oldSet.has(origin) !== newSet.has(origin)) {
+      changedOrigins.push(origin);
+    }
+  }
+  if (!changedOrigins.length) return false;
+
+  const now = Date.now();
+  const stored = await browser.storage.local.get(localMetaStorageKey);
+  const nextMeta = sanitizeDomainOriginMeta(stored[localMetaStorageKey]);
+  for (const origin of changedOrigins.sort()) {
+    if (newSet.has(origin)) {
+      nextMeta.byOrigin[origin] = { modified: now };
+    } else {
+      nextMeta.byOrigin[origin] = { modified: now, deletedAt: now };
+    }
+  }
+  await browser.storage.local.set({ [localMetaStorageKey]: nextMeta });
+  await queueSyncMetaMutation((meta) => {
+    setModified(meta.items, syncArrayFilename, now);
+    setModified(meta.items, syncMetaFilename, now);
+  });
+  return true;
 }
 
 function setModified(items, itemKey, modified, options = {}) {
@@ -1068,48 +1259,136 @@ async function runSync() {
   const localMeta = await getLocalSyncMeta();
   let manifestChanged = false;
   const errors = [];
-  // ── Domain settings (single file) ──
+  // ── Domain settings (per-domain merge via domains.json + domains-meta.json) ──
   try {
     const domainsItemKey = SYNC_DOMAINS_NAME;
-    const localApplyMapData = await browser.storage.local.get(APPLY_MAP_KEY);
-    const localApplyMap = localApplyMapData[APPLY_MAP_KEY] || {};
-    const localState = localMeta.items[domainsItemKey] || {};
-    const localModified = localState.modified || 0;
-    const remoteModified = ((remoteManifest.items || {})[domainsItemKey] || {}).modified || 0;
+    const domainsMetaItemKey = SYNC_DOMAINS_META_NAME;
+    const localDomainsState = localMeta.items[domainsItemKey] || {};
+    const localDomainsMetaState = localMeta.items[domainsMetaItemKey] || {};
+    const localDomainsModified = sanitizeTimestamp(localDomainsState.modified);
+    const remoteDomainsModified = sanitizeTimestamp(((remoteManifest.items || {})[domainsItemKey] || {}).modified);
 
-    if (firstSync) {
-      const fileResult = await backend.get(SYNC_DOMAINS_NAME);
-      if (!fileResult.notFound) {
-        const remoteDomains = JSON.parse(fileResult.data);
-        await setStorageDuringSync({ [APPLY_MAP_KEY]: remoteDomains });
-        const modified = remoteModified || now;
-        setModified(localMeta.items, domainsItemKey, modified, { remoteRev: fileResult.remoteRev });
-        setModified(remoteManifest.items, domainsItemKey, modified, { remoteRev: fileResult.remoteRev });
-        manifestChanged = true;
-      } else {
-        const modified = localModified || now;
-        const remoteRev = await syncPush(backend, localState, SYNC_DOMAINS_NAME, JSON.stringify(localApplyMap, null, 2), 'application/json');
-        setModified(remoteManifest.items, domainsItemKey, modified, { remoteRev });
-        setModified(localMeta.items, domainsItemKey, modified, { remoteRev });
-        manifestChanged = true;
+    const [localDomainData, remoteDomainsResult, remoteDomainsMetaResult] = await Promise.all([
+      browser.storage.local.get([APPLY_MAP_KEY, APPLY_MAP_META_KEY]),
+      backend.get(SYNC_DOMAINS_NAME),
+      backend.get(SYNC_DOMAINS_META_NAME)
+    ]);
+
+    const localApplyMap = sanitizeApplyMap(localDomainData[APPLY_MAP_KEY]);
+    const localApplyMapMeta = sanitizeApplyMapMeta(localDomainData[APPLY_MAP_META_KEY]);
+
+    const remoteApplyMap = (!remoteDomainsResult.notFound)
+      ? sanitizeApplyMap(JSON.parse(remoteDomainsResult.data))
+      : {};
+    const remoteApplyMapMeta = (!remoteDomainsMetaResult.notFound)
+      ? sanitizeApplyMapMeta(JSON.parse(remoteDomainsMetaResult.data))
+      : { version: 1, byOrigin: {} };
+
+    // Migration fallback: if per-origin metadata is absent, seed from whole-file timestamps.
+    if (!Object.keys(localApplyMapMeta.byOrigin).length && localDomainsModified > 0) {
+      for (const origin of Object.keys(localApplyMap)) {
+        localApplyMapMeta.byOrigin[origin] = { modified: localDomainsModified };
       }
-    } else if (remoteModified > localModified) {
-      // Pull
-      const fileResult = await backend.get(SYNC_DOMAINS_NAME);
-      if (!fileResult.notFound) {
-        const remoteDomains = JSON.parse(fileResult.data);
-        await setStorageDuringSync({ [APPLY_MAP_KEY]: remoteDomains });
-        setModified(localMeta.items, domainsItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
+    }
+    if (!Object.keys(remoteApplyMapMeta.byOrigin).length && remoteDomainsModified > 0) {
+      for (const origin of Object.keys(remoteApplyMap)) {
+        remoteApplyMapMeta.byOrigin[origin] = { modified: remoteDomainsModified };
       }
-    } else if (localModified > remoteModified) {
-      // Push
-      const modified = localModified || now;
-      const remoteRev = await syncPush(backend, localState, SYNC_DOMAINS_NAME, JSON.stringify(localApplyMap, null, 2), 'application/json');
-      setModified(remoteManifest.items, domainsItemKey, modified, { remoteRev });
-      setModified(localMeta.items, domainsItemKey, modified, { remoteRev });
+    }
+
+    const allOrigins = new Set([
+      ...Object.keys(localApplyMap),
+      ...Object.keys(remoteApplyMap),
+      ...Object.keys(localApplyMapMeta.byOrigin),
+      ...Object.keys(remoteApplyMapMeta.byOrigin)
+    ]);
+
+    const mergedApplyMap = {};
+    const mergedApplyMapByOriginMeta = {};
+
+    for (const origin of Array.from(allOrigins).sort()) {
+      const localMetaItem = localApplyMapMeta.byOrigin[origin] || null;
+      const remoteMetaItem = remoteApplyMapMeta.byOrigin[origin] || null;
+      const cmp = compareSyncItems(localMetaItem, remoteMetaItem);
+      const preferRemote = cmp < 0 || (cmp === 0 && (remoteMetaItem || remoteApplyMap[origin]));
+      const winningMeta = sanitizeSyncItem(preferRemote ? remoteMetaItem : localMetaItem);
+      const winningIsDeleted = sanitizeTimestamp(winningMeta.deletedAt) > 0;
+
+      if (winningMeta.modified > 0) {
+        if (winningIsDeleted) {
+          mergedApplyMapByOriginMeta[origin] = {
+            modified: winningMeta.modified,
+            deletedAt: winningMeta.deletedAt
+          };
+          continue;
+        }
+
+        let winningConfig = preferRemote ? remoteApplyMap[origin] : localApplyMap[origin];
+        if (!winningConfig || typeof winningConfig !== 'object' || Array.isArray(winningConfig)) {
+          winningConfig = preferRemote ? localApplyMap[origin] : remoteApplyMap[origin];
+        }
+        if (winningConfig && typeof winningConfig === 'object' && !Array.isArray(winningConfig)) {
+          mergedApplyMap[origin] = winningConfig;
+          mergedApplyMapByOriginMeta[origin] = { modified: winningMeta.modified };
+        }
+        continue;
+      }
+
+      // Legacy fallback when both sides lack metadata.
+      if (Object.prototype.hasOwnProperty.call(remoteApplyMap, origin)) {
+        mergedApplyMap[origin] = remoteApplyMap[origin];
+      } else if (Object.prototype.hasOwnProperty.call(localApplyMap, origin)) {
+        mergedApplyMap[origin] = localApplyMap[origin];
+      }
+    }
+
+    const mergedApplyMapMeta = { version: 1, byOrigin: mergedApplyMapByOriginMeta };
+    const localNeedsUpdate = !jsonEqual(localApplyMap, mergedApplyMap) || !jsonEqual(localApplyMapMeta, mergedApplyMapMeta);
+    const remoteNeedsUpdate = !jsonEqual(remoteApplyMap, mergedApplyMap) || !jsonEqual(remoteApplyMapMeta, mergedApplyMapMeta);
+    const mergedModified = getApplyMapMetaMaxModified(mergedApplyMapByOriginMeta);
+
+    if (localNeedsUpdate) {
+      await setStorageDuringSync({
+        [APPLY_MAP_KEY]: mergedApplyMap,
+        [APPLY_MAP_META_KEY]: mergedApplyMapMeta
+      });
+    }
+
+    let domainsRemoteRev = remoteDomainsResult.notFound ? null : (remoteDomainsResult.remoteRev || null);
+    let domainsMetaRemoteRev = remoteDomainsMetaResult.notFound ? null : (remoteDomainsMetaResult.remoteRev || null);
+
+    if (remoteNeedsUpdate) {
+      domainsRemoteRev = await syncPush(
+        backend,
+        localDomainsState,
+        SYNC_DOMAINS_NAME,
+        JSON.stringify(mergedApplyMap, null, 2),
+        'application/json'
+      );
+      domainsMetaRemoteRev = await syncPush(
+        backend,
+        localDomainsMetaState,
+        SYNC_DOMAINS_META_NAME,
+        JSON.stringify(mergedApplyMapMeta, null, 2),
+        'application/json'
+      );
       manifestChanged = true;
     }
-    // else: equal timestamps — skip
+
+    if (mergedModified > 0 || domainsRemoteRev || domainsMetaRemoteRev) {
+      if (mergedModified > 0) {
+        setModified(localMeta.items, domainsItemKey, mergedModified, { remoteRev: domainsRemoteRev });
+        setModified(localMeta.items, domainsMetaItemKey, mergedModified, { remoteRev: domainsMetaRemoteRev });
+      } else {
+        setModified(localMeta.items, domainsItemKey, localDomainsModified || now, { remoteRev: domainsRemoteRev });
+        setModified(localMeta.items, domainsMetaItemKey, localDomainsModified || now, { remoteRev: domainsMetaRemoteRev });
+      }
+      if (remoteNeedsUpdate || mergedModified > 0) {
+        const manifestModified = mergedModified || now;
+        setModified(remoteManifest.items, domainsItemKey, manifestModified, { remoteRev: domainsRemoteRev });
+        setModified(remoteManifest.items, domainsMetaItemKey, manifestModified, { remoteRev: domainsMetaRemoteRev });
+      }
+    }
   } catch (e) {
     console.warn('[AFFO Background] Domain settings sync error:', e);
     errors.push(e);
@@ -1226,14 +1505,118 @@ async function runSync() {
     errors.push(e);
   }
 
-  // ── Simple JSON array settings (known serif/sans, fontface-only/inline domains) ──
+  // ── Per-origin domain array settings (FF-only / inline / aggressive / waitforit) ──
+  const domainArrayItems = [
+    {
+      key: FFONLY_DOMAINS_KEY,
+      localMetaStorageKey: FFONLY_DOMAINS_META_KEY,
+      filename: SYNC_FFONLY_DOMAINS_NAME,
+      metaFilename: SYNC_FFONLY_DOMAINS_META_NAME,
+      label: 'FontFace-only domains'
+    },
+    {
+      key: INLINE_DOMAINS_KEY,
+      localMetaStorageKey: INLINE_DOMAINS_META_KEY,
+      filename: SYNC_INLINE_DOMAINS_NAME,
+      metaFilename: SYNC_INLINE_DOMAINS_META_NAME,
+      label: 'Inline apply domains'
+    },
+    {
+      key: AGGRESSIVE_DOMAINS_KEY,
+      localMetaStorageKey: AGGRESSIVE_DOMAINS_META_KEY,
+      filename: SYNC_AGGRESSIVE_DOMAINS_NAME,
+      metaFilename: SYNC_AGGRESSIVE_DOMAINS_META_NAME,
+      label: 'Aggressive domains'
+    },
+    {
+      key: WAITFORIT_DOMAINS_KEY,
+      localMetaStorageKey: WAITFORIT_DOMAINS_META_KEY,
+      filename: SYNC_WAITFORIT_DOMAINS_NAME,
+      metaFilename: SYNC_WAITFORIT_DOMAINS_META_NAME,
+      label: 'Wait For It domains'
+    }
+  ];
+  for (const item of domainArrayItems) {
+    try {
+      const localArrayState = localMeta.items[item.filename] || {};
+      const localMetaState = localMeta.items[item.metaFilename] || {};
+      const localArrayModified = sanitizeTimestamp(localArrayState.modified);
+      const remoteArrayModified = sanitizeTimestamp(((remoteManifest.items || {})[item.filename] || {}).modified);
+
+      const [localData, remoteArrayResult, remoteMetaResult] = await Promise.all([
+        browser.storage.local.get([item.key, item.localMetaStorageKey]),
+        backend.get(item.filename),
+        backend.get(item.metaFilename)
+      ]);
+
+      const localOrigins = sanitizeDomainOriginArray(localData[item.key]);
+      const remoteOrigins = (!remoteArrayResult.notFound)
+        ? sanitizeDomainOriginArray(JSON.parse(remoteArrayResult.data))
+        : [];
+      const localOriginMeta = sanitizeDomainOriginMeta(localData[item.localMetaStorageKey]);
+      const remoteOriginMeta = (!remoteMetaResult.notFound)
+        ? sanitizeDomainOriginMeta(JSON.parse(remoteMetaResult.data))
+        : { version: 1, byOrigin: {} };
+
+      seedDomainMetaFromArray(localOriginMeta, localOrigins, localArrayModified, now);
+      seedDomainMetaFromArray(remoteOriginMeta, remoteOrigins, remoteArrayModified, now);
+
+      const { mergedMeta, mergedOrigins } = mergeDomainOriginMeta(localOriginMeta, remoteOriginMeta);
+      const remoteMetaAsOrigins = Object.keys(remoteOriginMeta.byOrigin)
+        .filter((origin) => !sanitizeTimestamp(remoteOriginMeta.byOrigin[origin].deletedAt))
+        .sort();
+      const localNeedsUpdate = !jsonEqual(localOrigins, mergedOrigins) || !jsonEqual(localOriginMeta, mergedMeta);
+      const remoteNeedsUpdate = !jsonEqual(remoteOrigins, mergedOrigins)
+        || !jsonEqual(remoteOriginMeta, mergedMeta)
+        || !jsonEqual(remoteMetaAsOrigins, mergedOrigins);
+      const mergedModified = getApplyMapMetaMaxModified(mergedMeta.byOrigin);
+
+      if (localNeedsUpdate) {
+        await setStorageDuringSync({
+          [item.key]: mergedOrigins,
+          [item.localMetaStorageKey]: mergedMeta
+        });
+      }
+
+      let arrayRemoteRev = remoteArrayResult.notFound ? null : (remoteArrayResult.remoteRev || null);
+      let metaRemoteRev = remoteMetaResult.notFound ? null : (remoteMetaResult.remoteRev || null);
+      if (remoteNeedsUpdate) {
+        arrayRemoteRev = await syncPush(
+          backend,
+          localArrayState,
+          item.filename,
+          JSON.stringify(mergedOrigins, null, 2),
+          'application/json'
+        );
+        metaRemoteRev = await syncPush(
+          backend,
+          localMetaState,
+          item.metaFilename,
+          JSON.stringify(mergedMeta, null, 2),
+          'application/json'
+        );
+        manifestChanged = true;
+      }
+
+      if (mergedModified > 0 || arrayRemoteRev || metaRemoteRev) {
+        setModified(localMeta.items, item.filename, mergedModified || localArrayModified || now, { remoteRev: arrayRemoteRev });
+        setModified(localMeta.items, item.metaFilename, mergedModified || localArrayModified || now, { remoteRev: metaRemoteRev });
+        if (remoteNeedsUpdate || mergedModified > 0) {
+          const manifestModified = mergedModified || now;
+          setModified(remoteManifest.items, item.filename, manifestModified, { remoteRev: arrayRemoteRev });
+          setModified(remoteManifest.items, item.metaFilename, manifestModified, { remoteRev: metaRemoteRev });
+        }
+      }
+    } catch (e) {
+      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      errors.push(e);
+    }
+  }
+
+  // ── Simple JSON array settings (known serif/sans, preserved fonts) ──
   const jsonArrayItems = [
     { key: KNOWN_SERIF_KEY, filename: SYNC_KNOWN_SERIF_NAME, label: 'Known serif' },
     { key: KNOWN_SANS_KEY, filename: SYNC_KNOWN_SANS_NAME, label: 'Known sans' },
-    { key: FFONLY_DOMAINS_KEY, filename: SYNC_FFONLY_DOMAINS_NAME, label: 'FontFace-only domains' },
-    { key: INLINE_DOMAINS_KEY, filename: SYNC_INLINE_DOMAINS_NAME, label: 'Inline apply domains' },
-    { key: AGGRESSIVE_DOMAINS_KEY, filename: SYNC_AGGRESSIVE_DOMAINS_NAME, label: 'Aggressive domains' },
-    { key: WAITFORIT_DOMAINS_KEY, filename: SYNC_WAITFORIT_DOMAINS_NAME, label: 'Wait For It domains' },
     { key: PRESERVED_FONTS_KEY, filename: SYNC_PRESERVED_FONTS_NAME, label: 'Preserved fonts' }
   ];
   for (const item of jsonArrayItems) {
@@ -2070,7 +2453,12 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     JSON.stringify(c.oldValue) !== JSON.stringify(c.newValue);
 
   if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges && storageValueChanged(changes[APPLY_MAP_KEY])) {
-    markLocalItemModified(SYNC_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markApplyMapOriginsModified(changes[APPLY_MAP_KEY]).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update per-domain sync metadata:', e);
+      markLocalItemModified(SYNC_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
   }
   if (trackSyncManagedChanges) {
     const favChanged = changes[FAVORITES_KEY] && storageValueChanged(changes[FAVORITES_KEY]);
@@ -2086,19 +2474,55 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     markLocalItemModified(SYNC_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
   }
   if (changes[FFONLY_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[FFONLY_DOMAINS_KEY])) {
-    markLocalItemModified(SYNC_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markDomainOriginArrayModified(changes[FFONLY_DOMAINS_KEY], {
+      localMetaStorageKey: FFONLY_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_FFONLY_DOMAINS_NAME,
+      syncMetaFilename: SYNC_FFONLY_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update FontFace-only domains metadata:', e);
+      markLocalItemModified(SYNC_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
   }
   if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
-    markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markDomainOriginArrayModified(changes[INLINE_DOMAINS_KEY], {
+      localMetaStorageKey: INLINE_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_INLINE_DOMAINS_NAME,
+      syncMetaFilename: SYNC_INLINE_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update inline-apply domains metadata:', e);
+      markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
   }
   if (changes[CUSTOM_FONTS_CSS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONTS_CSS_KEY])) {
     markLocalItemModified(SYNC_CUSTOM_FONTS_NAME).then(() => scheduleAutoSync());
   }
   if (changes[AGGRESSIVE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[AGGRESSIVE_DOMAINS_KEY])) {
-    markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markDomainOriginArrayModified(changes[AGGRESSIVE_DOMAINS_KEY], {
+      localMetaStorageKey: AGGRESSIVE_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_AGGRESSIVE_DOMAINS_NAME,
+      syncMetaFilename: SYNC_AGGRESSIVE_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update aggressive domains metadata:', e);
+      markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
   }
   if (changes[WAITFORIT_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[WAITFORIT_DOMAINS_KEY])) {
-    markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
+    markDomainOriginArrayModified(changes[WAITFORIT_DOMAINS_KEY], {
+      localMetaStorageKey: WAITFORIT_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_WAITFORIT_DOMAINS_NAME,
+      syncMetaFilename: SYNC_WAITFORIT_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update Wait For It domains metadata:', e);
+      markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
   }
   if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
     markLocalItemModified(SYNC_PRESERVED_FONTS_NAME).then(() => scheduleAutoSync());

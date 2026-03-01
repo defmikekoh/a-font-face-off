@@ -20,6 +20,25 @@ The extension uses `browser.storage.local` for all persistence.
 }
 ```
 
+### Domain Merge Metadata (`affoApplyMapMeta`)
+**Purpose**: Tracks per-origin sync timestamps and tombstones for bidirectional per-domain merge
+**Key**: `affoApplyMapMeta`
+
+```javascript
+{
+  "version": 1,
+  "byOrigin": {
+    "example.com": {
+      "modified": 1700000000000
+    },
+    "news.example.com": {
+      "modified": 1700001000000,
+      "deletedAt": 1700001000000
+    }
+  }
+}
+```
+
 ### UI State Storage (`affoUIState`)
 **Purpose**: Stores current UI state and font selections
 **Key**: `affoUIState`
@@ -61,7 +80,9 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
 | `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |
+| `affoFontFaceOnlyDomainsMeta` | Per-origin sync metadata for FontFace-only domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
 | `affoInlineApplyDomains` | Domains requiring inline style application | `["x.com"]` |
+| `affoInlineApplyDomainsMeta` | Per-origin sync metadata for inline-apply domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
@@ -69,12 +90,16 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL). Written by popup.js (`storeCss2UrlInCache`) and background.js (`ensureCss2UrlCached` during Quick Pick). Read by left-toolbar.js (early preload), content.js (font loading). Not synced. | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
+| `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
+| `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
+| `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
+| `affoApplyMapMeta` | Per-origin domain merge metadata for sync | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 
 ### Cloud Sync Metadata (`affoSyncMeta`)
@@ -87,7 +112,7 @@ The extension uses `browser.storage.local` for all persistence.
   "items": {
     "domains.json": {
       "modified": 1700000000000,
-      "remoteRev": "app-folder:domains.json:v3"  // GDrive only; null for WebDAV
+      "remoteRev": "app-folder:domains.json:v3"  // GDrive example (WebDAV uses webdav-etag:<etag> when available)
     },
     "favorites.json": {
       "modified": 1700002000000,
@@ -98,7 +123,7 @@ The extension uses `browser.storage.local` for all persistence.
 ```
 
 - `modified`: last known write time for the item
-- `remoteRev` (optional, GDrive only): last observed Drive file revision fingerprint (`<fileId>:v<version>`) used for optimistic concurrency checks before overwriting remote files
+- `remoteRev` (optional): backend-specific revision fingerprint used for optimistic concurrency checks before overwriting remote files (`<fileId>:v<version>` for Google Drive, `webdav-etag:<etag>` for WebDAV when server provides ETag)
 
 ### Cloud Sync Remote File Mapping
 
@@ -106,13 +131,19 @@ The extension uses `browser.storage.local` for all persistence.
 |---|---|---|
 | `sync-manifest.json` | — | Bidirectional merge timestamps |
 | `domains.json` | `affoApplyMap` | All domain font configs |
+| `domains-meta.json` | `affoApplyMapMeta` | Per-origin modified/deleted timestamps for domain merge |
 | `favorites.json` | `affoFavorites` + `affoFavoritesOrder` | Saved favorites |
 | `custom-fonts.css` | `affoCustomFontsCss` | Custom @font-face rules |
 | `known-serif.json` | `affoKnownSerif` | User serif classification |
 | `known-sans.json` | `affoKnownSans` | User sans classification |
 | `fontface-only-domains.json` | `affoFontFaceOnlyDomains` | FontFace-only domain list |
+| `fontface-only-domains-meta.json` | `affoFontFaceOnlyDomainsMeta` | Per-origin merge metadata for FontFace-only domain list |
 | `inline-apply-domains.json` | `affoInlineApplyDomains` | Inline apply domain list |
+| `inline-apply-domains-meta.json` | `affoInlineApplyDomainsMeta` | Per-origin merge metadata for inline apply domain list |
 | `aggressive-domains.json` | `affoAggressiveDomains` | Aggressive `!important` domain list |
+| `aggressive-domains-meta.json` | `affoAggressiveDomainsMeta` | Per-origin merge metadata for aggressive domain list |
+| `waitforit-domains.json` | `affoWaitForItDomains` | Wait For It domain list |
+| `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
 | `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools |
 

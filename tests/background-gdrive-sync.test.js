@@ -431,7 +431,7 @@ function createDriveOpsHarness() {
     };
 }
 
-describe('Google Drive domain sync (single-file)', () => {
+describe('Google Drive domain sync (per-domain merge)', () => {
     it('pulls remote domains.json on first sync', async () => {
         const harness = createHarness({
             localSeed: {
@@ -472,7 +472,7 @@ describe('Google Drive domain sync (single-file)', () => {
         assert.equal(pushed['local.example'].body.fontName, 'Inter');
     });
 
-    it('pulls remote domains.json when remote is newer', async () => {
+    it('merges remote domains when remote is newer instead of clobbering local-only domains', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {
@@ -498,7 +498,58 @@ describe('Google Drive domain sync (single-file)', () => {
         const result = await harness.runSync();
         assert.equal(result.ok, true);
         assert.equal(harness.storageData.affoApplyMap['new.example'].body.fontName, 'NewFont');
+        assert.equal(harness.storageData.affoApplyMap['old.example'].body.fontName, 'OldFont');
+    });
+
+    it('applies remote deletion tombstones from domains-meta.json', async () => {
+        const deletedAt = 250;
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'old.example': { body: { fontName: 'OldFont', variableAxes: {} } },
+                    'keep.example': { body: { fontName: 'KeepFont', variableAxes: {} } }
+                },
+                affoApplyMapMeta: {
+                    version: 1,
+                    byOrigin: {
+                        'old.example': { modified: 100 },
+                        'keep.example': { modified: 100 }
+                    }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: {
+                        'domains.json': { modified: 100 },
+                        'domains-meta.json': { modified: 100 }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 300,
+                items: {
+                    'domains.json': { modified: deletedAt },
+                    'domains-meta.json': { modified: deletedAt }
+                }
+            },
+            remoteAppFiles: {
+                'domains.json': {
+                    'keep.example': { body: { fontName: 'KeepFont', variableAxes: {} } }
+                },
+                'domains-meta.json': {
+                    version: 1,
+                    byOrigin: {
+                        'old.example': { modified: deletedAt, deletedAt },
+                        'keep.example': { modified: 100 }
+                    }
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
         assert.equal(harness.storageData.affoApplyMap['old.example'], undefined);
+        assert.equal(harness.storageData.affoApplyMap['keep.example'].body.fontName, 'KeepFont');
     });
 
     it('pushes local domains.json when local is newer', async () => {
