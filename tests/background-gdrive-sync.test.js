@@ -687,6 +687,75 @@ describe('Google Drive first-sync behavior', () => {
         const favoritesPush = harness.calls.put.find((call) => call.name === 'favorites.json');
         assert.equal(favoritesPush, undefined);
     });
+
+    it('strips legacy fontFaceRule from favorites pulled from remote', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoSyncMeta: { lastSync: 0, items: {} },
+            },
+            remoteManifest: null,
+            remoteAppFiles: {
+                'favorites.json': {
+                    affoFavorites: {
+                        RemoteCustom: {
+                            fontName: 'RemoteCustom',
+                            variableAxes: {},
+                            fontFaceRule: '@font-face { font-family: "RemoteCustom"; src: url(test.woff2); }'
+                        }
+                    },
+                    affoFavoritesOrder: ['RemoteCustom']
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        assert.equal(
+            Object.prototype.hasOwnProperty.call(harness.storageData.affoFavorites.RemoteCustom, 'fontFaceRule'),
+            false
+        );
+    });
+
+    it('strips fontFaceRule before pushing local favorites.json', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoFavorites: {
+                    LocalCustom: {
+                        fontName: 'LocalCustom',
+                        variableAxes: {},
+                        fontFaceRule: '@font-face { font-family: "LocalCustom"; src: url(local.woff2); }'
+                    }
+                },
+                affoFavoritesOrder: ['LocalCustom'],
+                affoSyncMeta: {
+                    lastSync: 1000,
+                    items: {
+                        'favorites.json': { modified: 900 }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 1000,
+                items: {
+                    'favorites.json': { modified: 800 }
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        const favoritesPush = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.ok(favoritesPush);
+        const pushed = JSON.parse(favoritesPush.content);
+        assert.equal(
+            Object.prototype.hasOwnProperty.call(pushed.affoFavorites.LocalCustom, 'fontFaceRule'),
+            false
+        );
+    });
 });
 
 describe('Google Drive sync queue behavior', () => {

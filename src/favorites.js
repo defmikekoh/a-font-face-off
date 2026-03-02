@@ -17,12 +17,25 @@
 
 function loadFavoritesFromStorage() {
     return browser.storage.local.get(['affoFavorites', 'affoFavoritesOrder']).then(result => {
-        if (result.affoFavorites) {
-            savedFavorites = result.affoFavorites || {};
-            savedFavoritesOrder = result.affoFavoritesOrder || Object.keys(savedFavorites);
-        } else {
+        if (!result.affoFavorites) {
             savedFavorites = {};
             savedFavoritesOrder = [];
+            return;
+        }
+
+        const rawFavorites = result.affoFavorites || {};
+        const rawOrder = Array.isArray(result.affoFavoritesOrder) ? result.affoFavoritesOrder : Object.keys(rawFavorites);
+        const sanitized = sanitizeFavoritesMapForStorage(rawFavorites);
+        const cleanedOrder = rawOrder.filter(name => sanitized.favorites[name] !== undefined);
+
+        savedFavorites = sanitized.favorites;
+        savedFavoritesOrder = cleanedOrder;
+
+        if (sanitized.changed || !arraysEqual(rawOrder, cleanedOrder)) {
+            return browser.storage.local.set({
+                affoFavorites: sanitized.favorites,
+                affoFavoritesOrder: cleanedOrder
+            });
         }
     }).catch(error => {
         console.error('Error loading favorites:', error);
@@ -32,6 +45,9 @@ function loadFavoritesFromStorage() {
 }
 
 function saveFavoritesToStorage() {
+    const sanitized = sanitizeFavoritesMapForStorage(savedFavorites);
+    savedFavorites = sanitized.favorites;
+
     // Keep order aligned to existing keys
     const cleaned = savedFavoritesOrder.filter(name => savedFavorites[name] !== undefined);
     savedFavoritesOrder = cleaned;
@@ -53,6 +69,44 @@ function hasInCollection(coll, item) {
     if (typeof coll.includes === 'function') return coll.includes(item);
     if (typeof coll === 'object') return !!coll[item];
     return false;
+}
+
+function sanitizeFavoriteConfigForStorage(rawConfig) {
+    if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) return null;
+    const config = { ...rawConfig };
+    if (Object.prototype.hasOwnProperty.call(config, 'fontFaceRule')) {
+        delete config.fontFaceRule;
+    }
+    return config;
+}
+
+function sanitizeFavoritesMapForStorage(rawFavorites) {
+    if (!rawFavorites || typeof rawFavorites !== 'object' || Array.isArray(rawFavorites)) {
+        return { favorites: {}, changed: !!rawFavorites };
+    }
+    let changed = false;
+    const favorites = {};
+    Object.entries(rawFavorites).forEach(([name, rawConfig]) => {
+        const sanitized = sanitizeFavoriteConfigForStorage(rawConfig);
+        if (!sanitized) {
+            changed = true;
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(rawConfig, 'fontFaceRule')) {
+            changed = true;
+        }
+        favorites[name] = sanitized;
+    });
+    return { favorites, changed };
+}
+
+function arraysEqual(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
 }
 
 function getOrderedFavoriteNames() {

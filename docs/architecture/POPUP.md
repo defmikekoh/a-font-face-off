@@ -32,7 +32,7 @@ Unified async function that builds a complete payload for domain storage / conte
 - `styleId`: content.js computes it as `'a-font-face-off-style-' + fontType` (deterministic, no need to store)
 
 ### `getCurrentUIConfig(position)`
-Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. For custom fonts, includes `fontFaceRule` from `fontDefinitions` for use in UI state, favorites, and popup preview. This is the canonical "read from UI" function.
+Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. For custom fonts, includes `fontFaceRule` from `fontDefinitions` for immediate popup behavior/preview; favorites persistence strips `fontFaceRule` before storage/sync to avoid duplication. This is the canonical "read from UI" function.
 
 ## State Management
 

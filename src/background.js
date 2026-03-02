@@ -1201,13 +1201,33 @@ async function saveLocalSyncMeta(meta) {
   });
 }
 
+function sanitizeFavoriteConfigForSync(rawConfig) {
+  if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) return null;
+  const config = { ...rawConfig };
+  if (Object.prototype.hasOwnProperty.call(config, 'fontFaceRule')) {
+    delete config.fontFaceRule;
+  }
+  return config;
+}
+
+function sanitizeFavoritesForSync(rawFavorites, rawOrder) {
+  const input = (rawFavorites && typeof rawFavorites === 'object' && !Array.isArray(rawFavorites)) ? rawFavorites : {};
+  const favorites = {};
+  Object.entries(input).forEach(([name, rawConfig]) => {
+    const sanitized = sanitizeFavoriteConfigForSync(rawConfig);
+    if (sanitized) favorites[name] = sanitized;
+  });
+  const orderBase = Array.isArray(rawOrder) ? rawOrder : Object.keys(favorites);
+  const favoritesOrder = orderBase.filter(name => favorites[name] !== undefined);
+  return { favorites, favoritesOrder };
+}
+
 async function getLocalFavoritesSnapshot() {
   const data = await browser.storage.local.get([FAVORITES_KEY, FAVORITES_ORDER_KEY]);
-  const favorites = (data[FAVORITES_KEY] && typeof data[FAVORITES_KEY] === 'object') ? data[FAVORITES_KEY] : {};
-  const favoritesOrder = Array.isArray(data[FAVORITES_ORDER_KEY]) ? data[FAVORITES_ORDER_KEY] : Object.keys(favorites);
+  const sanitized = sanitizeFavoritesForSync(data[FAVORITES_KEY], data[FAVORITES_ORDER_KEY]);
   return {
-    [FAVORITES_KEY]: favorites,
-    [FAVORITES_ORDER_KEY]: favoritesOrder
+    [FAVORITES_KEY]: sanitized.favorites,
+    [FAVORITES_ORDER_KEY]: sanitized.favoritesOrder
   };
 }
 
@@ -1406,9 +1426,8 @@ async function runSync() {
       const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
-        const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
-        const favoritesOrder = Array.isArray(remoteFav[FAVORITES_ORDER_KEY]) ? remoteFav[FAVORITES_ORDER_KEY] : Object.keys(favorites);
-        await setStorageDuringSync({ [FAVORITES_KEY]: favorites, [FAVORITES_ORDER_KEY]: favoritesOrder });
+        const sanitized = sanitizeFavoritesForSync(remoteFav[FAVORITES_KEY], remoteFav[FAVORITES_ORDER_KEY]);
+        await setStorageDuringSync({ [FAVORITES_KEY]: sanitized.favorites, [FAVORITES_ORDER_KEY]: sanitized.favoritesOrder });
         const modified = remoteModified || now;
         setModified(localMeta.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
         setModified(remoteManifest.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
@@ -1426,9 +1445,8 @@ async function runSync() {
       const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
-        const favorites = (remoteFav[FAVORITES_KEY] && typeof remoteFav[FAVORITES_KEY] === 'object') ? remoteFav[FAVORITES_KEY] : {};
-        const favoritesOrder = Array.isArray(remoteFav[FAVORITES_ORDER_KEY]) ? remoteFav[FAVORITES_ORDER_KEY] : Object.keys(favorites);
-        await setStorageDuringSync({ [FAVORITES_KEY]: favorites, [FAVORITES_ORDER_KEY]: favoritesOrder });
+        const sanitized = sanitizeFavoritesForSync(remoteFav[FAVORITES_KEY], remoteFav[FAVORITES_ORDER_KEY]);
+        await setStorageDuringSync({ [FAVORITES_KEY]: sanitized.favorites, [FAVORITES_ORDER_KEY]: sanitized.favoritesOrder });
         setModified(localMeta.items, favItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
       }
     } else if (localModified > remoteModified) {
