@@ -64,8 +64,12 @@ const GDRIVE_FOLDER_SUFFIX_KEY = 'affoGDriveFolderSuffix';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GDRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
-// Loopback redirect URI (native app OAuth flow) — intercepted via webRequest, port is arbitrary
-const GDRIVE_FALLBACK_REDIRECT = 'http://127.0.0.1:45678/';
+// Loopback redirect URIs (native app OAuth flow) — intercepted via webRequest.
+// Some desktop Firefox + Google account combinations fail on one host and succeed on the other.
+const GDRIVE_REDIRECT_URIS = [
+  'http://127.0.0.1:45678/',
+  'http://localhost:45678/'
+];
 
 // WebDAV constants
 const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';     // { serverUrl, username, password, anonymous }
@@ -695,7 +699,7 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
   return { ok: true };
 }
 
-function buildAuthUrl(codeChallenge, redirectUri, state) {
+function buildAuthUrl(codeChallenge, redirectUri, state, forceConsent) {
   const params = new URLSearchParams({
     client_id: GDRIVE_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -704,21 +708,27 @@ function buildAuthUrl(codeChallenge, redirectUri, state) {
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     access_type: 'offline',
-    prompt: 'consent',
     state
   });
+  if (forceConsent) params.set('prompt', 'consent');
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-// Tab-based auth: opens tab + intercepts redirect via webRequest (desktop + Android)
-function startGDriveAuthViaTab() {
+// Tab-based auth for one loopback redirect URI:
+// opens tab + intercepts redirect via webRequest (desktop + Android)
+function startGDriveAuthViaTab(redirectUri, forceConsent) {
   return new Promise(async (resolve, reject) => {
     let settled = false;
+    let oauthTabId = -1;
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
-    const redirectUri = GDRIVE_FALLBACK_REDIRECT;
     const state = generateCodeVerifier(); // random string for CSRF protection
-    const authUrl = buildAuthUrl(codeChallenge, redirectUri, state);
+    const authUrl = buildAuthUrl(codeChallenge, redirectUri, state, forceConsent);
+
+    const cleanup = () => {
+      browser.webRequest.onBeforeRequest.removeListener(listener);
+      browser.tabs.onUpdated.removeListener(onTabUpdated);
+    };
 
     const listener = (details) => {
       if (settled) return;
@@ -731,7 +741,7 @@ function startGDriveAuthViaTab() {
       const error = url.searchParams.get('error');
 
       settled = true;
-      browser.webRequest.onBeforeRequest.removeListener(listener);
+      cleanup();
 
       // Close the OAuth tab
       if (details.tabId >= 0) {
@@ -751,20 +761,36 @@ function startGDriveAuthViaTab() {
       return { cancel: true };
     };
 
+    const onTabUpdated = (tabId, changeInfo) => {
+      if (settled) return;
+      if (tabId !== oauthTabId) return;
+      if (!changeInfo.url) return;
+      if (changeInfo.url.startsWith('https://accounts.google.com/info/unknownerror')) {
+        settled = true;
+        if (oauthTabId >= 0) {
+          browser.tabs.remove(oauthTabId).catch(() => { });
+        }
+        cleanup();
+        reject(new Error('Google OAuth returned unknownerror during account selection'));
+      }
+    };
+
     // Firefox match patterns don't support port numbers — strip port for the filter,
     // then do precise matching inside the listener via full URL comparison
     const filterPattern = redirectUri.replace(/:\d+/, '') + '*';
     browser.webRequest.onBeforeRequest.addListener(
       listener,
-      { urls: [filterPattern] },
+      { urls: [filterPattern], types: ['main_frame', 'xmlhttprequest'] },
       ['blocking']
     );
+    browser.tabs.onUpdated.addListener(onTabUpdated);
 
     try {
-      await browser.tabs.create({ url: authUrl, active: true });
+      const tab = await browser.tabs.create({ url: authUrl, active: true });
+      oauthTabId = tab && typeof tab.id === 'number' ? tab.id : -1;
     } catch (e) {
       settled = true;
-      browser.webRequest.onBeforeRequest.removeListener(listener);
+      cleanup();
       reject(e);
     }
 
@@ -772,7 +798,7 @@ function startGDriveAuthViaTab() {
     setTimeout(() => {
       if (!settled) {
         settled = true;
-        browser.webRequest.onBeforeRequest.removeListener(listener);
+        cleanup();
         reject(new Error('OAuth flow timed out'));
       }
     }, 5 * 60 * 1000);
@@ -781,9 +807,19 @@ function startGDriveAuthViaTab() {
 
 async function startGDriveAuth() {
   // Always use tab-based OAuth with loopback redirect (native app flow).
-  // Works on both desktop and Android Firefox without needing
-  // platform-specific OAuth client types or redirect URIs.
-  return startGDriveAuthViaTab();
+  // Try localhost + 127.0.0.1 because some desktop Firefox account flows
+  // fail with one host and succeed with the other.
+  const existingTokens = await getGDriveTokens();
+  const forceConsent = !(existingTokens && existingTokens.refreshToken);
+  const errors = [];
+  for (const redirectUri of GDRIVE_REDIRECT_URIS) {
+    try {
+      return await startGDriveAuthViaTab(redirectUri, forceConsent);
+    } catch (e) {
+      errors.push(`${redirectUri} -> ${e && e.message ? e.message : String(e)}`);
+    }
+  }
+  throw new Error(`OAuth failed for all redirect hosts: ${errors.join(' | ')}`);
 }
 
 async function disconnectGDrive() {
