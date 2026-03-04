@@ -3,6 +3,7 @@
     'use strict';
     
     // This script runs in the iframe context
+    let waitForItVisualState = false;
     
     // Initialize WhatFont by sending message to parent
     function initWhatFont() {
@@ -89,9 +90,22 @@
             const button = document.getElementById(buttonId);
             if (button) {
                 const svgs = button.querySelectorAll('svg');
-                showSVG(svgs, iconTheme);
+                if (buttonId === 'whatfont-button') {
+                    showSVG(svgs, iconTheme, waitForItVisualState ? 'waitForItIcon' : 'defaultIcon');
+                } else {
+                    showSVG(svgs, iconTheme);
+                }
             }
         });
+    }
+
+    function applyWaitForItState(enabled) {
+        waitForItVisualState = !!enabled;
+        const whatfontButton = document.getElementById('whatfont-button');
+        if (!whatfontButton) return;
+        whatfontButton.title = waitForItVisualState ? 'Wait For It Ready (tap: Font Inspector, hold: apply fonts)' : 'Font Inspector';
+        whatfontButton.classList.toggle('wait-for-it-indicator', waitForItVisualState);
+        applyIconTheme();
     }
 
     // Show quick-pick menu (signal parent to show it)
@@ -267,6 +281,8 @@
             applyTransparency(styles.transparency);
         } else if (event.data.type === 'updateIconTheme') {
             applyIconTheme();
+        } else if (event.data.type === 'updateWaitForItState') {
+            applyWaitForItState(event.data.enabled === true);
         }
     });
     

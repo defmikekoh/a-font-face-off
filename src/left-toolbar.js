@@ -23,6 +23,24 @@
     let quickPickMenu = null;
     let options = {};
 
+    function isWaitForItConfiguredForCurrentDomain(data) {
+        const host = location.hostname;
+        const waitForItDomains = data && data.affoWaitForItDomains ? data.affoWaitForItDomains : [];
+        return waitForItDomains.includes(host);
+    }
+
+    async function sendWaitForItStateToIframe() {
+        if (!leftToolbarIframe || !leftToolbarIframe.contentWindow) return;
+        try {
+            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+            const data = await browserAPI.storage.local.get(['affoWaitForItDomains', 'affoApplyMap']);
+            leftToolbarIframe.contentWindow.postMessage({
+                type: 'updateWaitForItState',
+                enabled: isWaitForItConfiguredForCurrentDomain(data)
+            }, '*');
+        } catch (_e) { }
+    }
+
     // --- Early font preloading (runs at document_start for maximum lead time) ---
     // For domains with stored fonts, inject preconnect + <link> tags immediately
     // so browser starts fetching fonts before page is fully loaded.
@@ -148,6 +166,7 @@
                     transparency: options.transparency
                 }
             }, '*');
+            sendWaitForItStateToIframe();
         });
         
         // Hide during printing
@@ -1404,6 +1423,9 @@
                 if (areaName !== 'local') return;
                 if (changes.affoIconTheme && leftToolbarIframe) {
                     leftToolbarIframe.contentWindow.postMessage({ type: 'updateIconTheme' }, '*');
+                }
+                if ((changes.affoWaitForItDomains || changes.affoApplyMap) && leftToolbarIframe) {
+                    sendWaitForItStateToIframe();
                 }
                 // Invalidate cached scroll settings when changed via Options page
                 if (changes.affoPageUpScrollOverlap) options.scrollOverlap = changes.affoPageUpScrollOverlap.newValue || 80;
