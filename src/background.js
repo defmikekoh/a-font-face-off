@@ -2253,14 +2253,14 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     if (msg.type === 'closeCurrentTab') {
       try {
         console.log('[AFFO Background] Closing current tab');
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tabs.length > 0) {
-          await browser.tabs.remove(tabs[0].id);
+        const tabId = sender.tab ? sender.tab.id : null;
+        if (tabId) {
+          await browser.tabs.remove(tabId);
           console.log('[AFFO Background] Tab closed successfully');
           return { success: true };
         } else {
-          console.warn('[AFFO Background] No active tab found');
-          return { success: false, error: 'No active tab found' };
+          console.warn('[AFFO Background] No sender tab found');
+          return { success: false, error: 'No sender tab found' };
         }
       } catch (e) {
         console.error('[AFFO Background] Error closing tab:', e);

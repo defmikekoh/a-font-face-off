@@ -1159,10 +1159,13 @@
     }
 
     // Close current tab
-    function handleCloseTab() {
+    async function handleCloseTab() {
         try {
             const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-            browserAPI.runtime.sendMessage({ type: 'closeCurrentTab' });
+            const response = await browserAPI.runtime.sendMessage({ type: 'closeCurrentTab' });
+            if (!response || response.success !== true) {
+                console.error('[Left Toolbar] Close tab failed:', response && response.error ? response.error : 'Unknown error');
+            }
         } catch (e) {
             console.error('[Left Toolbar] Error closing tab:', e);
         }
