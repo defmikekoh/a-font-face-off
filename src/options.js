@@ -407,6 +407,11 @@
     const statusEl = document.getElementById('status-substack-roulette');
     try {
       const enabled = document.getElementById('substack-roulette-enabled').checked;
+      const brightnessInput = document.getElementById('substack-roulette-brightness');
+      let brightness = Number(brightnessInput.value);
+      if (!isFinite(brightness)) brightness = 30;
+      brightness = Math.max(1, Math.min(99, Math.round(brightness)));
+      brightnessInput.value = String(brightness);
       const serifNames = [];
       const sansNames = [];
       document.querySelectorAll('#substack-roulette-tbody input[type="checkbox"]').forEach(cb => {
@@ -417,7 +422,8 @@
       await browser.storage.local.set({
         affoSubstackRoulette: enabled,
         affoSubstackRouletteSerif: serifNames,
-        affoSubstackRouletteSans: sansNames
+        affoSubstackRouletteSans: sansNames,
+        affoSubstackRouletteBrightness: brightness
       });
       statusEl.textContent = 'Saved';
       setTimeout(() => { statusEl.textContent = ''; }, 1500);
@@ -654,6 +660,7 @@
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
+        'affoSubstackRouletteBrightness',
         'affoFavorites',
         'affoFavoritesOrder',
         'affoToolbarEnabled',
@@ -684,6 +691,9 @@
 
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
+      document.getElementById('substack-roulette-brightness').value = isFinite(Number(data.affoSubstackRouletteBrightness))
+        ? String(Number(data.affoSubstackRouletteBrightness))
+        : '30';
       renderSubstackRouletteTable(
         data.affoFavorites || {},
         data.affoFavoritesOrder || [],
@@ -1031,6 +1041,7 @@
 
       // Reset Substack Roulette
       document.getElementById('substack-roulette-enabled').checked = true;
+      document.getElementById('substack-roulette-brightness').value = '30';
       const rouletteTbody = document.getElementById('substack-roulette-tbody');
       if (rouletteTbody) rouletteTbody.innerHTML = '';
       const rouletteEmpty = document.getElementById('substack-roulette-empty');

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-origin metadata), favorites (`affoFavorites`, `affoFavoritesOrder`), aggressive domains, preserved fonts, and Substack roulette settings.
+Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-origin metadata), favorites (`affoFavorites`, `affoFavoritesOrder`), aggressive domains, preserved fonts, and Substack roulette settings (enabled flag, serif/sans pools, brightness).
 
 ## Backend Interface
 

@@ -52,6 +52,7 @@ const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
 const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
 const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
+const SUBSTACK_ROULETTE_BRIGHTNESS_KEY = 'affoSubstackRouletteBrightness';
 const SYNC_ALARM_NAME = 'affoPeriodicSync';
 const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
 const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
@@ -1787,11 +1788,13 @@ async function runSync() {
     const remoteModified = ((remoteManifest.items || {})[rouletteItemKey] || {}).modified || 0;
 
     const getLocalRouletteSnapshot = async () => {
-      const stored = await browser.storage.local.get([SUBSTACK_ROULETTE_KEY, SUBSTACK_ROULETTE_SERIF_KEY, SUBSTACK_ROULETTE_SANS_KEY]);
+      const stored = await browser.storage.local.get([SUBSTACK_ROULETTE_KEY, SUBSTACK_ROULETTE_SERIF_KEY, SUBSTACK_ROULETTE_SANS_KEY, SUBSTACK_ROULETTE_BRIGHTNESS_KEY]);
+      const brightness = Number(stored[SUBSTACK_ROULETTE_BRIGHTNESS_KEY]);
       return {
         [SUBSTACK_ROULETTE_KEY]: stored[SUBSTACK_ROULETTE_KEY] !== false,
         [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SERIF_KEY]) ? stored[SUBSTACK_ROULETTE_SERIF_KEY] : [],
-        [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : []
+        [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : [],
+        [SUBSTACK_ROULETTE_BRIGHTNESS_KEY]: isFinite(brightness) ? Math.max(1, Math.min(99, Math.round(brightness))) : 30
       };
     };
 
@@ -1802,7 +1805,8 @@ async function runSync() {
         await setStorageDuringSync({
           [SUBSTACK_ROULETTE_KEY]: remote[SUBSTACK_ROULETTE_KEY] !== false,
           [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SERIF_KEY]) ? remote[SUBSTACK_ROULETTE_SERIF_KEY] : [],
-          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : []
+          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : [],
+          [SUBSTACK_ROULETTE_BRIGHTNESS_KEY]: isFinite(Number(remote[SUBSTACK_ROULETTE_BRIGHTNESS_KEY])) ? Math.max(1, Math.min(99, Math.round(Number(remote[SUBSTACK_ROULETTE_BRIGHTNESS_KEY])))) : 30
         });
         const modified = remoteModified || now;
         setModified(localMeta.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
@@ -1824,7 +1828,8 @@ async function runSync() {
         await setStorageDuringSync({
           [SUBSTACK_ROULETTE_KEY]: remote[SUBSTACK_ROULETTE_KEY] !== false,
           [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SERIF_KEY]) ? remote[SUBSTACK_ROULETTE_SERIF_KEY] : [],
-          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : []
+          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : [],
+          [SUBSTACK_ROULETTE_BRIGHTNESS_KEY]: isFinite(Number(remote[SUBSTACK_ROULETTE_BRIGHTNESS_KEY])) ? Math.max(1, Math.min(99, Math.round(Number(remote[SUBSTACK_ROULETTE_BRIGHTNESS_KEY])))) : 30
         });
         setModified(localMeta.items, rouletteItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
       }
@@ -2587,7 +2592,8 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (trackSyncManagedChanges) {
     const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))
       || (changes[SUBSTACK_ROULETTE_SERIF_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SERIF_KEY]))
-      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]));
+      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]))
+      || (changes[SUBSTACK_ROULETTE_BRIGHTNESS_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_BRIGHTNESS_KEY]));
     if (rouletteChanged) {
       markLocalItemModified(SYNC_SUBSTACK_ROULETTE_NAME).then(() => scheduleAutoSync());
     }

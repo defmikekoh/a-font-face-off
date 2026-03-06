@@ -97,6 +97,7 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
+| `affoSubstackRouletteBrightness` | Brightness percentage for roulette dimming (`filter: brightness(...)`) | `30` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoApplyMapMeta` | Per-origin domain merge metadata for sync | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
@@ -145,7 +146,7 @@ The extension uses `browser.storage.local` for all persistence.
 | `waitforit-domains.json` | `affoWaitForItDomains` | Wait For It domain list |
 | `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
-| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools |
+| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` + `affoSubstackRouletteBrightness` | Roulette toggle + serif/sans name pools + dimming brightness |
 
 See `docs/architecture/SYNC.md` for backend interface details and sync algorithm.
 

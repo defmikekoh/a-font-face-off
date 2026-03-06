@@ -755,11 +755,15 @@
           No favorites saved yet. Add favorites in the popup to use Substack Roulette.
         </div>
       </div>
+      <div class="row" style="margin-top: 10px; align-items: center; gap: 10px;">
+        <label for="substack-roulette-brightness" style="min-width: 180px;">Brightness filter (%)</label>
+        <input id="substack-roulette-brightness" type="number" min="1" max="99" step="1" value="30" style="width: 90px;">
+      </div>
       <div class="row">
         <button id="save-substack-roulette">Save Roulette Settings</button>
         <span id="status-substack-roulette" class="status"></span>
       </div>
-      <div class="hint">When visiting a Substack page with no saved font settings, randomly applies one serif and one sans favorite from the checked lists. New random fonts on each page load.</div>
+      <div class="hint">When visiting a Substack page with no saved font settings, randomly applies one serif and one sans favorite from the checked lists. New random fonts on each page load. The brightness filter uses `filter: brightness(...)` on the roulette-applied serif and sans text.</div>
     </div>
 
     <div class="section">
