@@ -180,7 +180,6 @@
   var aggressiveDomains = [];
   var waitForItDomains = [];
   var pendingSubstackRoulette = null;
-  var activeSubstackRouletteDimmingPercent = null;
   try {
     browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -286,7 +285,7 @@
     if (!node || !node.childNodes) return false;
     for (var i = 0; i < node.childNodes.length; i++) {
       var child = node.childNodes[i];
-      if (child && child.nodeType === Node.TEXT_NODE && /\S/.test(child.nodeValue || '')) return true;
+      if (child && child.nodeType === 3 && /\S/.test(child.nodeValue || '')) return true;
     }
     return false;
   }
@@ -296,7 +295,7 @@
     var transparent = 'rgba(0, 0, 0, 0)';
     while (parent) {
       try {
-        if (parent instanceof Element) {
+        if (parent.nodeType === 1) {
           var bg = getComputedStyle(parent).getPropertyValue('background-color');
           if (bg && bg !== transparent) {
             var rgba = getRgbArray(bg);
@@ -322,7 +321,6 @@
       var existing = document.getElementById('a-font-face-off-style-substack-roulette-dimming');
       if (existing) existing.remove();
     } catch (_) { }
-    activeSubstackRouletteDimmingPercent = null;
   }
 
   function applySubstackRouletteDimming(percent) {
@@ -330,7 +328,7 @@
     if (!isFinite(percent) || percent <= 0 || percent >= 100) return;
     var candidates = document.querySelectorAll('[data-affo-font-type="serif"], [data-affo-font-type="sans"]');
     candidates.forEach(function (node) {
-      if (!(node instanceof Element)) return;
+      if (!node || node.nodeType !== 1) return;
       if (!elementHasOwnText(node)) return;
       if (node.closest('[data-affo-substack-dim]')) return;
       try {
@@ -355,7 +353,6 @@
     styleEl.textContent = getSubstackRouletteDimmingCss(percent);
     document.head.appendChild(styleEl);
     ensureNonAggressiveStyleOrderChaser();
-    activeSubstackRouletteDimmingPercent = percent;
   }
 
   function scheduleSubstackRouletteDimming(percent) {
