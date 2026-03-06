@@ -344,7 +344,8 @@
         var colorfulness = calcColorfulness(rgba);
         var isLink = String(node.tagName || '').toUpperCase() === 'A';
         var minContrast = isLink ? 96 : 132;
-        if (contrast > minContrast && colorfulness > 32) return;
+        var maxColorfulness = isLink ? 32 : 40;
+        if (contrast > minContrast && colorfulness > maxColorfulness) return;
         node.setAttribute('data-affo-substack-dim', '');
       } catch (_) { }
     });
