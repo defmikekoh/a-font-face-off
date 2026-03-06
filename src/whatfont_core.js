@@ -119,6 +119,7 @@ function _whatFont() {
         },
 
         detectBasicCSS: function() {
+            var computedStyle = window.getComputedStyle(this.element[0]);
             this.fonts = this.element.css('font-family');
             this.weight = this.element.css('font-weight');
             this.style = this.element.css('font-style');
@@ -126,6 +127,7 @@ function _whatFont() {
             this.lineHeight = TypeInfo.roundFloatWithPxUnit(this.element.css('line-height'));
             this.letterSpacing = this.element.css('letter-spacing');
             this.color = this.element.css('color');
+            this.filter = computedStyle.getPropertyValue('filter');
             this.variableAxes = this.detectVariableAxes();
         },
 
@@ -566,6 +568,7 @@ function _whatFont() {
 
                 '<li>' + '<div class="size_line_height clearfix">' + '<dl class="size section">' + '<dt class="panel_label">Font Size</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '<dl class="line_height">' + '<dt class="panel_label">Line Height</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</div>' + '</li>' +
                 '<li class="letter_spacing_row" style="display:none;">' + '<dl class="letter_spacing">' + '<dt class="panel_label">Letter Spacing</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</li>' +
+                '<li class="filter_row" style="display:none;">' + '<dl class="filter_value_row">' + '<dt class="panel_label">Filter</dt>' + '<dd class="panel_value"></dd>' + '</dl>' + '</li>' +
 
                 '<li class="variable_axes_section" style="display:none;">' + 
                 '<div class="variable_axes_container">' +
@@ -699,6 +702,20 @@ function _whatFont() {
             return newPanel;
         },
 
+        filter: function(typeInfo, newPanel) {
+            var filterValue = typeInfo.filter;
+            var filterRow = $(newPanel).find(".filter_row");
+
+            if (filterValue && filterValue !== 'none') {
+                $(newPanel).find(".filter_value_row>dd").text(filterValue);
+                filterRow.show();
+            } else {
+                filterRow.hide();
+            }
+
+            return newPanel;
+        },
+
         variableAxes: function(typeInfo, newPanel) {
             var axes = typeInfo.variableAxes;
             var axesSection = $(newPanel).find(".variable_axes_section");
@@ -826,7 +843,7 @@ function _whatFont() {
         },
 
         panelContent: function(typeInfo, newPanel) {
-            $(['typePreview', 'fontService', 'fontFam', 'sizeLineHeight', 'variableAxes', 'color', 'tweet']).each(function(i, prop) {
+            $(['typePreview', 'fontService', 'fontFam', 'sizeLineHeight', 'filter', 'variableAxes', 'color', 'tweet']).each(function(i, prop) {
                 panel[prop](typeInfo, newPanel);
             });
         },
@@ -1269,4 +1286,3 @@ function _whatFont() {
 
 // Expose _whatFont function to global scope for extension access
 window._whatFont = _whatFont;
-
