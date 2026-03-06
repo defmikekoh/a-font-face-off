@@ -165,18 +165,34 @@
         function handleButtonPress(button, callback, logMessage, longPressCallback) {
             let pressTimer = null;
             let isLongPress = false;
+            let ignoreNextClick = false;
+
+            function clearPressTimer() {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            }
+
+            function runButtonAction(action) {
+                button.classList.add('pressed');
+                button.blur();
+                setTimeout(() => {
+                    button.classList.remove('pressed');
+                    action();
+                }, 20);
+            }
             
             // Handle click/tap
             button.addEventListener('click', function(e) {
                 e.preventDefault();
+                if (ignoreNextClick) {
+                    ignoreNextClick = false;
+                    isLongPress = false;
+                    return;
+                }
                 if (!isLongPress) {
-                    this.classList.add('pressed');
-                    // Force blur to remove any stuck hover states on touch devices
-                    this.blur();
-                    setTimeout(() => {
-                        this.classList.remove('pressed');
-                        callback();
-                    }, 100);
+                    runButtonAction(callback);
                 }
                 isLongPress = false;
             });
@@ -185,61 +201,54 @@
             if (longPressCallback) {
                 button.addEventListener('mousedown', function(_e) {
                     isLongPress = false;
+                    clearPressTimer();
                     pressTimer = setTimeout(() => {
+                        pressTimer = null;
                         isLongPress = true;
-                        this.classList.add('pressed');
-                        this.blur();
-                        setTimeout(() => {
-                            this.classList.remove('pressed');
-                            longPressCallback();
-                        }, 100);
+                        runButtonAction(longPressCallback);
                     }, 500); // 500ms for longpress
                 });
 
                 button.addEventListener('mouseup', function(_e) {
-                    if (pressTimer) {
-                        clearTimeout(pressTimer);
-                        pressTimer = null;
-                    }
+                    clearPressTimer();
                 });
 
                 button.addEventListener('mouseleave', function(_e) {
-                    if (pressTimer) {
-                        clearTimeout(pressTimer);
-                        pressTimer = null;
-                    }
-                    isLongPress = false;
-                });
-
-                // Touch events for mobile
-                button.addEventListener('touchstart', function(_e) {
-                    isLongPress = false;
-                    pressTimer = setTimeout(() => {
-                        isLongPress = true;
-                        this.classList.add('pressed');
-                        this.blur();
-                        setTimeout(() => {
-                            this.classList.remove('pressed');
-                            longPressCallback();
-                        }, 100);
-                    }, 500);
-                });
-
-                button.addEventListener('touchend', function(_e) {
-                    if (pressTimer) {
-                        clearTimeout(pressTimer);
-                        pressTimer = null;
-                    }
-                });
-
-                button.addEventListener('touchcancel', function(_e) {
-                    if (pressTimer) {
-                        clearTimeout(pressTimer);
-                        pressTimer = null;
-                    }
+                    clearPressTimer();
                     isLongPress = false;
                 });
             }
+
+            // Handle short taps on touch directly and swallow the synthetic click.
+            button.addEventListener('touchstart', function(_e) {
+                ignoreNextClick = false;
+                isLongPress = false;
+                clearPressTimer();
+                if (longPressCallback) {
+                    pressTimer = setTimeout(() => {
+                        pressTimer = null;
+                        isLongPress = true;
+                        runButtonAction(longPressCallback);
+                    }, 500);
+                }
+            }, { passive: true });
+
+            button.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                ignoreNextClick = true;
+                clearPressTimer();
+                if (!isLongPress) {
+                    runButtonAction(callback);
+                }
+                isLongPress = false;
+            }, { passive: false });
+
+            button.addEventListener('touchcancel', function(_e) {
+                ignoreNextClick = true;
+                clearPressTimer();
+                isLongPress = false;
+                button.classList.remove('pressed');
+            }, { passive: true });
         }
 
         // Add click handlers with pressed animation like essential-buttons-toolbar
