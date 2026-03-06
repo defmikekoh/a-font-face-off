@@ -263,10 +263,7 @@
 
   function getSubstackRouletteDimmingCss(percent) {
     if (!isFinite(percent)) return '';
-    return [
-      '[data-affo-substack-dim] { filter: brightness(' + percent + '%) !important; }',
-      '[data-affo-substack-rgba] { color: var(--affo-substack-rgba) !important; }'
-    ].join('\n');
+    return '[data-affo-substack-dim], [data-affo-substack-dim][style] { filter: brightness(' + percent + '%) !important; }';
   }
 
   function getRgbArray(colorStr) {
@@ -317,9 +314,12 @@
     document.querySelectorAll('[data-affo-substack-dim]').forEach(function (node) {
       node.removeAttribute('data-affo-substack-dim');
     });
-    document.querySelectorAll('[data-affo-substack-rgba]').forEach(function (node) {
-      node.removeAttribute('data-affo-substack-rgba');
-      node.style.removeProperty('--affo-substack-rgba');
+    document.querySelectorAll('[class*="affo-substack-rgba__"]').forEach(function (node) {
+      toArrayLike(node.classList || []).forEach(function (className) {
+        if (String(className).indexOf('affo-substack-rgba__') === 0) {
+          node.classList.remove(className);
+        }
+      });
     });
   }
 
@@ -332,38 +332,112 @@
     activeSubstackRouletteDimmingPercent = null;
   }
 
+  function toArrayLike(nodeList) {
+    var arr = [];
+    if (!nodeList) return arr;
+    for (var i = 0; i < nodeList.length; i++) arr.push(nodeList[i]);
+    return arr;
+  }
+
+  function buildSubstackRouletteContrastCss(percent, rgbaRules) {
+    var baseCss = getSubstackRouletteDimmingCss(percent);
+    if (!rgbaRules || !rgbaRules.length) return baseCss;
+    return baseCss + '\n' + rgbaRules.join('\n');
+  }
+
   function applySubstackRouletteDimming(percent) {
     removeSubstackRouletteDimming();
     if (!isFinite(percent) || percent <= 0 || percent >= 100) return;
-    var candidates = document.querySelectorAll('[data-affo-font-type="serif"], [data-affo-font-type="sans"]');
-    candidates.forEach(function (node) {
+    var tagsToSkip = {
+      SCRIPT: true,
+      LINK: true,
+      STYLE: true,
+      IMG: true,
+      VIDEO: true,
+      SOURCE: true,
+      CANVAS: true,
+      undefined: true
+    };
+    var colorsToSkip = {
+      'rgb(0, 0, 0)': true,
+      'rgba(0, 0, 0, 0)': true,
+      'rgb(255, 255, 255)': true,
+      'rgb(254, 254, 254)': true,
+      'rgb(253, 253, 253)': true,
+      'rgb(252, 252, 252)': true,
+      'rgb(251, 251, 251)': true,
+      'rgb(250, 250, 250)': true
+    };
+    var classesToSkip = '';
+    var processImages = true;
+    var host = String(location.hostname || '').replace(/^www\./, '');
+    if (host === 'youtube.com') {
+      classesToSkip = 'ytp';
+      processImages = false;
+    } else if (host === 'facebook.com') {
+      processImages = false;
+    }
+    var nodes = toArrayLike(document.body ? document.body.getElementsByTagName('*') : []);
+    var nodesToSkip = [];
+    var nodesBehindImg = [];
+    var rgbaRulesMap = {};
+    nodes.forEach(function (node) {
       if (!(node instanceof Element)) return;
-      if (!elementHasOwnText(node)) return;
-      if (node.closest('[data-affo-substack-dim]')) return;
-      try {
-        var style = getComputedStyle(node);
-        var color = style.getPropertyValue('color');
-        if (!color || color === 'rgb(0, 0, 0)' || color === 'rgba(0, 0, 0, 0)') return;
-        var rgba = getRgbArray(color);
-        if (!rgba) return;
-        var fgBrightness = calcColorBrightness(rgba);
-        var bgBrightness = getAncestorBackgroundBrightness(node);
-        if (fgBrightness === null || bgBrightness < 145) return;
-        var contrast = Math.abs(bgBrightness - fgBrightness);
-        var colorfulness = calcColorfulness(rgba);
-        var isLink = String(node.tagName || '').toUpperCase() === 'A';
-        var minContrast = isLink ? 96 : 132;
-        if (contrast > minContrast && colorfulness > 32) return;
-        node.setAttribute('data-affo-substack-dim', '');
-        if (rgba.length > 3 && rgba[3] < 1) {
-          node.setAttribute('data-affo-substack-rgba', '');
-          node.style.setProperty('--affo-substack-rgba', 'rgba(' + rgba[0] + ', ' + rgba[1] + ', ' + rgba[2] + ', 1)');
+      var tag = String(node.nodeName);
+      if (tagsToSkip[tag]) return;
+      if (nodesToSkip.indexOf(node) !== -1) return;
+      if (classesToSkip) {
+        var className = String(node.className || '');
+        if (className.indexOf(classesToSkip) !== -1) {
+          nodesToSkip = nodesToSkip.concat(toArrayLike(node.getElementsByTagName('*')));
+          return;
         }
-      } catch (_) { }
+      }
+      var style;
+      try {
+        style = getComputedStyle(node);
+      } catch (_) {
+        return;
+      }
+      var imgOffset = 0;
+      if (processImages) {
+        var bgImg = style.getPropertyValue('background-image');
+        if (bgImg && bgImg !== 'none') {
+          nodesBehindImg = nodesBehindImg.concat(toArrayLike(node.getElementsByTagName('*')));
+          imgOffset = 127;
+        }
+        if (nodesBehindImg.indexOf(node) !== -1) {
+          imgOffset = 96;
+        }
+      }
+      if (!elementHasOwnText(node)) return;
+      var color = style.getPropertyValue('color');
+      if (!color || colorsToSkip[color]) return;
+      var rgba = getRgbArray(color);
+      if (!rgba) return;
+      if (rgba.length > 3) {
+        var classSuffix = String(rgba[0]) + String(rgba[1]) + String(rgba[2]);
+        var rgbaClass = 'affo-substack-rgba__' + classSuffix;
+        node.classList.add(rgbaClass);
+        rgbaRulesMap[rgbaClass] = '.' + rgbaClass + '{color:' + color.replace(/\d\.\d+/, '1') + '!important}';
+      }
+      var fgBrightness = calcColorBrightness(rgba);
+      var fgColorfulness = calcColorfulness(rgba);
+      var bgBrightness = getAncestorBackgroundBrightness(node);
+      var bgThreshold = 160 + imgOffset;
+      if (bgBrightness < bgThreshold) return;
+      var contrast = +Math.abs(bgBrightness - fgBrightness).toFixed(2);
+      var isLink = tag === 'A';
+      var minContrast = 132;
+      var minLinkContrast = 96;
+      var minColorfulness = 32;
+      if (isLink) minContrast = minLinkContrast;
+      if (contrast > minContrast && fgColorfulness > minColorfulness) return;
+      node.setAttribute('data-affo-substack-dim', '');
     });
     var styleEl = document.createElement('style');
     styleEl.id = 'a-font-face-off-style-substack-roulette-dimming';
-    styleEl.textContent = getSubstackRouletteDimmingCss(percent);
+    styleEl.textContent = buildSubstackRouletteContrastCss(percent, Object.keys(rgbaRulesMap).map(function (key) { return rgbaRulesMap[key]; }));
     document.head.appendChild(styleEl);
     ensureNonAggressiveStyleOrderChaser();
     activeSubstackRouletteDimmingPercent = percent;

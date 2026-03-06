@@ -107,6 +107,60 @@ function _whatFont() {
         }
     }
 
+    TypeInfo.parseColor = function(color) {
+        var match = String(color || '').match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([\d.]+))?\s*\)$/);
+        if (!match) return null;
+        return {
+            r: parseInt(match[1], 10),
+            g: parseInt(match[2], 10),
+            b: parseInt(match[3], 10),
+            a: match[4] !== undefined ? parseFloat(match[4]) : 1
+        };
+    };
+
+    TypeInfo.toHex = function(parsed) {
+        var r = parsed.r.toString(16),
+            g = parsed.g.toString(16),
+            b = parsed.b.toString(16);
+        r = (r.length === 1) ? '0' + r : r;
+        g = (g.length === 1) ? '0' + g : g;
+        b = (b.length === 1) ? '0' + b : b;
+        return '#' + r + g + b;
+    };
+
+    TypeInfo.applyBrightnessFilter = function(parsed, filter) {
+        if (!parsed || !filter || filter === 'none') return parsed;
+        var brightnessMatches = String(filter).match(/brightness\(([^)]+)\)/g);
+        if (!brightnessMatches || brightnessMatches.length === 0) return parsed;
+        var factor = 1;
+        $.each(brightnessMatches, function(i, token) {
+            var match = token.match(/brightness\(([^)]+)\)/);
+            if (!match) return;
+            var raw = String(match[1] || '').trim();
+            var value = parseFloat(raw);
+            if (!isFinite(value)) return;
+            if (raw.indexOf('%') !== -1) {
+                factor *= value / 100;
+            } else {
+                factor *= value;
+            }
+        });
+        return {
+            r: Math.max(0, Math.min(255, Math.round(parsed.r * factor))),
+            g: Math.max(0, Math.min(255, Math.round(parsed.g * factor))),
+            b: Math.max(0, Math.min(255, Math.round(parsed.b * factor))),
+            a: parsed.a
+        };
+    };
+
+    TypeInfo.toCssColor = function(parsed) {
+        if (!parsed) return '';
+        if (parsed.a !== undefined && parsed.a < 1) {
+            return 'rgba(' + parsed.r + ', ' + parsed.g + ', ' + parsed.b + ', ' + parsed.a + ')';
+        }
+        return 'rgb(' + parsed.r + ', ' + parsed.g + ', ' + parsed.b + ')';
+    };
+
     TypeInfo.prototype = {
         detect: function() {
             this.detectBasicCSS();
@@ -128,6 +182,7 @@ function _whatFont() {
             this.letterSpacing = this.element.css('letter-spacing');
             this.color = this.element.css('color');
             this.filter = computedStyle.getPropertyValue('filter');
+            this.effectiveColor = TypeInfo.toCssColor(TypeInfo.applyBrightnessFilter(TypeInfo.parseColor(this.color), this.filter));
             this.variableAxes = this.detectVariableAxes();
         },
 
@@ -795,23 +850,21 @@ function _whatFont() {
             var rgb_color = typeInfo.color,
                 sample = $(newPanel).find(".color_info_sample"),
                 value = $(newPanel).find(".color_info_value"),
-                re, match, r, g, b, hex_color, colors, color_type;
+                parsed, hex_color, colors, color_type;
 
-            if (rgb_color.indexOf('rgba') !== -1) {
-                // don't display rgba color (not accurate)
+            if (!rgb_color || rgb_color === 'transparent') {
                 $(newPanel).find(".color_info").hide();
                 return;
             }
 
-            re = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/;
-            match = rgb_color.match(re);
-            r = parseInt(match[1], 10).toString(16);
-            g = parseInt(match[2], 10).toString(16);
-            b = parseInt(match[3], 10).toString(16);
-            r = (r.length === 1) ? '0' + r : r;
-            g = (g.length === 1) ? '0' + g : g;
-            b = (b.length === 1) ? '0' + b : b;
-            hex_color = '#' + r + g + b;
+            parsed = TypeInfo.parseColor(rgb_color);
+            if (!parsed) {
+                sample.css("background-color", rgb_color);
+                value.text(rgb_color);
+                $(newPanel).find(".color_info").show();
+                return;
+            }
+            hex_color = TypeInfo.toHex(parsed);
             colors = [rgb_color, hex_color];
             color_type = 0;
 
