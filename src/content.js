@@ -260,9 +260,10 @@
     return false;
   }
 
-  function getSubstackRouletteDimmingCss(percent) {
-    if (!isFinite(percent)) return '';
-    return '[data-affo-substack-dim] { filter: brightness(' + percent + '%) !important; }';
+  var SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS = 54.8; // #363737
+
+  function getSubstackRouletteDimmingCss() {
+    return '[data-affo-substack-dim] { filter: brightness(var(--affo-substack-dim-brightness)) !important; }';
   }
 
   function getRgbArray(colorStr) {
@@ -274,6 +275,15 @@
   function calcColorBrightness(rgba) {
     if (!rgba || rgba.length < 3) return null;
     return +(rgba[0] * 0.2126 + rgba[1] * 0.7152 + rgba[2] * 0.0722).toFixed(1);
+  }
+
+  function calcEffectiveColorBrightness(rgba, bgBrightness) {
+    var fgBrightness = calcColorBrightness(rgba);
+    if (fgBrightness === null) return null;
+    var alpha = rgba && rgba.length > 3 && isFinite(rgba[3]) ? rgba[3] : 1;
+    if (alpha <= 0) return null;
+    if (alpha >= 1 || !isFinite(bgBrightness)) return fgBrightness;
+    return +(fgBrightness * alpha + bgBrightness * (1 - alpha)).toFixed(1);
   }
 
   function calcColorfulness(rgba) {
@@ -312,6 +322,7 @@
   function clearSubstackRouletteDimMarkers() {
     document.querySelectorAll('[data-affo-substack-dim]').forEach(function (node) {
       node.removeAttribute('data-affo-substack-dim');
+      if (node.style) node.style.removeProperty('--affo-substack-dim-brightness');
     });
   }
 
@@ -323,10 +334,10 @@
     } catch (_) { }
   }
 
-  function applySubstackRouletteDimming(percent) {
+  function applySubstackRouletteDimming() {
     removeSubstackRouletteDimming();
-    if (!isFinite(percent) || percent <= 0 || percent >= 100) return;
     var candidates = document.querySelectorAll('[data-affo-font-type="serif"], [data-affo-font-type="sans"]');
+    var markedCount = 0;
     candidates.forEach(function (node) {
       if (!node || node.nodeType !== 1) return;
       if (!elementHasOwnText(node)) return;
@@ -334,39 +345,38 @@
       try {
         var style = getComputedStyle(node);
         var color = style.getPropertyValue('color');
-        if (!color || color === 'rgb(0, 0, 0)' || color === 'rgba(0, 0, 0, 0)') return;
+        if (!color || color === 'rgba(0, 0, 0, 0)') return;
         var rgba = getRgbArray(color);
         if (!rgba) return;
-        var fgBrightness = calcColorBrightness(rgba);
         var bgBrightness = getAncestorBackgroundBrightness(node);
-        if (fgBrightness === null || bgBrightness < 145) return;
-        var contrast = Math.abs(bgBrightness - fgBrightness);
+        var effectiveBrightness = calcEffectiveColorBrightness(rgba, bgBrightness);
+        if (effectiveBrightness === null || effectiveBrightness <= SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS || bgBrightness < 145) return;
+        var contrast = Math.abs(bgBrightness - effectiveBrightness);
         var colorfulness = calcColorfulness(rgba);
         var isLink = String(node.tagName || '').toUpperCase() === 'A';
         var minContrast = isLink ? 96 : 132;
         var maxColorfulness = isLink ? 32 : 40;
         if (contrast > minContrast && colorfulness > maxColorfulness) return;
         node.setAttribute('data-affo-substack-dim', '');
+        node.style.setProperty('--affo-substack-dim-brightness', +((SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS / effectiveBrightness) * 100).toFixed(1) + '%');
+        markedCount += 1;
       } catch (_) { }
     });
+    if (!markedCount || !document.head) return;
     var styleEl = document.createElement('style');
     styleEl.id = 'a-font-face-off-style-substack-roulette-dimming';
-    styleEl.textContent = getSubstackRouletteDimmingCss(percent);
+    styleEl.textContent = getSubstackRouletteDimmingCss();
     document.head.appendChild(styleEl);
     ensureNonAggressiveStyleOrderChaser();
   }
 
-  function scheduleSubstackRouletteDimming(percent) {
-    if (!isFinite(percent) || percent <= 0 || percent >= 100) {
-      removeSubstackRouletteDimming();
-      return;
-    }
+  function scheduleSubstackRouletteDimming() {
     setTimeout(function () {
-      try { applySubstackRouletteDimming(percent); } catch (_) { }
+      try { applySubstackRouletteDimming(); } catch (_) { }
     }, 250);
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
-        try { applySubstackRouletteDimming(percent); } catch (_) { }
+        try { applySubstackRouletteDimming(); } catch (_) { }
       }).catch(function () { });
     }
   }
@@ -2255,7 +2265,7 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBrightness', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
       // Ensure aggressiveDomains and waitForItDomains are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoAggressiveDomains)) {
@@ -2276,7 +2286,6 @@
         var rouletteEnabled = data.affoSubstackRoulette !== false; // default true
         var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
         var rouletteSans = Array.isArray(data.affoSubstackRouletteSans) ? data.affoSubstackRouletteSans : [];
-        var rouletteBrightness = isFinite(Number(data.affoSubstackRouletteBrightness)) ? Number(data.affoSubstackRouletteBrightness) : 30;
         var favorites = data.affoFavorites || {};
 
         if (rouletteEnabled && rouletteSerif.length >= 1 && rouletteSans.length >= 1) {
@@ -2300,7 +2309,7 @@
             ensureCss2UrlCache().then(function () {
               // Apply via existing TMI path
               reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
-              scheduleSubstackRouletteDimming(rouletteBrightness);
+              scheduleSubstackRouletteDimming();
 
               // Set up SPA navigation hooks for roulette TMI fonts
               if (!shouldUseInlineApply()) {
@@ -2311,7 +2320,7 @@
                       elementWalkerRechecksScheduled[ft] = false;
                     });
                     runElementWalkerAll(['serif', 'sans']);
-                    scheduleSubstackRouletteDimming(rouletteBrightness);
+                    scheduleSubstackRouletteDimming();
                   } catch (_) { }
                 }
                 registerSpaHandler(reapplyRouletteAfterNavigation);
@@ -2467,20 +2476,18 @@
           changes.affoSubstackRoulette ||
           changes.affoSubstackRouletteSerif ||
           changes.affoSubstackRouletteSans ||
-          changes.affoSubstackRouletteBrightness ||
           changes.affoFavorites
         );
         if (!changes.affoApplyMap) {
           if (!rouletteKeysChanged) return;
           if (!getIsSubstack()) return;
-          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBrightness', 'affoFavorites']).then(function (data) {
+          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function (data) {
             try {
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
               if (map[origin]) return;
               var rouletteEnabled = data.affoSubstackRoulette !== false;
               var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
               var rouletteSans = Array.isArray(data.affoSubstackRouletteSans) ? data.affoSubstackRouletteSans : [];
-              var rouletteBrightness = isFinite(Number(data.affoSubstackRouletteBrightness)) ? Number(data.affoSubstackRouletteBrightness) : 30;
               var favorites = data.affoFavorites || {};
               if (!rouletteEnabled || rouletteSerif.length < 1 || rouletteSans.length < 1) {
                 removeSubstackRouletteDimming();
@@ -2495,7 +2502,7 @@
                 return;
               }
               reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
-              scheduleSubstackRouletteDimming(rouletteBrightness);
+              scheduleSubstackRouletteDimming();
             } catch (_) { }
           }).catch(function () { });
           return;
