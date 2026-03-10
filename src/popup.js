@@ -2221,6 +2221,21 @@ function shouldUseAggressive(origin) {
     return aggressiveDomains.includes(origin);
 }
 
+let ignoreCommentsDomains = []; // Will be loaded from storage
+
+try {
+    browser.storage.local.get('affoIgnoreCommentsDomains').then(function(data) {
+        if (Array.isArray(data.affoIgnoreCommentsDomains)) {
+            ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
+            console.log('[AFFO Popup] Loaded ignore comments domains:', ignoreCommentsDomains);
+        }
+    }).catch(function() {});
+} catch (e) {}
+
+function shouldIgnoreComments(origin) {
+    return ignoreCommentsDomains.includes(origin);
+}
+
 // Element walker is now handled entirely in content.js via message passing
 // (popup.js calls runElementWalkerInTargetTab instead of injecting walker scripts)
 
@@ -2261,13 +2276,14 @@ async function applyFontToPage(position, config) {
         } else {
             // Apply CSS using consolidated insertCSS approach for standard domains
             const aggressive = shouldUseAggressive(origin);
+            const ignoreComments = shouldIgnoreComments(origin);
             let css;
             if (position === 'body') {
                 // Use Body Contact CSS generation
-                css = generateBodyContactCSS(payload, aggressive);
+                css = generateBodyContactCSS(payload, aggressive, ignoreComments);
             } else {
                 // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload, aggressive);
+                css = generateBodyCSS(payload, aggressive, ignoreComments);
             }
 
             if (css) {

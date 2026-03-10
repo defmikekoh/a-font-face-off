@@ -176,12 +176,14 @@
     }).catch(function () { });
   } catch (_) { }
 
-  // Load FontFace-only domains, inline apply domains, aggressive domains, and wait-for-it domains from storage
+  // Load FontFace-only domains, inline apply domains, aggressive domains, wait-for-it
+  // domains, and ignore-comments domains from storage.
   var aggressiveDomains = [];
   var waitForItDomains = [];
+  var ignoreCommentsDomains = [];
   var pendingSubstackRoulette = null;
   try {
-    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
+    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
         fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
         debugLog(`[AFFO Content] FontFace-only domains:`, fontFaceOnlyDomains);
@@ -197,6 +199,10 @@
       if (Array.isArray(data.affoWaitForItDomains)) {
         waitForItDomains = data.affoWaitForItDomains;
         debugLog(`[AFFO Content] Wait For It domains:`, waitForItDomains);
+      }
+      if (Array.isArray(data.affoIgnoreCommentsDomains)) {
+        ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
+        debugLog(`[AFFO Content] Ignore comments domains:`, ignoreCommentsDomains);
       }
     }).catch(function () { });
   } catch (e) { }
@@ -217,6 +223,14 @@
 
   function shouldUseAggressive() {
     return aggressiveDomains.includes(currentOrigin);
+  }
+
+  function shouldIgnoreComments() {
+    return ignoreCommentsDomains.includes(currentOrigin);
+  }
+
+  function getCommentExcludeSelector() {
+    return shouldIgnoreComments() ? ':not(.comments-page):not(.comments-page *)' : '';
   }
 
   // --- Substack detection (lazy-cached) ---
@@ -504,11 +518,13 @@
 
   // --- Module-level selector & inline-apply helpers ---
   var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
-  var BODY_EXCLUDE = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)';
+  function getBodyExcludeSelector() {
+    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector();
+  }
 
   function getAffoSelector(ft) {
     if (ft === 'body') {
-      return 'body ' + BODY_EXCLUDE;
+      return 'body ' + getBodyExcludeSelector();
     }
     return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]';
   }
@@ -547,7 +563,30 @@
       el.style.setProperty('--affo-font-weight', '700', 'important');
       el.setAttribute('data-affo-font-weight', '700');
       el.setAttribute('data-affo-was-bold', 'true');
+      var boldAxes = buildBoldAxisSettings({ variableAxes: extractVariationAxes(propsObj['font-variation-settings']) }, 700);
+      if (boldAxes.length > 0) {
+        el.style.setProperty('font-variation-settings', boldAxes.join(', '), 'important');
+        el.style.setProperty('--affo-font-variation-settings', boldAxes.join(', '), 'important');
+        el.setAttribute('data-affo-font-variation-settings', boldAxes.join(', '));
+      } else {
+        el.style.removeProperty('font-variation-settings');
+        el.style.removeProperty('--affo-font-variation-settings');
+        el.removeAttribute('data-affo-font-variation-settings');
+      }
     }
+  }
+
+  function resetHeadingTypographyInMarkedSubtree(root) {
+    if (!root || !root.querySelectorAll) return;
+    try {
+      root.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function (heading) {
+        heading.style.setProperty('font-family', 'revert', 'important');
+        heading.style.setProperty('font-weight', 'revert', 'important');
+        heading.style.setProperty('font-stretch', 'revert', 'important');
+        heading.style.setProperty('font-style', 'revert', 'important');
+        heading.style.setProperty('font-variation-settings', 'normal', 'important');
+      });
+    } catch (_) { }
   }
 
   function hasAffoStyleNodes() {
@@ -698,6 +737,7 @@
 
     // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
     var inlineCustomAxes = buildAllAxisSettings(fontConfig);
+    var inlineBoldAxes = buildBoldAxisSettings(fontConfig, 700);
     if (inlineCustomAxes.length > 0) {
       cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
@@ -717,8 +757,10 @@
           var boldElements = document.querySelectorAll('body strong, body b');
           boldElements.forEach(function (el) {
             el.style.setProperty('font-weight', '700', 'important');
-            if (inlineCustomAxes.length > 0) {
-              el.style.setProperty('font-variation-settings', inlineCustomAxes.join(', '), 'important');
+            if (inlineBoldAxes.length > 0) {
+              el.style.setProperty('font-variation-settings', inlineBoldAxes.join(', '), 'important');
+            } else {
+              el.style.removeProperty('font-variation-settings');
             }
           });
         }
@@ -727,6 +769,7 @@
         var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
         tmiElements.forEach(function (el) {
           applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
+          resetHeadingTypographyInMarkedSubtree(el);
         });
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
       }
@@ -786,6 +829,7 @@
             applyAffoProtection(el, cfg.cssPropsObject);
           } else {
             applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+            resetHeadingTypographyInMarkedSubtree(el);
           }
         });
         elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
@@ -808,6 +852,7 @@
             var elements = document.querySelectorAll(getAffoSelector(ft));
             elements.forEach(function (el) {
               applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+              resetHeadingTypographyInMarkedSubtree(el);
             });
             elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
           } catch (_) { }
@@ -1021,6 +1066,31 @@
     return settings;
   }
 
+  function buildBoldAxisSettings(config, weightOverride) {
+    var axes = {};
+    if (config && config.variableAxes) {
+      Object.entries(config.variableAxes).forEach(function ([axis, value]) {
+        if (isFinite(Number(value))) {
+          axes[axis] = Number(value);
+        }
+      });
+    }
+    axes.wght = Number(weightOverride);
+    return Object.entries(axes).map(function ([axis, value]) {
+      return '"' + axis + '" ' + value;
+    });
+  }
+
+  function extractVariationAxes(settingsText) {
+    var axes = {};
+    if (!settingsText) return axes;
+    String(settingsText).replace(/"([^"]+)"\s+([^,]+)/g, function (_, axis, value) {
+      axes[axis] = Number(value);
+      return _;
+    });
+    return axes;
+  }
+
   // Shared CSS generation for body and Third Man In modes.
   // Returns an array of CSS rule strings. Used by both reapplyStoredFontsFromEntry and reapplyStoredFonts.
   function generateCSSLines(fontConfig, fontType) {
@@ -1028,14 +1098,16 @@
     var imp = shouldUseAggressive() ? ' !important' : '';
 
     var customAxes = buildAllAxisSettings(fontConfig);
+    var boldAxes = buildBoldAxisSettings(fontConfig, 700);
     var effectiveWeight = getEffectiveWeight(fontConfig);
     var effectiveWdth = getEffectiveWidth(fontConfig);
     var effectiveSlnt = getEffectiveSlant(fontConfig);
     var effectiveItal = getEffectiveItalic(fontConfig);
 
     if (fontType === 'body') {
-      var generalSelector = 'body, body ' + BODY_EXCLUDE + ':not([class*="__whatfont_"])';
-      var weightSelector = 'body, body ' + BODY_EXCLUDE + ':not(strong):not(b):not([class*="__whatfont_"])';
+      var bodyExclude = getBodyExcludeSelector();
+      var generalSelector = 'body, body ' + bodyExclude + ':not([class*="__whatfont_"])';
+      var weightSelector = 'body, body ' + bodyExclude + ':not(strong):not(b):not([class*="__whatfont_"])';
 
       var cssProps = [];
       if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
@@ -1066,8 +1138,8 @@
         lines.push(weightSelector + ' { ' + weightRule + '; }');
         // Bold override — font-weight only; stretch/style inherit from parent
         var boldRule = 'font-weight: 700' + imp;
-        if (customAxes.length > 0) {
-          boldRule += '; font-variation-settings: ' + customAxes.join(', ') + imp;
+        if (boldAxes.length > 0) {
+          boldRule += '; font-variation-settings: ' + boldAxes.join(', ') + imp;
         }
         lines.push('body strong, body b { ' + boldRule + '; }');
       }
@@ -1104,11 +1176,13 @@
           boldProps.push('font-family: "' + fontConfig.fontName + '", ' + generic + imp);
         }
         boldProps.push('font-weight: 700' + imp);
-        if (customAxes.length > 0) {
-          boldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
+        if (boldAxes.length > 0) {
+          boldProps.push('font-variation-settings: ' + boldAxes.join(', ') + imp);
         }
         lines.push('strong[data-affo-font-type="' + fontType + '"], b[data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"] strong, [data-affo-font-type="' + fontType + '"] b { ' + boldProps.join('; ') + '; }');
       }
+
+      lines.push('[data-affo-font-type="' + fontType + '"] h1, [data-affo-font-type="' + fontType + '"] h2, [data-affo-font-type="' + fontType + '"] h3, [data-affo-font-type="' + fontType + '"] h4, [data-affo-font-type="' + fontType + '"] h5, [data-affo-font-type="' + fontType + '"] h6 { font-family: revert' + imp + '; font-weight: revert' + imp + '; font-stretch: revert' + imp + '; font-style: revert' + imp + '; font-variation-settings: normal' + imp + '; }');
 
       // Other properties apply to body text elements
       var otherProps = [];
@@ -1879,11 +1953,16 @@
     var className = element.className || '';
     var style = element.style.fontFamily || '';
 
-    // Exclude UI elements and form controls
-    if (['nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
+    // Exclude headings, UI elements, and form controls
+    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
-    // Exclude descendants of non-body containers: figcaptions, buttons, guards, article headers, dialogs, Substack comments
-    if (element.closest && element.closest('figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"], .comments-page')) return null;
+    // Exclude descendants of non-body containers: figcaptions, buttons, guards,
+    // article headers, dialogs, and optionally Substack comments on configured domains.
+    if (element.closest) {
+      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"]';
+      if (shouldIgnoreComments()) closestSelector += ', .comments-page';
+      if (element.closest(closestSelector)) return null;
+    }
 
     // Exclude ARIA landmark roles
     var role = element.getAttribute && element.getAttribute('role');
@@ -2153,6 +2232,15 @@
     return runElementWalkerAll([fontType]);
   }
 
+  function resetWalkerStateForEntry(entry) {
+    ['serif', 'sans', 'mono'].forEach(function (ft) {
+      if (!entry || !entry[ft]) return;
+      elementWalkerCompleted[ft] = false;
+      elementWalkerRechecksScheduled[ft] = false;
+      delete elementWalkerInFlight[ft];
+    });
+  }
+
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry) {
     try {
@@ -2265,14 +2353,17 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains']).then(function (data) {
-      // Ensure aggressiveDomains and waitForItDomains are populated before any reapply logic runs
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
+      // Ensure domain lists are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoAggressiveDomains)) {
         aggressiveDomains = data.affoAggressiveDomains;
       }
       if (Array.isArray(data.affoWaitForItDomains)) {
         waitForItDomains = data.affoWaitForItDomains;
+      }
+      if (Array.isArray(data.affoIgnoreCommentsDomains)) {
+        ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
       }
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
@@ -2472,6 +2563,13 @@
       if (area !== 'local') return;
       try {
         var origin = location.hostname;
+        var ignoreCommentsMembershipChanged = false;
+        if (changes.affoIgnoreCommentsDomains) {
+          var oldIgnoreList = Array.isArray(changes.affoIgnoreCommentsDomains.oldValue) ? changes.affoIgnoreCommentsDomains.oldValue : [];
+          var newIgnoreList = Array.isArray(changes.affoIgnoreCommentsDomains.newValue) ? changes.affoIgnoreCommentsDomains.newValue : [];
+          ignoreCommentsDomains = newIgnoreList;
+          ignoreCommentsMembershipChanged = oldIgnoreList.includes(origin) !== newIgnoreList.includes(origin);
+        }
         var rouletteKeysChanged = !!(
           changes.affoSubstackRoulette ||
           changes.affoSubstackRouletteSerif ||
@@ -2479,6 +2577,36 @@
           changes.affoFavorites
         );
         if (!changes.affoApplyMap) {
+          if (ignoreCommentsMembershipChanged) {
+            browser.storage.local.get(['affoApplyMap']).then(function (data) {
+              try {
+                var map = data && data.affoApplyMap ? data.affoApplyMap : {};
+                var entry = map[origin];
+
+                ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
+                  try {
+                    var node = document.getElementById(id);
+                    if (node) node.remove();
+                  } catch (_) { }
+                });
+                removeSubstackRouletteDimming();
+
+                if (!entry) {
+                  if (getIsSubstack() && pendingSubstackRoulette) {
+                    resetWalkerStateForEntry({ serif: true, sans: true });
+                    pendingSubstackRoulette();
+                  } else {
+                    maybeStopNonAggressiveStyleOrderChaser();
+                  }
+                  return;
+                }
+
+                resetWalkerStateForEntry(entry);
+                reapplyStoredFontsFromEntry(entry);
+              } catch (_) { }
+            }).catch(function () { });
+            return;
+          }
           if (!rouletteKeysChanged) return;
           if (!getIsSubstack()) return;
           browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function (data) {

@@ -10,6 +10,11 @@
 
 const GUARD_EXCLUDE = ':not([data-affo-guard]):not([data-affo-guard] *)';
 
+function getIgnoreCommentsExclude(ignoreComments) {
+    if (!ignoreComments) return '';
+    return ':not(.comments-page):not(.comments-page *)';
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function formatAxisValue(axis, value) {
@@ -47,6 +52,19 @@ function buildItalicProps(payload, imp, weightOverride) {
     return props;
 }
 
+function buildBoldAxisSettings(payload, weightOverride) {
+    const axes = {};
+    if (payload.variableAxes) {
+        Object.entries(payload.variableAxes).forEach(([axis, value]) => {
+            if (isFinite(Number(value))) {
+                axes[axis] = Number(value);
+            }
+        });
+    }
+    axes.wght = Number(weightOverride);
+    return Object.entries(axes).map(([axis, value]) => `"${axis}" ${value}`);
+}
+
 function getSiteSpecificRules(fontType, otherProps, hostname) {
     if (hostname && hostname.includes('wikipedia.org')) {
         return `html.mf-font-size-clientpref-small body.skin-minerva .content p[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content span[data-affo-font-type="${fontType}"], html.mf-font-size-clientpref-small body.skin-minerva .content li[data-affo-font-type="${fontType}"] { ${otherProps.join('; ')}; }`;
@@ -56,7 +74,7 @@ function getSiteSpecificRules(fontType, otherProps, hostname) {
 
 // ── Face-off mode CSS (generateBodyCSS) ──────────────────────────────────────
 
-function generateBodyCSS(payload, aggressive) {
+function generateBodyCSS(payload, aggressive, ignoreComments) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
@@ -64,11 +82,12 @@ function generateBodyCSS(payload, aggressive) {
     if (!hasAnyProperties) return '';
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
+    const commentExclude = getIgnoreCommentsExclude(ignoreComments);
     const sel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + commentExclude + GUARD_EXCLUDE;
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
     const weightSel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"]):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + commentExclude + GUARD_EXCLUDE;
 
     const decl = [];
 
@@ -101,9 +120,10 @@ function generateBodyCSS(payload, aggressive) {
         decl.push(`font-style:oblique ${effectiveSlnt}deg${imp}`);
     }
     // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
-    const customAxes = buildAllAxisSettings(payload);
-    if (customAxes.length > 0) {
-        decl.push(`font-variation-settings:${customAxes.join(', ')}${imp}`);
+    const allAxes = buildAllAxisSettings(payload);
+    const boldAxes = buildBoldAxisSettings(payload, 700);
+    if (allAxes.length > 0) {
+        decl.push(`font-variation-settings:${allAxes.join(', ')}${imp}`);
     }
 
     let css = `${sel}{${decl.join('; ')};}`;
@@ -111,8 +131,8 @@ function generateBodyCSS(payload, aggressive) {
     const effectiveWt = getEffectiveWeight(payload);
     if (effectiveWt !== null) {
         let weightRule = `font-weight:${effectiveWt}${imp}`;
-        if (customAxes.length > 0) {
-            weightRule += `; font-variation-settings:${customAxes.join(', ')}${imp}`;
+        if (allAxes.length > 0) {
+            weightRule += `; font-variation-settings:${allAxes.join(', ')}${imp}`;
         }
         css += '\n' + weightSel + `{${weightRule};}`;
     }
@@ -120,8 +140,8 @@ function generateBodyCSS(payload, aggressive) {
     // Bold override — font-weight only; stretch/style inherit from parent
     if (effectiveWt !== null) {
         let boldRule = `font-weight: 700${imp}`;
-        if (customAxes.length > 0) {
-            boldRule += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
+        if (boldAxes.length > 0) {
+            boldRule += `; font-variation-settings: ${boldAxes.join(', ')}${imp}`;
         }
         css += `\nbody strong, body b, html body strong, html body b { ${boldRule}; }`;
     }
@@ -140,7 +160,7 @@ function generateBodyCSS(payload, aggressive) {
 
 // ── Body Contact mode CSS ────────────────────────────────────────────────────
 
-function generateBodyContactCSS(payload, aggressive) {
+function generateBodyContactCSS(payload, aggressive, ignoreComments) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
@@ -150,8 +170,9 @@ function generateBodyContactCSS(payload, aggressive) {
         lines.push(payload.fontFaceRule);
     }
 
-    const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
-    const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *):not(.comments-page):not(.comments-page *)' + GUARD_EXCLUDE;
+    const commentExclude = getIgnoreCommentsExclude(ignoreComments);
+    const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + commentExclude + GUARD_EXCLUDE;
+    const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + commentExclude + GUARD_EXCLUDE;
     let styleRule = `${selector} {`;
 
     if (payload.fontName) {
@@ -182,9 +203,10 @@ function generateBodyContactCSS(payload, aggressive) {
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         styleRule += ` font-style: oblique ${effectiveSlnt}deg${imp};`;
     }
-    const customAxes = buildAllAxisSettings(payload);
-    if (customAxes.length > 0) {
-        styleRule += ` font-variation-settings: ${customAxes.join(', ')}${imp};`;
+    const allAxes = buildAllAxisSettings(payload);
+    const boldAxes = buildBoldAxisSettings(payload, 700);
+    if (allAxes.length > 0) {
+        styleRule += ` font-variation-settings: ${allAxes.join(', ')}${imp};`;
     }
 
     styleRule += ' }';
@@ -193,13 +215,13 @@ function generateBodyContactCSS(payload, aggressive) {
     const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {
         let weightProps = `font-weight: ${effectiveWeight}${imp}`;
-        if (customAxes.length > 0) {
-            weightProps += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
+        if (allAxes.length > 0) {
+            weightProps += `; font-variation-settings: ${allAxes.join(', ')}${imp}`;
         }
         lines.push(`${weightSelector} { ${weightProps}; }`);
         let boldProps = `font-weight: 700${imp}`;
-        if (customAxes.length > 0) {
-            boldProps += `; font-variation-settings: ${customAxes.join(', ')}${imp}`;
+        if (boldAxes.length > 0) {
+            boldProps += `; font-variation-settings: ${boldAxes.join(', ')}${imp}`;
         }
         lines.push(`body strong, body b { ${boldProps}; }`);
     }
@@ -230,7 +252,8 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
 
     const ft = fontType;
 
-    const customAxes = buildAllAxisSettings(payload);
+    const allAxes = buildAllAxisSettings(payload);
+    const boldAxes = buildBoldAxisSettings(payload, 700);
     const effectiveWeight = getEffectiveWeight(payload);
 
     // Comprehensive rule for non-bold marked elements
@@ -250,8 +273,8 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         nonBoldProps.push(`font-style: oblique ${effectiveSlnt}deg${imp}`);
     }
-    if (customAxes.length > 0) {
-        nonBoldProps.push(`font-variation-settings: ${customAxes.join(', ')}${imp}`);
+    if (allAxes.length > 0) {
+        nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
         lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b) { ${nonBoldProps.join('; ')}; }`);
@@ -262,11 +285,13 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         const boldProps = [];
         if (payload.fontName) boldProps.push(`font-family: "${payload.fontName}"${imp}`);
         boldProps.push(`font-weight: 700${imp}`);
-        if (customAxes.length > 0) {
-            boldProps.push(`font-variation-settings: ${customAxes.join(', ')}${imp}`);
+        if (boldAxes.length > 0) {
+            boldProps.push(`font-variation-settings: ${boldAxes.join(', ')}${imp}`);
         }
         lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
+
+    lines.push(`[data-affo-font-type="${ft}"] h1, [data-affo-font-type="${ft}"] h2, [data-affo-font-type="${ft}"] h3, [data-affo-font-type="${ft}"] h4, [data-affo-font-type="${ft}"] h5, [data-affo-font-type="${ft}"] h6 { font-family: revert${imp}; font-weight: revert${imp}; font-stretch: revert${imp}; font-style: revert${imp}; font-variation-settings: normal${imp}; }`);
 
     // Italic rule — ensure <em>/<i> render true italic with correct axis values
     if (payload.fontName) {

@@ -734,6 +734,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Ignore Comments Domains</div>
+      <textarea id="ignore-comments-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
+      <div class="row">
+        <button id="reset-ignore-comments">Reset to Default</button>
+        <button id="save-ignore-comments">Save Domains</button>
+        <span id="status-ignore-comments" class="status"></span>
+      </div>
+      <div class="hint">On these domains, AFFO leaves comment threads alone while still applying fonts to the main post body.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Substack Roulette</div>
       <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
         <input id="substack-roulette-enabled" type="checkbox" checked>

@@ -34,6 +34,8 @@ const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
 const SYNC_AGGRESSIVE_DOMAINS_META_NAME = 'aggressive-domains-meta.json';
 const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
+const SYNC_IGNORE_COMMENTS_DOMAINS_NAME = 'ignore-comments-domains.json';
+const SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME = 'ignore-comments-domains-meta.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
@@ -47,6 +49,8 @@ const AGGRESSIVE_DOMAINS_KEY = 'affoAggressiveDomains';
 const AGGRESSIVE_DOMAINS_META_KEY = 'affoAggressiveDomainsMeta';
 const WAITFORIT_DOMAINS_KEY = 'affoWaitForItDomains';
 const WAITFORIT_DOMAINS_META_KEY = 'affoWaitForItDomainsMeta';
+const IGNORE_COMMENTS_DOMAINS_KEY = 'affoIgnoreCommentsDomains';
+const IGNORE_COMMENTS_DOMAINS_META_KEY = 'affoIgnoreCommentsDomainsMeta';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
 const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
@@ -1559,7 +1563,7 @@ async function runSync() {
     errors.push(e);
   }
 
-  // ── Per-origin domain array settings (FF-only / inline / aggressive / waitforit) ──
+  // ── Per-origin domain array settings (FF-only / inline / aggressive / waitforit / ignore-comments) ──
   const domainArrayItems = [
     {
       key: FFONLY_DOMAINS_KEY,
@@ -1588,6 +1592,13 @@ async function runSync() {
       filename: SYNC_WAITFORIT_DOMAINS_NAME,
       metaFilename: SYNC_WAITFORIT_DOMAINS_META_NAME,
       label: 'Wait For It domains'
+    },
+    {
+      key: IGNORE_COMMENTS_DOMAINS_KEY,
+      localMetaStorageKey: IGNORE_COMMENTS_DOMAINS_META_KEY,
+      filename: SYNC_IGNORE_COMMENTS_DOMAINS_NAME,
+      metaFilename: SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME,
+      label: 'Ignore comments domains'
     }
   ];
   for (const item of domainArrayItems) {
@@ -2576,6 +2587,18 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).catch((e) => {
       console.warn('[AFFO Background] Failed to update Wait For It domains metadata:', e);
       markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
+  }
+  if (changes[IGNORE_COMMENTS_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[IGNORE_COMMENTS_DOMAINS_KEY])) {
+    markDomainOriginArrayModified(changes[IGNORE_COMMENTS_DOMAINS_KEY], {
+      localMetaStorageKey: IGNORE_COMMENTS_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_IGNORE_COMMENTS_DOMAINS_NAME,
+      syncMetaFilename: SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
+      markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
   if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {

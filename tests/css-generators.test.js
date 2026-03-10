@@ -1,0 +1,81 @@
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
+const configUtils = require('../src/config-utils.js');
+
+Object.assign(global, configUtils);
+
+const {
+    generateBodyCSS,
+    generateBodyContactCSS,
+    generateThirdManInCSS,
+} = require('../src/css-generators.js');
+
+describe('css-generators ignore comments selectors', () => {
+    const payload = {
+        fontName: 'Spectral',
+        variableAxes: {},
+    };
+
+    it('does not exclude comments unless requested for body mode', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.doesNotMatch(css, /\.comments-page/);
+    });
+
+    it('excludes comments-page when requested for body mode', () => {
+        const css = generateBodyContactCSS(payload, false, true);
+        assert.match(css, /:not\(\.comments-page\)/);
+        assert.match(css, /:not\(\.comments-page \*\)/);
+    });
+
+    it('applies the same comment exclusions in face-off body css when requested', () => {
+        const css = generateBodyCSS(payload, false, true);
+        assert.match(css, /:not\(\.comments-page\)/);
+        assert.match(css, /:not\(\.comments-page \*\)/);
+    });
+});
+
+describe('css-generators bold variable-axis overrides', () => {
+    const payload = {
+        fontName: 'Roboto Slab',
+        variableAxes: {
+            wght: 385,
+            CASL: 1,
+        },
+    };
+
+    it('does not carry wght into body bold overrides', () => {
+        const css = generateBodyCSS(payload, false, false);
+        assert.match(css, /body strong, body b, html body strong, html body b/);
+        assert.match(css, /font-weight: 700/);
+        assert.match(css, /body strong, body b, html body strong, html body b \{[^}]*"wght" 700[^}]*"CASL" 1/);
+        assert.doesNotMatch(css, /body strong, body b, html body strong, html body b \{[^}]*"wght" 385/);
+    });
+
+    it('does not carry wght into body-contact bold overrides', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.match(css, /body strong, body b/);
+        assert.match(css, /font-weight: 700/);
+        assert.match(css, /body strong, body b \{[^}]*"wght" 700[^}]*"CASL" 1/);
+        assert.doesNotMatch(css, /body strong, body b \{[^}]*"wght" 385/);
+    });
+
+    it('does not carry wght into third-man-in bold overrides', () => {
+        const css = generateThirdManInCSS('serif', payload, false);
+        const boldRule = css.split('\n').find(line => line.startsWith('strong[data-affo-font-type="serif"]'));
+        assert.match(css, /strong\[data-affo-font-type="serif"\]/);
+        assert.match(css, /font-weight: 700/);
+        assert.match(boldRule, /"wght" 700/);
+        assert.match(boldRule, /"CASL" 1/);
+        assert.ok(boldRule);
+        assert.doesNotMatch(boldRule, /"wght" 385/);
+    });
+
+    it('resets headings inside third-man-in marked containers', () => {
+        const css = generateThirdManInCSS('serif', payload, false);
+        const headingRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"] h1'));
+        assert.ok(headingRule);
+        assert.match(headingRule, /font-family: revert/);
+        assert.match(headingRule, /font-weight: revert/);
+        assert.match(headingRule, /font-variation-settings: normal/);
+    });
+});

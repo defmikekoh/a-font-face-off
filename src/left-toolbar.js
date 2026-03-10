@@ -736,6 +736,7 @@
             { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
             { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
             { id: 'affo-quick-pick-waitforit', label: 'Wait For It Domain' },
+            { id: 'affo-quick-pick-ignore-comments', label: 'Ignore Comments Domain' },
         ];
 
         for (const def of checkboxDefs) {
@@ -818,7 +819,7 @@
             const origin = location.hostname;
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
-                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains',
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains',
                 'affoSyncBackend'
             ]);
             const favorites = data.affoFavorites || {};
@@ -831,6 +832,7 @@
                 inline: data.affoInlineApplyDomains || [],
                 aggressive: data.affoAggressiveDomains || [],
                 waitforit: data.affoWaitForItDomains || [],
+                ignorecomments: data.affoIgnoreCommentsDomains || [],
             };
 
             // Get top 5 favorites (preserve both name and config like Load Favorites modal)
@@ -903,6 +905,7 @@
             { id: 'affo-quick-pick-inline', key: 'affoInlineApplyDomains', listKey: 'inline' },
             { id: 'affo-quick-pick-aggressive', key: 'affoAggressiveDomains', listKey: 'aggressive' },
             { id: 'affo-quick-pick-waitforit', key: 'affoWaitForItDomains', listKey: 'waitforit' },
+            { id: 'affo-quick-pick-ignore-comments', key: 'affoIgnoreCommentsDomains', listKey: 'ignorecomments' },
         ];
 
         for (const cfg of checkboxConfig) {

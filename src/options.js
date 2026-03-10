@@ -101,6 +101,7 @@
   const DEFAULT_INLINE = ['x.com'];
   const DEFAULT_AGGRESSIVE = [];
   const DEFAULT_WAITFORIT = [];
+  const DEFAULT_IGNORE_COMMENTS = [];
   const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
   const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
@@ -652,6 +653,7 @@
         'affoInlineApplyDomains',
         'affoAggressiveDomains',
         'affoWaitForItDomains',
+        'affoIgnoreCommentsDomains',
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
@@ -682,6 +684,8 @@
       document.getElementById('aggressive-domains').value = toTextarea(aggressive);
       const waitforit = Array.isArray(data.affoWaitForItDomains) ? data.affoWaitForItDomains : DEFAULT_WAITFORIT.slice();
       document.getElementById('waitforit-domains').value = toTextarea(waitforit);
+      const ignoreComments = Array.isArray(data.affoIgnoreCommentsDomains) ? data.affoIgnoreCommentsDomains : DEFAULT_IGNORE_COMMENTS.slice();
+      document.getElementById('ignore-comments-domains').value = toTextarea(ignoreComments);
 
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
@@ -855,6 +859,23 @@
     } catch (e) {}
   }
 
+  async function saveIgnoreComments(){
+    try {
+      const raw = document.getElementById('ignore-comments-domains').value;
+      const list = fromTextarea(raw);
+      await browser.storage.local.set({ affoIgnoreCommentsDomains: list });
+      const s = document.getElementById('status-ignore-comments'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
+  async function resetIgnoreComments(){
+    try {
+      await browser.storage.local.set({ affoIgnoreCommentsDomains: DEFAULT_IGNORE_COMMENTS.slice() });
+      document.getElementById('ignore-comments-domains').value = toTextarea(DEFAULT_IGNORE_COMMENTS);
+      const s = document.getElementById('status-ignore-comments'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
+    } catch (e) {}
+  }
+
   async function clearFontCache(){
     try {
       const statusEl = document.getElementById('status-cache');
@@ -1016,6 +1037,7 @@
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
       document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
+      document.getElementById('ignore-comments-domains').value = toTextarea(DEFAULT_IGNORE_COMMENTS);
 
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
@@ -1074,6 +1096,8 @@
     document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
     document.getElementById('save-waitforit').addEventListener('click', saveWaitForIt);
     document.getElementById('reset-waitforit').addEventListener('click', resetWaitForIt);
+    document.getElementById('save-ignore-comments').addEventListener('click', saveIgnoreComments);
+    document.getElementById('reset-ignore-comments').addEventListener('click', resetIgnoreComments);
     document.getElementById('save-substack-roulette').addEventListener('click', saveSubstackRoulette);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();

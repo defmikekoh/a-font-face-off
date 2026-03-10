@@ -93,6 +93,8 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
 | `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
+| `affoIgnoreCommentsDomains` | Domains where AFFO skips comment threads | `["example.com"]` |
+| `affoIgnoreCommentsDomainsMeta` | Per-origin sync metadata for Ignore Comments domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
@@ -144,6 +146,8 @@ The extension uses `browser.storage.local` for all persistence.
 | `aggressive-domains-meta.json` | `affoAggressiveDomainsMeta` | Per-origin merge metadata for aggressive domain list |
 | `waitforit-domains.json` | `affoWaitForItDomains` | Wait For It domain list |
 | `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
+| `ignore-comments-domains.json` | `affoIgnoreCommentsDomains` | Ignore Comments domain list |
+| `ignore-comments-domains-meta.json` | `affoIgnoreCommentsDomainsMeta` | Per-origin merge metadata for Ignore Comments domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
 | `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools. Overly light roulette-applied main text is clamped to `#363737` at render time. |
 
