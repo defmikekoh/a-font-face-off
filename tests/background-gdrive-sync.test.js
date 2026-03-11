@@ -431,6 +431,149 @@ function createDriveOpsHarness() {
     };
 }
 
+function createGDriveAuthHarness({ localSeed, fetchImpl }) {
+    const storage = createStorageStub({
+        affoLegacySyncDataConsent: true,
+        ...localSeed,
+    });
+    const alarmCalls = {
+        create: 0,
+        clear: 0,
+    };
+
+    const browserStub = {
+        storage: {
+            local: storage.local,
+            onChanged: storage.onChanged,
+        },
+        runtime: {
+            sendMessage() { return Promise.resolve(); },
+            getURL(file) { return `moz-extension://test/${file}`; },
+            onMessage: { addListener() {} },
+        },
+        alarms: {
+            create() {
+                alarmCalls.create += 1;
+                return Promise.resolve();
+            },
+            clear() {
+                alarmCalls.clear += 1;
+                return Promise.resolve();
+            },
+            onAlarm: { addListener() {} },
+        },
+        tabs: {
+            query() { return Promise.resolve([]); },
+            sendMessage() { return Promise.resolve(); },
+            create() { return Promise.resolve({ id: 1 }); },
+        },
+        identity: {
+            launchWebAuthFlow() { return Promise.resolve(); },
+        },
+        browserAction: {
+            openPopup() { return Promise.resolve(); },
+        },
+    };
+
+    const context = vm.createContext({
+        console,
+        browser: browserStub,
+        navigator: { onLine: true, userAgent: 'node-test' },
+        fetch: fetchImpl,
+        performance: { now: () => 0 },
+        crypto: globalThis.crypto,
+        TextEncoder: globalThis.TextEncoder,
+        URLSearchParams,
+        GDRIVE_CLIENT_ID: 'test-client-id.apps.googleusercontent.com',
+        GDRIVE_CLIENT_SECRET: 'test-client-secret',
+        btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
+        setTimeout,
+        clearTimeout,
+        Promise,
+        Date,
+    });
+
+    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
+    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoAuth = { exchangeCodeForTokens, refreshAccessToken };';
+    vm.runInContext(source, context, { filename: 'background.js' });
+
+    return {
+        auth: context.__affoAuth,
+        storageData: storage.data,
+        alarmCalls,
+    };
+}
+
+describe('Google Drive OAuth token handling', () => {
+    it('preserves an existing refresh token when auth-code exchange omits it', async () => {
+        const harness = createGDriveAuthHarness({
+            localSeed: {
+                affoGDriveTokens: { accessToken: 'old-access', refreshToken: 'old-refresh' }
+            },
+            fetchImpl: async (url) => {
+                assert.equal(url, 'https://oauth2.googleapis.com/token');
+                return {
+                    ok: true,
+                    json: async () => ({
+                        access_token: 'new-access',
+                        expires_in: 1800
+                    })
+                };
+            }
+        });
+
+        const result = await harness.auth.exchangeCodeForTokens('auth-code', 'code-verifier', 'http://127.0.0.1:45678/');
+        assert.equal(result.ok, true);
+        assert.equal(harness.storageData.affoGDriveTokens.accessToken, 'new-access');
+        assert.equal(harness.storageData.affoGDriveTokens.refreshToken, 'old-refresh');
+        assert.equal(harness.storageData.affoSyncBackend, 'gdrive');
+        assert.equal(harness.alarmCalls.create, 1);
+    });
+
+    it('fails auth immediately when Google does not return any refresh token', async () => {
+        const harness = createGDriveAuthHarness({
+            fetchImpl: async () => ({
+                ok: true,
+                json: async () => ({
+                    access_token: 'new-access',
+                    expires_in: 1800
+                })
+            })
+        });
+
+        await assert.rejects(
+            () => harness.auth.exchangeCodeForTokens('auth-code', 'code-verifier', 'http://127.0.0.1:45678/'),
+            /did not return a refresh token/
+        );
+        assert.equal(harness.storageData.affoGDriveTokens, undefined);
+        assert.equal(harness.storageData.affoSyncBackend, undefined);
+        assert.equal(harness.alarmCalls.create, 0);
+    });
+
+    it('clears stored tokens when Google rejects the refresh token', async () => {
+        const harness = createGDriveAuthHarness({
+            localSeed: {
+                affoGDriveTokens: { accessToken: 'stale-access', refreshToken: 'stale-refresh' }
+            },
+            fetchImpl: async () => ({
+                ok: false,
+                status: 400,
+                text: async () => JSON.stringify({
+                    error: 'invalid_grant',
+                    error_description: 'Token has been expired or revoked.'
+                })
+            })
+        });
+
+        await assert.rejects(
+            () => harness.auth.refreshAccessToken(),
+            /Reconnect Google Drive/
+        );
+        assert.equal(harness.storageData.affoGDriveTokens, undefined);
+        assert.equal(harness.alarmCalls.clear, 1);
+    });
+});
+
 describe('Google Drive domain sync (per-domain merge)', () => {
     it('pulls remote domains.json on first sync', async () => {
         const harness = createHarness({

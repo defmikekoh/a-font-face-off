@@ -558,6 +558,28 @@ async function isGDriveConfigured() {
 
 let _refreshPromise = null;
 
+function parseOAuthErrorResponse(text) {
+  if (!text) {
+    return { raw: '', error: '', errorDescription: '' };
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      raw: text,
+      error: parsed && parsed.error ? String(parsed.error) : '',
+      errorDescription: parsed && parsed.error_description ? String(parsed.error_description) : ''
+    };
+  } catch (_) {
+    return { raw: text, error: '', errorDescription: '' };
+  }
+}
+
+async function clearGDriveTokens() {
+  await browser.storage.local.remove(GDRIVE_TOKENS_KEY);
+  cachedAppFolderId = null;
+  await stopSyncAlarm();
+}
+
 async function refreshAccessToken() {
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = _doRefreshAccessToken();
@@ -583,9 +605,18 @@ async function _doRefreshAccessToken() {
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
+    const oauthError = parseOAuthErrorResponse(errText);
+    if (oauthError.error === 'invalid_grant') {
+      await clearGDriveTokens();
+      const detail = oauthError.errorDescription || oauthError.error || 'refresh token revoked';
+      throw new Error(`Google Drive authorization expired (${detail}). Reconnect Google Drive.`);
+    }
     throw new Error(`Token refresh failed (${res.status}): ${errText}`);
   }
   const data = await res.json();
+  if (!data || !data.access_token) {
+    throw new Error('Token refresh failed: missing access token in response');
+  }
   const updated = {
     accessToken: data.access_token,
     refreshToken: data.refresh_token || tokens.refreshToken,
@@ -668,6 +699,7 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
+  const existingTokens = await getGDriveTokens();
   const tokenBody = new URLSearchParams({
     client_id: GDRIVE_CLIENT_ID,
     client_secret: GDRIVE_CLIENT_SECRET,
@@ -690,9 +722,18 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
   }
 
   const tokenData = await tokenRes.json();
+  const refreshToken = tokenData.refresh_token || (existingTokens && existingTokens.refreshToken) || null;
+  if (!tokenData || !tokenData.access_token) {
+    throw new Error('Token exchange failed: missing access token in response');
+  }
+  if (!refreshToken) {
+    throw new Error(
+      'Google OAuth did not return a refresh token. Check that you are using a Desktop app OAuth client and that the consent screen is not stuck in Testing.'
+    );
+  }
   const tokens = {
     accessToken: tokenData.access_token,
-    refreshToken: tokenData.refresh_token,
+    refreshToken,
     expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000
   };
   await saveGDriveTokens(tokens);
@@ -828,9 +869,10 @@ async function startGDriveAuth() {
 
 async function disconnectGDrive() {
   const tokens = await getGDriveTokens();
-  if (tokens && tokens.accessToken) {
+  const revokeToken = tokens && (tokens.refreshToken || tokens.accessToken);
+  if (revokeToken) {
     // Best-effort revoke
-    fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
+    fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(revokeToken)}`, {
       method: 'POST',
       credentials: 'omit'
     }).catch(() => { });
