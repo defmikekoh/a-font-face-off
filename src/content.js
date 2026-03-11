@@ -314,6 +314,33 @@
     return false;
   }
 
+  function isLikelyArticleBodyText(node) {
+    if (!node || node.nodeType !== 1) return false;
+    var tagName = String(node.tagName || '').toUpperCase();
+    if (['A', 'BUTTON', 'LABEL', 'INPUT', 'TEXTAREA', 'SELECT', 'NAV', 'ASIDE', 'HEADER', 'FOOTER'].indexOf(tagName) !== -1) return false;
+    var ownText = '';
+    if (node.childNodes) {
+      for (var i = 0; i < node.childNodes.length; i++) {
+        var child = node.childNodes[i];
+        if (child && child.nodeType === 3) ownText += child.nodeValue || '';
+      }
+    }
+    ownText = ownText.replace(/\s+/g, ' ').trim();
+    var totalText = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    var isTextBlockTag = ['P', 'LI', 'BLOCKQUOTE'].indexOf(tagName) !== -1;
+    if (!isTextBlockTag && ownText.length < 40) return false;
+    if (totalText.length < 40) return false;
+    try {
+      if (!node.closest('article, main, [role="main"], .body, .post, .post-content, .markup, .available-content')) return false;
+      var style = getComputedStyle(node);
+      var fontSize = parseFloat(style.getPropertyValue('font-size'));
+      if (isFinite(fontSize) && fontSize < 14) return false;
+      var lineHeight = parseFloat(style.getPropertyValue('line-height'));
+      if (isFinite(lineHeight) && lineHeight < 18) return false;
+    } catch (_) { }
+    return true;
+  }
+
   function getAncestorBackgroundBrightness(node) {
     var parent = node;
     var transparent = 'rgba(0, 0, 0, 0)';
@@ -368,9 +395,10 @@
         var contrast = Math.abs(bgBrightness - effectiveBrightness);
         var colorfulness = calcColorfulness(rgba);
         var isLink = String(node.tagName || '').toUpperCase() === 'A';
+        var isArticleBodyText = isLikelyArticleBodyText(node);
         var minContrast = isLink ? 96 : 132;
         var maxColorfulness = isLink ? 32 : 40;
-        if (contrast > minContrast && colorfulness > maxColorfulness) return;
+        if (!isArticleBodyText && contrast > minContrast && colorfulness > maxColorfulness) return;
         node.setAttribute('data-affo-substack-dim', '');
         node.style.setProperty('--affo-substack-dim-brightness', +((SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS / effectiveBrightness) * 100).toFixed(1) + '%');
         markedCount += 1;
