@@ -32,6 +32,18 @@ describe('css-generators ignore comments selectors', () => {
         assert.match(css, /:not\(\.comments-page\)/);
         assert.match(css, /:not\(\.comments-page \*\)/);
     });
+
+    it('excludes post headers from body-mode selectors', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.match(css, /:not\(\.post-header\)/);
+        assert.match(css, /:not\(\.post-header \*\)/);
+    });
+
+    it('excludes post headers from face-off body css', () => {
+        const css = generateBodyCSS(payload, false, false);
+        assert.match(css, /:not\(\.post-header\)/);
+        assert.match(css, /:not\(\.post-header \*\)/);
+    });
 });
 
 describe('css-generators bold variable-axis overrides', () => {

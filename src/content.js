@@ -233,6 +233,10 @@
     return shouldIgnoreComments() ? ':not(.comments-page):not(.comments-page *)' : '';
   }
 
+  function getPostHeaderExcludeSelector() {
+    return ':not(.post-header):not(.post-header *)';
+  }
+
   // --- Substack detection (lazy-cached) ---
   var _isSubstack = null;
   function getIsSubstack() {
@@ -547,7 +551,7 @@
   // --- Module-level selector & inline-apply helpers ---
   var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
   function getBodyExcludeSelector() {
-    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector();
+    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector();
   }
 
   function getAffoSelector(ft) {
@@ -2020,6 +2024,11 @@
     if (classText && /whatfont/.test(classText)) return null;
     var elId = element.id || '';
     if (elId && /whatfont/.test(elId)) return null;
+
+    // Only mark nodes that own text directly. This avoids tagging large
+    // structural wrappers whose descendants include headings or other
+    // intentionally excluded content, which would otherwise inherit.
+    if (!elementHasOwnText(element)) return null;
 
     // Use computed font-family from the style already obtained by the walker
     var computedFontFamily = computedStyle.fontFamily || '';
