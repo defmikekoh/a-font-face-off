@@ -1989,9 +1989,10 @@
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
     // Exclude descendants of non-body containers: figcaptions, buttons, guards,
-    // article headers, dialogs, and optionally Substack comments on configured domains.
+    // article headers, top-bar chrome, dialogs, and optionally Substack comments
+    // on configured domains.
     if (element.closest) {
-      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, [role="dialog"]';
+      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"], [role="dialog"]';
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
