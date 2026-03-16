@@ -663,7 +663,7 @@ async function ensureCustomFontsLoaded() {
                 CUSTOM_FONTS = parsed.names;
                 fontDefinitions = parsed.defs;
 
-                // Load built-in SIL fonts (always merged, not user-editable)
+                // Load built-in SIL/OFL fonts (always merged, not user-editable)
                 try {
                     const silUrl = browser.runtime.getURL('sil-fonts.css');
                     const silResponse = await fetch(silUrl);

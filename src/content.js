@@ -584,7 +584,7 @@
           Object.assign(customFontDefinitions, parsed);
         }
 
-        // Always load built-in SIL fonts
+        // Always load built-in SIL/OFL fonts
         promises.push(
           fetch(browser.runtime.getURL('sil-fonts.css'))
             .then(function (response) { return response.text(); })

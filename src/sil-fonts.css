@@ -1,9 +1,8 @@
 /*
- * Full (non-subsetted) SIL International fonts.
- * Google Fonts hosts these but serves subsetted versions that break composite
- * glyphs (IPA tone letters, combining diacritical marks). These load the
- * complete fonts from https://github.com/defmikekoh/sil-font-mirror
- * Licensed under SIL Open Font License 1.1.
+ * Built-in SIL Open Font License fonts that should bypass Google Fonts
+ * delivery. SIL fonts are mirrored here because Google serves subsetted
+ * versions that break some composite glyphs. Iosevka Fixed SS05 is included
+ * as a pinned custom-family alias backed by the extended webfont files.
  */
 
 @font-face {
@@ -188,5 +187,137 @@
   src: url("https://raw.githubusercontent.com/defmikekoh/sil-font-mirror/main/Gentium/Gentium-ExtraBoldItalic.woff2") format("woff2");
   font-style: italic;
   font-weight: 800;
+  font-display: swap;
+}
+
+/*
+ * Use the extended cut as the base family so this custom entry has the wider
+ * Fira-like proportions the user wanted, without affecting Google-hosted
+ * Iosevka Charon Mono.
+ */
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedthin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedthinitalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedextralight.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedextralightitalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 200;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedlight.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedlightitalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extended.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendeditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedmedium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedmediumitalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedsemibold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedsemibolditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedbold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedbolditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedextrabold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedextrabolditalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedheavy.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Iosevka Fixed SS05";
+  src: url("https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2/iosevka-fixed-ss05-extendedheavyitalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 900;
   font-display: swap;
 }
