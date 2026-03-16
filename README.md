@@ -33,7 +33,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 
 ## Less Obvious Features
 
-- **Built-in SIL fonts** — Andika (sans), Charis (serif), and Gentium (serif) are bundled as full non-subsetted fonts from [SIL International](https://software.sil.org/). Google Fonts serves broken subsets of these that can't render IPA tone letters and combining diacritical marks correctly.
+- **Built-in SIL fonts** — Andika (sans), Charis (serif), and Gentium (serif) are bundled as full non-subsetted fonts from [SIL International](https://software.sil.org/). Google Fonts serves broken subsets of these that can't render IPA tone letters and combining diacritical marks correctly. Also, for unicode box-drawing, can use the Iosevka Charon Mono (from Google fonts) or Iosevka Fixed SS05 (github).
   - Just want a simple Violentmonkey/Tampermonkey user.js for the SIL fonts and don't want the full extension? There's one in userscripts/.
 - **Quick Pick** — Press the top-most button in the left toolbar (hockey stick and mask icon) to open a favorites panel directly on the page. Apply saved fonts without opening the popup.
 - **Wait For It** — Long-press the WhatFont button to delay font detection until the page finishes loading dynamic content. Configure per-domain in quick pick or options.
