@@ -57,6 +57,9 @@
   var sharedInlineObserver = null; // single MutationObserver for all inline types
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
   var sharedInlineDebounceTimer = null; // debounced re-apply timer for inline observer
+  var observedTmiCssTypes = {}; // fontType → true for non-inline TMI types needing re-walk on DOM mutations
+  var sharedTmiCssObserver = null; // single MutationObserver for non-inline TMI types
+  var sharedTmiCssDebounceTimer = null; // debounced re-walk timer for non-inline TMI observer
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
 
@@ -72,6 +75,67 @@
     NOSCRIPT: true,
     TEMPLATE: true
   };
+
+  function hasMeaningfulFontConfig(fontConfig) {
+    return !!(fontConfig && (
+      fontConfig.fontName ||
+      fontConfig.fontSize ||
+      fontConfig.fontWeight ||
+      fontConfig.lineHeight ||
+      fontConfig.letterSpacing != null ||
+      fontConfig.fontColor
+    ));
+  }
+
+  function getObservedTmiCssTypes() {
+    return ['serif', 'sans', 'mono'].filter(function (ft) { return !!observedTmiCssTypes[ft]; });
+  }
+
+  function clearObservedTmiCssTypes() {
+    observedTmiCssTypes = {};
+  }
+
+  function refreshSharedTmiCssObserver() {
+    if (getObservedTmiCssTypes().length > 0) {
+      ensureSharedTmiCssObserver();
+    } else {
+      cleanupSharedTmiCssObserver();
+    }
+  }
+
+  function syncObservedTmiCssTypesFromEntry(entry) {
+    if (shouldUseInlineApply()) {
+      clearObservedTmiCssTypes();
+      refreshSharedTmiCssObserver();
+      return;
+    }
+    ['serif', 'sans', 'mono'].forEach(function (ft) {
+      if (entry && hasMeaningfulFontConfig(entry[ft])) {
+        observedTmiCssTypes[ft] = true;
+      } else {
+        delete observedTmiCssTypes[ft];
+      }
+    });
+    refreshSharedTmiCssObserver();
+  }
+
+  function resetWalkerForTypes(fontTypes) {
+    fontTypes.forEach(function (ft) {
+      elementWalkerCompleted[ft] = false;
+      elementWalkerRechecksScheduled[ft] = false;
+      delete elementWalkerInFlight[ft];
+    });
+  }
+
+  function rewalkTmiTypes(fontTypes, afterWalk) {
+    if (!fontTypes || fontTypes.length === 0) return;
+    resetWalkerForTypes(fontTypes);
+    runElementWalkerAll(fontTypes).then(function () {
+      if (afterWalk) afterWalk();
+    }).catch(function () {
+      if (afterWalk) afterWalk();
+    });
+  }
 
   // Idempotent SPA hook infrastructure — installed once, routes to registered handlers
   var spaHooksInstalled = false;
@@ -914,6 +978,54 @@
     return false;
   }
 
+  function ensureSharedTmiCssObserver() {
+    if (sharedTmiCssObserver) return;
+    sharedTmiCssObserver = new MutationObserver(function (muts) {
+      var activeTypes = getObservedTmiCssTypes();
+      if (activeTypes.length === 0) return;
+
+      var hasMeaningfulAddition = false;
+      muts.some(function (m) {
+        return Array.prototype.some.call(m.addedNodes || [], function (n) {
+          try {
+            if (!isMeaningfulInlineAddedNode(n)) return false;
+            hasMeaningfulAddition = true;
+            return true;
+          } catch (_) {
+            return false;
+          }
+        });
+      });
+
+      if (!hasMeaningfulAddition) return;
+
+      if (sharedTmiCssDebounceTimer) {
+        clearTimeout(sharedTmiCssDebounceTimer);
+      }
+      sharedTmiCssDebounceTimer = setTimeout(function () {
+        sharedTmiCssDebounceTimer = null;
+        var latestTypes = getObservedTmiCssTypes();
+        if (latestTypes.length === 0) return;
+        debugLog('[AFFO Content] Re-walking non-inline TMI types after meaningful DOM additions:', latestTypes);
+        rewalkTmiTypes(latestTypes);
+      }, INLINE_REAPPLY_DEBOUNCE_MS);
+    });
+    sharedTmiCssObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    debugLog('[AFFO Content] Created shared non-inline TMI MutationObserver');
+  }
+
+  function cleanupSharedTmiCssObserver() {
+    if (sharedTmiCssObserver) {
+      try { sharedTmiCssObserver.disconnect(); } catch (_) { }
+      sharedTmiCssObserver = null;
+      debugLog('[AFFO Content] Disconnected shared non-inline TMI MutationObserver');
+    }
+    if (sharedTmiCssDebounceTimer) {
+      try { clearTimeout(sharedTmiCssDebounceTimer); } catch (_) { }
+      sharedTmiCssDebounceTimer = null;
+    }
+  }
+
   // Create or reuse the single shared MutationObserver for all inline types
   function ensureSharedInlineObserver() {
     if (sharedInlineObserver) return;
@@ -942,7 +1054,13 @@
       sharedInlineDebounceTimer = setTimeout(function () {
         sharedInlineDebounceTimer = null;
         if (Object.keys(inlineConfigs).length === 0) return;
-        reapplyAllInlineStyles();
+        var activeTmiInlineTypes = ['serif', 'sans', 'mono'].filter(function (ft) { return !!inlineConfigs[ft]; });
+        if (activeTmiInlineTypes.length > 0) {
+          debugLog('[AFFO Content] Re-walking inline TMI types after meaningful DOM additions:', activeTmiInlineTypes);
+          rewalkTmiTypes(activeTmiInlineTypes, reapplyAllInlineStyles);
+        } else {
+          reapplyAllInlineStyles();
+        }
       }, INLINE_REAPPLY_DEBOUNCE_MS);
     });
     sharedInlineObserver.observe(document.documentElement || document, { childList: true, subtree: true });
@@ -2007,6 +2125,11 @@
     // Exclude navigation and UI class names
     if (classText && /\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption)\b/i.test(classText)) return null;
 
+    // Semantic code containers should stay eligible even when syntax highlighters
+    // move all visible text into nested token spans, leaving the wrapper with no
+    // direct text nodes of its own.
+    if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
+
     // Exclude syntax highlighting and code blocks
     if (classText && /\b(hljs|token|prettyprint|prettyprinted|sourceCode|wp-block-code|wp-block-preformatted|terminal)\b/.test(classText)) return null;
     if (classText && /\blanguage-/.test(classText)) return null;
@@ -2097,9 +2220,6 @@
       /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
       return 'serif';
     }
-
-    // Tag-based detection for monospace
-    if (['code', 'pre', 'kbd', 'samp', 'tt'].indexOf(tagName) !== -1) return 'mono';
 
     // No explicit indicators found - don't mark this element
     return null;
@@ -2282,9 +2402,10 @@
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry) {
     try {
+      syncObservedTmiCssTypesFromEntry(entry);
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
-        if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.letterSpacing != null || fontConfig.fontColor)) {
+        if (hasMeaningfulFontConfig(fontConfig)) {
           debugLog(`[AFFO Content] Reapplying ${fontType} font from storage change:`, fontConfig.fontName);
 
           // Run element walker for Third Man In mode
@@ -2391,9 +2512,15 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
       // Ensure domain lists are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
+      if (Array.isArray(data.affoFontFaceOnlyDomains)) {
+        fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
+      }
+      if (Array.isArray(data.affoInlineApplyDomains)) {
+        inlineApplyDomains = data.affoInlineApplyDomains;
+      }
       if (Array.isArray(data.affoAggressiveDomains)) {
         aggressiveDomains = data.affoAggressiveDomains;
       }
@@ -2406,6 +2533,8 @@
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
       if (!entry) {
+        clearObservedTmiCssTypes();
+        refreshSharedTmiCssObserver();
         // Clean up all stale styles if no entry exists
         ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
         removeSubstackRouletteDimming();
@@ -2494,9 +2623,10 @@
       // Reapply stored fonts on page load - wait for DOM to be ready
       function reapplyStoredFonts() {
         try {
+          syncObservedTmiCssTypesFromEntry(entry);
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = entry[fontType];
-            if (fontConfig && (fontConfig.fontName || fontConfig.fontSize || fontConfig.fontWeight || fontConfig.lineHeight || fontConfig.letterSpacing != null || fontConfig.fontColor)) {
+            if (hasMeaningfulFontConfig(fontConfig)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
 
               // Run element walker for Third Man In mode
@@ -2703,6 +2833,8 @@
           debugLog(`[AFFO Content] Entry found - reapplying fonts:`, entry);
           reapplyStoredFontsFromEntry(entry);
         } else {
+          clearObservedTmiCssTypes();
+          refreshSharedTmiCssObserver();
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
           maybeStopNonAggressiveStyleOrderChaser();
         }
@@ -2766,6 +2898,8 @@
           // Clean up shared inline-apply infrastructure
           inlineConfigs = {};
           cleanupSharedInlineInfra();
+          clearObservedTmiCssTypes();
+          cleanupSharedTmiCssObserver();
 
           // Remove all A Font Face-off CSS style elements
           ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {

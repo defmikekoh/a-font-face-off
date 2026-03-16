@@ -99,13 +99,9 @@ function applyViewMode(forceView) {
             }
         }
     } catch (_) {}
-    // Load settings for the current mode
-    loadModeSettings();
-
     }).catch(error => {
         console.warn('Error in applyViewMode:', error);
         // Continue with UI updates even if storage fails
-        loadModeSettings();
     });
 }
 
@@ -1069,6 +1065,9 @@ async function updateBodyButtonsImmediate() {
 
 // Helper function to compare font configurations
 function configsEqual(config1, config2) {
+    config1 = normalizeConfig(config1);
+    config2 = normalizeConfig(config2);
+
     // Handle null/undefined cases - both null means both are "empty/unset"
     if (!config1 && !config2) return true;
     // One is null/undefined and the other isn't - they're different
@@ -4663,11 +4662,11 @@ function initializeModeInterface() {
 
         // Initialize the current mode (use saved mode if available)
         return browser.storage.local.get('affoCurrentMode');
-    }).then(_result => {
+    }).then(async (_result) => {
         // Mode was already determined by determineInitialMode(), just use it
         const targetMode = currentViewMode || 'body-contact';
         console.log('About to call switchMode with:', targetMode);
-        switchMode(targetMode, true); // Force initialization to set up panel visibility
+        await switchMode(targetMode, true); // Force initialization to set up panel visibility
 
         // Update active tab after mode is switched
         updateActiveTab(targetMode);
@@ -4678,10 +4677,6 @@ function initializeModeInterface() {
             console.log('🔄 Initialization: Activating initial mode content for:', targetMode);
             initialModeContent.classList.add('active');
         }
-
-        // Force load settings on initial popup open (switchMode may skip if mode is already set)
-        console.log('Force calling loadModeSettings for initial load');
-        loadModeSettings();
 
         // Update domain display for body mode
         updateDomainDisplay();

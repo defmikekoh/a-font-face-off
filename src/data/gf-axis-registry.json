@@ -3954,6 +3954,41 @@
       "languages": []
     },
     {
+      "family": "Allkin",
+      "displayName": null,
+      "category": "Display",
+      "stroke": null,
+      "classifications": [
+        "Display"
+      ],
+      "size": 64860,
+      "subsets": [
+        "menu"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 0.6
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Monotype Imaging Inc."
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-02-18",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
       "family": "Allura",
       "displayName": null,
       "category": "Handwriting",
@@ -4608,6 +4643,86 @@
       "languages": []
     },
     {
+      "family": "Alyamama",
+      "displayName": null,
+      "category": "Serif",
+      "stroke": "Serif",
+      "classifications": [],
+      "size": 220572,
+      "subsets": [
+        "menu",
+        "arabic",
+        "greek",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "300": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "500": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "600": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "700": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "800": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        },
+        "900": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.43
+        }
+      },
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 300,
+          "max": 900,
+          "defaultValue": 400
+        }
+      ],
+      "designers": [
+        "Yazeed Omar"
+      ],
+      "lastModified": "2026-02-19",
+      "dateAdded": "2026-02-18",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Arab",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
       "family": "Amarante",
       "displayName": null,
       "category": "Display",
@@ -4803,9 +4918,9 @@
         }
       ],
       "designers": [
-        "Ishtar van Looy"
+        "Ishtār van Looy"
       ],
-      "lastModified": "2025-12-10",
+      "lastModified": "2026-02-26",
       "dateAdded": "2025-12-08",
       "androidFragment": null,
       "isNoto": false,
@@ -13286,6 +13401,154 @@
       "languages": []
     },
     {
+      "family": "Betania Patmos",
+      "displayName": null,
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Handwriting"
+      ],
+      "size": 195312,
+      "subsets": [
+        "menu",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Carolina Giovagnoli"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Betania Patmos GDL",
+      "displayName": "Betania Patmos Guideline",
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Handwriting"
+      ],
+      "size": 304756,
+      "subsets": [
+        "menu",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Carolina Giovagnoli"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Betania Patmos In",
+      "displayName": null,
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Handwriting"
+      ],
+      "size": 195924,
+      "subsets": [
+        "menu",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Carolina Giovagnoli"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Betania Patmos In GDL",
+      "displayName": "Betania Patmos In Guideline",
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Handwriting"
+      ],
+      "size": 305300,
+      "subsets": [
+        "menu",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Carolina Giovagnoli"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
       "family": "Beth Ellen",
       "displayName": null,
       "category": "Handwriting",
@@ -16866,6 +17129,117 @@
       "languages": []
     },
     {
+      "family": "Bpmf Huninn",
+      "displayName": null,
+      "category": "Sans Serif",
+      "stroke": "Sans Serif",
+      "classifications": [],
+      "size": 4809404,
+      "subsets": [
+        "menu",
+        "chinese-traditional",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.12
+        }
+      },
+      "axes": [],
+      "designers": [
+        "But Ko",
+        "justfont"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-01-30",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Hant",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Bpmf Iansui",
+      "displayName": null,
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Handwriting"
+      ],
+      "size": 7698176,
+      "subsets": [
+        "menu",
+        "chinese-traditional",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.12
+        }
+      },
+      "axes": [],
+      "designers": [
+        "But Ko"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-01-30",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Hant",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Bpmf Zihi Kai Std",
+      "displayName": null,
+      "category": "Sans Serif",
+      "stroke": "Sans Serif",
+      "classifications": [],
+      "size": 17497872,
+      "subsets": [
+        "menu",
+        "chinese-traditional",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.12
+        }
+      },
+      "axes": [],
+      "designers": [
+        "But Ko"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-01-30",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Hant",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
       "family": "Braah One",
       "displayName": null,
       "category": "Sans Serif",
@@ -18004,7 +18378,7 @@
         "Tian Haidong",
         "Moonlit Owen"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-03-11",
       "dateAdded": "2024-05-14",
       "androidFragment": null,
       "isNoto": false,
@@ -20785,7 +21159,7 @@
       "designers": [
         "Tamcy"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-06-20",
       "androidFragment": null,
       "isNoto": false,
@@ -20924,7 +21298,7 @@
       "designers": [
         "Tamcy"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-05-07",
       "androidFragment": null,
       "isNoto": false,
@@ -21392,7 +21766,7 @@
       "designers": [
         "Moonlit Owen"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-03-11",
       "dateAdded": "2024-05-14",
       "androidFragment": null,
       "isNoto": false,
@@ -21647,9 +22021,11 @@
       "classifications": [
         "Display"
       ],
-      "size": 168852,
+      "size": 3601356,
       "subsets": [
         "menu",
+        "cyrillic",
+        "cyrillic-ext",
         "latin",
         "latin-ext"
       ],
@@ -21673,7 +22049,7 @@
         "Daniel Coull",
         "Eino Korkala"
       ],
-      "lastModified": "2025-09-02",
+      "lastModified": "2026-03-11",
       "dateAdded": "2022-09-30",
       "androidFragment": null,
       "isNoto": false,
@@ -24816,6 +25192,104 @@
       "isNoto": false,
       "colorCapabilities": [],
       "primaryScript": "Hira",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Datatype",
+      "displayName": null,
+      "category": "Monospace",
+      "stroke": "Sans Serif",
+      "classifications": [
+        "Monospace"
+      ],
+      "size": 4201224,
+      "subsets": [
+        "menu",
+        "latin",
+        "latin-ext"
+      ],
+      "fonts": {
+        "100": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "200": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "300": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "500": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "600": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "700": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "800": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        },
+        "900": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [
+        {
+          "tag": "wdth",
+          "min": 50,
+          "max": 150,
+          "defaultValue": 100
+        },
+        {
+          "tag": "wght",
+          "min": 100,
+          "max": 900,
+          "defaultValue": 400
+        }
+      ],
+      "designers": [
+        "Frank Tisellano"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-03-10",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
       "primaryLanguage": "",
       "isOpenSource": true,
       "isBrandFont": false,
@@ -33563,7 +34037,7 @@
         "Jiashuo Zhang",
         "JAMO"
       ],
-      "lastModified": "2025-05-30",
+      "lastModified": "2026-03-03",
       "dateAdded": "2023-05-17",
       "androidFragment": null,
       "isNoto": false,
@@ -36360,7 +36834,7 @@
         "Haesung Cho",
         "JAMO"
       ],
-      "lastModified": "2025-05-30",
+      "lastModified": "2026-03-03",
       "dateAdded": "2023-05-17",
       "androidFragment": null,
       "isNoto": false,
@@ -37224,6 +37698,44 @@
       "isNoto": false,
       "colorCapabilities": [],
       "primaryScript": "Telu",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Gveret Levin",
+      "displayName": null,
+      "category": "Handwriting",
+      "stroke": null,
+      "classifications": [
+        "Display",
+        "Handwriting"
+      ],
+      "size": 59788,
+      "subsets": [
+        "menu",
+        "hebrew",
+        "latin"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.3
+        }
+      },
+      "axes": [],
+      "designers": [
+        "AlefAlefAlef"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Hebr",
       "primaryLanguage": "",
       "isOpenSource": true,
       "isBrandFont": false,
@@ -39386,9 +39898,9 @@
       },
       "axes": [],
       "designers": [
-        "Justfont"
+        "justfont"
       ],
-      "lastModified": "2025-06-12",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-06-11",
       "androidFragment": null,
       "isNoto": false,
@@ -39749,9 +40261,11 @@
       "axes": [],
       "designers": [
         "Mike Abbink",
-        "Bold Monday"
+        "Bold Monday",
+        "Khajag Apelian",
+        "Wael Morcos"
       ],
-      "lastModified": "2025-09-10",
+      "lastModified": "2026-03-03",
       "dateAdded": "2021-06-17",
       "androidFragment": null,
       "isNoto": false,
@@ -40836,7 +41350,7 @@
       "designers": [
         "But Ko"
       ],
-      "lastModified": "2025-12-10",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-03-03",
       "androidFragment": null,
       "isNoto": false,
@@ -41001,6 +41515,53 @@
       "isNoto": false,
       "colorCapabilities": [],
       "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Idiqlat",
+      "displayName": null,
+      "category": "Serif",
+      "stroke": "Serif",
+      "classifications": [],
+      "size": 80958,
+      "subsets": [
+        "menu",
+        "latin",
+        "syriac"
+      ],
+      "fonts": {
+        "200": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.6318359375
+        },
+        "300": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.6318359375
+        },
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.6318359375
+        }
+      },
+      "axes": [],
+      "designers": [
+        "SIL International"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Syrc",
       "primaryLanguage": "",
       "isOpenSource": true,
       "isBrandFont": false,
@@ -42299,6 +42860,184 @@
       ],
       "lastModified": "2025-09-16",
       "dateAdded": "2022-07-22",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Iosevka Charon",
+      "displayName": null,
+      "category": "Monospace",
+      "stroke": "Sans Serif",
+      "classifications": [
+        "Monospace"
+      ],
+      "size": 1414998,
+      "subsets": [
+        "menu",
+        "armenian",
+        "braille",
+        "cyrillic",
+        "cyrillic-ext",
+        "greek",
+        "greek-ext",
+        "latin",
+        "latin-ext",
+        "math",
+        "symbols",
+        "symbols2",
+        "vietnamese"
+      ],
+      "fonts": {
+        "300": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "500": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "700": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "300i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "400i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "500i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "700i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Juliette Pluto"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-03-10",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
+      "family": "Iosevka Charon Mono",
+      "displayName": null,
+      "category": "Monospace",
+      "stroke": "Sans Serif",
+      "classifications": [
+        "Monospace"
+      ],
+      "size": 1502830,
+      "subsets": [
+        "menu",
+        "armenian",
+        "braille",
+        "cyrillic",
+        "cyrillic-ext",
+        "greek",
+        "greek-ext",
+        "latin",
+        "latin-ext",
+        "math",
+        "symbols",
+        "symbols2",
+        "vietnamese"
+      ],
+      "fonts": {
+        "300": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "500": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "700": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "300i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "400i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "500i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        },
+        "700i": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.28
+        }
+      },
+      "axes": [],
+      "designers": [
+        "Juliette Pluto"
+      ],
+      "lastModified": "2026-03-11",
+      "dateAdded": "2026-03-10",
       "androidFragment": null,
       "isNoto": false,
       "colorCapabilities": [],
@@ -47858,7 +48597,7 @@
       "category": "Serif",
       "stroke": "Serif",
       "classifications": [],
-      "size": 250224,
+      "size": 265304,
       "subsets": [
         "menu",
         "cyrillic",
@@ -47879,7 +48618,7 @@
       "designers": [
         "Eduardo Tunni"
       ],
-      "lastModified": "2025-09-11",
+      "lastModified": "2026-03-11",
       "dateAdded": "2015-05-14",
       "androidFragment": null,
       "isNoto": false,
@@ -47937,7 +48676,7 @@
         "Fontrix",
         "Fontworks"
       ],
-      "lastModified": "2026-01-22",
+      "lastModified": "2026-03-11",
       "dateAdded": "2026-01-21",
       "androidFragment": null,
       "isNoto": false,
@@ -47978,7 +48717,7 @@
       "designers": [
         "LXGW"
       ],
-      "lastModified": "2025-06-12",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-06-11",
       "androidFragment": null,
       "isNoto": false,
@@ -48034,7 +48773,7 @@
       "designers": [
         "LXGW"
       ],
-      "lastModified": "2025-06-09",
+      "lastModified": "2026-03-11",
       "dateAdded": "2024-05-23",
       "androidFragment": null,
       "isNoto": false,
@@ -48090,7 +48829,7 @@
       "designers": [
         "LXGW"
       ],
-      "lastModified": "2025-06-09",
+      "lastModified": "2026-03-11",
       "dateAdded": "2024-05-23",
       "androidFragment": null,
       "isNoto": false,
@@ -53159,7 +53898,7 @@
       "classifications": [
         "Handwriting"
       ],
-      "size": 5867444,
+      "size": 5858048,
       "subsets": [
         "menu",
         "chinese-simplified",
@@ -53177,7 +53916,7 @@
       "designers": [
         "Ma ShanZheng"
       ],
-      "lastModified": "2025-09-08",
+      "lastModified": "2026-02-17",
       "dateAdded": "2019-03-17",
       "androidFragment": null,
       "isNoto": false,
@@ -56888,7 +57627,7 @@
         "Jiyeon Park",
         "JAMO"
       ],
-      "lastModified": "2025-05-30",
+      "lastModified": "2026-03-03",
       "dateAdded": "2023-06-05",
       "androidFragment": null,
       "isNoto": false,
@@ -61210,7 +61949,7 @@
       "designers": [
         "Google"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-02-17",
       "dateAdded": "2021-02-16",
       "androidFragment": null,
       "isNoto": true,
@@ -64973,7 +65712,7 @@
       "category": "Sans Serif",
       "stroke": "Sans Serif",
       "classifications": [],
-      "size": 654460,
+      "size": 641372,
       "subsets": [
         "menu",
         "kannada",
@@ -65053,7 +65792,7 @@
       "designers": [
         "Google"
       ],
-      "lastModified": "2025-09-10",
+      "lastModified": "2026-03-03",
       "dateAdded": "2020-11-19",
       "androidFragment": null,
       "isNoto": true,
@@ -67572,7 +68311,7 @@
       "category": "Sans Serif",
       "stroke": "Sans Serif",
       "classifications": [],
-      "size": 597872,
+      "size": 613116,
       "subsets": [
         "menu",
         "latin",
@@ -67652,7 +68391,7 @@
       "designers": [
         "Google"
       ],
-      "lastModified": "2025-09-02",
+      "lastModified": "2026-02-19",
       "dateAdded": "2020-11-19",
       "androidFragment": null,
       "isNoto": true,
@@ -73012,7 +73751,7 @@
       "designers": [
         "Google"
       ],
-      "lastModified": "2025-12-10",
+      "lastModified": "2026-03-11",
       "dateAdded": "2018-12-03",
       "androidFragment": null,
       "isNoto": true,
@@ -75268,7 +76007,7 @@
         "Sooun Cho",
         "JAMO"
       ],
-      "lastModified": "2025-05-30",
+      "lastModified": "2026-03-03",
       "dateAdded": "2023-06-05",
       "androidFragment": null,
       "isNoto": false,
@@ -88024,6 +88763,41 @@
       "languages": []
     },
     {
+      "family": "Ramsina",
+      "displayName": null,
+      "category": "Serif",
+      "stroke": "Serif",
+      "classifications": [],
+      "size": 83792,
+      "subsets": [
+        "menu",
+        "latin",
+        "syriac"
+      ],
+      "fonts": {
+        "400": {
+          "thickness": null,
+          "slant": null,
+          "width": null,
+          "lineHeight": 1.09814453125
+        }
+      },
+      "axes": [],
+      "designers": [
+        "SIL International"
+      ],
+      "lastModified": "2026-02-17",
+      "dateAdded": "2026-02-12",
+      "androidFragment": null,
+      "isNoto": false,
+      "colorCapabilities": [],
+      "primaryScript": "Syrc",
+      "primaryLanguage": "",
+      "isOpenSource": true,
+      "isBrandFont": false,
+      "languages": []
+    },
+    {
       "family": "Ranchers",
       "displayName": null,
       "category": "Display",
@@ -89940,7 +90714,7 @@
       "category": "Sans Serif",
       "stroke": "Sans Serif",
       "classifications": [],
-      "size": 483956,
+      "size": 509764,
       "subsets": [
         "menu",
         "cyrillic",
@@ -90079,11 +90853,11 @@
       ],
       "designers": [
         "Christian Robertson",
-        "Paratype",
+        "ParaType",
         "Font Bureau"
       ],
-      "lastModified": "2025-11-18",
-      "dateAdded": "2024-02-15",
+      "lastModified": "2026-02-19",
+      "dateAdded": "2013-01-08",
       "androidFragment": null,
       "isNoto": false,
       "colorCapabilities": [],
@@ -106653,7 +107427,7 @@
       "designers": [
         "Moonlit Owen"
       ],
-      "lastModified": "2025-06-25",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-06-23",
       "androidFragment": null,
       "isNoto": false,
@@ -108126,7 +108900,7 @@
       "designers": [
         "NightFurySL2001"
       ],
-      "lastModified": "2026-01-06",
+      "lastModified": "2026-03-11",
       "dateAdded": "2025-05-20",
       "androidFragment": null,
       "isNoto": false,
@@ -111030,7 +111804,7 @@
       "category": "Sans Serif",
       "stroke": "Sans Serif",
       "classifications": [],
-      "size": 3275404,
+      "size": 1514968,
       "subsets": [
         "menu",
         "chinese-simplified",
@@ -111050,7 +111824,7 @@
         "Yang Kang",
         "Wu Shaojie"
       ],
-      "lastModified": "2025-09-16",
+      "lastModified": "2026-02-17",
       "dateAdded": "2018-12-10",
       "androidFragment": null,
       "isNoto": false,
