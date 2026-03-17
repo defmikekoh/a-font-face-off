@@ -30,6 +30,8 @@
 
     const IOSKELEY_MONO_BASE =
         'https://raw.githubusercontent.com/defmikekoh/IoskeleyMono/main/woff2';
+    const JULIA_MONO_BASE =
+        'https://raw.githubusercontent.com/defmikekoh/juliamono/master/webfonts';
 
     const FONT_PRESETS = {
         'Iosevka Charon Mono': {
@@ -59,6 +61,18 @@
                 { style: 'italic', weight: 400, file: 'IoskeleyMono-Italic.woff2' },
                 { style: 'normal', weight: 700, file: 'IoskeleyMono-Bold.woff2' },
                 { style: 'italic', weight: 700, file: 'IoskeleyMono-BoldItalic.woff2' },
+            ],
+        },
+        'Julia Mono': {
+            source: 'sil',
+            cacheKey: 'julia-mono',
+            baseUrl: JULIA_MONO_BASE,
+            fontFamily: 'Julia Mono',
+            variants: [
+                { style: 'normal', weight: 400, file: 'JuliaMono-Regular.woff2' },
+                { style: 'italic', weight: 400, file: 'JuliaMono-RegularItalic.woff2' },
+                { style: 'normal', weight: 700, file: 'JuliaMono-Bold.woff2' },
+                { style: 'italic', weight: 700, file: 'JuliaMono-BoldItalic.woff2' },
             ],
         },
     };
