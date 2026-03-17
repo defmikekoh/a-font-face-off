@@ -28,6 +28,9 @@
     const IOSEVKA_FIXED_SS05_BASE =
         'https://raw.githubusercontent.com/iosevka-webfonts/iosevka-fixed-ss05/3bf42861a5bcf6dc8156344f0ecee063b89b5cd5/woff2';
 
+    const IOSKELEY_MONO_BASE =
+        'https://raw.githubusercontent.com/defmikekoh/IoskeleyMono/main/woff2';
+
     const FONT_PRESETS = {
         'Iosevka Charon Mono': {
             source: 'google',
@@ -36,12 +39,26 @@
         },
         'Iosevka Fixed SS05': {
             source: 'sil',
+            cacheKey: 'iosevka-fixed-ss05',
+            baseUrl: IOSEVKA_FIXED_SS05_BASE,
             fontFamily: 'Iosevka Fixed SS05',
             variants: [
                 { style: 'normal', weight: 400, file: 'iosevka-fixed-ss05-extended.woff2' },
                 { style: 'italic', weight: 400, file: 'iosevka-fixed-ss05-extendeditalic.woff2' },
                 { style: 'normal', weight: 700, file: 'iosevka-fixed-ss05-extendedbold.woff2' },
                 { style: 'italic', weight: 700, file: 'iosevka-fixed-ss05-extendedbolditalic.woff2' },
+            ],
+        },
+        'Ioskeley Mono': {
+            source: 'sil',
+            cacheKey: 'ioskeley-mono',
+            baseUrl: IOSKELEY_MONO_BASE,
+            fontFamily: 'Ioskeley Mono',
+            variants: [
+                { style: 'normal', weight: 400, file: 'IoskeleyMono-Regular.woff2' },
+                { style: 'italic', weight: 400, file: 'IoskeleyMono-Italic.woff2' },
+                { style: 'normal', weight: 700, file: 'IoskeleyMono-Bold.woff2' },
+                { style: 'italic', weight: 700, file: 'IoskeleyMono-BoldItalic.woff2' },
             ],
         },
     };
@@ -57,7 +74,6 @@
     const INLINE_REAPPLY_DEBOUNCE_MS = 250;
     const INLINE_MEANINGFUL_MIN_TEXT = 10;
     const INLINE_MEANINGFUL_MIN_CHILDREN = 1;
-    const FONT_CACHE_PREFIX = 'font-data:iosevka-fixed-ss05:';
     const INLINE_MEANINGFUL_IGNORE_TAGS = {
         SCRIPT: true,
         STYLE: true,
@@ -148,7 +164,7 @@
     }
 
     function getEmbeddedFontCacheKey(fileName) {
-        return FONT_CACHE_PREFIX + fileName;
+        return `font-data:${selectedPreset.cacheKey}:${fileName}`;
     }
 
     function hydrateEmbeddedFontsFromCache() {
@@ -195,7 +211,7 @@
                 return;
             }
 
-            const fontUrl = `${IOSEVKA_FIXED_SS05_BASE}/${variant.file}`;
+            const fontUrl = `${selectedPreset.baseUrl}/${variant.file}`;
             const dataUrl = await fetchFontAsDataUrl(fontUrl);
             embeddedVariantSrcByFile[variant.file] = dataUrl;
             try {
