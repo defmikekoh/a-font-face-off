@@ -106,7 +106,8 @@ function applyViewMode(forceView) {
 }
 
 // Load settings for the current view mode
-async function loadModeSettings() {
+async function loadModeSettings(options = {}) {
+    const skipPageReapply = !!options.skipPageReapply;
     const callTime = Date.now();
     console.log('loadModeSettings called at', callTime, ', currentViewMode:', currentViewMode);
     console.log('extensionState:', extensionState);
@@ -238,17 +239,24 @@ async function loadModeSettings() {
                             applyPromises.push(applyFontConfig(type, config));
 
                             // Re-apply CSS to page - coordinate with font loading
-                            cssPromises.push(
-                                (async () => {
-                                    // Wait for font loading to stabilize
-                                    await new Promise(resolve => setTimeout(resolve, 200));
-                                    return await reapplyThirdManInCSS(type, domainData[type]);
-                                })()
-                            );
+                            if (!skipPageReapply) {
+                                cssPromises.push(
+                                    (async () => {
+                                        // Wait for font loading to stabilize
+                                        await new Promise(resolve => setTimeout(resolve, 200));
+                                        return await reapplyThirdManInCSS(type, domainData[type]);
+                                    })()
+                                );
+                            }
                         }
                     }
 
-                    await Promise.all([...applyPromises, ...cssPromises]);
+                    await Promise.all(applyPromises);
+                    if (skipPageReapply) {
+                        console.log('DOMAIN-FIRST: Skipping page-side Third Man In reapply during popup initialization');
+                    } else {
+                        await Promise.all(cssPromises);
+                    }
                     // Update button states to reflect that fonts match applied state
                     console.log('About to update buttons after loading applied third man in state');
                     await updateAllThirdManInButtons();
@@ -4431,7 +4439,7 @@ function clearAllDomainSettings() {
     });
 }
 
-async function switchMode(newMode, forceInit = false) {
+async function switchMode(newMode, forceInit = false, options = {}) {
     console.log(`switchMode called: currentViewMode=${currentViewMode}, newMode=${newMode}, forceInit=${forceInit}`);
     if (currentViewMode === newMode && !forceInit) {
         console.log('switchMode: Already in target mode, skipping switch');
@@ -4489,20 +4497,20 @@ async function switchMode(newMode, forceInit = false) {
             await clearAllDomainSettings();
             // Reset font previews after clearing domain data
             resetFontPreviews();
-            await performModeSwitch(newMode);
+            await performModeSwitch(newMode, options);
         } else {
             // Reset font previews when switching modes without domain clearing
             resetFontPreviews();
-            await performModeSwitch(newMode);
+            await performModeSwitch(newMode, options);
         }
     } else {
         // Reset font previews when switching modes without confirmation
         resetFontPreviews();
-        await performModeSwitch(newMode);
+        await performModeSwitch(newMode, options);
     }
 }
 
-async function performModeSwitch(newMode) {
+async function performModeSwitch(newMode, options = {}) {
     console.log(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
 
     document.body.classList.add('mode-switching');
@@ -4568,7 +4576,7 @@ async function performModeSwitch(newMode) {
         }
 
         // Load settings for the new mode
-        await loadModeSettings();
+        await loadModeSettings(options);
 
         // Restore panel states for the new mode
         if (newMode === 'faceoff') {
@@ -4666,7 +4674,7 @@ function initializeModeInterface() {
         // Mode was already determined by determineInitialMode(), just use it
         const targetMode = currentViewMode || 'body-contact';
         console.log('About to call switchMode with:', targetMode);
-        await switchMode(targetMode, true); // Force initialization to set up panel visibility
+        await switchMode(targetMode, true, { skipPageReapply: true }); // Force initialization to set up panel visibility
 
         // Update active tab after mode is switched
         updateActiveTab(targetMode);
