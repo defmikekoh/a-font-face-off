@@ -6,6 +6,8 @@
   const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, close this Options tab and open a fresh one, then try again.';
   let syncModalPrimaryAction = null;
   let syncConnectedPrimaryAction = null;
+  let syncUiPendingCount = 0;
+  let pendingSyncLastSyncedText = '';
 
   function showSyncFailureModal(message, options = {}) {
     const overlay = document.getElementById('sync-failure-modal');
@@ -78,6 +80,45 @@
     if (res.reason === 'offline') return 'You appear to be offline';
     if (res.reason === 'data_consent_not_granted') return 'Sync consent not granted';
     return 'Sync not connected';
+  }
+
+  function beginSyncUiTracking() {
+    if (syncUiPendingCount === 0) {
+      const lastSyncedEl = document.getElementById('sync-last-synced');
+      pendingSyncLastSyncedText = lastSyncedEl ? lastSyncedEl.textContent : '';
+    }
+    syncUiPendingCount += 1;
+  }
+
+  function endSyncUiTracking() {
+    if (syncUiPendingCount > 0) {
+      syncUiPendingCount -= 1;
+    }
+    if (syncUiPendingCount === 0) {
+      pendingSyncLastSyncedText = '';
+    }
+  }
+
+  function buildLastSyncedText(meta, fallbackText) {
+    return meta.lastSync
+      ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
+      : fallbackText;
+  }
+
+  function getVisibleLastSyncedText(meta, fallbackText) {
+    if (syncUiPendingCount > 0) {
+      return pendingSyncLastSyncedText || fallbackText || 'Syncing...';
+    }
+    return buildLastSyncedText(meta, fallbackText);
+  }
+
+  async function runTrackedSyncMessage(type) {
+    beginSyncUiTracking();
+    try {
+      return await requestSyncMessage(type);
+    } finally {
+      endSyncUiTracking();
+    }
   }
 
   async function sendRuntimeMessage(message, options = {}) {
@@ -581,9 +622,7 @@
       setSyncConnectedPrimaryAction('Sync Now', syncNow);
       if (lastSyncedEl) {
         const meta = data.affoSyncMeta || {};
-        lastSyncedEl.textContent = meta.lastSync
-          ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
-          : 'Not yet synced';
+        lastSyncedEl.textContent = getVisibleLastSyncedText(meta, 'Not yet synced');
       }
       if (authDetailEl) authDetailEl.textContent = '';
     } else if (gdriveReconnectRequired) {
@@ -594,9 +633,7 @@
       setSyncConnectedPrimaryAction('Reconnect Google Drive', connectGDrive);
       if (lastSyncedEl) {
         const meta = data.affoSyncMeta || {};
-        lastSyncedEl.textContent = meta.lastSync
-          ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
-          : 'Reconnect Google Drive to resume sync';
+        lastSyncedEl.textContent = getVisibleLastSyncedText(meta, 'Reconnect Google Drive to resume sync');
       }
       if (authDetailEl) authDetailEl.textContent = buildGDriveReconnectDetail(reconnectStatus);
     } else {
@@ -630,7 +667,7 @@
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
       statusEl.textContent = 'Connected. Syncing...';
       await updateSyncConnectionState();
-      const syncRes = await requestSyncMessage('affoSyncNow');
+      const syncRes = await runTrackedSyncMessage('affoSyncNow');
       if (syncRes.skipped) {
         statusEl.textContent = `Connected. ${getSyncSkippedMessage(syncRes)}`;
       } else {
@@ -735,7 +772,7 @@
       statusEl.textContent = 'Awaiting consent...';
       await ensureSyncDataCollectionConsent();
       statusEl.textContent = 'Syncing...';
-      const res = await requestSyncMessage('affoSyncNow');
+      const res = await runTrackedSyncMessage('affoSyncNow');
       if (res.skipped) {
         statusEl.textContent = getSyncSkippedMessage(res);
       } else {
@@ -1265,7 +1302,7 @@
 
         await updateSyncConnectionState();
         await presentSyncFailureModal(msg.error || 'Auto sync failed', async () => {
-          const retryRes = await requestSyncMessage('affoSyncRetry');
+          const retryRes = await runTrackedSyncMessage('affoSyncRetry');
           if (retryRes.skipped) {
             throw new Error(getSyncSkippedMessage(retryRes));
           }

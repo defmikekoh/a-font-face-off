@@ -22,8 +22,13 @@
     let leftToolbarHidden = false;
     let unhideIcon = null;
     let quickPickMenu = null;
+    let quickPickCloseTimer = null;
     let options = {};
     const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.';
+    const QUICK_PICK_MESSAGE_COLOR = '#6c757d';
+    const QUICK_PICK_SUCCESS_COLOR = '#198754';
+    const QUICK_PICK_ERROR_COLOR = '#dc3545';
+    const QUICK_PICK_SUCCESS_CLOSE_DELAY_MS = 800;
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -874,9 +879,31 @@
 
     // Hide quick-pick menu
     function hideQuickPickMenu() {
+        if (quickPickCloseTimer) {
+            clearTimeout(quickPickCloseTimer);
+            quickPickCloseTimer = null;
+        }
         if (quickPickMenu) {
             quickPickMenu.style.display = 'none';
         }
+    }
+
+    function setQuickPickMessage(messageEl, text, options = {}) {
+        if (!messageEl) return;
+        messageEl.textContent = text || '';
+        messageEl.style.setProperty('color', options.color || QUICK_PICK_MESSAGE_COLOR, 'important');
+        messageEl.style.setProperty('display', options.visible === false ? 'none' : 'block', 'important');
+    }
+
+    function showQuickPickSuccessThenClose(messageEl, text) {
+        setQuickPickMessage(messageEl, text, { color: QUICK_PICK_SUCCESS_COLOR });
+        if (quickPickCloseTimer) {
+            clearTimeout(quickPickCloseTimer);
+        }
+        quickPickCloseTimer = setTimeout(() => {
+            quickPickCloseTimer = null;
+            hideQuickPickMenu();
+        }, QUICK_PICK_SUCCESS_CLOSE_DELAY_MS);
     }
 
     // Set disabled/loading state on all quick-pick buttons
@@ -908,6 +935,11 @@
         const message = document.getElementById('affo-quick-pick-message');
         const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
         const currentOrigin = origin || location.hostname;
+
+        if (quickPickCloseTimer) {
+            clearTimeout(quickPickCloseTimer);
+            quickPickCloseTimer = null;
+        }
 
         // Domain setting checkboxes (always wired, independent of favorites/mode state)
         const checkboxConfig = [
@@ -987,20 +1019,18 @@
         }
 
         if (noFavorites) {
-            message.textContent = 'No favorites saved. Add favorites in the popup.';
-            message.style.setProperty('display', 'block', 'important');
+            setQuickPickMessage(message, 'No favorites saved. Add favorites in the popup.');
             unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
         if (showBodyModeMessage) {
-            message.textContent = 'Domain has already been set in Body Mode. Use popup.';
-            message.style.setProperty('display', 'block', 'important');
+            setQuickPickMessage(message, 'Domain has already been set in Body Mode. Use popup.');
             unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
-        message.style.setProperty('display', 'none', 'important');
+        setQuickPickMessage(message, '', { visible: false });
 
         // Show favorite buttons and set up click handlers
         for (let i = 0; i < Math.min(favorites.length, 5); i++) {
@@ -1052,8 +1082,7 @@
                 const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
 
                 setQuickPickButtonsDisabled(true);
-                message.textContent = `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`;
-                message.style.setProperty('display', 'block', 'important');
+                setQuickPickMessage(message, `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`);
 
                 sendRuntimeMessageWithRetry({
                     type: 'quickApplyFavorite',
@@ -1062,16 +1091,15 @@
                     position: position
                 }).then(response => {
                     if (response && response.success) {
-                        setQuickPickButtonsDisabled(false);
-                        hideQuickPickMenu();
+                        showQuickPickSuccessThenClose(message, `Applied ${fav.fontName || `Font ${i + 1}`} to ${position}.`);
                     } else {
                         console.error('[Left Toolbar] Font application failed:', response?.error);
-                        message.textContent = 'Failed to apply font. Try again.';
+                        setQuickPickMessage(message, 'Failed to apply font. Try again.', { color: QUICK_PICK_ERROR_COLOR });
                         setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
                     console.error('[Left Toolbar] Error applying font:', err);
-                    message.textContent = 'Error applying font.';
+                    setQuickPickMessage(message, 'Error applying font.', { color: QUICK_PICK_ERROR_COLOR });
                     setQuickPickButtonsDisabled(false);
                 });
             };
@@ -1088,24 +1116,22 @@
             unapplyBtn.style.setProperty('display', 'flex', 'important');
             unapplyBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
-                message.textContent = 'Removing fonts...';
-                message.style.setProperty('display', 'block', 'important');
+                setQuickPickMessage(message, 'Removing fonts...');
 
                 sendRuntimeMessageWithRetry({
                     type: 'quickUnapplyFonts',
                     origin: currentOrigin
                 }).then(response => {
                     if (response && response.success) {
-                        setQuickPickButtonsDisabled(false);
-                        hideQuickPickMenu();
+                        showQuickPickSuccessThenClose(message, 'Fonts removed.');
                     } else {
                         console.error('[Left Toolbar] Unapply failed:', response?.error);
-                        message.textContent = 'Failed to remove fonts. Try popup.';
+                        setQuickPickMessage(message, 'Failed to remove fonts. Try popup.', { color: QUICK_PICK_ERROR_COLOR });
                         setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
                     console.error('[Left Toolbar] Error removing fonts:', err);
-                    message.textContent = 'Error removing fonts.';
+                    setQuickPickMessage(message, 'Error removing fonts.', { color: QUICK_PICK_ERROR_COLOR });
                     setQuickPickButtonsDisabled(false);
                 });
             };
@@ -1122,24 +1148,22 @@
             rewalkBtn.style.setProperty('display', 'flex', 'important');
             rewalkBtn.onclick = () => {
                 setQuickPickButtonsDisabled(true);
-                message.textContent = 'Rewalking...';
-                message.style.setProperty('display', 'block', 'important');
+                setQuickPickMessage(message, 'Rewalking...');
 
                 sendRuntimeMessageWithRetry({
                     type: 'quickRewalk',
                     origin: currentOrigin
                 }).then(response => {
                     if (response && response.success) {
-                        setQuickPickButtonsDisabled(false);
-                        hideQuickPickMenu();
+                        showQuickPickSuccessThenClose(message, 'Rewalked.');
                     } else {
                         console.error('[Left Toolbar] Rewalk failed:', response?.error);
-                        message.textContent = 'Rewalk failed. Try popup.';
+                        setQuickPickMessage(message, 'Rewalk failed. Try popup.', { color: QUICK_PICK_ERROR_COLOR });
                         setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
                     console.error('[Left Toolbar] Error rewalking:', err);
-                    message.textContent = 'Error rewalking.';
+                    setQuickPickMessage(message, 'Error rewalking.', { color: QUICK_PICK_ERROR_COLOR });
                     setQuickPickButtonsDisabled(false);
                 });
             };
