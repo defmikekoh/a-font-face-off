@@ -22,6 +22,40 @@
     let unhideIcon = null;
     let quickPickMenu = null;
     let options = {};
+    const RUNTIME_PORT_ERROR_RE = /(Receiving end does not exist|The message port closed before|moved into back\/forward cache)/;
+
+    function isRuntimePortError(error) {
+        const message = error && error.message ? error.message : String(error || '');
+        return RUNTIME_PORT_ERROR_RE.test(message);
+    }
+
+    function buildRuntimePortError(error) {
+        const message = error && error.message ? error.message : String(error || '');
+        if (!isRuntimePortError(error)) {
+            return error instanceof Error ? error : new Error(message);
+        }
+        return new Error(
+            'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.'
+        );
+    }
+
+    async function sendRuntimeMessageWithRetry(message, options = {}) {
+        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        const retryMs = options.retryMs || 0;
+        const retryDelayMs = options.retryDelayMs || 100;
+        const deadline = Date.now() + retryMs;
+
+        for (;;) {
+            try {
+                return await browserAPI.runtime.sendMessage(message);
+            } catch (e) {
+                if (!retryMs || !isRuntimePortError(e) || Date.now() >= deadline) {
+                    throw buildRuntimePortError(e);
+                }
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            }
+        }
+    }
 
     function isWaitForItConfiguredForCurrentDomain(data) {
         const host = location.hostname;
@@ -942,7 +976,7 @@
                     syncBtn.textContent = 'Syncing\u2026';
                     syncBtn.style.setProperty('opacity', '0.7', 'important');
                     try {
-                        const result = await browserAPI.runtime.sendMessage({ type: 'affoSyncNow' });
+                        const result = await sendRuntimeMessageWithRetry({ type: 'affoSyncNow' }, { retryMs: 3000, retryDelayMs: 100 });
                         if (result && result.ok) {
                             syncBtn.textContent = 'Synced!';
                         } else {

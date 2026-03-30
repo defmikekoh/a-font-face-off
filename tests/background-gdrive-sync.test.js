@@ -508,7 +508,15 @@ describe('Google Drive OAuth token handling', () => {
     it('preserves an existing refresh token when auth-code exchange omits it', async () => {
         const harness = createGDriveAuthHarness({
             localSeed: {
-                affoGDriveTokens: { accessToken: 'old-access', refreshToken: 'old-refresh' }
+                affoGDriveTokens: { accessToken: 'old-access', refreshToken: 'old-refresh' },
+                affoGDriveAuthStatus: {
+                    state: 'reconnect_required',
+                    reason: 'invalid_grant',
+                    detail: 'Token has been expired or revoked.',
+                    errorSubtype: '',
+                    updatedAt: 1700000000000,
+                    message: 'Google Drive authorization expired (Token has been expired or revoked.). Reconnect Google Drive.'
+                }
             },
             fetchImpl: async (url) => {
                 assert.equal(url, 'https://oauth2.googleapis.com/token');
@@ -526,6 +534,7 @@ describe('Google Drive OAuth token handling', () => {
         assert.equal(result.ok, true);
         assert.equal(harness.storageData.affoGDriveTokens.accessToken, 'new-access');
         assert.equal(harness.storageData.affoGDriveTokens.refreshToken, 'old-refresh');
+        assert.equal(harness.storageData.affoGDriveAuthStatus, undefined);
         assert.equal(harness.storageData.affoSyncBackend, 'gdrive');
         assert.equal(harness.alarmCalls.create, 1);
     });
@@ -560,7 +569,8 @@ describe('Google Drive OAuth token handling', () => {
                 status: 400,
                 text: async () => JSON.stringify({
                     error: 'invalid_grant',
-                    error_description: 'Token has been expired or revoked.'
+                    error_description: 'Token has been expired or revoked.',
+                    error_subtype: 'invalid_rapt'
                 })
             })
         });
@@ -570,6 +580,13 @@ describe('Google Drive OAuth token handling', () => {
             /Reconnect Google Drive/
         );
         assert.equal(harness.storageData.affoGDriveTokens, undefined);
+        assert.equal(harness.storageData.affoSyncBackend, 'gdrive');
+        assert.equal(harness.storageData.affoGDriveAuthStatus.state, 'reconnect_required');
+        assert.equal(harness.storageData.affoGDriveAuthStatus.reason, 'invalid_grant');
+        assert.equal(harness.storageData.affoGDriveAuthStatus.detail, 'Token has been expired or revoked.');
+        assert.equal(harness.storageData.affoGDriveAuthStatus.errorSubtype, 'invalid_rapt');
+        assert.match(harness.storageData.affoGDriveAuthStatus.message, /Token has been expired or revoked/);
+        assert.match(harness.storageData.affoGDriveAuthStatus.message, /subtype: invalid_rapt/);
         assert.equal(harness.alarmCalls.clear, 1);
     });
 });

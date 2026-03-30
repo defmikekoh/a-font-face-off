@@ -63,6 +63,7 @@ const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
 // Google Drive constants
 const GDRIVE_TOKENS_KEY = 'affoGDriveTokens';
+const GDRIVE_AUTH_STATUS_KEY = 'affoGDriveAuthStatus';
 const GDRIVE_FOLDER_SUFFIX_KEY = 'affoGDriveFolderSuffix';
 // GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET are loaded from gdrive-config.js (gitignored)
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -547,8 +548,26 @@ async function getGDriveTokens() {
   return data[GDRIVE_TOKENS_KEY] || null;
 }
 
+async function getGDriveAuthStatus() {
+  const data = await browser.storage.local.get(GDRIVE_AUTH_STATUS_KEY);
+  return data[GDRIVE_AUTH_STATUS_KEY] || null;
+}
+
+async function saveGDriveAuthStatus(status) {
+  if (!status || typeof status !== 'object' || Array.isArray(status)) {
+    await browser.storage.local.remove(GDRIVE_AUTH_STATUS_KEY);
+    return;
+  }
+  await browser.storage.local.set({ [GDRIVE_AUTH_STATUS_KEY]: status });
+}
+
+async function clearGDriveAuthStatus() {
+  await browser.storage.local.remove(GDRIVE_AUTH_STATUS_KEY);
+}
+
 async function saveGDriveTokens(tokens) {
   await browser.storage.local.set({ [GDRIVE_TOKENS_KEY]: tokens });
+  await clearGDriveAuthStatus();
 }
 
 async function isGDriveConfigured() {
@@ -560,21 +579,46 @@ let _refreshPromise = null;
 
 function parseOAuthErrorResponse(text) {
   if (!text) {
-    return { raw: '', error: '', errorDescription: '' };
+    return { raw: '', error: '', errorDescription: '', errorSubtype: '' };
   }
   try {
     const parsed = JSON.parse(text);
     return {
       raw: text,
       error: parsed && parsed.error ? String(parsed.error) : '',
-      errorDescription: parsed && parsed.error_description ? String(parsed.error_description) : ''
+      errorDescription: parsed && parsed.error_description ? String(parsed.error_description) : '',
+      errorSubtype: parsed && parsed.error_subtype ? String(parsed.error_subtype) : ''
     };
   } catch (_) {
-    return { raw: text, error: '', errorDescription: '' };
+    return { raw: text, error: '', errorDescription: '', errorSubtype: '' };
   }
 }
 
-async function clearGDriveTokens() {
+function buildGDriveReconnectMessage(oauthError) {
+  const detail = oauthError.errorDescription || oauthError.error || 'refresh token revoked';
+  const subtype = oauthError.errorSubtype ? `; subtype: ${oauthError.errorSubtype}` : '';
+  return `Google Drive authorization expired (${detail}${subtype}). Reconnect Google Drive.`;
+}
+
+function buildGDriveReconnectStatus(oauthError) {
+  return {
+    state: 'reconnect_required',
+    reason: oauthError.error || 'invalid_grant',
+    detail: oauthError.errorDescription || oauthError.error || 'refresh token revoked',
+    errorSubtype: oauthError.errorSubtype || '',
+    updatedAt: Date.now(),
+    message: buildGDriveReconnectMessage(oauthError)
+  };
+}
+
+async function clearGDriveTokens(options = {}) {
+  const authStatus = options.authStatus || null;
+  if (authStatus) {
+    await browser.storage.local.set({ [SYNC_BACKEND_KEY]: 'gdrive' });
+    await saveGDriveAuthStatus(authStatus);
+  } else {
+    await clearGDriveAuthStatus();
+  }
   await browser.storage.local.remove(GDRIVE_TOKENS_KEY);
   cachedAppFolderId = null;
   await stopSyncAlarm();
@@ -607,9 +651,9 @@ async function _doRefreshAccessToken() {
     const errText = await res.text().catch(() => '');
     const oauthError = parseOAuthErrorResponse(errText);
     if (oauthError.error === 'invalid_grant') {
-      await clearGDriveTokens();
-      const detail = oauthError.errorDescription || oauthError.error || 'refresh token revoked';
-      throw new Error(`Google Drive authorization expired (${detail}). Reconnect Google Drive.`);
+      const authStatus = buildGDriveReconnectStatus(oauthError);
+      await clearGDriveTokens({ authStatus });
+      throw new Error(authStatus.message);
     }
     throw new Error(`Token refresh failed (${res.status}): ${errText}`);
   }
@@ -633,6 +677,10 @@ async function gdriveFetch(url, options = {}) {
 
   let tokens = await getGDriveTokens();
   if (!tokens || !tokens.accessToken) {
+    const authStatus = await getGDriveAuthStatus();
+    if (authStatus && authStatus.state === 'reconnect_required' && authStatus.message) {
+      throw new Error(authStatus.message);
+    }
     throw new Error('Google Drive not connected');
   }
 
@@ -877,7 +925,7 @@ async function disconnectGDrive() {
       credentials: 'omit'
     }).catch(() => { });
   }
-  await browser.storage.local.remove([GDRIVE_TOKENS_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
+  await browser.storage.local.remove([GDRIVE_TOKENS_KEY, GDRIVE_AUTH_STATUS_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
   cachedAppFolderId = null;
   await stopSyncAlarm();
   console.log('[AFFO Background] Google Drive disconnected');
@@ -2174,7 +2222,7 @@ clearExpiredCache().then(() => {
   });
 });
 
-browser.runtime.onMessage.addListener(async (msg, sender) => {
+async function handleAffoRuntimeMessage(msg, sender) {
   try {
     // Handle cache flush requests
     if (msg.type === 'flushFontCache') {
@@ -2545,7 +2593,15 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
   } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
   }
-});
+}
+
+if (typeof self !== 'undefined') {
+  self.affoHandleRuntimeMessage = handleAffoRuntimeMessage;
+} else if (typeof globalThis !== 'undefined') {
+  globalThis.affoHandleRuntimeMessage = handleAffoRuntimeMessage;
+}
+
+browser.runtime.onMessage.addListener((msg, sender) => handleAffoRuntimeMessage(msg, sender));
 
 // Listen for toolbar option changes and notify content scripts
 browser.storage.onChanged.addListener(async (changes, area) => {

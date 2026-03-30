@@ -1,34 +1,172 @@
 /* Options page logic: manage known serif/sans lists and cloud sync (Google Drive / WebDAV) */
 (function(){
-  let syncRetryAction = null;
+  const GDRIVE_AUTH_STATUS_KEY = 'affoGDriveAuthStatus';
+  const GDRIVE_RECONNECT_REQUIRED_STATE = 'reconnect_required';
+  const RUNTIME_PORT_ERROR_RE = /(Receiving end does not exist|The message port closed before|moved into back\/forward cache)/;
+  const DIRECT_MESSAGE_UNAVAILABLE = Symbol('affo_direct_message_unavailable');
+  let syncModalPrimaryAction = null;
+  let syncConnectedPrimaryAction = null;
 
-  function showSyncFailureModal(message, retryAction) {
+  function showSyncFailureModal(message, options = {}) {
     const overlay = document.getElementById('sync-failure-modal');
     const messageEl = document.getElementById('sync-failure-message');
     const retryBtn = document.getElementById('sync-failure-retry');
-    if (!overlay || !messageEl || !retryBtn) return;
+    const dismissBtn = document.getElementById('sync-failure-ignore');
+    if (!overlay || !messageEl || !retryBtn || !dismissBtn) return;
 
-    syncRetryAction = typeof retryAction === 'function' ? retryAction : null;
+    syncModalPrimaryAction = typeof options.action === 'function' ? options.action : null;
     messageEl.textContent = message || 'Unknown sync error';
-    retryBtn.disabled = !syncRetryAction;
+    retryBtn.textContent = options.primaryLabel || 'Retry';
+    retryBtn.disabled = !syncModalPrimaryAction;
+    dismissBtn.textContent = options.dismissLabel || 'Dismiss';
     overlay.classList.add('show');
   }
 
   function hideSyncFailureModal() {
     const overlay = document.getElementById('sync-failure-modal');
     if (overlay) overlay.classList.remove('show');
-    syncRetryAction = null;
+    syncModalPrimaryAction = null;
   }
 
-  async function runSyncModalRetry() {
-    const retry = syncRetryAction;
+  async function runSyncModalPrimaryAction() {
+    const action = syncModalPrimaryAction;
     hideSyncFailureModal();
-    if (!retry) return;
+    if (!action) return;
     try {
-      await retry();
+      await action();
     } catch (e) {
-      showSyncFailureModal(e && e.message ? e.message : String(e), retry);
+      await presentSyncFailureModal(e && e.message ? e.message : String(e), action);
     }
+  }
+
+  async function getGDriveReconnectStatus() {
+    const data = await browser.storage.local.get(['affoSyncBackend', GDRIVE_AUTH_STATUS_KEY]);
+    const status = data[GDRIVE_AUTH_STATUS_KEY];
+    if (data.affoSyncBackend !== 'gdrive') return null;
+    if (!status || status.state !== GDRIVE_RECONNECT_REQUIRED_STATE) return null;
+    return status;
+  }
+
+  function buildGDriveReconnectDetail(status) {
+    if (!status || typeof status !== 'object') {
+      return 'Reconnect Google Drive to resume sync.';
+    }
+    const parts = [];
+    if (status.detail) parts.push(status.detail);
+    if (status.errorSubtype) parts.push(`subtype: ${status.errorSubtype}`);
+    if (parts.length === 0) {
+      return status.message || 'Reconnect Google Drive to resume sync.';
+    }
+    return `Google rejected the stored refresh token: ${parts.join('; ')}.`;
+  }
+
+  function setSyncConnectedPrimaryAction(label, action) {
+    const btn = document.getElementById('sync-now');
+    syncConnectedPrimaryAction = typeof action === 'function' ? action : null;
+    if (!btn) return;
+    btn.textContent = label || 'Sync Now';
+    btn.disabled = !syncConnectedPrimaryAction;
+  }
+
+  async function handleSyncConnectedPrimaryAction() {
+    if (!syncConnectedPrimaryAction) return;
+    await syncConnectedPrimaryAction();
+  }
+
+  function getSyncSkippedMessage(res) {
+    if (!res || !res.skipped) return '';
+    if (res.reason === 'offline') return 'You appear to be offline';
+    if (res.reason === 'data_consent_not_granted') return 'Sync consent not granted';
+    return 'Sync not connected';
+  }
+
+  function isRuntimePortError(error) {
+    const message = error && error.message ? error.message : String(error || '');
+    return RUNTIME_PORT_ERROR_RE.test(message);
+  }
+
+  function buildRuntimePortError(error) {
+    const message = error && error.message ? error.message : String(error || '');
+    if (!isRuntimePortError(error)) {
+      return error instanceof Error ? error : new Error(message);
+    }
+    return new Error(
+      'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, close this Options tab and open a fresh one, then try again.'
+    );
+  }
+
+  async function getBackgroundPageWindow() {
+    try {
+      if (browser.runtime && typeof browser.runtime.getBackgroundPage === 'function') {
+        return await browser.runtime.getBackgroundPage();
+      }
+    } catch (_) {}
+
+    try {
+      if (browser.extension && typeof browser.extension.getBackgroundPage === 'function') {
+        return browser.extension.getBackgroundPage();
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  async function sendRuntimeMessageDirect(message) {
+    const bg = await getBackgroundPageWindow();
+    if (!bg || typeof bg.affoHandleRuntimeMessage !== 'function') {
+      return DIRECT_MESSAGE_UNAVAILABLE;
+    }
+    return bg.affoHandleRuntimeMessage(message, null);
+  }
+
+  async function sendRuntimeMessage(message, options = {}) {
+    const directResult = await sendRuntimeMessageDirect(message);
+    if (directResult !== DIRECT_MESSAGE_UNAVAILABLE) {
+      return directResult;
+    }
+
+    const retryMs = options.retryMs || 0;
+    const retryDelayMs = options.retryDelayMs || 100;
+    const deadline = Date.now() + retryMs;
+
+    for (;;) {
+      try {
+        return await browser.runtime.sendMessage(message);
+      } catch (e) {
+        if (!retryMs || !isRuntimePortError(e) || Date.now() >= deadline) {
+          throw buildRuntimePortError(e);
+        }
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
+  }
+
+  async function requestSyncMessage(type) {
+    // Firefox can transiently lose the background message receiver right after OAuth tab flows.
+    const res = await sendRuntimeMessage({ type }, { retryMs: 3000, retryDelayMs: 100 });
+    if (!res) throw new Error('No response from background');
+    if (!res.ok && !res.skipped) {
+      throw new Error(res.error || 'Sync failed');
+    }
+    return res;
+  }
+
+  async function presentSyncFailureModal(message, fallbackAction) {
+    const reconnectStatus = await getGDriveReconnectStatus();
+    if (reconnectStatus) {
+      showSyncFailureModal(reconnectStatus.message || message, {
+        action: connectGDrive,
+        primaryLabel: 'Reconnect Google Drive',
+        dismissLabel: 'Dismiss'
+      });
+      return;
+    }
+
+    showSyncFailureModal(message, {
+      action: fallbackAction,
+      primaryLabel: 'Retry',
+      dismissLabel: 'Dismiss'
+    });
   }
 
   // Theme functionality to match essential-buttons-toolbar
@@ -462,12 +600,15 @@
   }
 
   async function updateSyncConnectionState() {
-    const data = await browser.storage.local.get(['affoSyncBackend', 'affoGDriveTokens', 'affoWebDavConfig', 'affoSyncMeta']);
+    const data = await browser.storage.local.get(['affoSyncBackend', 'affoGDriveTokens', 'affoWebDavConfig', 'affoSyncMeta', GDRIVE_AUTH_STATUS_KEY]);
     const activeBackend = data.affoSyncBackend;
     const selectorEl = document.getElementById('sync-backend-selector');
     const selectEl = document.getElementById('sync-backend-select');
     const connectedLabelEl = document.getElementById('sync-connected-label');
     const lastSyncedEl = document.getElementById('sync-last-synced');
+    const authDetailEl = document.getElementById('sync-auth-detail');
+    const reconnectStatus = activeBackend === 'gdrive' ? data[GDRIVE_AUTH_STATUS_KEY] : null;
+    const gdriveReconnectRequired = !!(reconnectStatus && reconnectStatus.state === GDRIVE_RECONNECT_REQUIRED_STATE);
 
     let connected = false;
     if (activeBackend === 'gdrive') {
@@ -478,20 +619,44 @@
       connected = !!(config && config.serverUrl);
     }
 
+    if (selectEl) {
+      selectEl.value = activeBackend || '';
+    }
+
     if (connected) {
       if (selectorEl) selectorEl.style.display = 'none';
       const backendLabel = activeBackend === 'gdrive' ? 'Google Drive' : 'WebDAV';
       if (connectedLabelEl) connectedLabelEl.textContent = `Connected (${backendLabel})`;
+      if (connectedLabelEl) connectedLabelEl.style.color = 'green';
       showSyncSection('sync-connected');
+      setSyncConnectedPrimaryAction('Sync Now', syncNow);
       if (lastSyncedEl) {
         const meta = data.affoSyncMeta || {};
         lastSyncedEl.textContent = meta.lastSync
           ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
           : 'Not yet synced';
       }
+      if (authDetailEl) authDetailEl.textContent = '';
+    } else if (gdriveReconnectRequired) {
+      if (selectorEl) selectorEl.style.display = 'none';
+      showSyncSection('sync-connected');
+      if (connectedLabelEl) connectedLabelEl.textContent = 'Reconnect Required (Google Drive)';
+      if (connectedLabelEl) connectedLabelEl.style.color = '#b35c00';
+      setSyncConnectedPrimaryAction('Reconnect Google Drive', connectGDrive);
+      if (lastSyncedEl) {
+        const meta = data.affoSyncMeta || {};
+        lastSyncedEl.textContent = meta.lastSync
+          ? `Last synced: ${formatTimeAgo(meta.lastSync)}`
+          : 'Reconnect Google Drive to resume sync';
+      }
+      if (authDetailEl) authDetailEl.textContent = buildGDriveReconnectDetail(reconnectStatus);
     } else {
       if (selectorEl) selectorEl.style.display = 'block';
       showSyncSection(null);
+      setSyncConnectedPrimaryAction('Sync Now', syncNow);
+      if (connectedLabelEl) connectedLabelEl.style.color = 'green';
+      if (authDetailEl) authDetailEl.textContent = '';
+      if (lastSyncedEl) lastSyncedEl.textContent = '';
       // Show the config for whatever's selected in the dropdown
       if (selectEl) updateBackendSelector(selectEl.value);
     }
@@ -512,14 +677,23 @@
       statusEl.textContent = 'Awaiting consent...';
       await ensureSyncDataCollectionConsent();
       statusEl.textContent = 'Connecting...';
-      const res = await browser.runtime.sendMessage({ type: 'affoGDriveAuth' });
+      const res = await sendRuntimeMessage({ type: 'affoGDriveAuth' }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
-      statusEl.textContent = 'Connected';
+      statusEl.textContent = 'Connected. Syncing...';
+      await updateSyncConnectionState();
+      const syncRes = await requestSyncMessage('affoSyncNow');
+      if (syncRes.skipped) {
+        statusEl.textContent = `Connected. ${getSyncSkippedMessage(syncRes)}`;
+      } else {
+        statusEl.textContent = 'Connected and synced';
+      }
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
       await updateSyncConnectionState();
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      await updateSyncConnectionState();
+      await presentSyncFailureModal(e.message || String(e), connectGDrive);
     }
   }
 
@@ -539,7 +713,7 @@
         throw new Error('Username and password required (or check Anonymous)');
       }
       statusEl.textContent = 'Connecting...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavConnect', config });
+      const res = await sendRuntimeMessage({ type: 'affoWebDavConnect', config }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
       statusEl.textContent = 'Connected';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
@@ -563,7 +737,7 @@
       };
       if (!config.serverUrl) throw new Error('Server URL is required');
       statusEl.textContent = 'Testing...';
-      const res = await browser.runtime.sendMessage({ type: 'affoWebDavTest', config });
+      const res = await sendRuntimeMessage({ type: 'affoWebDavTest', config }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection test failed');
       statusEl.textContent = 'Connection OK';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
@@ -580,7 +754,7 @@
       const data = await browser.storage.local.get('affoSyncBackend');
       const backend = data.affoSyncBackend;
       const msgType = backend === 'webdav' ? 'affoWebDavDisconnect' : 'affoGDriveDisconnect';
-      const res = await browser.runtime.sendMessage({ type: msgType });
+      const res = await sendRuntimeMessage({ type: msgType }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Disconnect failed');
       statusEl.textContent = 'Disconnected';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
@@ -595,7 +769,7 @@
     const statusEl = document.getElementById('status-sync');
     try {
       statusEl.textContent = 'Clearing...';
-      const res = await browser.runtime.sendMessage({ type: 'affoClearLocalSync' });
+      const res = await sendRuntimeMessage({ type: 'affoClearLocalSync' }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Clear failed');
       statusEl.textContent = 'Local sync data cleared';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
@@ -612,18 +786,9 @@
       statusEl.textContent = 'Awaiting consent...';
       await ensureSyncDataCollectionConsent();
       statusEl.textContent = 'Syncing...';
-      const res = await browser.runtime.sendMessage({ type: 'affoSyncNow' });
-      if (!res) throw new Error('No response from background');
+      const res = await requestSyncMessage('affoSyncNow');
       if (res.skipped) {
-        if (res.reason === 'offline') {
-          statusEl.textContent = 'You appear to be offline';
-        } else if (res.reason === 'data_consent_not_granted') {
-          statusEl.textContent = 'Sync consent not granted';
-        } else {
-          statusEl.textContent = 'Sync not connected';
-        }
-      } else if (!res.ok) {
-        throw new Error(res.error || 'Sync failed');
+        statusEl.textContent = getSyncSkippedMessage(res);
       } else {
         statusEl.textContent = 'Synced';
       }
@@ -632,7 +797,8 @@
     } catch (e) {
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      showSyncFailureModal(e.message || String(e), syncNow);
+      await updateSyncConnectionState();
+      await presentSyncFailureModal(e.message || String(e), syncNow);
     }
   }
 
@@ -1130,36 +1296,54 @@
     });
     document.getElementById('sync-disconnect').addEventListener('click', disconnectSync);
     document.getElementById('sync-clear').addEventListener('click', clearLocalSync);
-    document.getElementById('sync-now').addEventListener('click', syncNow);
+    document.getElementById('sync-now').addEventListener('click', handleSyncConnectedPrimaryAction);
     document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
       updateGDriveFolderPreview();
       saveGDriveFolderSuffix();
     });
     document.getElementById('sync-failure-ignore').addEventListener('click', hideSyncFailureModal);
-    document.getElementById('sync-failure-retry').addEventListener('click', runSyncModalRetry);
+    document.getElementById('sync-failure-retry').addEventListener('click', runSyncModalPrimaryAction);
 
     browser.runtime.onMessage.addListener((msg) => {
       if (!msg || msg.type !== 'affoSyncFailed') return;
 
-      const statusEl = document.getElementById('status-sync');
-      if (statusEl) {
-        statusEl.textContent = 'Auto sync failed';
-        setTimeout(() => { statusEl.textContent = ''; }, 4000);
-      }
+      (async () => {
+        const statusEl = document.getElementById('status-sync');
+        if (statusEl) {
+          statusEl.textContent = 'Auto sync failed';
+          setTimeout(() => { statusEl.textContent = ''; }, 4000);
+        }
 
-      showSyncFailureModal(msg.error || 'Auto sync failed', async () => {
-        const retryRes = await browser.runtime.sendMessage({ type: 'affoSyncRetry' });
-        if (!retryRes || !retryRes.ok) {
-          throw new Error(retryRes && retryRes.error ? retryRes.error : 'Retry failed');
-        }
-        const okStatusEl = document.getElementById('status-sync');
-        if (okStatusEl) {
-          okStatusEl.textContent = 'Sync retry succeeded';
-          setTimeout(() => { okStatusEl.textContent = ''; }, 2500);
-        }
         await updateSyncConnectionState();
-      });
+        await presentSyncFailureModal(msg.error || 'Auto sync failed', async () => {
+          const retryRes = await requestSyncMessage('affoSyncRetry');
+          if (retryRes.skipped) {
+            throw new Error(getSyncSkippedMessage(retryRes));
+          }
+          const okStatusEl = document.getElementById('status-sync');
+          if (okStatusEl) {
+            okStatusEl.textContent = 'Sync retry succeeded';
+            setTimeout(() => { okStatusEl.textContent = ''; }, 2500);
+          }
+          await updateSyncConnectionState();
+        });
+      })().catch(() => { });
     });
+
+    if (browser.storage && browser.storage.onChanged && typeof browser.storage.onChanged.addListener === 'function') {
+      browser.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (
+          changes.affoSyncBackend ||
+          changes.affoGDriveTokens ||
+          changes.affoWebDavConfig ||
+          changes.affoSyncMeta ||
+          changes[GDRIVE_AUTH_STATUS_KEY]
+        ) {
+          updateSyncConnectionState().catch(() => { });
+        }
+      });
+    }
 
     // Icon theme will only apply on save, not on change
   });

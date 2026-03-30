@@ -14,6 +14,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 ## Google Drive
 
 - OAuth via tab-based flow with PKCE (opens tab + intercepts redirect via webRequest; works on both desktop and Android Firefox). Tokens stored in `affoGDriveTokens`.
+- If Google rejects the refresh token with `invalid_grant`, the extension clears local tokens, preserves `affoSyncBackend = 'gdrive'`, and stores a local-only reconnect-required state in `affoGDriveAuthStatus` so the Options UI can offer an explicit reconnect flow instead of looking fully disconnected.
 - Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive. All synced items are single files in the root folder (no subfolders): `domains.json`, `domains-meta.json`, `favorites.json`, `custom-fonts.css`, `known-serif.json`, `known-sans.json`, `fontface-only-domains.json`, `fontface-only-domains-meta.json`, `inline-apply-domains.json`, `inline-apply-domains-meta.json`, `aggressive-domains.json`, `aggressive-domains-meta.json`, `waitforit-domains.json`, `waitforit-domains-meta.json`, `ignore-comments-domains.json`, `ignore-comments-domains-meta.json`, `preserved-fonts.json`, `substack-roulette.json`.
 - `remoteRev` optimistic concurrency via `ensureRemoteRevisionUnchanged`
 
@@ -41,7 +42,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 - Storage change listener compares `oldValue` vs `newValue` before marking modified (avoids unnecessary syncs).
 - Manual sync via "Sync Now" button in Advanced Options. "Clear Local Sync" button resets local sync metadata without disconnecting OAuth.
 - `self.addEventListener('online', ...)` triggers sync when connectivity returns (covers wake-from-sleep). `gdriveFetch()` throws when offline to prevent futile requests mid-sync.
-- Auto-sync failures emit `affoSyncFailed` runtime messages consumed by Options page modal retry UX.
+- Auto-sync failures emit `affoSyncFailed` runtime messages consumed by the Options page modal. When the stored Google Drive refresh token has been rejected, the modal switches from retry to reconnect.
 
 ## Key Functions
 

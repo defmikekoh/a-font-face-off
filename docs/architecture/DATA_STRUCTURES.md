@@ -101,6 +101,7 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
+| `affoGDriveAuthStatus` | Local-only Google Drive auth recovery state used when refresh-token renewal fails. Preserves backend selection while prompting reconnect. Not synced. | `{ state: "reconnect_required", reason: "invalid_grant", detail: "Token has been expired or revoked.", errorSubtype: "", updatedAt: 1700000000000, message: "Google Drive authorization expired (Token has been expired or revoked.). Reconnect Google Drive." }` |
 | `affoApplyMapMeta` | Per-origin domain merge metadata for sync | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
 

@@ -621,6 +621,9 @@
         <div class="row">
           <span id="sync-last-synced" class="status"></span>
         </div>
+        <div class="row">
+          <span id="sync-auth-detail" class="status"></span>
+        </div>
       </div>
 
       <div class="row">
@@ -803,11 +806,11 @@
   </div>
 
   <div id="sync-failure-modal" class="affo-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sync-failure-title">
-    <div class="affo-modal">
+      <div class="affo-modal">
       <div id="sync-failure-title" class="affo-modal-title">Sync Failed</div>
       <div id="sync-failure-message" class="affo-modal-message"></div>
       <div class="affo-modal-actions">
-        <button id="sync-failure-ignore">Ignore</button>
+        <button id="sync-failure-ignore">Dismiss</button>
         <button id="sync-failure-retry" class="purple">Retry</button>
       </div>
     </div>
