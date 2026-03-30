@@ -1,9 +1,9 @@
+/* global AFFOMessaging */
 /* Options page logic: manage known serif/sans lists and cloud sync (Google Drive / WebDAV) */
 (function(){
   const GDRIVE_AUTH_STATUS_KEY = 'affoGDriveAuthStatus';
   const GDRIVE_RECONNECT_REQUIRED_STATE = 'reconnect_required';
-  const RUNTIME_PORT_ERROR_RE = /(Receiving end does not exist|The message port closed before|moved into back\/forward cache)/;
-  const DIRECT_MESSAGE_UNAVAILABLE = Symbol('affo_direct_message_unavailable');
+  const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, close this Options tab and open a fresh one, then try again.';
   let syncModalPrimaryAction = null;
   let syncConnectedPrimaryAction = null;
 
@@ -80,65 +80,14 @@
     return 'Sync not connected';
   }
 
-  function isRuntimePortError(error) {
-    const message = error && error.message ? error.message : String(error || '');
-    return RUNTIME_PORT_ERROR_RE.test(message);
-  }
-
-  function buildRuntimePortError(error) {
-    const message = error && error.message ? error.message : String(error || '');
-    if (!isRuntimePortError(error)) {
-      return error instanceof Error ? error : new Error(message);
-    }
-    return new Error(
-      'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, close this Options tab and open a fresh one, then try again.'
-    );
-  }
-
-  async function getBackgroundPageWindow() {
-    try {
-      if (browser.runtime && typeof browser.runtime.getBackgroundPage === 'function') {
-        return await browser.runtime.getBackgroundPage();
-      }
-    } catch (_) {}
-
-    try {
-      if (browser.extension && typeof browser.extension.getBackgroundPage === 'function') {
-        return browser.extension.getBackgroundPage();
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  async function sendRuntimeMessageDirect(message) {
-    const bg = await getBackgroundPageWindow();
-    if (!bg || typeof bg.affoHandleRuntimeMessage !== 'function') {
-      return DIRECT_MESSAGE_UNAVAILABLE;
-    }
-    return bg.affoHandleRuntimeMessage(message, null);
-  }
-
   async function sendRuntimeMessage(message, options = {}) {
-    const directResult = await sendRuntimeMessageDirect(message);
-    if (directResult !== DIRECT_MESSAGE_UNAVAILABLE) {
-      return directResult;
-    }
-
-    const retryMs = options.retryMs || 0;
-    const retryDelayMs = options.retryDelayMs || 100;
-    const deadline = Date.now() + retryMs;
-
-    for (;;) {
-      try {
-        return await browser.runtime.sendMessage(message);
-      } catch (e) {
-        if (!retryMs || !isRuntimePortError(e) || Date.now() >= deadline) {
-          throw buildRuntimePortError(e);
-        }
-        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-      }
-    }
+    return AFFOMessaging.sendRuntimeMessage(browser, message, Object.assign({
+      directFirst: true,
+      directHandlerName: 'affoHandleRuntimeMessage',
+      retryMs: 3000,
+      retryDelayMs: 100,
+      noReceiverMessage: MESSAGING_UNAVAILABLE_MESSAGE
+    }, options));
   }
 
   async function requestSyncMessage(type) {

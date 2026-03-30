@@ -1,3 +1,4 @@
+/* global AFFOMessaging */
 // Content script: cleanup and storage monitoring only
 // All font injection is now handled by popup.js using insertCSS
 
@@ -48,9 +49,17 @@
     console.log = function () { };
     console.warn = function () { };
   }
+  var CONTENT_MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. Reload the page and try again.';
 
   function debugLog() { console.log.apply(console, arguments); }
   function elementLog() { console.log.apply(console, arguments); }
+  function sendBackgroundMessage(message, options) {
+    return AFFOMessaging.sendRuntimeMessage(browser, message, Object.assign({
+      retryMs: 1500,
+      retryDelayMs: 100,
+      noReceiverMessage: CONTENT_MESSAGING_UNAVAILABLE_MESSAGE
+    }, options || {}));
+  }
 
   // Shared inline-apply infrastructure — single observer + single polling timer for all font types
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
@@ -1643,7 +1652,7 @@
         var httpFontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
         debugLog(`[AFFO Content] Found ${httpFontFormat} HTTP URL ${index + 1}: ${fontUrl}`);
 
-        return browser.runtime.sendMessage({
+        return sendBackgroundMessage({
           type: 'affoFetch',
           url: fontUrl,
           binary: true
@@ -1966,7 +1975,7 @@
       var cssUrl = cachedUrl;
       debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
 
-      return browser.runtime.sendMessage({
+      return sendBackgroundMessage({
         type: 'affoFetch',
         url: cssUrl,
         binary: false
@@ -2031,7 +2040,7 @@
             return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function (woff2Url, index) {
               debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${prioritizedUrls.length}: ${woff2Url}`);
 
-              return browser.runtime.sendMessage({
+              return sendBackgroundMessage({
                 type: 'affoFetch',
                 url: woff2Url,
                 binary: true

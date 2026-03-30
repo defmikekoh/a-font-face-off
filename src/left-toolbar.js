@@ -1,3 +1,4 @@
+/* global AFFOMessaging */
 // Left toolbar content script - based on essential-buttons-toolbar approach
 (function() {
     'use strict';
@@ -22,39 +23,15 @@
     let unhideIcon = null;
     let quickPickMenu = null;
     let options = {};
-    const RUNTIME_PORT_ERROR_RE = /(Receiving end does not exist|The message port closed before|moved into back\/forward cache)/;
-
-    function isRuntimePortError(error) {
-        const message = error && error.message ? error.message : String(error || '');
-        return RUNTIME_PORT_ERROR_RE.test(message);
-    }
-
-    function buildRuntimePortError(error) {
-        const message = error && error.message ? error.message : String(error || '');
-        if (!isRuntimePortError(error)) {
-            return error instanceof Error ? error : new Error(message);
-        }
-        return new Error(
-            'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.'
-        );
-    }
+    const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.';
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-        const retryMs = options.retryMs || 0;
-        const retryDelayMs = options.retryDelayMs || 100;
-        const deadline = Date.now() + retryMs;
-
-        for (;;) {
-            try {
-                return await browserAPI.runtime.sendMessage(message);
-            } catch (e) {
-                if (!retryMs || !isRuntimePortError(e) || Date.now() >= deadline) {
-                    throw buildRuntimePortError(e);
-                }
-                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-            }
-        }
+        return AFFOMessaging.sendRuntimeMessage(browserAPI, message, Object.assign({
+            retryMs: 3000,
+            retryDelayMs: 100,
+            noReceiverMessage: MESSAGING_UNAVAILABLE_MESSAGE
+        }, options));
     }
 
     function isWaitForItConfiguredForCurrentDomain(data) {
@@ -436,12 +413,11 @@
     // Handle opening popup with current domain and tab context
     function handleOpenPopup() {
         try {
-            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
             const currentDomain = window.location.hostname;
             
             
             // Get current tab info to pass to popup
-            browserAPI.runtime.sendMessage({ 
+            sendRuntimeMessageWithRetry({ 
                 type: 'getCurrentTab' 
             }).then(function(tabResponse) {
                 
@@ -451,7 +427,7 @@
                 const isMobileFirefox = navigator.userAgent.includes('Mobile') && navigator.userAgent.includes('Firefox');
                 
                 if (isMobileFirefox) {
-                    browserAPI.runtime.sendMessage({ 
+                    sendRuntimeMessageWithRetry({ 
                         type: 'openPopupFallback', 
                         domain: currentDomain,
                         sourceTabId: currentTabId
@@ -460,13 +436,13 @@
                         console.error('[Left Toolbar] Error opening fallback popup:', e);
                     });
                 } else {
-                    browserAPI.runtime.sendMessage({ 
+                    sendRuntimeMessageWithRetry({ 
                         type: 'openPopup', 
                         domain: currentDomain,
                         sourceTabId: currentTabId
                     }).then(function(response) {
                         if (!response || !response.success) {
-                            return browserAPI.runtime.sendMessage({ 
+                            return sendRuntimeMessageWithRetry({ 
                                 type: 'openPopupFallback', 
                                 domain: currentDomain,
                                 sourceTabId: currentTabId
@@ -1079,7 +1055,7 @@
                 message.textContent = `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`;
                 message.style.setProperty('display', 'block', 'important');
 
-                browserAPI.runtime.sendMessage({
+                sendRuntimeMessageWithRetry({
                     type: 'quickApplyFavorite',
                     origin: currentOrigin,
                     fontConfig: fav,
@@ -1115,7 +1091,7 @@
                 message.textContent = 'Removing fonts...';
                 message.style.setProperty('display', 'block', 'important');
 
-                browserAPI.runtime.sendMessage({
+                sendRuntimeMessageWithRetry({
                     type: 'quickUnapplyFonts',
                     origin: currentOrigin
                 }).then(response => {
@@ -1149,7 +1125,7 @@
                 message.textContent = 'Rewalking...';
                 message.style.setProperty('display', 'block', 'important');
 
-                browserAPI.runtime.sendMessage({
+                sendRuntimeMessageWithRetry({
                     type: 'quickRewalk',
                     origin: currentOrigin
                 }).then(response => {
@@ -1174,12 +1150,11 @@
 
     // Apply quick-pick font to detected position
     function handleApplyQuickPickFont(data) {
-        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         const origin = location.hostname;
         const { config, position } = data;
 
         // Send to background to handle CSS injection
-        browserAPI.runtime.sendMessage({
+        sendRuntimeMessageWithRetry({
             type: 'quickApplyFavorite',
             origin: origin,
             fontConfig: config,
@@ -1198,8 +1173,7 @@
     // Close current tab
     async function handleCloseTab() {
         try {
-            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-            const response = await browserAPI.runtime.sendMessage({ type: 'closeCurrentTab' });
+            const response = await sendRuntimeMessageWithRetry({ type: 'closeCurrentTab' });
             if (!response || response.success !== true) {
                 console.error('[Left Toolbar] Close tab failed:', response && response.error ? response.error : 'Unknown error');
             }

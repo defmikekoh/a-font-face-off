@@ -1,3 +1,4 @@
+/* global AFFOMessaging */
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
 if (!AFFO_DEBUG) {
@@ -416,12 +417,16 @@ function insertCSSInTargetTab(options) {
 function sendMessageToTargetTab(message) {
     if (window.sourceTabId) {
         console.log('[AFFO Popup] Sending message to source tab:', window.sourceTabId);
-        return browser.tabs.sendMessage(window.sourceTabId, message);
+        return AFFOMessaging.sendTabMessage(browser, window.sourceTabId, message, {
+            ignoreNoReceiver: true
+        });
     } else {
         console.log('[AFFO Popup] Sending message to active tab');
         return browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
             if (tabs[0]) {
-                return browser.tabs.sendMessage(tabs[0].id, message);
+                return AFFOMessaging.sendTabMessage(browser, tabs[0].id, message, {
+                    ignoreNoReceiver: true
+                });
             }
         });
     }

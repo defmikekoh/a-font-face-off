@@ -37,12 +37,12 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["left-toolbar.js"],
+      "js": ["messaging-utils.js", "left-toolbar.js"],
       "run_at": "document_start"
     },
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "js": ["messaging-utils.js", "content.js"],
       "run_at": "document_end"
     },
     {
