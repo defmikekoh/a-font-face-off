@@ -57,6 +57,96 @@
         } catch (_e) { }
     }
 
+    function getViewportMetrics() {
+        const visualViewport = window.visualViewport;
+        if (!visualViewport) {
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                scale: 1,
+                offsetLeft: 0,
+                offsetTop: 0
+            };
+        }
+        return {
+            width: visualViewport.width,
+            height: visualViewport.height,
+            scale: visualViewport.scale || 1,
+            offsetLeft: visualViewport.offsetLeft || 0,
+            offsetTop: visualViewport.offsetTop || 0
+        };
+    }
+
+    function getToolbarThicknessPx(metrics) {
+        const parsedWidth = Number(options.width);
+        const widthPx = Math.max(0, Number.isFinite(parsedWidth) ? parsedWidth : 48);
+        return Math.floor(widthPx / metrics.scale);
+    }
+
+    function getToolbarLengthPx(metrics) {
+        const parsedHeightPercent = Number(options.height);
+        const heightPercent = Math.max(
+            0,
+            Math.min(100, Number.isFinite(parsedHeightPercent) ? parsedHeightPercent : 20)
+        );
+        return Math.round((heightPercent / 100) * metrics.height);
+    }
+
+    function getToolbarPositionPercent() {
+        const parsedPositionPercent = Number(options.position);
+        return Math.max(
+            0,
+            Math.min(100, Number.isFinite(parsedPositionPercent) ? parsedPositionPercent : 50)
+        );
+    }
+
+    function getToolbarGapPx(metrics) {
+        const parsedGap = Number(options.gap);
+        return Number.isFinite(parsedGap) && parsedGap > 0
+            ? Math.floor(parsedGap / metrics.scale)
+            : 0;
+    }
+
+    function applyUnhideIconViewportGeometry() {
+        if (!unhideIcon) return;
+
+        const metrics = getViewportMetrics();
+        const iconSizePx = getToolbarThicknessPx(metrics);
+        const gapPx = getToolbarGapPx(metrics);
+
+        unhideIcon.style.setProperty('width', `${iconSizePx}px`, 'important');
+        unhideIcon.style.setProperty('height', `${iconSizePx}px`, 'important');
+        unhideIcon.style.setProperty('left', `${Math.round(metrics.offsetLeft + gapPx)}px`, 'important');
+        unhideIcon.style.setProperty(
+            'top',
+            `${Math.round(metrics.offsetTop + metrics.height - iconSizePx * 2.5)}px`,
+            'important'
+        );
+    }
+
+    function applyToolbarViewportGeometry() {
+        if (!leftToolbarIframe) return;
+
+        const metrics = getViewportMetrics();
+        const widthPx = getToolbarThicknessPx(metrics);
+        const heightPx = getToolbarLengthPx(metrics);
+        const positionPercent = getToolbarPositionPercent();
+        const gapPx = getToolbarGapPx(metrics);
+        const topPx = metrics.offsetTop + Math.round(
+            (positionPercent / 100) * Math.max(0, metrics.height - heightPx)
+        );
+        const leftPx = metrics.offsetLeft + gapPx;
+
+        leftToolbarIframe.style.setProperty('height', `${heightPx}px`, 'important');
+        leftToolbarIframe.style.setProperty('width', `${widthPx}px`, 'important');
+        leftToolbarIframe.style.left = `${Math.round(leftPx)}px`;
+        leftToolbarIframe.style.top = `${Math.round(topPx)}px`;
+        leftToolbarIframe.style.right = 'unset';
+        leftToolbarIframe.style.bottom = 'unset';
+        leftToolbarIframe.style.transform = 'none';
+        leftToolbarIframe.style.margin = '0';
+    }
+
     // --- Early font preloading (runs at document_start for maximum lead time) ---
     // For domains with stored fonts, inject preconnect + <link> tags immediately
     // so browser starts fetching fonts before page is fully loaded.
@@ -154,19 +244,16 @@
     function createToolbarAndResolve(resolve) {
         leftToolbarIframe = document.createElement('iframe');
         leftToolbarIframe.id = 'affo-left-toolbar-iframe';
-        
-        // Use essential-buttons-toolbar's exact approach: vh units and CSS positioning
-        const _containerHeight = `${options.height}vh`; // Use vh units directly like essential
-        const useTransformCentering = options.height < 100; // Center if not full height
-        const _topPosition = useTransformCentering ? `${options.position}%` : '0';
-        
+
         // Initial iframe styling — include width upfront so the iframe is never
         // unconstrained.  min-width/max-width need !important because sites
         // like today.com set `iframe { min-width: 100% !important }` in their
         // stylesheets, which overrides non-important inline min-width.
-        const initialWidth = Math.floor(options.width / (window.visualViewport ? window.visualViewport.scale : 1));
+        const metrics = getViewportMetrics();
+        const initialWidth = getToolbarThicknessPx(metrics);
+        const initialLeft = Math.round(metrics.offsetLeft + getToolbarGapPx(metrics));
         leftToolbarIframe.style =
-            `display: block !important; height: 0; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset !important; max-height: unset !important; min-width: unset !important; max-width: unset !important; border: 0; background: transparent; color-scheme: light; border-radius: 0; width: ${initialWidth}px !important; left: 0px`;
+            `display: block !important; height: 0; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset !important; max-height: unset !important; min-width: unset !important; max-width: unset !important; border: 0; background: transparent; color-scheme: light; border-radius: 0; width: ${initialWidth}px !important; left: ${initialLeft}px; top: ${Math.round(metrics.offsetTop)}px`;
         leftToolbarIframe.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('left-toolbar-iframe.html');
         
         
@@ -196,9 +283,13 @@
         // Use Essential's exact DOM insertion method
         document.body.insertAdjacentElement('afterend', leftToolbarIframe);
         
-        // Add viewport resize listener like essential-buttons-toolbar
+        // Track visual viewport geometry so the toolbar stays pinned inside
+        // the currently visible viewport during browser chrome collapse/pinch.
         if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', updateToolbarHeight);
+            window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
             window.visualViewport.addEventListener('resize', updateToolbarHeight);
+            window.visualViewport.addEventListener('scroll', updateToolbarHeight);
         }
         
         // Add load event listener to check and fix sizing issues like Essential does
@@ -211,53 +302,14 @@
     
     // Apply initial sizing with width after iframe loads (like Essential does)
     function applyInitialSizing() {
-        if (!leftToolbarIframe) return;
-        
-        // Use Essential's EXACT calculation method
-        const scale = window.visualViewport.scale;
-        const calculatedWidth = Math.floor(options.width / scale);
-        
-        // Apply sizing like Essential: height first, then width 
-        leftToolbarIframe.style.cssText += `height: ${options.height}vh !important;`;
-        leftToolbarIframe.style.cssText += `width: ${calculatedWidth}px !important;`;
-        
-        // Apply positioning based on user's position setting
-        if (Number(options.height) !== 100) {
-            leftToolbarIframe.style.top = `${options.position}%`;
-            leftToolbarIframe.style.transform = 'translateY(-50%)';
-        } else {
-            leftToolbarIframe.style.top = '0';
-        }
-        
-        // Apply positioning exactly like Essential - left is always 0px, use margin for gap
-        leftToolbarIframe.style.left = '0px';
-        if (Number(options.gap) !== 0) {
-            const margin = Math.floor(options.gap / window.visualViewport.scale);
-            leftToolbarIframe.style.margin = `0 ${margin}px`;
-        }
+        applyToolbarViewportGeometry();
     }
     
-    // Update toolbar height and positioning EXACTLY like Essential does (no width changes)
+    // Update toolbar geometry in visual viewport pixels like Essential does,
+    // while keeping AFFO's !important width override for hostile page CSS.
     function updateToolbarHeight() {
-        if (!leftToolbarIframe) return;
-        
-        // Only update height and positioning on viewport changes, not width
-        leftToolbarIframe.style.cssText += `height: ${options.height}vh !important;`;
-        
-        // Apply positioning based on user's position setting
-        if (Number(options.height) !== 100) {
-            leftToolbarIframe.style.top = `${options.position}%`;
-            leftToolbarIframe.style.transform = 'translateY(-50%)';
-        } else {
-            leftToolbarIframe.style.top = '0';
-        }
-        
-        // Update positioning and margin for viewport scale changes
-        leftToolbarIframe.style.left = '0px';
-        if (Number(options.gap) !== 0) {
-            const margin = Math.floor(options.gap / window.visualViewport.scale);
-            leftToolbarIframe.style.margin = `0 ${margin}px`;
-        }
+        applyToolbarViewportGeometry();
+        applyUnhideIconViewportGeometry();
     }
     
     // Check and fix toolbar height after page load like Essential does
@@ -1221,6 +1273,12 @@
     // Reinitialize toolbar (handle hide/unhide)
     function reinitializeToolbar() {
         
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', updateToolbarHeight);
+            window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
+        }
+        window.removeEventListener('load', checkToolbarHeight);
+
         // Remove existing iframe or unhide icon
         if (leftToolbarIframe) {
             leftToolbarIframe.remove();
@@ -1260,10 +1318,6 @@
         img.src = browserAPI.runtime.getURL(`icons/${iconTheme}/unhide.svg`);
         img.style.cssText = 'pointer-events: none; height: 50%; width: 50%; margin: auto;';
         
-        // Style similar to essential-buttons-toolbar
-        const viewportScale = window.visualViewport?.scale || 1;
-        const calculatedSize = Math.floor(options.width / viewportScale);
-        
         unhideIcon.style.cssText = `
             display: flex !important;
             position: fixed !important;
@@ -1276,14 +1330,8 @@
             border-radius: 20% !important;
             box-sizing: border-box !important;
             cursor: pointer !important;
-            left: ${options.gap}px !important;
-            width: ${calculatedSize}px !important;
-            height: ${calculatedSize}px !important;
         `;
-        
-        // Position near bottom of screen like essential-buttons-toolbar
-        const viewportHeight = window.visualViewport?.height || window.innerHeight;
-        unhideIcon.style.top = `${viewportHeight - calculatedSize * 2.5}px`;
+        applyUnhideIconViewportGeometry();
         
         unhideIcon.appendChild(img);
         
@@ -1292,6 +1340,13 @@
         
         // Add to DOM
         document.body.appendChild(unhideIcon);
+
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', updateToolbarHeight);
+            window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
+            window.visualViewport.addEventListener('resize', updateToolbarHeight);
+            window.visualViewport.addEventListener('scroll', updateToolbarHeight);
+        }
         
     }
     
