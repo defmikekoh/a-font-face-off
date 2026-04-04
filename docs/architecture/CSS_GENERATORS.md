@@ -30,6 +30,7 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 - **`buildAllAxisSettings(config)`** — Returns array of `'"axis" value'` strings for ALL axes (registered + custom) from `config.variableAxes`. Used by all CSS generators so that `font-variation-settings` bypasses `@font-face` descriptor clamping.
 - **`buildCustomAxisSettings(config)`** — Backward-compatible: returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
 - **`buildItalicProps(payload, imp, weightOverride?)`** — Returns array of CSS property strings for italic/bold-italic rules. Always includes `font-style: italic`. For variable fonts: forces `ital` axis to `1`, forces `slnt` to `-10` if at default `0`, overrides `wght` axis when `weightOverride` is provided (for bold-italic).
+- **`buildThirdManInTextSelector(fontType)`** — Returns selectors for body-text sizing/spacing in TMI mode, including marked links (`a[data-affo-font-type]`) and links nested inside marked `p`/`span`/`td`/`th`/`li` containers so article anchors inherit the same `font-size`, `line-height`, and `letter-spacing` as surrounding body text.
 
 ## Italic & Bold-Italic Override Strategy
 

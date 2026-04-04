@@ -634,6 +634,22 @@
     return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]';
   }
 
+  function getThirdManInTextSelector(fontType) {
+    return [
+      'html body p[data-affo-font-type="' + fontType + '"]',
+      'html body span[data-affo-font-type="' + fontType + '"]',
+      'html body a[data-affo-font-type="' + fontType + '"]',
+      'html body td[data-affo-font-type="' + fontType + '"]',
+      'html body th[data-affo-font-type="' + fontType + '"]',
+      'html body li[data-affo-font-type="' + fontType + '"]',
+      'html body p[data-affo-font-type="' + fontType + '"] a',
+      'html body span[data-affo-font-type="' + fontType + '"] a',
+      'html body td[data-affo-font-type="' + fontType + '"] a',
+      'html body th[data-affo-font-type="' + fontType + '"] a',
+      'html body li[data-affo-font-type="' + fontType + '"] a'
+    ].join(', ');
+  }
+
   function applyAffoProtection(el, propsObj) {
     Object.entries(propsObj).forEach(function ([prop, value]) {
       el.style.setProperty(prop, value, 'important');
@@ -1350,7 +1366,7 @@
       if (fontConfig.letterSpacing != null) otherProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       if (fontConfig.fontColor) otherProps.push('color: ' + fontConfig.fontColor + imp);
       if (otherProps.length > 0) {
-        lines.push('html body p[data-affo-font-type="' + fontType + '"], html body span[data-affo-font-type="' + fontType + '"], html body td[data-affo-font-type="' + fontType + '"], html body th[data-affo-font-type="' + fontType + '"], html body li[data-affo-font-type="' + fontType + '"] { ' + otherProps.join('; ') + '; }');
+        lines.push(getThirdManInTextSelector(fontType) + ' { ' + otherProps.join('; ') + '; }');
       }
     }
 

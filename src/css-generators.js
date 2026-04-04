@@ -73,6 +73,22 @@ function getSiteSpecificRules(fontType, otherProps, hostname) {
     return null;
 }
 
+function buildThirdManInTextSelector(fontType) {
+    return [
+        `html body p[data-affo-font-type="${fontType}"]`,
+        `html body span[data-affo-font-type="${fontType}"]`,
+        `html body a[data-affo-font-type="${fontType}"]`,
+        `html body td[data-affo-font-type="${fontType}"]`,
+        `html body th[data-affo-font-type="${fontType}"]`,
+        `html body li[data-affo-font-type="${fontType}"]`,
+        `html body p[data-affo-font-type="${fontType}"] a`,
+        `html body span[data-affo-font-type="${fontType}"] a`,
+        `html body td[data-affo-font-type="${fontType}"] a`,
+        `html body th[data-affo-font-type="${fontType}"] a`,
+        `html body li[data-affo-font-type="${fontType}"] a`
+    ].join(', ');
+}
+
 // ── Face-off mode CSS (generateBodyCSS) ──────────────────────────────────────
 
 function generateBodyCSS(payload, aggressive, ignoreComments) {
@@ -316,7 +332,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
     }
 
     if (otherProps.length > 0) {
-        lines.push(`html body p[data-affo-font-type="${ft}"], html body span[data-affo-font-type="${ft}"], html body td[data-affo-font-type="${ft}"], html body th[data-affo-font-type="${ft}"], html body li[data-affo-font-type="${ft}"] { ${otherProps.join('; ')}; }`);
+        lines.push(`${buildThirdManInTextSelector(ft)} { ${otherProps.join('; ')}; }`);
 
         const hostname = (typeof window !== 'undefined' && window.currentTabHostname) || null;
         const siteSpecificRules = getSiteSpecificRules(fontType, otherProps, hostname);

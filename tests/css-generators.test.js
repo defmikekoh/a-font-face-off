@@ -91,3 +91,22 @@ describe('css-generators bold variable-axis overrides', () => {
         assert.match(headingRule, /font-variation-settings: normal/);
     });
 });
+
+describe('css-generators third-man-in text sizing', () => {
+    it('applies body text sizing to marked links and links nested inside marked text containers', () => {
+        const css = generateThirdManInCSS('serif', {
+            fontName: 'Spectral',
+            fontSize: 19,
+            lineHeight: 1.7,
+            letterSpacing: 0.02,
+            variableAxes: {}
+        }, false);
+        const textRule = css.split('\n').find(line => line.startsWith('html body p[data-affo-font-type="serif"]'));
+        assert.ok(textRule);
+        assert.match(textRule, /html body a\[data-affo-font-type="serif"\]/);
+        assert.match(textRule, /html body p\[data-affo-font-type="serif"\] a/);
+        assert.match(textRule, /font-size: 19px/);
+        assert.match(textRule, /line-height: 1\.7/);
+        assert.match(textRule, /letter-spacing: 0\.02em/);
+    });
+});
