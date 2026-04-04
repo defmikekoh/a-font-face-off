@@ -1446,7 +1446,7 @@
         if (shouldUseFontFaceOnly()) {
           // On FontFace-only domains, download and load custom fonts via FontFace API
           debugLog(`[AFFO Content] Loading custom font ${fontName} via FontFace API for CSP bypass`);
-          return tryCustomFontFaceAPI(fontName, fontFaceRule);
+          return tryCustomFontFaceAPI(fontName, fontFaceRule, fontConfig);
         } else {
           // On standard domains, inject @font-face CSS
           debugLog(`[AFFO Content] Injecting custom @font-face for ${fontName}`);
@@ -1555,7 +1555,56 @@
 
 
 
-  function tryCustomFontFaceAPI(fontName, fontFaceRule) {
+  function parseFontFaceWeightDescriptor(block) {
+    var weightMatch = String(block || '').match(/font-weight:\s*([^;]+);/i);
+    var rawWeight = weightMatch ? weightMatch[1].trim() : '400';
+    var normalized = rawWeight.toLowerCase();
+
+    if (normalized === 'normal') {
+      return { descriptor: '400', min: 400, max: 400 };
+    }
+    if (normalized === 'bold') {
+      return { descriptor: '700', min: 700, max: 700 };
+    }
+
+    var numericWeights = rawWeight.match(/\d+/g);
+    if (!numericWeights || numericWeights.length === 0) {
+      return { descriptor: '400', min: 400, max: 400 };
+    }
+
+    var minWeight = Number(numericWeights[0]);
+    var maxWeight = Number(numericWeights[numericWeights.length > 1 ? 1 : 0]);
+    if (!isFinite(minWeight) || !isFinite(maxWeight)) {
+      return { descriptor: '400', min: 400, max: 400 };
+    }
+
+    if (maxWeight < minWeight) {
+      var tmp = minWeight;
+      minWeight = maxWeight;
+      maxWeight = tmp;
+    }
+
+    return {
+      descriptor: numericWeights.length > 1 ? (minWeight + ' ' + maxWeight) : String(minWeight),
+      min: minWeight,
+      max: maxWeight
+    };
+  }
+
+  function shouldLoadCustomFontFaceBlock(weightInfo, fontConfig) {
+    if (!weightInfo || !fontConfig) return true;
+
+    var wantedWeights = [];
+    var effectiveWeight = getEffectiveWeight(fontConfig);
+    wantedWeights.push(effectiveWeight != null ? effectiveWeight : 400);
+    wantedWeights.push(700); // keep bold descendants fast and correct
+
+    return wantedWeights.some(function (weight) {
+      return weight >= weightInfo.min && weight <= weightInfo.max;
+    });
+  }
+
+  function tryCustomFontFaceAPI(fontName, fontFaceRule, fontConfig) {
     if (!window.FontFace || !document.fonts) {
       debugLog(`[AFFO Content] FontFace API not supported for custom font ${fontName}`);
       return Promise.resolve();
@@ -1582,11 +1631,19 @@
       debugLog(`[AFFO Content] Parsing custom @font-face rule for ${fontName}`);
 
       // Parse @font-face rule to extract WOFF2 URLs and font descriptors
-      var fontFaceBlocks = fontFaceRule.split('@font-face').filter(block => block.trim().length > 0);
+      var fontFaceBlocks = fontFaceRule.split('@font-face')
+        .filter(function (block) { return block.trim().length > 0; })
+        .map(function (block) { return '@font-face' + block; });
+      var selectedFontFaceBlocks = fontFaceBlocks.filter(function (block) {
+        return shouldLoadCustomFontFaceBlock(parseFontFaceWeightDescriptor(block), fontConfig);
+      });
+      if (selectedFontFaceBlocks.length === 0) {
+        selectedFontFaceBlocks = fontFaceBlocks;
+      }
 
-      debugLog(`[AFFO Content] Found ${fontFaceBlocks.length} @font-face blocks for ${fontName}`);
+      debugLog(`[AFFO Content] Found ${fontFaceBlocks.length} @font-face blocks for ${fontName}, loading ${selectedFontFaceBlocks.length}`);
 
-      var loadPromises = fontFaceBlocks.map(function (block, index) {
+      var loadPromises = selectedFontFaceBlocks.map(function (block, index) {
         // Extract src URL - handle HTTP URLs, data: URLs, and WOFF/WOFF2 formats
         var srcMatch = block.match(/src:\s*url\(["']?([^"'\)]+)["']?\)/i);
         if (!srcMatch) {
@@ -1597,11 +1654,11 @@
         var fontUrl = srcMatch[1];
 
         // Extract font descriptors
-        var weightMatch = block.match(/font-weight:\s*(\d+)/i);
+        var weightInfo = parseFontFaceWeightDescriptor(block);
         var styleMatch = block.match(/font-style:\s*(normal|italic)/i);
 
         var descriptors = {
-          weight: weightMatch ? weightMatch[1] : '400',
+          weight: weightInfo.descriptor,
           style: styleMatch ? styleMatch[1] : 'normal',
           display: 'swap'
         };
