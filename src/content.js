@@ -391,6 +391,65 @@
     return false;
   }
 
+  var BLOCK_TEXT_CONTAINER_TAGS = {
+    P: true,
+    LI: true,
+    BLOCKQUOTE: true
+  };
+
+  var SIMPLE_INLINE_TEXT_TAGS = {
+    A: true,
+    ABBR: true,
+    B: true,
+    BDI: true,
+    BDO: true,
+    BR: true,
+    CITE: true,
+    DEL: true,
+    DFN: true,
+    EM: true,
+    I: true,
+    INS: true,
+    MARK: true,
+    Q: true,
+    RP: true,
+    RT: true,
+    RUBY: true,
+    S: true,
+    SMALL: true,
+    SPAN: true,
+    STRONG: true,
+    SUB: true,
+    SUP: true,
+    TIME: true,
+    U: true,
+    VAR: true,
+    WBR: true
+  };
+
+  function elementHasOnlySimpleInlineTextDescendants(node) {
+    if (!node || !node.childNodes) return true;
+
+    for (var i = 0; i < node.childNodes.length; i++) {
+      var child = node.childNodes[i];
+      if (!child || child.nodeType === 3) continue;
+      if (child.nodeType !== 1) continue;
+
+      var childTag = String(child.tagName || '').toUpperCase();
+      if (!SIMPLE_INLINE_TEXT_TAGS[childTag]) return false;
+      if (!elementHasOnlySimpleInlineTextDescendants(child)) return false;
+    }
+
+    return true;
+  }
+
+  function elementOwnsTmiText(node) {
+    if (elementHasOwnText(node)) return true;
+    if (!node || !BLOCK_TEXT_CONTAINER_TAGS[String(node.tagName || '').toUpperCase()]) return false;
+    if (!/\S/.test(node.textContent || '')) return false;
+    return elementHasOnlySimpleInlineTextDescendants(node);
+  }
+
   function isLikelyArticleBodyText(node) {
     if (!node || node.nodeType !== 1) return false;
     var tagName = String(node.tagName || '').toUpperCase();
@@ -639,6 +698,8 @@
       'html body p[data-affo-font-type="' + fontType + '"]',
       'html body span[data-affo-font-type="' + fontType + '"]',
       'html body a[data-affo-font-type="' + fontType + '"]',
+      'html body em[data-affo-font-type="' + fontType + '"]',
+      'html body i[data-affo-font-type="' + fontType + '"]',
       'html body td[data-affo-font-type="' + fontType + '"]',
       'html body th[data-affo-font-type="' + fontType + '"]',
       'html body li[data-affo-font-type="' + fontType + '"]',
@@ -646,7 +707,13 @@
       'html body span[data-affo-font-type="' + fontType + '"] a',
       'html body td[data-affo-font-type="' + fontType + '"] a',
       'html body th[data-affo-font-type="' + fontType + '"] a',
-      'html body li[data-affo-font-type="' + fontType + '"] a'
+      'html body li[data-affo-font-type="' + fontType + '"] a',
+      'html body p[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body span[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body a[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body td[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body th[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body li[data-affo-font-type="' + fontType + '"] :where(em, i)'
     ].join(', ');
   }
 
@@ -2231,10 +2298,10 @@
     var elId = element.id || '';
     if (elId && /whatfont/.test(elId)) return null;
 
-    // Only mark nodes that own text directly. This avoids tagging large
-    // structural wrappers whose descendants include headings or other
-    // intentionally excluded content, which would otherwise inherit.
-    if (!elementHasOwnText(element)) return null;
+    // Mark direct-text nodes, plus semantic text containers whose content is
+    // split across simple inline wrappers (e.g. Substack paragraphs made of
+    // span/br/span). Larger structural wrappers still stay unmarked.
+    if (!elementOwnsTmiText(element)) return null;
 
     // Use computed font-family from the style already obtained by the walker
     var computedFontFamily = computedStyle.fontFamily || '';

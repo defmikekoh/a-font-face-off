@@ -78,6 +78,8 @@ function buildThirdManInTextSelector(fontType) {
         `html body p[data-affo-font-type="${fontType}"]`,
         `html body span[data-affo-font-type="${fontType}"]`,
         `html body a[data-affo-font-type="${fontType}"]`,
+        `html body em[data-affo-font-type="${fontType}"]`,
+        `html body i[data-affo-font-type="${fontType}"]`,
         `html body td[data-affo-font-type="${fontType}"]`,
         `html body th[data-affo-font-type="${fontType}"]`,
         `html body li[data-affo-font-type="${fontType}"]`,
@@ -85,7 +87,13 @@ function buildThirdManInTextSelector(fontType) {
         `html body span[data-affo-font-type="${fontType}"] a`,
         `html body td[data-affo-font-type="${fontType}"] a`,
         `html body th[data-affo-font-type="${fontType}"] a`,
-        `html body li[data-affo-font-type="${fontType}"] a`
+        `html body li[data-affo-font-type="${fontType}"] a`,
+        `html body p[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body span[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body a[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body td[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body th[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body li[data-affo-font-type="${fontType}"] :where(em, i)`
     ].join(', ');
 }
 
