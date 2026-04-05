@@ -128,3 +128,34 @@ const affoBase = await driver.executeScript(
 - Some sites detect Selenium and show CAPTCHA (Wikipedia works fine)
 - Requires Firefox Developer Edition (geckodriver needs it for `-remote-allow-system-access`)
 - `popupExec` only works with `extensions.webextensions.remote=false` (in-process mode)
+
+## Troubleshooting
+
+### Repeated macOS "Install Helper" prompts
+
+If Firefox Developer Edition asks to install its helper every time Selenium launches it, treat that as a Firefox updater state problem first, not a `geckodriver` bug.
+
+Check whether Firefox has a pending update/finalization record:
+
+```bash
+APP="/Applications/Firefox Developer Edition.app"
+CACHE="$HOME/Library/Caches/Mozilla/updates/Applications/Firefox Developer Edition"
+
+defaults read "$APP/Contents/Info" CFBundleShortVersionString
+defaults read "$APP/Contents/Info" MozillaBuildID
+test -f "$CACHE/active-update.xml" && cat "$CACHE/active-update.xml"
+find "$CACHE" -maxdepth 3 -name update.status -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
+```
+
+Signs of the stuck updater case:
+- `active-update.xml` exists and reports `Install Pending`
+- an `update.status` file reports `pending` or similar
+- the helper prompt reappears on every Firefox launch, including Selenium runs
+
+Recommended recovery:
+1. Quit Firefox Developer Edition completely.
+2. Launch it manually once and let it finish startup/update cleanup.
+3. Restart Firefox if needed, then rerun Selenium.
+4. If the prompt still repeats, reinstall Firefox Developer Edition before debugging the test harness further.
+
+This issue can break Selenium launches even when the test code and skill are otherwise fine.
