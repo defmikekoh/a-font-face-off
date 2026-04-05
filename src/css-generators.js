@@ -10,10 +10,27 @@
 
 const GUARD_EXCLUDE = ':not([data-affo-guard]):not([data-affo-guard] *)';
 const POST_HEADER_EXCLUDE = ':not(.post-header):not(.post-header *)';
+const ARTICLE_DECK_HINTS = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
+const ARTICLE_DECK_ATTRS = ['id', 'class', 'data-testid', 'itemprop', 'name'];
 
 function getIgnoreCommentsExclude(ignoreComments) {
     if (!ignoreComments) return '';
     return ':not(.comments-page):not(.comments-page *)';
+}
+
+function getArticleDeckSelector() {
+    const hintSelectors = [];
+    ARTICLE_DECK_ATTRS.forEach((attr) => {
+        ARTICLE_DECK_HINTS.forEach((hint) => {
+            hintSelectors.push(`[${attr}*="${hint}" i]`);
+        });
+    });
+    return `article header :is(p, div):is(${hintSelectors.join(', ')})`;
+}
+
+function getArticleDeckExclude() {
+    const selector = getArticleDeckSelector();
+    return `:not(${selector}):not(${selector} *)`;
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────
@@ -108,11 +125,12 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
+    const articleDeckExclude = getArticleDeckExclude();
     const sel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
     const weightSel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + GUARD_EXCLUDE;
+        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
 
     const decl = [];
 
@@ -196,8 +214,9 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
     }
 
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
-    const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + GUARD_EXCLUDE;
-    const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + GUARD_EXCLUDE;
+    const articleDeckExclude = getArticleDeckExclude();
+    const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
+    const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
     let styleRule = `${selector} {`;
 
     if (payload.fontName) {
@@ -363,6 +382,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         formatAxisValue,
         buildItalicProps,
+        getArticleDeckExclude,
         getSiteSpecificRules,
         generateBodyCSS,
         generateBodyContactCSS,

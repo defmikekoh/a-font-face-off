@@ -18,6 +18,29 @@ const TOOLBAR_WIDGET_ID = EXTENSION_ID.replace(/@/g, '_').replace(/\./g, '_') + 
 // The actual clickable toolbarbutton inside the widget (BAP = Browser Action Popup)
 const TOOLBAR_BUTTON_ID = EXTENSION_ID.replace(/@/g, '_').replace(/\./g, '_') + '-BAP';
 
+function applyFirefoxAutomationPrefs(options) {
+    const prefs = {
+        'xpinstall.signatures.required': false,
+        // Run extensions in-process so popupExec can access contentWindow via Cu.Sandbox
+        'extensions.webextensions.remote': false,
+        // Prevent update/helper and first-run prompts from interrupting automation.
+        'app.update.auto': false,
+        'app.update.enabled': false,
+        'app.update.background.enabled': false,
+        'app.update.service.enabled': false,
+        'app.update.staging.enabled': false,
+        'browser.shell.checkDefaultBrowser': false,
+        'browser.startup.homepage_override.mstone': 'ignore',
+        'startup.homepage_welcome_url': '',
+        'startup.homepage_welcome_url.additional': '',
+        'datareporting.policy.dataSubmissionEnabled': false,
+        'datareporting.policy.firstRunURL': '',
+    };
+    Object.entries(prefs).forEach(function ([key, value]) {
+        options.setPreference(key, value);
+    });
+}
+
 /**
  * Launch Firefox Developer Edition, install the extension,
  * and navigate to a real web page.
@@ -29,9 +52,7 @@ async function setup() {
 
     const options = new firefox.Options();
     options.setBinary(FIREFOX_BINARY);
-    options.setPreference('xpinstall.signatures.required', false);
-    // Run extensions in-process so popupExec can access contentWindow via Cu.Sandbox
-    options.setPreference('extensions.webextensions.remote', false);
+    applyFirefoxAutomationPrefs(options);
     options.addArguments('-profile', profileDir);
     options.addArguments('-remote-allow-system-access');
 
@@ -141,4 +162,4 @@ async function teardown(driver, profileDir) {
     }
 }
 
-module.exports = { setup, teardown, openPopup, closePopup, popupExec, TEST_PAGE };
+module.exports = { setup, teardown, openPopup, closePopup, popupExec, TEST_PAGE, applyFirefoxAutomationPrefs };

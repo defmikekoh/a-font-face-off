@@ -310,6 +310,60 @@
     return ':not(.post-header):not(.post-header *)';
   }
 
+  var ARTICLE_DECK_HINTS = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
+  var ARTICLE_DECK_ATTRS = ['id', 'class', 'data-testid', 'itemprop', 'name'];
+
+  function getArticleDeckSelector() {
+    var hintSelectors = [];
+    ARTICLE_DECK_ATTRS.forEach(function (attr) {
+      ARTICLE_DECK_HINTS.forEach(function (hint) {
+        hintSelectors.push('[' + attr + '*="' + hint + '" i]');
+      });
+    });
+    return 'article header :is(p, div):is(' + hintSelectors.join(', ') + ')';
+  }
+
+  function getArticleDeckExcludeSelector() {
+    var selector = getArticleDeckSelector();
+    return ':not(' + selector + '):not(' + selector + ' *)';
+  }
+
+  function looksLikeArticleDeckNode(element) {
+    if (!element || !element.tagName) return false;
+    var tagName = element.tagName.toLowerCase();
+    if (tagName !== 'p' && tagName !== 'div') return false;
+
+    var haystack = ARTICLE_DECK_ATTRS.map(function (attr) {
+      return element.getAttribute ? element.getAttribute(attr) : '';
+    }).join(' ').toLowerCase();
+    if (!haystack) return false;
+
+    var hasDeckHint = ARTICLE_DECK_HINTS.some(function (hint) {
+      return haystack.indexOf(hint) !== -1;
+    });
+    if (!hasDeckHint) return false;
+
+    if (tagName === 'div') {
+      var nestedBlocks = element.querySelectorAll ? element.querySelectorAll('p, li, blockquote, ul, ol').length : 0;
+      if (nestedBlocks > 1) return false;
+    }
+
+    return true;
+  }
+
+  function isInsideArticleDeck(element) {
+    if (!element || !element.closest) return false;
+    var header = element.closest('article header');
+    if (!header) return false;
+
+    var current = element;
+    while (current && current.nodeType === 1 && current !== header) {
+      if (looksLikeArticleDeckNode(current)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+
   // --- Substack detection (lazy-cached) ---
   var _isSubstack = null;
   function getIsSubstack() {
@@ -683,7 +737,7 @@
   // --- Module-level selector & inline-apply helpers ---
   var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
   function getBodyExcludeSelector() {
-    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector();
+    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector();
   }
 
   function getAffoSelector(ft) {
@@ -2256,13 +2310,16 @@
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
     // Exclude descendants of non-body containers: figcaptions, buttons, guards,
-    // article headers, top-bar chrome, dialogs, and optionally Substack comments
-    // on configured domains.
+    // post headers, top-bar chrome, dialogs, and optionally Substack comments
+    // on configured domains. Article decks/standfirsts inside article headers
+    // are handled separately by isInsideArticleDeck().
     if (element.closest) {
       var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"], [role="dialog"]';
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
+
+    if (isInsideArticleDeck(element)) return null;
 
     // Exclude ARIA landmark roles
     var role = element.getAttribute && element.getAttribute('role');

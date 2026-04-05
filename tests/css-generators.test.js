@@ -44,6 +44,28 @@ describe('css-generators ignore comments selectors', () => {
         assert.match(css, /:not\(\.post-header\)/);
         assert.match(css, /:not\(\.post-header \*\)/);
     });
+
+    it('excludes generic article deck selectors from body-contact css', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.match(css, /:not\(article header :is\(p, div\):is\(/);
+        assert.match(css, /\[id\*="summary" i\]/);
+        assert.match(css, /\[class\*="standfirst" i\]/);
+        assert.match(css, /\[data-testid\*="subheadline" i\]/);
+        assert.match(css, /:not\(article header :is\(p, div\):is\([^)]*\) \*\)/);
+    });
+
+    it('excludes generic article deck selectors from face-off body css', () => {
+        const css = generateBodyCSS(payload, false, false);
+        assert.match(css, /:not\(article header :is\(p, div\):is\(/);
+        assert.match(css, /\[name\*="excerpt" i\]/);
+        assert.match(css, /\[itemprop\*="deck" i\]/);
+    });
+
+    it('does not exclude all article-header paragraphs wholesale', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.doesNotMatch(css, /:not\(article header p\):not\(article header p \*\)/);
+        assert.doesNotMatch(css, /:not\(article header div\):not\(article header div \*\)/);
+    });
 });
 
 describe('css-generators bold variable-axis overrides', () => {
