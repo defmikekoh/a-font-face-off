@@ -121,6 +121,11 @@ function buildCss2UrlFromMetadata(fontName, metadata) {
   const familyParam = fontName.trim().replace(/\s+/g, '+');
   const axes = Array.isArray(fam.axes) ? fam.axes : [];
   const fontsMap = fam.fonts || {};
+  const staticWeights = Object.keys(fontsMap)
+    .filter(k => /^\d+$/.test(k))
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
   const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
 
   const tagsSet = new Set();
@@ -136,6 +141,10 @@ function buildCss2UrlFromMetadata(fontName, metadata) {
   if (hasItalic) tagsSet.add('ital');
 
   const allTags = Array.from(tagsSet);
+  if (!allTags.length && staticWeights.length) {
+    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${staticWeights.join(';')}&display=swap`;
+  }
+
   if (!allTags.length) {
     return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
   }

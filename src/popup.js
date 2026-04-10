@@ -1957,6 +1957,12 @@ function buildCss2Url(fontName, _fontConfig) {
             try { console.log(`[Fonts] Using metadata-derived axis-tag css2 for ${fontName}: ${url}`); } catch (_) {}
             return url;
         }
+        if (entry && Array.isArray(entry.staticWeights) && entry.staticWeights.length) {
+            const weightList = entry.staticWeights.join(';');
+            const url = `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${weightList}&display=swap`;
+            try { console.log(`[Fonts] Using metadata-derived static-weight css2 for ${fontName}: ${url}`); } catch (_) {}
+            return url;
+        }
         // Fallback: plain URL, rely on fvar parsing + CSS mapping to expose axes
         const url = `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
         try { console.log(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
@@ -2011,16 +2017,21 @@ function buildCss2AxisRangesFromMetadata(md) {
 
         // Add ital if family has italic styles in `fonts` map
         const fontsMap = fam.fonts || {};
+        const staticWeights = Object.keys(fontsMap)
+            .filter(key => /^\d+$/.test(key))
+            .map(Number)
+            .filter(Number.isFinite)
+            .sort((a, b) => a - b);
         const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
         if (hasItalic) tagsSet.add('ital');
 
         const allTags = Array.from(tagsSet);
-        if (!allTags.length) continue;
+        if (!allTags.length && !staticWeights.length) continue;
         const lower = allTags.filter(t => /^[a-z]+$/.test(t)).sort();
         const upper = allTags.filter(t => /^[A-Z]+$/.test(t)).sort();
         const tags = [...lower, ...upper];
 
-        out[name] = { tags, ranges, defaults };
+        out[name] = { tags, ranges, defaults, staticWeights };
     }
     return out;
 }
