@@ -39,6 +39,27 @@
         }, options));
     }
 
+    const runtimeCss2UrlPromises = {};
+    function resolveRuntimeCss2Url(fontName) {
+        const key = String(fontName || '').trim();
+        if (!key || key.toLowerCase() === 'default') return Promise.resolve('');
+        if (runtimeCss2UrlPromises[key]) return runtimeCss2UrlPromises[key];
+        runtimeCss2UrlPromises[key] = sendRuntimeMessageWithRetry({
+            type: 'resolveCss2Url',
+            fontName: key
+        }, {
+            retryMs: 1500,
+            retryDelayMs: 100
+        }).then(response => {
+            delete runtimeCss2UrlPromises[key];
+            return response && response.ok ? (response.css2Url || '') : '';
+        }).catch(() => {
+            delete runtimeCss2UrlPromises[key];
+            return '';
+        });
+        return runtimeCss2UrlPromises[key];
+    }
+
     function isWaitForItConfiguredForCurrentDomain(data) {
         const host = location.hostname;
         const waitForItDomains = data && data.affoWaitForItDomains ? data.affoWaitForItDomains : [];
@@ -153,10 +174,9 @@
     (function earlyFontPreload() {
         try {
             const origin = location.hostname;
-            browser.storage.local.get(['affoApplyMap', 'affoCss2UrlCache', 'affoWaitForItDomains']).then(data => {
+            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains']).then(data => {
                 const map = data.affoApplyMap || {};
                 const entry = map[origin];
-                const css2UrlCache = data.affoCss2UrlCache || {};
 
                 if (!entry) return;
 
@@ -189,26 +209,24 @@
                         document.head.appendChild(pc2);
                     }
 
-                    // Inject <link> tags for any Google fonts in stored config
+                    // Inject <link> tags for any runtime-resolvable Google fonts in stored config
                     ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
                         const fontConfig = entry[fontType];
                         if (!fontConfig || !fontConfig.fontName) return;
 
-                        // Skip custom fonts (they have special handling in content.js)
-                        // Only preload fonts that have a cached Google Fonts URL
                         const fontName = fontConfig.fontName;
-                        const cachedUrl = css2UrlCache[fontName];
-                        if (!cachedUrl) return;
-
                         const linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
 
                         if (!document.getElementById(linkId)) {
-                            const link = document.createElement('link');
-                            link.id = linkId;
-                            link.rel = 'stylesheet';
-                            link.href = cachedUrl;
-                            document.head.appendChild(link);
-                            if (AFFO_DEBUG) console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${cachedUrl}`);
+                            resolveRuntimeCss2Url(fontName).then(css2Url => {
+                                if (!css2Url || document.getElementById(linkId)) return;
+                                const link = document.createElement('link');
+                                link.id = linkId;
+                                link.rel = 'stylesheet';
+                                link.href = css2Url;
+                                document.head.appendChild(link);
+                                if (AFFO_DEBUG) console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${css2Url}`);
+                            });
                         }
                     });
                 }

@@ -89,7 +89,6 @@ The extension uses `browser.storage.local` for all persistence.
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
-| `affoCss2UrlCache` | Global cache of Google Fonts css2 URLs (fontName → URL). Written by popup.js (`storeCss2UrlInCache`) and background.js (`ensureCss2UrlCached` during Quick Pick). Read by left-toolbar.js (early preload), content.js (font loading). Not synced. | `{"Roboto Slab": "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"}` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
@@ -214,6 +213,8 @@ undefined  // No font configured (not null or empty object)
 
 ### Domain Storage Structure
 Domain storage uses the same "no key" format as UI state. Both use identical object structures, enabling direct comparison via `configsEqual()`.
+
+Derived Google Fonts css2 URLs are not stored. `font-url-utils.js` derives them from `fontName` + `gfMetadataCache` at runtime; background/content/toolbar keep only page/background-process memory memoization.
 
 ## Custom Font Definitions
 

@@ -77,6 +77,12 @@ function sanitizeFavoriteConfigForStorage(rawConfig) {
     if (Object.prototype.hasOwnProperty.call(config, 'fontFaceRule')) {
         delete config.fontFaceRule;
     }
+    if (Object.prototype.hasOwnProperty.call(config, 'css2Url')) {
+        delete config.css2Url;
+    }
+    if (Object.prototype.hasOwnProperty.call(config, '_css2Url')) {
+        delete config._css2Url;
+    }
     return config;
 }
 
@@ -92,7 +98,9 @@ function sanitizeFavoritesMapForStorage(rawFavorites) {
             changed = true;
             return;
         }
-        if (Object.prototype.hasOwnProperty.call(rawConfig, 'fontFaceRule')) {
+        if (Object.prototype.hasOwnProperty.call(rawConfig, 'fontFaceRule') ||
+            Object.prototype.hasOwnProperty.call(rawConfig, 'css2Url') ||
+            Object.prototype.hasOwnProperty.call(rawConfig, '_css2Url')) {
             changed = true;
         }
         favorites[name] = sanitized;

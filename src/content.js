@@ -281,10 +281,8 @@
     }).catch(function () { });
   } catch (e) { }
 
-  // Eagerly start loading custom font definitions and css2Url cache.
-  // These are storage reads that loadFont() needs — starting them now
-  // eliminates sequential async waits from the critical reapply path.
-  try { ensureCss2UrlCache(); } catch (_) { }
+  // Eagerly start loading custom font definitions. Google css2 URLs are
+  // resolved on demand through the background runtime resolver.
   try { ensureCustomFontsLoaded(); } catch (_) { }
 
   function shouldUseFontFaceOnly() {
@@ -614,43 +612,50 @@
     }
   }
 
-  // --- css2Url cache lookup ---
-  // Global cache of fontName -> css2Url (populated by popup.js, eliminates per-domain duplication)
-  var css2UrlCache = null;
-  var css2UrlCachePromise = null;
+  // --- Runtime css2 URL lookup ---
+  var css2UrlMemo = {};
+  var css2UrlPromises = {};
 
-  function ensureCss2UrlCache() {
-    if (css2UrlCache !== null) return Promise.resolve(css2UrlCache);
-    if (!css2UrlCachePromise) {
-      css2UrlCachePromise = browser.storage.local.get('affoCss2UrlCache').then(function (result) {
-        css2UrlCache = result.affoCss2UrlCache || {};
-        debugLog('[AFFO Content] Loaded css2Url cache:', Object.keys(css2UrlCache).length, 'entries');
-        return css2UrlCache;
-      }).catch(function (e) {
-        debugLog('[AFFO Content] Failed to load css2Url cache:', e);
-        css2UrlCache = {};
-        return css2UrlCache;
-      });
+  function resolveCss2Url(fontName, options) {
+    var opts = options || {};
+    var key = String(fontName || '').trim();
+    if (!key || key.toLowerCase() === 'default') return Promise.resolve('');
+    var memoKey = key + '|' + (opts.fallbackWhenMissing ? 'fallback' : 'strict');
+    if (Object.prototype.hasOwnProperty.call(css2UrlMemo, memoKey)) {
+      return Promise.resolve(css2UrlMemo[memoKey]);
     }
-    return css2UrlCachePromise;
-  }
+    if (css2UrlPromises[memoKey]) return css2UrlPromises[memoKey];
 
-  function getCss2Url(fontName) {
-    if (css2UrlCache && css2UrlCache[fontName]) {
-      return css2UrlCache[fontName];
-    }
-    return null;
-  }
-
-  // Re-read cache from storage (for when popup.js updates it after our initial load)
-  function refreshCss2UrlCache() {
-    return browser.storage.local.get('affoCss2UrlCache').then(function (result) {
-      css2UrlCache = result.affoCss2UrlCache || {};
-      debugLog('[AFFO Content] Refreshed css2Url cache:', Object.keys(css2UrlCache).length, 'entries');
-      return css2UrlCache;
-    }).catch(function () {
-      return css2UrlCache || {};
+    css2UrlPromises[memoKey] = sendBackgroundMessage({
+      type: 'resolveCss2Url',
+      fontName: key,
+      fallbackWhenMissing: !!opts.fallbackWhenMissing
+    }).then(function (response) {
+      var css2Url = response && response.ok ? (response.css2Url || '') : '';
+      css2UrlMemo[memoKey] = css2Url;
+      delete css2UrlPromises[memoKey];
+      if (css2Url) {
+        debugLog(`[AFFO Content] Resolved css2Url for ${key}: ${css2Url}`);
+      } else {
+        debugLog(`[AFFO Content] No css2Url resolved for ${key}`);
+      }
+      return css2Url;
+    }).catch(function (e) {
+      delete css2UrlPromises[memoKey];
+      debugLog(`[AFFO Content] Failed to resolve css2Url for ${key}:`, e);
+      return '';
     });
+
+    return css2UrlPromises[memoKey];
+  }
+
+  function resolveCss2UrlsForEntry(entry) {
+    var names = {};
+    ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
+      var cfg = entry && entry[fontType];
+      if (cfg && cfg.fontName) names[cfg.fontName] = true;
+    });
+    return Promise.all(Object.keys(names).map(resolveCss2Url)).then(function () { });
   }
 
   // --- Custom font definitions ---
@@ -1566,8 +1571,7 @@
     debugLog(`[AFFO Content] Loading font ${fontName} for ${fontType}, FontFace-only:`, shouldUseFontFaceOnly());
 
     // Create the loading promise and track it
-    // Load both custom fonts and css2Url cache in parallel
-    var loadingPromise = Promise.all([ensureCustomFontsLoaded(), ensureCss2UrlCache()]).then(function () {
+    var loadingPromise = ensureCustomFontsLoaded().then(function () {
       // Look up fontFaceRule from parsed custom font definitions
       var fontFaceRule = getFontFaceRule(fontName);
 
@@ -1601,8 +1605,7 @@
       }
       // If Google font and not FontFace-only domain, load Google Fonts CSS
       else if (!shouldUseFontFaceOnly()) {
-        loadGoogleFontCSS(fontConfig);
-        return Promise.resolve();
+        return loadGoogleFontCSS(fontConfig);
       }
       // If Google font and FontFace-only domain, use FontFace API only
       else {
@@ -1657,29 +1660,22 @@
     try {
       var fontName = fontConfig.fontName;
       var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-      if (document.getElementById(linkId)) return; // Already loaded
+      if (document.getElementById(linkId)) return Promise.resolve(); // Already loaded
 
       // Add preconnect hints before loading font
       ensureGoogleFontsPreconnect();
 
-      // Lookup css2Url from global cache (populated by popup.js)
-      var cachedUrl = getCss2Url(fontName);
-      if (cachedUrl) {
-        injectGoogleFontLink(linkId, fontName, cachedUrl);
-      } else {
-        // Cache may be stale (popup.js updated it after our initial load) — refresh and retry
-        refreshCss2UrlCache().then(function () {
-          if (document.getElementById(linkId)) return; // Loaded while we were refreshing
-          var refreshedUrl = getCss2Url(fontName);
-          if (!refreshedUrl) {
-            debugLog(`[AFFO Content] No css2Url for ${fontName} after cache refresh — skipping (will load on next popup open)`);
-            return;
-          }
-          injectGoogleFontLink(linkId, fontName, refreshedUrl);
-        });
-      }
+      return resolveCss2Url(fontName, { fallbackWhenMissing: true }).then(function (css2Url) {
+        if (document.getElementById(linkId)) return; // Loaded while resolving
+        if (!css2Url) {
+          debugLog(`[AFFO Content] No css2Url for ${fontName} — skipping Google Fonts link`);
+          return;
+        }
+        injectGoogleFontLink(linkId, fontName, css2Url);
+      });
     } catch (e) {
       console.error(`[AFFO Content] Failed to load Google Font CSS ${fontConfig.fontName}:`, e);
+      return Promise.resolve();
     }
   }
 
@@ -1692,7 +1688,25 @@
     debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
   }
 
-
+  function injectGoogleFontLinkForConfig(fontConfig) {
+    try {
+      var fontName = fontConfig && fontConfig.fontName;
+      if (!fontName || shouldUseFontFaceOnly()) return Promise.resolve(false);
+      var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
+      if (document.getElementById(linkId)) return Promise.resolve(true);
+      ensureGoogleFontsPreconnect();
+      return resolveCss2Url(fontName).then(function (css2Url) {
+        if (!css2Url) return false;
+        if (document.getElementById(linkId)) return true;
+        injectGoogleFontLink(linkId, fontName, css2Url);
+        return true;
+      }).catch(function () {
+        return false;
+      });
+    } catch (_) {
+      return Promise.resolve(false);
+    }
+  }
 
   function parseFontFaceWeightDescriptor(block) {
     var weightMatch = String(block || '').match(/font-weight:\s*([^;]+);/i);
@@ -2162,20 +2176,19 @@
 
       debugLog(`[AFFO Content] Downloading WOFF2 font data for ${fontName} via background script`);
 
-      // Lookup css2Url from global cache (populated by popup.js)
-      var cachedUrl = getCss2Url(fontName);
-      if (!cachedUrl) {
-        debugLog(`[AFFO Content] No css2Url for ${fontName} — skipping FontFace download (will load on next popup open)`);
-        return Promise.resolve();
-      }
-      var cssUrl = cachedUrl;
-      debugLog(`[AFFO Content] Using cached css2Url for ${fontName}`);
-
-      return sendBackgroundMessage({
-        type: 'affoFetch',
-        url: cssUrl,
-        binary: false
+      return resolveCss2Url(fontName, { fallbackWhenMissing: true }).then(function (cssUrl) {
+        if (!cssUrl) {
+          debugLog(`[AFFO Content] No css2Url for ${fontName} — skipping FontFace download`);
+          return null;
+        }
+        debugLog(`[AFFO Content] Using runtime css2Url for ${fontName}`);
+        return sendBackgroundMessage({
+          type: 'affoFetch',
+          url: cssUrl,
+          binary: false
+        });
       }).then(function (response) {
+        if (!response) return;
         if (response && response.ok && !response.binary && response.data) {
           debugLog(`[AFFO Content] Got Google Fonts CSS for ${fontName}`);
 
@@ -2650,25 +2663,9 @@
             }
           }
 
-          // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain.
-          // Only inject early if css2Url cache is already resolved — otherwise the fallback
-          // URL lacks axis params and may render differently. loadFont() handles it correctly.
+          // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
           if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
-            try {
-              var cachedUrl = getCss2Url(fontConfig.fontName);
-              if (cachedUrl) {
-                var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-                if (!document.getElementById(linkId)) {
-                  ensureGoogleFontsPreconnect();
-                  var link = document.createElement('link');
-                  link.id = linkId;
-                  link.rel = 'stylesheet';
-                  link.href = cachedUrl;
-                  document.head.appendChild(link);
-                  debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${cachedUrl}`);
-                }
-              }
-            } catch (_) { }
+            injectGoogleFontLinkForConfig(fontConfig);
           }
 
           // Load font file (handles custom fonts, FontFace-only domains, etc.)
@@ -2769,10 +2766,8 @@
 
             debugLog('[AFFO Content] Substack Roulette: applying serif=' + serifConfig.fontName + ', sans=' + sansConfig.fontName);
 
-            // Ensure css2Url cache is loaded before applying, so the eager <link>
-            // injection in reapplyStoredFontsFromEntry uses the correct variable-font URL
-            // (with axis ranges like wght@100..900) instead of the fallback static-weight URL.
-            ensureCss2UrlCache().then(function () {
+            // Resolve css2 URLs before applying so first paint gets the metadata-derived URL.
+            resolveCss2UrlsForEntry({ serif: serifConfig, sans: sansConfig }).then(function () {
               // Apply via existing TMI path
               reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
               scheduleSubstackRouletteDimming();
@@ -2872,28 +2867,9 @@
                 }
               }
 
-              // Eagerly inject Google Fonts <link> without waiting for loadFont's async chain.
-              // Domain-stored configs never have fontFaceRule, so if fontName is set it's
-              // likely a Google font. loadGoogleFontCSS checks for existing link and skips.
-              // Only inject early if css2Url cache is already resolved — otherwise the fallback
-              // URL lacks axis params (e.g. opsz) and may render differently. loadFont() will
-              // handle it correctly once the cache resolves.
+              // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
               if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
-                try {
-                  var cachedUrl = getCss2Url(fontConfig.fontName);
-                  if (cachedUrl) {
-                    var linkId = 'a-font-face-off-style-' + fontConfig.fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-                    if (!document.getElementById(linkId)) {
-                      ensureGoogleFontsPreconnect();
-                      var link = document.createElement('link');
-                      link.id = linkId;
-                      link.rel = 'stylesheet';
-                      link.href = cachedUrl;
-                      document.head.appendChild(link);
-                      debugLog(`[AFFO Content] Early Google Font link for ${fontConfig.fontName}: ${cachedUrl}`);
-                    }
-                  }
-                } catch (_) { }
+                injectGoogleFontLinkForConfig(fontConfig);
               }
 
               // Load font file (handles custom fonts, FontFace-only domains, etc.)

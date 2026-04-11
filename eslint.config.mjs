@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -91,6 +91,12 @@ export default [
                 generateBodyCSS: "readonly",
                 generateBodyContactCSS: "readonly",
                 generateThirdManInCSS: "readonly",
+                // From font-url-utils.js (loaded before popup.js/background.js)
+                affoParseGfMetadataText: "readonly",
+                affoGetMetadataFamilies: "readonly",
+                affoBuildPlainCss2Url: "readonly",
+                affoBuildCss2AxisRangesFromMetadata: "readonly",
+                affoBuildCss2UrlFromMetadata: "readonly",
 
                 // From favorites.js (loaded before popup.js)
                 loadFavoritesFromStorage: "readonly",
@@ -188,6 +194,23 @@ export default [
         rules: {
             "no-undef": "error",
             "no-console": "off",
+        },
+    },
+
+    // font-url-utils.js — pure browser/Node helpers for Google Fonts CSS2 URLs
+    {
+        files: ["src/font-url-utils.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                isFinite: "readonly",
+                module: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
         },
     },
 

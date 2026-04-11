@@ -913,10 +913,6 @@ function ensureGfMetadata() {
     });
 }
 
-function familyToQuery(fontName) {
-    return String(fontName || '').trim().replace(/\s+/g, '+');
-}
-
 // Remote CSS probing helpers removed.
 
 // Axis descriptions and detailed information
@@ -1943,25 +1939,6 @@ function loadGoogleFont(fontName) {
     });
 }
 
-function buildStaticCss2Url(familyParam, staticWeights, italicWeights) {
-    const normalWeights = Array.isArray(staticWeights) ? staticWeights : [];
-    const italicOnlyWeights = Array.isArray(italicWeights) ? italicWeights : [];
-    if (italicOnlyWeights.length > 0) {
-        const tuples = [
-            ...normalWeights.map(weight => `0,${weight}`),
-            ...italicOnlyWeights.map(weight => `1,${weight}`)
-        ];
-        if (tuples.length > 0) {
-            return `https://fonts.googleapis.com/css2?family=${familyParam}:ital,wght@${tuples.join(';')}&display=swap`;
-        }
-        return `https://fonts.googleapis.com/css2?family=${familyParam}:ital@0;1&display=swap`;
-    }
-    if (normalWeights.length > 0) {
-        return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${normalWeights.join(';')}&display=swap`;
-    }
-    return '';
-}
-
 // Build a css2 URL that includes axis tags when available (e.g., :ital,wdth,wght)
 // fontConfig parameter is optional but unused - kept for backward compatibility
 function buildCss2Url(fontName, _fontConfig) {
@@ -1975,57 +1952,15 @@ function buildCss2Url(fontName, _fontConfig) {
         return Promise.resolve('');
     }
 
-    const familyParam = familyToQuery(fontName);
-    // Prefer curated axis-tag ranges from local data file (no probe)
-    return ensureCss2AxisRanges().then(() => {
-        const entry = css2AxisRanges && css2AxisRanges[fontName];
-        if (entry && entry.tags && entry.tags.length) {
-            const hasVariableTags = Array.isArray(entry.variableTags)
-                ? entry.variableTags.length > 0
-                : entry.tags.some(tag => Array.isArray(entry.ranges && entry.ranges[tag]));
-            if (!hasVariableTags && (entry.staticWeights || entry.italicWeights)) {
-                const staticUrl = buildStaticCss2Url(familyParam, entry.staticWeights, entry.italicWeights);
-                if (staticUrl) {
-                    try { console.log(`[Fonts] Using metadata-derived static css2 for ${fontName}: ${staticUrl}`); } catch (_) {}
-                    return staticUrl;
-                }
-            }
-            // Include ALL axes present in data (ital + custom), but drop any tag lacking a numeric range
-            const tagsRaw = entry.tags.slice();
-            const filtered = tagsRaw.filter(tag => {
-                if (tag === 'ital') return true; // Always include ital for italicized text on page
-                const r = entry.ranges && entry.ranges[tag];
-                return Array.isArray(r) && r.length === 2 && isFinite(r[0]) && isFinite(r[1]);
-            });
-            // Order requirement: alphabetical with lowercase tags first, then uppercase
-            const lower = filtered.filter(t => /^[a-z]+$/.test(t)).sort();
-            const upper = filtered.filter(t => /^[A-Z]+$/.test(t)).sort();
-            const orderedTags = [...lower, ...upper];
-            const hasItal = orderedTags.includes('ital');
-            const makeTuple = (italVal) => orderedTags.map(tag => {
-                if (tag === 'ital') return String(italVal);
-                const r = entry.ranges[tag];
-                return `${r[0]}..${r[1]}`;
-            }).join(',');
-            const tuples = hasItal ? [makeTuple(0), makeTuple(1)] : [makeTuple('')];
-            const url = orderedTags.length
-                ? `https://fonts.googleapis.com/css2?family=${familyParam}:${orderedTags.join(',')}@${tuples.join(';')}&display=swap`
-                : `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
-            try { console.log(`[Fonts] Using metadata-derived axis-tag css2 for ${fontName}: ${url}`); } catch (_) {}
-            return url;
-        }
-        if (entry && Array.isArray(entry.staticWeights) && entry.staticWeights.length) {
-            const url = buildStaticCss2Url(familyParam, entry.staticWeights, entry.italicWeights);
-            try { console.log(`[Fonts] Using metadata-derived static-weight css2 for ${fontName}: ${url}`); } catch (_) {}
-            return url;
-        }
-        // Fallback: plain URL, rely on fvar parsing + CSS mapping to expose axes
-        const url = `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
-        try { console.log(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
+    return ensureGfMetadata().then(metadata => {
+        const url = affoBuildCss2UrlFromMetadata(fontName, metadata, {
+            fallbackWhenMissing: true,
+            fallbackWhenMetadataEmpty: true
+        });
+        try { console.log(`[Fonts] Resolved css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     }).catch(() => {
-        // Fallback on error
-        const url = `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+        const url = affoBuildPlainCss2Url(fontName);
         try { console.log(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     });
@@ -2035,72 +1970,13 @@ function ensureCss2AxisRanges() {
     if (css2AxisRanges) return Promise.resolve(css2AxisRanges);
     // Build mapping from Google Fonts metadata (no local file dependency)
     return ensureGfMetadata().then(() => {
-        css2AxisRanges = buildCss2AxisRangesFromMetadata(gfMetadata);
+        css2AxisRanges = affoBuildCss2AxisRangesFromMetadata(gfMetadata);
         return css2AxisRanges;
     }).catch(e => {
         console.warn('Failed to build css2 axis ranges from GF metadata', e);
         css2AxisRanges = {};
         return css2AxisRanges;
     });
-}
-
-function buildCss2AxisRangesFromMetadata(md) {
-    if (!md) return {};
-    const list = md.familyMetadataList || md.familyMetadata || md.families || [];
-    const out = {};
-    for (const fam of list) {
-        const name = fam.family || fam.name;
-        if (!name) continue;
-        const axes = Array.isArray(fam.axes) ? fam.axes : [];
-        const tagsSet = new Set();
-        const variableTagsSet = new Set();
-        const ranges = {};
-        const defaults = {};
-
-        for (const ax of axes) {
-            const tag = String(ax.tag || ax.axis || '').trim();
-            if (!tag) continue;
-            tagsSet.add(tag === 'ital' ? 'ital' : tag);
-            variableTagsSet.add(tag === 'ital' ? 'ital' : tag);
-            const min = ax.min;
-            const max = ax.max;
-            if (typeof min === 'number' && typeof max === 'number') {
-                ranges[tag] = [Number.isInteger(min) ? min : +min, Number.isInteger(max) ? max : +max];
-            }
-            const def = ax.defaultValue;
-            if (typeof def === 'number' && !Number.isNaN(def)) {
-                defaults[tag] = Number.isInteger(def) ? def : +def;
-            }
-        }
-
-        // Add ital if family has italic styles in `fonts` map
-        const fontsMap = fam.fonts || {};
-        const staticWeights = Object.keys(fontsMap)
-            .filter(key => /^\d+$/.test(key))
-            .map(Number)
-            .filter(Number.isFinite)
-            .sort((a, b) => a - b);
-        const italicWeights = Object.keys(fontsMap)
-            .filter(key => /^(\d+)i$/.test(key))
-            .map(key => Number(key.replace(/i$/, '')))
-            .filter(Number.isFinite)
-            .sort((a, b) => a - b);
-        const hasItalic = italicWeights.length > 0;
-        if (hasItalic) tagsSet.add('ital');
-
-        const allTags = Array.from(tagsSet);
-        if (!allTags.length && !staticWeights.length) continue;
-        const lower = allTags.filter(t => /^[a-z]+$/.test(t)).sort();
-        const upper = allTags.filter(t => /^[A-Z]+$/.test(t)).sort();
-        const tags = [...lower, ...upper];
-        const allVariableTags = Array.from(variableTagsSet);
-        const variableLower = allVariableTags.filter(t => /^[a-z]+$/.test(t)).sort();
-        const variableUpper = allVariableTags.filter(t => /^[A-Z]+$/.test(t)).sort();
-        const variableTags = [...variableLower, ...variableUpper];
-
-        out[name] = { tags, variableTags, ranges, defaults, staticWeights, italicWeights };
-    }
-    return out;
 }
 
 function generateFontControls(position, fontName) {
@@ -2352,10 +2228,10 @@ async function applyFontToPage(position, config) {
             console.log(`applyFontToPage: Allowing ${position} with properties but no fontName:`, config);
         }
 
-        // Build enriched payload with fontFaceRule and css2Url
+        // Build clean payload for domain storage.
         const payload = await buildPayload(position, config);
 
-        // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
+        // Save payload to storage; content.js resolves font resources at runtime.
         await saveApplyMapForOrigin(origin, genericKey, payload);
 
         // Check if this is an inline apply domain
@@ -2460,13 +2336,14 @@ async function applyThirdManInFont(fontType, config) {
             console.log(`applyThirdManInFont: Allowing ${fontType} with properties but no fontName:`, config);
         }
 
-        // Build enriched payload with fontFaceRule and css2Url
+        // Build clean payload for domain storage.
         const payload = await buildPayload(fontType, config);
+        const css2Url = payload && payload.fontName ? await buildCss2Url(payload.fontName, config) : '';
 
         // For inline apply domains (x.com), content script handles font loading
         // No preloading needed - content script already downloads via background script with progressive loading
 
-        // Save enriched payload to storage (includes fontFaceRule for custom fonts and css2Url for Google Fonts)
+        // Save payload to storage; content.js resolves font resources at runtime.
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
             // For inline apply domains, return early - content script handles font loading
             if (shouldUseInlineApply(origin)) {
@@ -2476,7 +2353,6 @@ async function applyThirdManInFont(fontType, config) {
 
             // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
-            const css2Url = payload._css2Url;
 
             let fontLinkPromise = Promise.resolve();
             if (css2Url) {
@@ -2593,22 +2469,7 @@ function unapplyThirdManInFont(fontType) {
     });
 }
 
-// Unified payload builder — enriches a canonical config with transport properties
-// (css2Url, styleId) for domain storage and content script consumption.
-// Store css2Url in global cache (not per-domain to avoid duplication)
-async function storeCss2UrlInCache(fontName, css2Url) {
-    if (!fontName || !css2Url) return;
-    try {
-        const result = await browser.storage.local.get('affoCss2UrlCache');
-        const cache = result.affoCss2UrlCache || {};
-        cache[fontName] = css2Url;
-        await browser.storage.local.set({ affoCss2UrlCache: cache });
-        if (AFFO_DEBUG) console.log(`Stored css2Url for ${fontName} in global cache`);
-    } catch (e) {
-        console.error(`Failed to store css2Url in cache for ${fontName}:`, e);
-    }
-}
-
+// Unified payload builder for domain storage/content script consumption.
 async function buildPayload(position, providedConfig = null) {
     const cfg = normalizeConfig(providedConfig || getCurrentUIConfig(position));
     if (!cfg) return null;
@@ -2627,20 +2488,6 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
 
     // Note: styleId is not stored - content.js computes it as 'a-font-face-off-style-' + fontType
-
-    // Compute and cache css2Url for Google Fonts (skip for custom fonts)
-    // Note: css2Url is NOT included in payload - content.js will lookup from cache
-    // But we attach it as a non-enumerable _css2Url for callers that need it immediately
-    const isCustomFont = cfg.fontName && fontDefinitions[cfg.fontName];
-    if (cfg.fontName && !isCustomFont) {
-        const css2Url = cfg.css2Url || await buildCss2Url(cfg.fontName, cfg);
-        if (css2Url) {
-            // Store in global cache for content.js to lookup
-            await storeCss2UrlInCache(cfg.fontName, css2Url);
-            // Attach as non-enumerable for immediate use by callers (JSON.stringify skips it)
-            Object.defineProperty(payload, '_css2Url', { value: css2Url, enumerable: false });
-        }
-    }
 
     return payload;
 }
@@ -2891,11 +2738,12 @@ function getPositionCallbacks(position) {
     return null;
 }
 
-// Migration: Remove fontFaceRule and css2Url from existing domain storage
+// Migration: Remove derived font-loading fields from existing domain storage/cache.
 async function migrateRemoveDuplicatedFields() {
     try {
         const result = await browser.storage.local.get('affoApplyMap');
         const applyMap = result.affoApplyMap;
+        await browser.storage.local.remove('affoCss2UrlCache').catch(() => {});
         if (!applyMap || typeof applyMap !== 'object') return;
 
         let modified = false;
@@ -3906,15 +3754,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
         if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
         saveFavoritesToStorage();
-
-        // Pre-cache css2Url for Google Fonts so Substack Roulette / Quick Pick
-        // can load this font even if it was only ever used in Face-off mode
-        const isCustomFont = config.fontName && fontDefinitions[config.fontName];
-        if (config.fontName && !isCustomFont) {
-            buildCss2Url(config.fontName, config).then(css2Url => {
-                if (css2Url) storeCss2UrlInCache(config.fontName, css2Url);
-            });
-        }
 
         hideSaveModal();
         showCustomAlert(`Saved "${name}" to favorites!`);
@@ -5180,28 +5019,7 @@ function applyAllThirdManInFonts() {
                 return Promise.resolve();
             }
 
-            // Step 2a: Compute css2Url for each config before saving to storage
-            // This is critical for inline apply domains (like x.com) where content.js loads fonts from storage
-            console.log('applyAllThirdManInFonts: Computing css2Url for configs before storage...');
-            const css2UrlPromises = Object.keys(fontConfigs).map(type => {
-                const config = fontConfigs[type];
-                if (!config || !config.fontName) {
-                    return Promise.resolve(); // Skip null configs or configs without fontName
-                }
-
-                return buildCss2Url(config.fontName, config).then(css2Url => {
-                    if (css2Url) {
-                        console.log(`applyAllThirdManInFonts: Computed css2Url for ${type}:`, css2Url);
-                        fontConfigs[type].css2Url = css2Url;
-                    } else {
-                        console.log(`applyAllThirdManInFonts: No css2Url for ${type} (custom font or default)`);
-                    }
-                }).catch(error => {
-                    console.warn(`applyAllThirdManInFonts: Failed to compute css2Url for ${type}:`, error);
-                });
-            });
-
-            return Promise.all(css2UrlPromises).then(async () => {
+            return Promise.resolve().then(async () => {
                 // Step 2a: Build payloads for all configs (strips fontFaceRule/css2Url)
                 const payloadConfigs = {};
                 for (const [type, tempConfig] of Object.entries(fontConfigs)) {
@@ -5238,7 +5056,7 @@ function applyAllThirdManInFonts() {
 
             const cssPromises = cssJobs.map(job => {
                 return Promise.resolve().then(async () => {
-                    // Build the payload to get css2Url
+                    // Build the payload for CSS generation.
                     const payload = await buildPayload(job.type, job.config);
                     if (!payload) {
                         console.log(`applyAllThirdManInFonts: No payload for ${job.type}, skipping`);
@@ -5246,7 +5064,7 @@ function applyAllThirdManInFonts() {
                     }
 
                     // Inject Google Fonts CSS link if needed (before element walker)
-                    const css2Url = payload._css2Url;
+                    const css2Url = payload.fontName ? await buildCss2Url(payload.fontName, job.config) : '';
                     if (css2Url) {
                         const linkId = `a-font-face-off-style-${job.type}-link`;
                         const linkScript = `

@@ -8,23 +8,23 @@ All async operations are Promise-based (2024 refactor complete). No setTimeout p
 
 A 4-stage pipeline ensures fonts load as early as possible:
 
-1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` and `affoCss2UrlCache` from storage; injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is even parsed.
-2. **Eager storage reads in `content.js`** (module load): `ensureCustomFontsLoaded()` and `ensureCss2UrlCache()` are kicked off immediately when the script loads, not lazily when first needed. By the time `reapplyStoredFonts` runs, these promises are likely already resolved.
-3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is injected immediately alongside the CSS `<style>` element, before entering the `loadFont()` async chain. Only injects if cached css2Url is available (skips if not — no fallback URL).
+1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` from storage, asks background.js to resolve Google Fonts css2 URLs at runtime, and injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is fully parsed.
+2. **Eager custom font reads in `content.js`** (module load): `ensureCustomFontsLoaded()` is kicked off immediately when the script loads, not lazily when first needed.
+3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is resolved and injected alongside the CSS `<style>` element, before or in parallel with the `loadFont()` chain.
 4. **CSS injection before font loads**: CSS rules targeting `[data-affo-font-type="..."]` are injected immediately, before font files load. The browser shows fallback fonts until the font file loads, then swaps in via `font-display: swap`.
 
 Result: Font loading starts at `document_start` (earliest possible), eliminating sequential async waits from the critical path.
 
-## css2Url Caching
+## css2Url Resolution
 
-Google Fonts CSS2 API URLs are cached globally in `affoCss2UrlCache` (fontName → URL) to avoid per-domain duplication:
+Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts metadata. They are not stored in domain storage or a local storage URL cache:
 
-- **popup.js**: Computes css2Url when building payload → stores via `storeCss2UrlInCache()`
-- **background.js**: `ensureCss2UrlCached(fontName)` checks cache, computes from `gfMetadataCache` if missing (used by Quick Pick `quickApplyFavorite`). `buildCss2UrlFromMetadata()` is a focused replica of popup.js's URL builder
-- **content.js**: Looks up css2Url from cache by fontName → skips font loading if not cached (no fallback URL). `refreshCss2UrlCache()` re-reads storage on miss
-- **left-toolbar.js**: Reads cache at `document_start` for early font preloading
-- **Domain storage (affoApplyMap)**: Does NOT store css2Url (eliminated duplication)
-- Cache is local-only, rebuilds naturally as fonts are selected or applied via Quick Pick
+- **font-url-utils.js**: Shared pure URL builder used by popup.js and background.js
+- **popup.js**: Computes css2 URLs directly for popup previews and immediate tab injection, but does not include them in `buildPayload()`
+- **background.js**: Handles `resolveCss2Url` runtime messages, loading `gfMetadataCache` or bundled `data/gf-axis-registry.json`, and memoizes resolved URLs in memory only
+- **content.js**: Requests css2 URLs from background.js when loading standard Google Fonts or FontFace-only Google Fonts
+- **left-toolbar.js**: Requests css2 URLs from background.js at `document_start` for early font preloading
+- **Domain storage (affoApplyMap)**: Does NOT store css2Url
 
 ## Custom Font Architecture
 

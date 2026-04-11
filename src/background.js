@@ -90,115 +90,70 @@ let syncWriteDepth = 0;
 // Cached folder ID (cleared on background script restart)
 let cachedAppFolderId = null;
 
-// Ensure affoCss2UrlCache has a css2Url for the given Google Font.
-// Reads cached GF metadata from storage to compute the URL if missing.
-async function ensureCss2UrlCached(fontName) {
-  if (!fontName) return;
-  try {
-    const data = await browser.storage.local.get(['affoCss2UrlCache', 'gfMetadataCache']);
-    const cache = data.affoCss2UrlCache || {};
-    if (cache[fontName]) return; // Already cached
+let runtimeGfMetadata = null;
+let runtimeGfMetadataPromise = null;
+let runtimeCss2UrlMemo = {};
 
-    const url = buildCss2UrlFromMetadata(fontName, data.gfMetadataCache);
-    if (url) {
-      cache[fontName] = url;
-      await browser.storage.local.set({ affoCss2UrlCache: cache });
-      console.log(`[AFFO Background] Cached css2Url for ${fontName}`);
-    }
-  } catch (e) {
-    console.warn(`[AFFO Background] Failed to cache css2Url for ${fontName}:`, e);
-  }
+async function fetchGfMetadataForRuntime(url) {
+  const res = await fetch(url, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return affoParseGfMetadataText(await res.text());
 }
 
-// Build a Google Fonts CSS2 URL with full axis ranges from cached metadata.
-// Returns null if metadata is unavailable or font not found.
-function buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights) {
-  const normalWeights = Array.isArray(staticWeights) ? staticWeights : [];
-  const italicOnlyWeights = Array.isArray(italicWeights) ? italicWeights : [];
-  if (italicOnlyWeights.length > 0) {
-    const tuples = [
-      ...normalWeights.map(weight => `0,${weight}`),
-      ...italicOnlyWeights.map(weight => `1,${weight}`)
-    ];
-    if (tuples.length > 0) {
-      return `https://fonts.googleapis.com/css2?family=${familyParam}:ital,wght@${tuples.join(';')}&display=swap`;
+async function ensureRuntimeGfMetadata() {
+  if (runtimeGfMetadata) return runtimeGfMetadata;
+  if (runtimeGfMetadataPromise) return runtimeGfMetadataPromise;
+
+  runtimeGfMetadataPromise = browser.storage.local.get('gfMetadataCache').then(async data => {
+    if (data.gfMetadataCache && affoGetMetadataFamilies(data.gfMetadataCache).length) {
+      return data.gfMetadataCache;
     }
-    return `https://fonts.googleapis.com/css2?family=${familyParam}:ital@0;1&display=swap`;
-  }
-  if (normalWeights.length > 0) {
-    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${normalWeights.join(';')}&display=swap`;
-  }
-  return null;
-}
 
-function buildCss2UrlFromMetadata(fontName, metadata) {
-  if (!metadata) return null;
-  const list = metadata.familyMetadataList || metadata.familyMetadata || metadata.families || [];
-  const fam = list.find(f => (f.family || f.name) === fontName);
-  if (!fam) return null;
-
-  const familyParam = fontName.trim().replace(/\s+/g, '+');
-  const axes = Array.isArray(fam.axes) ? fam.axes : [];
-  const fontsMap = fam.fonts || {};
-  const staticWeights = Object.keys(fontsMap)
-    .filter(k => /^\d+$/.test(k))
-    .map(Number)
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  const italicWeights = Object.keys(fontsMap)
-    .filter(k => /^(\d+)i$/.test(k))
-    .map(k => Number(k.replace(/i$/, '')))
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  const hasItalic = italicWeights.length > 0;
-
-  const tagsSet = new Set();
-  const ranges = {};
-  for (const ax of axes) {
-    const tag = String(ax.tag || ax.axis || '').trim();
-    if (!tag) continue;
-    tagsSet.add(tag);
-    if (typeof ax.min === 'number' && typeof ax.max === 'number') {
-      ranges[tag] = [ax.min, ax.max];
+    const localUrl = browser.runtime.getURL('data/gf-axis-registry.json');
+    try {
+      const metadata = await fetchGfMetadataForRuntime(localUrl);
+      await browser.storage.local.set({
+        gfMetadataCache: metadata,
+        gfMetadataTimestamp: Date.now()
+      }).catch(e => console.warn('[AFFO Background] Failed to store local GF metadata:', e));
+      return metadata;
+    } catch (localError) {
+      console.warn('[AFFO Background] Local GF metadata load failed; trying remote metadata', localError);
+      const metadata = await fetchGfMetadataForRuntime('https://fonts.google.com/metadata/fonts');
+      await browser.storage.local.set({
+        gfMetadataCache: metadata,
+        gfMetadataTimestamp: Date.now()
+      }).catch(e => console.warn('[AFFO Background] Failed to store remote GF metadata:', e));
+      return metadata;
     }
-  }
-  if (hasItalic) tagsSet.add('ital');
-
-  const allTags = Array.from(tagsSet);
-  if (!allTags.length && (staticWeights.length || italicWeights.length)) {
-    return buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights);
-  }
-
-  if (allTags.length === 1 && allTags[0] === 'ital' && !ranges.ital) {
-    return buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights);
-  }
-
-  if (!allTags.length) {
-    return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
-  }
-
-  const filtered = allTags.filter(tag => {
-    if (tag === 'ital') return true;
-    const r = ranges[tag];
-    return Array.isArray(r) && r.length === 2 && isFinite(r[0]) && isFinite(r[1]);
+  }).catch(e => {
+    console.warn('[AFFO Background] GF metadata unavailable for css2 URL resolution:', e);
+    return { familyMetadataList: [] };
+  }).then(metadata => {
+    runtimeGfMetadata = metadata || { familyMetadataList: [] };
+    runtimeGfMetadataPromise = null;
+    return runtimeGfMetadata;
   });
-  const lower = filtered.filter(t => /^[a-z]+$/.test(t)).sort();
-  const upper = filtered.filter(t => /^[A-Z]+$/.test(t)).sort();
-  const orderedTags = [...lower, ...upper];
 
-  if (!orderedTags.length) {
-    return `https://fonts.googleapis.com/css2?family=${familyParam}&display=swap`;
+  return runtimeGfMetadataPromise;
+}
+
+async function resolveRuntimeCss2Url(fontName, options = {}) {
+  const key = String(fontName || '').trim();
+  if (!key || key.toLowerCase() === 'default') return '';
+  const fallbackWhenMissing = !!options.fallbackWhenMissing;
+  const memoKey = key + '|' + (fallbackWhenMissing ? 'fallback' : 'strict');
+  if (Object.prototype.hasOwnProperty.call(runtimeCss2UrlMemo, memoKey)) {
+    return runtimeCss2UrlMemo[memoKey];
   }
 
-  const hasItalTag = orderedTags.includes('ital');
-  const makeTuple = (italVal) => orderedTags.map(tag => {
-    if (tag === 'ital') return String(italVal);
-    const r = ranges[tag];
-    return `${r[0]}..${r[1]}`;
-  }).join(',');
-  const tuples = hasItalTag ? [makeTuple(0), makeTuple(1)] : [makeTuple('')];
-
-  return `https://fonts.googleapis.com/css2?family=${familyParam}:${orderedTags.join(',')}@${tuples.join(';')}&display=swap`;
+  const metadata = await ensureRuntimeGfMetadata();
+  const css2Url = affoBuildCss2UrlFromMetadata(key, metadata, {
+    fallbackWhenMissing,
+    fallbackWhenMetadataEmpty: true
+  });
+  runtimeCss2UrlMemo[memoKey] = css2Url || '';
+  return runtimeCss2UrlMemo[memoKey];
 }
 
 function sanitizeTimestamp(value) {
@@ -1374,6 +1329,12 @@ function sanitizeFavoriteConfigForSync(rawConfig) {
   if (Object.prototype.hasOwnProperty.call(config, 'fontFaceRule')) {
     delete config.fontFaceRule;
   }
+  if (Object.prototype.hasOwnProperty.call(config, 'css2Url')) {
+    delete config.css2Url;
+  }
+  if (Object.prototype.hasOwnProperty.call(config, '_css2Url')) {
+    delete config._css2Url;
+  }
   return config;
 }
 
@@ -2357,6 +2318,18 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    if (msg.type === 'resolveCss2Url') {
+      try {
+        const css2Url = await resolveRuntimeCss2Url(msg.fontName, {
+          fallbackWhenMissing: !!msg.fallbackWhenMissing
+        });
+        return { ok: true, css2Url };
+      } catch (e) {
+        console.warn('[AFFO Background] css2 URL resolution failed:', e);
+        return { ok: false, css2Url: '', error: e && e.message ? e.message : String(e) };
+      }
+    }
+
     // Handle toolbar popup opening requests
     if (msg.type === 'openPopup') {
       console.log('[AFFO Background] Received openPopup request');
@@ -2475,11 +2448,6 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (fontConfig.fontStyle === 'italic') payload.fontStyle = 'italic';
         if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
-
-        // Ensure css2Url is cached for this font (content.js needs it to load the correct @font-face)
-        if (fontConfig.fontName && !fontConfig.fontFaceRule) {
-          await ensureCss2UrlCached(fontConfig.fontName);
-        }
 
         // Save to storage
         const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
@@ -2646,6 +2614,11 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
   if (changes[GDRIVE_FOLDER_SUFFIX_KEY]) {
     cachedAppFolderId = null;
+  }
+  if (changes.gfMetadataCache || changes.gfMetadataTimestamp) {
+    runtimeGfMetadata = null;
+    runtimeGfMetadataPromise = null;
+    runtimeCss2UrlMemo = {};
   }
   const trackSyncManagedChanges = syncWriteDepth === 0;
 

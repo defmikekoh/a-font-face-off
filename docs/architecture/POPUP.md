@@ -27,9 +27,9 @@ Single entry point for converting any external config (favorites, domain storage
 Used when loading from: favorites, domain storage (`affoApplyMap`), any external source.
 
 ### `buildPayload(position, providedConfig?)`
-Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Does NOT include `fontFaceRule`, `css2Url`, or `styleId` in the payload to eliminate per-domain duplication:
+Unified async function that builds a complete payload for domain storage / content.js from either the current UI state or a provided config. Does NOT include `fontFaceRule`, `css2Url`, or `styleId` in the payload to eliminate per-domain duplication and derived state:
 - `fontFaceRule`: content.js looks up custom font @font-face rules on-demand by parsing custom-fonts.css and ap-fonts.css
-- `css2Url`: Stored in global `affoCss2UrlCache` (fontName → URL mapping); written by popup.js (`storeCss2UrlInCache`) and background.js (`ensureCss2UrlCached` for Quick Pick); content.js looks up by fontName
+- `css2Url`: derived at runtime from `fontName` + Google Fonts metadata through `font-url-utils.js`; content.js/left-toolbar.js request resolution from background.js
 - `styleId`: content.js computes it as `'a-font-face-off-style-' + fontType` (deterministic, no need to store)
 
 ### `getCurrentUIConfig(position)`
