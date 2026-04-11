@@ -20,8 +20,9 @@
 Single entry point for converting any external config (favorites, domain storage, legacy formats) into canonical format. Handles:
 - `fontSizePx` → `fontSize` legacy rename
 - Coercion to `Number` for all numeric properties (including `letterSpacing` where `0` is a valid value)
+- `fontStyle: "italic"` static style preservation; `fontStyle: "normal"` is omitted
 - `fontFaceRule` passthrough for backward compatibility (from old stored data; not used in new saves)
-- Legacy axis props (`wdthVal`, `slntVal`, `italVal`) folded into `variableAxes`
+- Legacy axis props (`wdthVal`, `slntVal`) folded into `variableAxes`; legacy `italVal` / `"ital" 1` toggles map to `fontStyle: "italic"`
 
 Used when loading from: favorites, domain storage (`affoApplyMap`), any external source.
 

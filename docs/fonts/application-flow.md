@@ -4,7 +4,7 @@ This document explains how the extension applies your chosen fonts to web pages,
 
 ## Overview
 
-- Popup builds a payload: Selected `fontName`, generic fallback, size/line‑height/weight/color, and only the variable axes you’ve actually activated (wdth/slnt/ital or arbitrary tags).
+- Popup builds a payload: Selected `fontName`, generic fallback, size/line-height/weight/style/color, and only the variable axes you’ve actually activated (`wdth`, `slnt`, `opsz`, or arbitrary tags). Static italic is stored as `fontStyle: "italic"`, not as a variable axis.
 - Payload is saved per‑origin: Stored to `browser.storage.local` in an `affoApplyMap` keyed by the site origin.
 - Content script applies styles: Listens for storage changes and injects/updates a single `<style>` element targeting body text while excluding headings, code, UI, and form controls.
 - Fonts load in parallel: Ensures a Google Fonts css2 `<link>` is present to begin fetching quickly; also parses css2 to extract a matching WOFF2 and preloads it via `FontFace` for fast activation. Falls back to `<link>` only if needed.
@@ -50,7 +50,8 @@ See: `content.js` (selector + style text authoring and updates)
 - Explicit axis values you activate are written to `font-variation-settings`.
 - Registered axes get mapped to higher‑level CSS when helpful:
   - `wdth` → `font-stretch: <percent>%`
-  - `ital`/`slnt` → `font-style: italic | oblique <deg>`
+  - Static `fontStyle` → `font-style: italic`
+  - `slnt` → `font-style: oblique <deg>`
 - Non‑active axes are cleared so no stale variations linger when switching families.
 
 ## Apply Button Readiness ✅ **Promise-based Flow Architecture**

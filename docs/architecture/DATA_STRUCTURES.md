@@ -60,7 +60,8 @@ The extension uses `browser.storage.local` for all persistence.
     "topFont": {
       "fontName": "ABeeZee",
       "fontSize": 16,
-      "variableAxes": {"ital": 0}
+      "fontStyle": "italic",
+      "variableAxes": {}
     }
   },
   "third-man-in": {
@@ -188,10 +189,11 @@ undefined  // No font configured (not null or empty object)
   "lineHeight": 1.5,                  // Line height (only if set)
   "letterSpacing": 0.05,             // Letter spacing in em (only if set; 0 is valid)
   "fontWeight": 400,                  // Font weight (only if set)
+  "fontStyle": "italic",              // Static style (only if set; "normal" is omitted)
   "fontColor": "#333333",             // Font color (only if set, NOT 'default')
   "variableAxes": {                   // ALWAYS present (even if empty {})
     "wght": 400,                      // Weight axis (only if modified from default)
-    "ital": 1                         // Italic axis (only if modified)
+    "slnt": -10                       // Slant axis (only if the font exposes it)
   }
 }
 ```

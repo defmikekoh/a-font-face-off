@@ -64,6 +64,16 @@ describe('normalizeConfig', () => {
         assert.equal(result.fontColor, '#ff0000');
     });
 
+    it('keeps italic fontStyle as a static setting', () => {
+        const result = normalizeConfig({ fontName: 'Roboto', fontStyle: 'italic' });
+        assert.equal(result.fontStyle, 'italic');
+    });
+
+    it('drops non-italic fontStyle', () => {
+        const result = normalizeConfig({ fontName: 'Roboto', fontStyle: 'normal' });
+        assert.equal(result.fontStyle, undefined);
+    });
+
     it('preserves fontFaceRule', () => {
         const rule = '@font-face { font-family: "Custom"; src: url(...); }';
         const result = normalizeConfig({ fontName: 'Custom', fontFaceRule: rule });
@@ -78,14 +88,33 @@ describe('normalizeConfig', () => {
         assert.deepEqual(result.variableAxes, { wght: 700, wdth: 75, CASL: 1 });
     });
 
-    it('folds legacy wdthVal/slntVal/italVal into variableAxes', () => {
+    it('folds legacy wdthVal/slntVal into variableAxes and italVal into fontStyle', () => {
         const result = normalizeConfig({
             fontName: 'Inter',
             wdthVal: 80,
             slntVal: -12,
             italVal: 1,
         });
-        assert.deepEqual(result.variableAxes, { wdth: 80, slnt: -12, ital: 1 });
+        assert.deepEqual(result.variableAxes, { wdth: 80, slnt: -12 });
+        assert.equal(result.fontStyle, 'italic');
+    });
+
+    it('maps legacy variableAxes.ital toggle to static fontStyle', () => {
+        const result = normalizeConfig({
+            fontName: 'IBM Plex Serif',
+            variableAxes: { ital: 1, wght: 700 },
+        });
+        assert.deepEqual(result.variableAxes, { wght: 700 });
+        assert.equal(result.fontStyle, 'italic');
+    });
+
+    it('preserves fractional ital axis values as variable axes', () => {
+        const result = normalizeConfig({
+            fontName: 'Variable Italic',
+            variableAxes: { ital: 0.5 },
+        });
+        assert.deepEqual(result.variableAxes, { ital: 0.5 });
+        assert.equal(result.fontStyle, undefined);
     });
 
     it('does not overwrite variableAxes with legacy vals', () => {
@@ -108,6 +137,7 @@ describe('normalizeConfig', () => {
         assert.equal(result.hasOwnProperty('lineHeight'), false);
         assert.equal(result.hasOwnProperty('letterSpacing'), false);
         assert.equal(result.hasOwnProperty('fontWeight'), false);
+        assert.equal(result.hasOwnProperty('fontStyle'), false);
         assert.equal(result.hasOwnProperty('fontColor'), false);
         assert.equal(result.hasOwnProperty('fontFaceRule'), false);
     });
@@ -207,6 +237,10 @@ describe('getEffectiveSlant', () => {
 // ── getEffectiveItalic ───────────────────────────────────────────────────────
 
 describe('getEffectiveItalic', () => {
+    it('returns 1 for static italic fontStyle', () => {
+        assert.equal(getEffectiveItalic({ fontStyle: 'italic' }), 1);
+    });
+
     it('returns italVal when set', () => {
         assert.equal(getEffectiveItalic({ italVal: 1 }), 1);
     });

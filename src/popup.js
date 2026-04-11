@@ -305,7 +305,7 @@ async function loadModeSettings(options = {}) {
             // Load top font - face-off mode always needs a font family
             if (modeState.topFont && modeState.topFont.fontName) {
                 await applyFontConfig('top', modeState.topFont);
-            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
+            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontStyle || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('top', 'ABeeZee');
                 await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
@@ -317,7 +317,7 @@ async function loadModeSettings(options = {}) {
             // Load bottom font - face-off mode always needs a font family
             if (modeState.bottomFont && modeState.bottomFont.fontName) {
                 await applyFontConfig('bottom', modeState.bottomFont);
-            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
+            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontStyle || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('bottom', 'Zilla Slab Highlight');
                 await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
@@ -741,9 +741,17 @@ async function getOrCreateFontDefinition(fontName) {
     try { await ensureCss2AxisRanges(); } catch (_) {}
     const curated = css2AxisRanges && css2AxisRanges[fontName] ? css2AxisRanges[fontName] : null;
 
-    // Compose axes list from curated.tags when present; else metadata tags
+    // Compose axes list from variable tags only. css2 `ital` may be present
+    // solely to request static italic files and should not become a slider.
     const combinedAxes = new Set();
-    if (curated && Array.isArray(curated.tags)) curated.tags.forEach(a => combinedAxes.add(a));
+    if (curated && Array.isArray(curated.variableTags)) {
+        curated.variableTags.forEach(a => combinedAxes.add(a));
+    } else if (curated && Array.isArray(curated.tags)) {
+        curated.tags.forEach(a => {
+            const r = curated.ranges && curated.ranges[a];
+            if (Array.isArray(r)) combinedAxes.add(a);
+        });
+    }
     axesFromMetadata.forEach(a => combinedAxes.add(a));
 
     // Build defaults, ranges, steps strictly from curated/metadata
@@ -1130,6 +1138,10 @@ function configsEqual(config1, config2) {
         if (fontWeight1 !== fontWeight2) return false;
     }
 
+    if (activeControls1.has('style')) {
+        if (config1.fontStyle !== config2.fontStyle) return false;
+    }
+
     if (activeControls1.has('color')) {
         const fontColor1 = config1.fontColor;
         const fontColor2 = config2.fontColor;
@@ -1281,6 +1293,7 @@ function getActiveControlsFromConfig(config) {
     if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
     if (config && config.letterSpacing != null) active.add('letter-spacing');
     if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
+    if (config && config.fontStyle === 'italic') active.add('style');
     if (config && config.fontColor && config.fontColor !== 'default') active.add('color');
     return active;
 }
@@ -1295,12 +1308,14 @@ function getActiveControlsFromUI(position) {
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const letterSpacingGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
+    const styleGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
     if (sizeGroup && !sizeGroup.classList.contains('unset')) activeControls.add('font-size');
     if (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) activeControls.add('line-height');
     if (letterSpacingGroup && !letterSpacingGroup.classList.contains('unset')) activeControls.add('letter-spacing');
     if (weightGroup && !weightGroup.classList.contains('unset')) activeControls.add('weight');
+    if (styleGroup && !styleGroup.classList.contains('unset')) activeControls.add('style');
     if (colorGroup && !colorGroup.classList.contains('unset')) activeControls.add('color');
 
     return activeControls;
@@ -1350,6 +1365,7 @@ function getCurrentUIConfig(position) {
     const lineHeightControl = document.getElementById(`${position}-line-height`);
     const letterSpacingControl = document.getElementById(`${position}-letter-spacing`);
     const fontWeightControl = document.getElementById(`${position}-font-weight`);
+    const fontStyleControl = document.getElementById(`${position}-font-style`);
     const fontColorControl = document.getElementById(`${position}-font-color`);
 
     if (!fontDisplay || !fontSizeControl || !lineHeightControl || !fontWeightControl) {
@@ -1383,12 +1399,14 @@ function getCurrentUIConfig(position) {
         const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
         const letterSpacingGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
         const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
+        const styleGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
         const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
         const hasActiveControls = (sizeGroup && !sizeGroup.classList.contains('unset')) ||
                                  (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) ||
                                  (letterSpacingGroup && !letterSpacingGroup.classList.contains('unset')) ||
                                  (weightGroup && !weightGroup.classList.contains('unset')) ||
+                                 (styleGroup && !styleGroup.classList.contains('unset')) ||
                                  (colorGroup && !colorGroup.classList.contains('unset'));
 
         if (!hasActiveControls) {
@@ -1406,6 +1424,7 @@ function getCurrentUIConfig(position) {
     const lineHeight = lineHeightControl.value;
     const letterSpacing = letterSpacingControl ? letterSpacingControl.value : null;
     const fontWeight = fontWeightControl.value;
+    const fontStyle = fontStyleControl ? fontStyleControl.value : null;
     const fontColor = hasColorControl ? fontColorControl.value : null;
 
     console.log(`getCurrentUIConfig(${position}): lineHeight control value:`, lineHeight, 'control element:', lineHeightControl);
@@ -1431,6 +1450,7 @@ function getCurrentUIConfig(position) {
     const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     const letterSpacingGroup2 = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
     const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
+    const styleGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
     const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
 
     // Determine which controls are currently active (user has explicitly interacted with them)
@@ -1438,6 +1458,7 @@ function getCurrentUIConfig(position) {
     const activeLineHeight = lineHeightGroup && !lineHeightGroup.classList.contains('unset');
     const activeLetterSpacing = letterSpacingGroup2 && !letterSpacingGroup2.classList.contains('unset');
     const activeWeight = weightGroup && !weightGroup.classList.contains('unset');
+    const activeStyle = styleGroup && !styleGroup.classList.contains('unset');
     const activeColor = colorGroup && !colorGroup.classList.contains('unset');
 
     // Debug active controls
@@ -1467,6 +1488,7 @@ function getCurrentUIConfig(position) {
     if (activeLineHeight) config.lineHeight = parseFloat(lineHeight);
     if (activeLetterSpacing && letterSpacing != null) config.letterSpacing = parseFloat(letterSpacing);
     if (activeWeight) config.fontWeight = parseInt(fontWeight);
+    if (activeStyle && fontStyle === 'italic') config.fontStyle = 'italic';
     if (activeColor && fontColor !== 'default') config.fontColor = fontColor;
 
     // Get variable axis values (only for active/modified axes)
@@ -1520,6 +1542,9 @@ async function waitForControls(position, maxWaitMs = 2000, config = null) {
 
 // Apply font configuration
 async function applyFontConfig(position, config) {
+    config = normalizeConfig(config);
+    if (!config) return;
+
     if (position === 'serif' || position === 'sans' || position === 'mono') {
         console.log(`applyFontConfig called for ${position}:`, config);
         console.trace('applyFontConfig call stack');
@@ -1556,6 +1581,7 @@ async function applyFontConfig(position, config) {
         const lineHeightControl = document.getElementById(`${position}-line-height`);
         const letterSpacingCtrl = document.getElementById(`${position}-letter-spacing`);
         const fontWeightControl = document.getElementById(`${position}-font-weight`);
+        const fontStyleControl = document.getElementById(`${position}-font-style`);
         const fontColorControl = document.getElementById(`${position}-font-color`);
 
         if (fontSizeControl) fontSizeControl.value = config.fontSize || 17;
@@ -1567,6 +1593,7 @@ async function applyFontConfig(position, config) {
         }
         if (letterSpacingCtrl) letterSpacingCtrl.value = config.letterSpacing != null ? config.letterSpacing : 0;
         if (fontWeightControl) fontWeightControl.value = config.fontWeight || 400;
+        if (fontStyleControl) fontStyleControl.value = config.fontStyle || 'normal';
         if (fontColorControl) {
             // Set to saved color if present, otherwise set to 'default' to clear any stale values
             fontColorControl.value = config.fontColor || 'default';
@@ -1614,6 +1641,7 @@ async function applyFontConfig(position, config) {
                                    control === 'line-height' ? 'line-height' :
                                    control === 'letter-spacing' ? 'letter-spacing' :
                                    control === 'weight' ? 'weight' :
+                                   control === 'style' ? 'style' :
                                    control === 'color' ? 'color' : null;
 
                 if (controlName) {
@@ -1627,7 +1655,7 @@ async function applyFontConfig(position, config) {
         });
 
         // Also ensure all non-active controls are marked as unset
-        ['font-size', 'line-height', 'letter-spacing', 'weight', 'color'].forEach(control => {
+        ['font-size', 'line-height', 'letter-spacing', 'weight', 'style', 'color'].forEach(control => {
             if (!activeControlsFromConfig.has(control)) {
                 const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="${control}"]`);
                 if (controlGroup) {
@@ -1915,6 +1943,25 @@ function loadGoogleFont(fontName) {
     });
 }
 
+function buildStaticCss2Url(familyParam, staticWeights, italicWeights) {
+    const normalWeights = Array.isArray(staticWeights) ? staticWeights : [];
+    const italicOnlyWeights = Array.isArray(italicWeights) ? italicWeights : [];
+    if (italicOnlyWeights.length > 0) {
+        const tuples = [
+            ...normalWeights.map(weight => `0,${weight}`),
+            ...italicOnlyWeights.map(weight => `1,${weight}`)
+        ];
+        if (tuples.length > 0) {
+            return `https://fonts.googleapis.com/css2?family=${familyParam}:ital,wght@${tuples.join(';')}&display=swap`;
+        }
+        return `https://fonts.googleapis.com/css2?family=${familyParam}:ital@0;1&display=swap`;
+    }
+    if (normalWeights.length > 0) {
+        return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${normalWeights.join(';')}&display=swap`;
+    }
+    return '';
+}
+
 // Build a css2 URL that includes axis tags when available (e.g., :ital,wdth,wght)
 // fontConfig parameter is optional but unused - kept for backward compatibility
 function buildCss2Url(fontName, _fontConfig) {
@@ -1933,6 +1980,16 @@ function buildCss2Url(fontName, _fontConfig) {
     return ensureCss2AxisRanges().then(() => {
         const entry = css2AxisRanges && css2AxisRanges[fontName];
         if (entry && entry.tags && entry.tags.length) {
+            const hasVariableTags = Array.isArray(entry.variableTags)
+                ? entry.variableTags.length > 0
+                : entry.tags.some(tag => Array.isArray(entry.ranges && entry.ranges[tag]));
+            if (!hasVariableTags && (entry.staticWeights || entry.italicWeights)) {
+                const staticUrl = buildStaticCss2Url(familyParam, entry.staticWeights, entry.italicWeights);
+                if (staticUrl) {
+                    try { console.log(`[Fonts] Using metadata-derived static css2 for ${fontName}: ${staticUrl}`); } catch (_) {}
+                    return staticUrl;
+                }
+            }
             // Include ALL axes present in data (ital + custom), but drop any tag lacking a numeric range
             const tagsRaw = entry.tags.slice();
             const filtered = tagsRaw.filter(tag => {
@@ -1958,8 +2015,7 @@ function buildCss2Url(fontName, _fontConfig) {
             return url;
         }
         if (entry && Array.isArray(entry.staticWeights) && entry.staticWeights.length) {
-            const weightList = entry.staticWeights.join(';');
-            const url = `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${weightList}&display=swap`;
+            const url = buildStaticCss2Url(familyParam, entry.staticWeights, entry.italicWeights);
             try { console.log(`[Fonts] Using metadata-derived static-weight css2 for ${fontName}: ${url}`); } catch (_) {}
             return url;
         }
@@ -1997,6 +2053,7 @@ function buildCss2AxisRangesFromMetadata(md) {
         if (!name) continue;
         const axes = Array.isArray(fam.axes) ? fam.axes : [];
         const tagsSet = new Set();
+        const variableTagsSet = new Set();
         const ranges = {};
         const defaults = {};
 
@@ -2004,6 +2061,7 @@ function buildCss2AxisRangesFromMetadata(md) {
             const tag = String(ax.tag || ax.axis || '').trim();
             if (!tag) continue;
             tagsSet.add(tag === 'ital' ? 'ital' : tag);
+            variableTagsSet.add(tag === 'ital' ? 'ital' : tag);
             const min = ax.min;
             const max = ax.max;
             if (typeof min === 'number' && typeof max === 'number') {
@@ -2022,7 +2080,12 @@ function buildCss2AxisRangesFromMetadata(md) {
             .map(Number)
             .filter(Number.isFinite)
             .sort((a, b) => a - b);
-        const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
+        const italicWeights = Object.keys(fontsMap)
+            .filter(key => /^(\d+)i$/.test(key))
+            .map(key => Number(key.replace(/i$/, '')))
+            .filter(Number.isFinite)
+            .sort((a, b) => a - b);
+        const hasItalic = italicWeights.length > 0;
         if (hasItalic) tagsSet.add('ital');
 
         const allTags = Array.from(tagsSet);
@@ -2030,8 +2093,12 @@ function buildCss2AxisRangesFromMetadata(md) {
         const lower = allTags.filter(t => /^[a-z]+$/.test(t)).sort();
         const upper = allTags.filter(t => /^[A-Z]+$/.test(t)).sort();
         const tags = [...lower, ...upper];
+        const allVariableTags = Array.from(variableTagsSet);
+        const variableLower = allVariableTags.filter(t => /^[a-z]+$/.test(t)).sort();
+        const variableUpper = allVariableTags.filter(t => /^[A-Z]+$/.test(t)).sort();
+        const variableTags = [...variableLower, ...variableUpper];
 
-        out[name] = { tags, ranges, defaults, staticWeights };
+        out[name] = { tags, variableTags, ranges, defaults, staticWeights, italicWeights };
     }
     return out;
 }
@@ -2277,7 +2344,7 @@ async function applyFontToPage(position, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 console.log('applyFontToPage: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2385,7 +2452,7 @@ async function applyThirdManInFont(fontType, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 console.log('applyThirdManInFont: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2543,7 +2610,7 @@ async function storeCss2UrlInCache(fontName, css2Url) {
 }
 
 async function buildPayload(position, providedConfig = null) {
-    const cfg = providedConfig || getCurrentUIConfig(position);
+    const cfg = normalizeConfig(providedConfig || getCurrentUIConfig(position));
     if (!cfg) return null;
 
     const payload = { fontName: cfg.fontName };
@@ -2556,6 +2623,7 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.lineHeight != null) payload.lineHeight = Number(cfg.lineHeight);
     if (cfg.letterSpacing != null) payload.letterSpacing = Number(cfg.letterSpacing);
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
+    if (cfg.fontStyle === 'italic') payload.fontStyle = 'italic';
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
 
     // Note: styleId is not stored - content.js computes it as 'a-font-face-off-style-' + fontType
@@ -2663,6 +2731,7 @@ function restoreFontSettings(position, fontName) {
         { key: 'lineHeight', controlId: `${position}-line-height`, textId: `${position}-line-height-text`, dataControl: 'line-height' },
         { key: 'letterSpacing', controlId: `${position}-letter-spacing`, textId: `${position}-letter-spacing-text`, dataControl: 'letter-spacing' },
         { key: 'fontWeight', controlId: `${position}-font-weight`, textId: null, dataControl: 'weight' },
+        { key: 'fontStyle', controlId: `${position}-font-style`, textId: null, dataControl: 'style' },
     ];
 
     basicControls.forEach(({ key, controlId, textId, dataControl }) => {
@@ -2733,6 +2802,7 @@ function applyFont(position) {
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
     if (cfg.letterSpacing != null) style += ` letter-spacing: ${cfg.letterSpacing}em;`;
     if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
+    if (cfg.fontStyle === 'italic') style += ' font-style: italic;';
     if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
 
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
@@ -3045,7 +3115,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -3071,7 +3141,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -3224,6 +3294,24 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Font-weight slider handlers (no text input)
     ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'font-weight'));
+
+    // Font style change handlers
+    ALL_POSITIONS.forEach(position => {
+        const styleSelect = document.getElementById(`${position}-font-style`);
+        if (!styleSelect) return;
+        const callbacks = getPositionCallbacks(position);
+        if (!callbacks) return;
+        const styleGroup = styleSelect.closest('.control-group');
+        styleSelect.addEventListener('change', function() {
+            if (styleGroup) {
+                if (this.value === 'italic') styleGroup.classList.remove('unset');
+                else styleGroup.classList.add('unset');
+            }
+            if (callbacks.buttons) callbacks.buttons();
+            callbacks.preview();
+            if (callbacks.save) saveExtensionState();
+        });
+    });
 
     // Font color change handlers
     ALL_POSITIONS.forEach(position => {
@@ -3401,6 +3489,38 @@ document.addEventListener('DOMContentLoaded', async function() {
                 setTimeout(() => {
                     e.target.blur();
                     // Force focus to body to ensure button loses focus
+                    document.body.focus();
+                }, 10);
+                setTimeout(() => e.target.blur(), 100);
+
+                applyFont(position);
+                saveExtensionState();
+            }
+        }
+
+        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'style') {
+            const panel = e.target.closest('.controls-panel');
+            let position;
+            if (panel.id.includes('top')) position = 'top';
+            else if (panel.id.includes('bottom')) position = 'bottom';
+            else if (panel.id.includes('body')) position = 'body';
+            else if (panel.id.includes('serif')) position = 'serif';
+            else if (panel.id.includes('sans')) position = 'sans';
+            else if (panel.id.includes('mono')) position = 'mono';
+            else return; // unsupported panel
+
+            const activeControls = getActiveControls(position);
+            const controlGroup = e.target.closest('.control-group');
+            const styleControl = document.getElementById(`${position}-font-style`);
+
+            if (styleControl) {
+                styleControl.value = 'normal';
+                activeControls.delete('style');
+                if (controlGroup) controlGroup.classList.add('unset');
+
+                e.target.blur();
+                setTimeout(() => {
+                    e.target.blur();
                     document.body.focus();
                 }, 10);
                 setTimeout(() => e.target.blur(), 100);
@@ -3895,10 +4015,12 @@ function resetFontForPosition(position) {
     const lhSlider = document.getElementById(`${position}-line-height`);
     const lsSlider = document.getElementById(`${position}-letter-spacing`);
     const weightSlider = document.getElementById(`${position}-font-weight`);
+    const styleSelect = document.getElementById(`${position}-font-style`);
     if (sizeSlider) sizeSlider.value = 17;
     if (lhSlider) lhSlider.value = 1.5;
     if (lsSlider) lsSlider.value = 0;
     if (weightSlider) weightSlider.value = 400;
+    if (styleSelect) styleSelect.value = 'normal';
 
     // Reset text inputs
     const sizeText = document.getElementById(`${position}-font-size-text`);
@@ -3921,6 +4043,8 @@ function resetFontForPosition(position) {
     // Mark weight, line-height, and letter-spacing controls as unset/dimmed
     const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     if (weightControl) weightControl.classList.add('unset');
+    const styleControl = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
+    if (styleControl) styleControl.classList.add('unset');
     const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
     if (lineHeightControl) lineHeightControl.classList.add('unset');
     const letterSpacingControl = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
@@ -3962,13 +4086,21 @@ function payloadEquals(a, b) {
     if (!numEq(a.fontSize, b.fontSize)) return false;
     if (!numEq(a.lineHeight, b.lineHeight)) return false;
     if (!numEq(a.letterSpacing, b.letterSpacing)) return false;
+    const styleOf = (obj) => {
+        if (obj.fontStyle === 'italic') return 'italic';
+        if (obj.italVal != null && Number(obj.italVal) >= 1) return 'italic';
+        if (obj.variableAxes && obj.variableAxes.ital != null && Number(obj.variableAxes.ital) >= 1) return 'italic';
+        return null;
+    };
+    if (styleOf(a) !== styleOf(b)) return false;
     if (a.fontColor !== b.fontColor) return false;
-    // Normalize axes: fold legacy wdthVal/slntVal/italVal into variableAxes for comparison
+    // Normalize axes: fold legacy wdthVal/slntVal into variableAxes for comparison.
+    // Italic toggle is normalized through fontStyle/styleOf above.
     const normalize = (obj) => {
         const axes = { ...(obj.variableAxes || {}) };
         if (obj.wdthVal != null && !('wdth' in axes)) axes.wdth = Number(obj.wdthVal);
         if (obj.slntVal != null && !('slnt' in axes)) axes.slnt = Number(obj.slntVal);
-        if (obj.italVal != null && !('ital' in axes)) axes.ital = Number(obj.italVal);
+        if (Number(axes.ital) === 0 || Number(axes.ital) >= 1) delete axes.ital;
         return axes;
     };
     const aAxes = normalize(a);
@@ -4172,6 +4304,9 @@ function resetThirdManInUI() {
         if (fontWeightSlider) fontWeightSlider.value = 400;
         if (fontWeightValue) fontWeightValue.textContent = '400';
 
+        const fontStyleSelect = document.getElementById(`${fontType}-font-style`);
+        if (fontStyleSelect) fontStyleSelect.value = 'normal';
+
         const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
         const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
         const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
@@ -4214,7 +4349,7 @@ function restoreUIFromDomainStorage() {
                 const savedFont = domainData[fontType];
 
                 // Check if saved font has any meaningful properties
-                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
+                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.fontStyle || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
 
                 if (hasValidSavedFont) {
                     console.log(`🔄 restoreUIFromDomainStorage: Restoring ${fontType} font: ${savedFont.fontName}`);
@@ -4253,6 +4388,11 @@ function restoreUIFromDomainStorage() {
                         const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
                         if (fontWeightSlider) fontWeightSlider.value = savedFont.fontWeight;
                         if (fontWeightValue) fontWeightValue.textContent = savedFont.fontWeight;
+                    }
+
+                    if (savedFont.fontStyle) {
+                        const fontStyleSelect = document.getElementById(`${fontType}-font-style`);
+                        if (fontStyleSelect) fontStyleSelect.value = savedFont.fontStyle;
                     }
 
                     if (savedFont.lineHeight) {
@@ -4984,7 +5124,7 @@ function applyAllThirdManInFonts() {
                 console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
 
                 // Check if config has any meaningful properties
-                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor);
+                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor);
 
                 if (hasValidConfig) {
                     // Convert applied config to same format for comparison
@@ -4998,6 +5138,7 @@ function applyAllThirdManInFonts() {
                         if (appliedConfig.lineHeight) appliedForComparison.lineHeight = appliedConfig.lineHeight;
                         if (appliedConfig.letterSpacing != null) appliedForComparison.letterSpacing = appliedConfig.letterSpacing;
                         if (appliedConfig.fontWeight) appliedForComparison.fontWeight = appliedConfig.fontWeight;
+                        if (appliedConfig.fontStyle) appliedForComparison.fontStyle = appliedConfig.fontStyle;
                         if (appliedConfig.fontColor) appliedForComparison.fontColor = appliedConfig.fontColor;
                         if (appliedConfig.fontFaceRule) appliedForComparison.fontFaceRule = appliedConfig.fontFaceRule;
                     }
@@ -5220,7 +5361,7 @@ function countThirdManInDifferences() {
                 const applied = domainData ? domainData[type] : null;
 
                 // Font is considered default/unset if config is missing or has no meaningful properties
-                const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
+                const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
 
                 console.log(`countThirdManInDifferences: ${type} current:`, current);
                 console.log(`countThirdManInDifferences: ${type} applied:`, applied);
@@ -5249,6 +5390,7 @@ function countThirdManInDifferences() {
                             if (applied.lineHeight) appliedConfig.lineHeight = applied.lineHeight;
                             if (applied.letterSpacing != null) appliedConfig.letterSpacing = applied.letterSpacing;
                             if (applied.fontWeight) appliedConfig.fontWeight = applied.fontWeight;
+                            if (applied.fontStyle) appliedConfig.fontStyle = applied.fontStyle;
                             if (applied.fontColor) appliedConfig.fontColor = applied.fontColor;
                             if (applied.fontFaceRule) appliedConfig.fontFaceRule = applied.fontFaceRule;
                         }
@@ -5287,7 +5429,7 @@ function countThirdManInDifferences() {
             const current = getCurrentUIConfig(type);
 
             // Font is considered default/unset if config is missing or has no meaningful properties
-            const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
+            const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
 
             if (!isDefaultFont) {
                 changeCount++;
@@ -5325,7 +5467,7 @@ function applyPanelConfiguration(panelId) {
 
     // Allow configurations with font properties even without fontName for body and third-man-in modes
     if (!config.fontName) {
-        const hasOtherProperties = config.fontSize || config.fontWeight || config.lineHeight || config.letterSpacing != null || config.fontColor;
+        const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
         if (!hasOtherProperties) {
             console.log('applyPanelConfiguration: No valid config found (needs fontName or other properties)');
             return Promise.resolve(false);
@@ -5676,6 +5818,7 @@ function unsetAllPanelControls(panelId) {
         fontTextElement.style.fontFamily = '';
         fontTextElement.style.fontSize = '';
         fontTextElement.style.fontWeight = '';
+        fontTextElement.style.fontStyle = '';
         fontTextElement.style.lineHeight = '';
         fontTextElement.style.letterSpacing = '';
         fontTextElement.style.color = '';

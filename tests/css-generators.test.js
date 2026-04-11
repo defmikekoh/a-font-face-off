@@ -114,6 +114,27 @@ describe('css-generators bold variable-axis overrides', () => {
     });
 });
 
+describe('css-generators static italic style', () => {
+    it('emits font-style without adding ital to font-variation-settings', () => {
+        const css = generateBodyCSS({
+            fontName: 'IBM Plex Serif',
+            fontStyle: 'italic',
+            variableAxes: {},
+        }, false, false);
+        assert.match(css, /font-style:italic/);
+        assert.doesNotMatch(css, /"ital" 1/);
+    });
+
+    it('keeps slnt as a variable axis setting', () => {
+        const css = generateThirdManInCSS('serif', {
+            fontName: 'Roboto Flex',
+            variableAxes: { slnt: -10 },
+        }, false);
+        assert.match(css, /font-style: oblique -10deg/);
+        assert.match(css, /font-variation-settings: "slnt" -10/);
+    });
+});
+
 describe('css-generators third-man-in text sizing', () => {
     it('applies body text sizing to marked links/italics and nested links/italics inside marked text containers, excluding footnote anchors', () => {
         const css = generateThirdManInCSS('serif', {

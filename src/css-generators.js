@@ -54,7 +54,7 @@ function buildItalicProps(payload, imp, weightOverride) {
 
     if (payload.variableAxes && Object.keys(payload.variableAxes).length > 0) {
         const axes = { ...payload.variableAxes };
-        // Force true italic via ital axis
+        // Force true italic via ital axis when the payload already has it.
         if (axes.ital !== undefined) axes.ital = 1;
         // Force slant if available and at default
         if (axes.slnt !== undefined && Number(axes.slnt) === 0) axes.slnt = -10;
@@ -120,7 +120,7 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
-    const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.letterSpacing != null || payload.fontWeight || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
+    const hasAnyProperties = payload.fontName || payload.fontSize || payload.lineHeight || payload.letterSpacing != null || payload.fontWeight || payload.fontStyle || payload.fontColor || (payload.variableAxes && Object.keys(payload.variableAxes).length > 0);
     if (!hasAnyProperties) return '';
 
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)

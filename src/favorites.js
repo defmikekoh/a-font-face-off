@@ -126,6 +126,9 @@ function generateFavoritePreview(config) {
     if (config.fontWeight) {
         parts.push(`${config.fontWeight}wt`);
     }
+    if (config.fontStyle === 'italic') {
+        parts.push('italic');
+    }
     if (config.fontColor) {
         parts.push(config.fontColor);
     }
@@ -158,6 +161,10 @@ function generateDetailedFavoritePreview(config) {
     if (hasInCollection(config && config.activeControls, 'weight') &&
         config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
+    }
+    if (hasInCollection(config && config.activeControls, 'style') &&
+        config.fontStyle === 'italic') {
+        lines.push('Style: Italic');
     }
 
     // Only show active variable axes
@@ -198,6 +205,9 @@ function generateFontConfigName(position) {
     if (config.fontWeight) {
         parts.push(`${config.fontWeight}wt`);
     }
+    if (config.fontStyle === 'italic') {
+        parts.push('italic');
+    }
     if (config.lineHeight) {
         parts.push(`${config.lineHeight}lh`);
     }
@@ -220,15 +230,10 @@ function generateFontConfigName(position) {
                     case 'wght': axisName = 'wt'; break;
                     case 'wdth': axisName = 'wd'; break;
                     case 'slnt': axisName = 'sl'; break;
-                    case 'ital': axisName = value === '1' ? 'italic' : ''; break;
                     case 'opsz': axisName = 'opt'; break;
                 }
                 if (axisName) {
-                    if (axis === 'ital' && value === '1') {
-                        parts.push(axisName);
-                    } else if (axis !== 'ital') {
-                        parts.push(`${axisName}${value}`);
-                    }
+                    parts.push(`${axisName}${value}`);
                 }
             }
         });
@@ -267,6 +272,9 @@ function generateConfigPreview(position) {
     }
     if (config.fontWeight && config.fontWeight !== 400) {
         lines.push(`Weight: ${config.fontWeight}`);
+    }
+    if (config.fontStyle === 'italic') {
+        lines.push('Style: Italic');
     }
     if (config.fontColor) {
         lines.push(`Color: ${config.fontColor}`);

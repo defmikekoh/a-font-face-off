@@ -90,6 +90,7 @@
       fontConfig.fontName ||
       fontConfig.fontSize ||
       fontConfig.fontWeight ||
+      fontConfig.fontStyle ||
       fontConfig.lineHeight ||
       fontConfig.letterSpacing != null ||
       fontConfig.fontColor
@@ -1343,6 +1344,7 @@
   }
 
   function getEffectiveItalic(config) {
+    if (config.fontStyle === 'italic') return 1;
     if (config.italVal != null && isFinite(Number(config.italVal))) return Number(config.italVal);
     if (config.variableAxes && config.variableAxes.ital != null && isFinite(Number(config.variableAxes.ital))) return Number(config.variableAxes.ital);
     return null;

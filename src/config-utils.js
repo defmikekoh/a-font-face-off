@@ -30,19 +30,25 @@ function normalizeConfig(raw) {
     if (raw.lineHeight != null) config.lineHeight = Number(raw.lineHeight);
     if (raw.letterSpacing != null) config.letterSpacing = Number(raw.letterSpacing);
     if (raw.fontWeight != null) config.fontWeight = Number(raw.fontWeight);
+    if (raw.fontStyle === 'italic') config.fontStyle = 'italic';
     if (raw.fontColor && raw.fontColor !== 'default') config.fontColor = raw.fontColor;
     if (raw.fontFaceRule) config.fontFaceRule = raw.fontFaceRule;
 
     // Copy variable axes with Number coercion
     if (raw.variableAxes && typeof raw.variableAxes === 'object') {
         Object.entries(raw.variableAxes).forEach(([axis, value]) => {
+            if (axis === 'ital') {
+                const numericValue = Number(value);
+                if (numericValue >= 1 && !config.fontStyle) config.fontStyle = 'italic';
+                if (numericValue === 0 || numericValue >= 1) return;
+            }
             config.variableAxes[axis] = Number(value);
         });
     }
-    // Legacy compat: fold wdthVal/slntVal/italVal into variableAxes
+    // Legacy compat: fold wdthVal/slntVal into variableAxes; italVal is now a static style.
     if (raw.wdthVal != null && !('wdth' in config.variableAxes)) config.variableAxes.wdth = Number(raw.wdthVal);
     if (raw.slntVal != null && !('slnt' in config.variableAxes)) config.variableAxes.slnt = Number(raw.slntVal);
-    if (raw.italVal != null && !('ital' in config.variableAxes)) config.variableAxes.ital = Number(raw.italVal);
+    if (raw.italVal != null && Number(raw.italVal) >= 1 && !config.fontStyle) config.fontStyle = 'italic';
 
     return config;
 }
@@ -81,6 +87,7 @@ function getEffectiveSlant(payload) {
 }
 
 function getEffectiveItalic(payload) {
+    if (payload.fontStyle === 'italic') return 1;
     if (payload.italVal != null && isFinite(Number(payload.italVal))) return Number(payload.italVal);
     if (payload.variableAxes && payload.variableAxes.ital != null && isFinite(Number(payload.variableAxes.ital))) return Number(payload.variableAxes.ital);
     return null;

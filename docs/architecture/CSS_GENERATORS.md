@@ -15,7 +15,8 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 | `wght` | `font-weight: 380` | `"wght" 380` |
 | `wdth` | `font-stretch: 90%` | `"wdth" 90` |
 | `slnt` | `font-style: oblique -12deg` | `"slnt" -12` |
-| `ital` | `font-style: italic` | `"ital" 1` |
+| static italic | `font-style: italic` from `fontStyle: "italic"` | — |
+| true variable `ital` | `font-style: italic` | `"ital" 1` |
 | `opsz` | `font-optical-sizing: auto` | `"opsz" 14` |
 | `GRAD`, `CASL`, etc. | — | `"GRAD" 150` |
 
@@ -26,10 +27,10 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 - **`getEffectiveWeight(config)`** — Returns numeric weight or `null`. Checks `config.fontWeight` first (basic weight control), falls back to `config.variableAxes.wght` (variable axis slider).
 - **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`. (Legacy `wdthVal` only exists in old stored domain data; new payloads use `variableAxes` exclusively.)
 - **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
-- **`getEffectiveItalic(config)`** — Same pattern for ital. (Legacy `italVal` — same note as wdth.)
+- **`getEffectiveItalic(config)`** — Returns `1` for static `fontStyle: "italic"`, then falls back to legacy `italVal` / `variableAxes.ital` for backward compatibility.
 - **`buildAllAxisSettings(config)`** — Returns array of `'"axis" value'` strings for ALL axes (registered + custom) from `config.variableAxes`. Used by all CSS generators so that `font-variation-settings` bypasses `@font-face` descriptor clamping.
 - **`buildCustomAxisSettings(config)`** — Backward-compatible: returns array of `'"axis" value'` strings for custom axes only. Filters out all registered axes (`wght`, `wdth`, `slnt`, `ital`, `opsz`) from `config.variableAxes`.
-- **`buildItalicProps(payload, imp, weightOverride?)`** — Returns array of CSS property strings for italic/bold-italic rules. Always includes `font-style: italic`. For variable fonts: forces `ital` axis to `1`, forces `slnt` to `-10` if at default `0`, overrides `wght` axis when `weightOverride` is provided (for bold-italic).
+- **`buildItalicProps(payload, imp, weightOverride?)`** — Returns array of CSS property strings for italic/bold-italic rules. Always includes `font-style: italic`. For variable fonts that already carry those axes: forces `ital` axis to `1`, forces `slnt` to `-10` if at default `0`, overrides `wght` axis when `weightOverride` is provided (for bold-italic).
 - **`buildThirdManInTextSelector(fontType)`** — Returns selectors for body-text sizing/spacing in TMI mode, including marked links/italics (`a`/`em`/`i` with `data-affo-font-type`) and matching descendants inside marked `p`/`span`/`td`/`th`/`li` containers so article anchors and emphasized text inherit the same `font-size`, `line-height`, and `letter-spacing` as surrounding body text. Substack-style `.footnote-anchor` links plus `sup`/`sub` are intentionally excluded so site-specific superscript sizing, `line-height: 0`, and vertical offset rules can keep them from expanding line boxes.
 - **`getArticleDeckSelector()`** — Builds the broad-but-scoped deck selector: `article header :is(p, div)` whose `id`, `class`, `data-testid`, `itemprop`, or `name` contains hints like `summary`, `subtitle`, `dek`, `deck`, `standfirst`, `subheadline`, or `excerpt`.
 - **`getArticleDeckExclude()`** — Returns `:not(...)` exclusions for the article-deck selector and its descendants. Appended to the broad Body/Body Contact selectors so AFFO leaves likely standfirst/deck text alone without excluding every `article header` paragraph wholesale.
@@ -38,7 +39,7 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 
 All three CSS generators produce explicit rules for italic elements (`<em>`, `<i>`) and bold-italic combinations (`<strong>/<b>` containing `<em>/<i>`). This ensures replaced fonts render true italic instead of relying on browser synthesis:
 
-- **Italic rule**: `:where(em, i)` gets `font-style: italic` plus variable font axis overrides (`ital` forced to `1`, `slnt` forced to `-10` if at default)
+- **Italic rule**: `:where(em, i)` gets `font-style: italic` plus variable font axis overrides for active axes (`ital` forced to `1`, `slnt` forced to `-10` if at default)
 - **Bold-italic rule**: `:where(strong, b) :where(em, i)` gets italic props plus `font-weight: 700` with `wght` axis override
 - Built via `buildItalicProps(payload, imp, weightOverride?)` in `css-generators.js`
 - TMI mode uses `[data-affo-font-type]` attribute selectors; body/body-contact use `body :where(...)` descendant selectors

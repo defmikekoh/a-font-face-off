@@ -112,6 +112,25 @@ async function ensureCss2UrlCached(fontName) {
 
 // Build a Google Fonts CSS2 URL with full axis ranges from cached metadata.
 // Returns null if metadata is unavailable or font not found.
+function buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights) {
+  const normalWeights = Array.isArray(staticWeights) ? staticWeights : [];
+  const italicOnlyWeights = Array.isArray(italicWeights) ? italicWeights : [];
+  if (italicOnlyWeights.length > 0) {
+    const tuples = [
+      ...normalWeights.map(weight => `0,${weight}`),
+      ...italicOnlyWeights.map(weight => `1,${weight}`)
+    ];
+    if (tuples.length > 0) {
+      return `https://fonts.googleapis.com/css2?family=${familyParam}:ital,wght@${tuples.join(';')}&display=swap`;
+    }
+    return `https://fonts.googleapis.com/css2?family=${familyParam}:ital@0;1&display=swap`;
+  }
+  if (normalWeights.length > 0) {
+    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${normalWeights.join(';')}&display=swap`;
+  }
+  return null;
+}
+
 function buildCss2UrlFromMetadata(fontName, metadata) {
   if (!metadata) return null;
   const list = metadata.familyMetadataList || metadata.familyMetadata || metadata.families || [];
@@ -126,7 +145,12 @@ function buildCss2UrlFromMetadata(fontName, metadata) {
     .map(Number)
     .filter(Number.isFinite)
     .sort((a, b) => a - b);
-  const hasItalic = Object.keys(fontsMap).some(k => /i$/.test(k));
+  const italicWeights = Object.keys(fontsMap)
+    .filter(k => /^(\d+)i$/.test(k))
+    .map(k => Number(k.replace(/i$/, '')))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const hasItalic = italicWeights.length > 0;
 
   const tagsSet = new Set();
   const ranges = {};
@@ -141,8 +165,12 @@ function buildCss2UrlFromMetadata(fontName, metadata) {
   if (hasItalic) tagsSet.add('ital');
 
   const allTags = Array.from(tagsSet);
-  if (!allTags.length && staticWeights.length) {
-    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@${staticWeights.join(';')}&display=swap`;
+  if (!allTags.length && (staticWeights.length || italicWeights.length)) {
+    return buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights);
+  }
+
+  if (allTags.length === 1 && allTags[0] === 'ital' && !ranges.ital) {
+    return buildStaticCss2UrlFromMetadata(familyParam, staticWeights, italicWeights);
   }
 
   if (!allTags.length) {
@@ -2444,6 +2472,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (fontConfig.lineHeight) payload.lineHeight = fontConfig.lineHeight;
         if (fontConfig.letterSpacing != null) payload.letterSpacing = fontConfig.letterSpacing;
         if (fontConfig.fontWeight) payload.fontWeight = fontConfig.fontWeight;
+        if (fontConfig.fontStyle === 'italic') payload.fontStyle = 'italic';
         if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
 

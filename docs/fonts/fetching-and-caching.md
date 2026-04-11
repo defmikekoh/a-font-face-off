@@ -53,12 +53,15 @@ CSS2 Axis Map (no probing)
 --------------------------
 - We no longer “probe” css2 to guess ranges. At runtime we derive axis‑tag css2 URLs from Google Fonts metadata (via `ensureGfMetadata`).
 - Runtime map (in memory), per family:
-  - `tags`: all axes (ital and any custom axes), ordered for css2 (lowercase tags first, then uppercase; alphabetical within each group)
-  - `ranges`: numeric `[min, max]` for every non‑ital axis
+  - `tags`: all CSS2 dimensions needed for loading, including static `ital` when the family has italic files
+  - `variableTags`: tags from the family metadata `axes` list; only these create sliders
+  - `ranges`: numeric `[min, max]` for variable axes
   - `defaults`: axis default values from metadata (when provided per family)
+  - `staticWeights` / `italicWeights`: static file weights used to build `ital,wght@...` URLs for non-variable families
 
 - URL composition: `buildCss2Url()`
   - Uses the runtime map to compose `family=<Name>:<tags>@<tuple>[;…]&display=swap`. Ital yields two tuples (0,…;1,…).
+  - Static italic families use explicit weight tuples, e.g. `family=IBM+Plex+Serif:ital,wght@0,100;...;1,700`.
   - If metadata lacks entries for a family, falls back to the plain css2 URL; only registered axes inferred by the browser will apply.
   - Example (Merriweather): `family=Merriweather:ital,opsz,wdth,wght@0,18..144,87..112,300..900;1,18..144,87..112,300..900`
   - Example (Roboto Flex): `family=Roboto+Flex:opsz,slnt,wdth,wght,GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC@…`
@@ -74,10 +77,10 @@ Applying Styles (applyFont)
 ---------------------------
 File ref: `popup.js:1386`
 - Sets `font-family` to the chosen family on heading + paragraph.
-- Applies basic properties (size, line‑height, color).
+- Applies basic properties (size, line-height, style, color).
 - Weight: applied only if you've "touched" the Weight control; otherwise the font's default weight shows.
 - Variable axes: only axes you've activated are written to `font-variation-settings`.
-- Registered axis mapping: when active, wdth → `font-stretch: <wdth>%`, slnt/ital → `font-style: oblique <deg>` / `italic`. These take precedence for visible changes.
+- Registered axis/static style mapping: when active, `wdth` -> `font-stretch: <wdth>%`, `slnt` -> `font-style: oblique <deg>`, and `fontStyle: "italic"` -> `font-style: italic`. These take precedence for visible changes.
 - Non‑variable fonts: any previous `font-variation-settings` are cleared.
 
 Style Application Methods
@@ -142,7 +145,7 @@ File refs: `content.js:419-437`, `content.js:158-202`
 Notable Edge Cases
 ------------------
 - css2 family param must preserve `+` between words (don’t over‑encode after replacing spaces).
-- Only list axes that have numeric ranges in tuples; ital is handled as 0/1.
+- Only metadata axes create sliders. Static `ital` in a CSS2 URL only requests italic files and is controlled by the basic `fontStyle` setting.
 - If a family serves only WOFF2, the decoder is required for exact custom axis sliders; otherwise only registered axes may be shown.
 - BBC Reith loads via CSS @font‑face; CSP + server CORS enable use within the extension.
 
