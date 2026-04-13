@@ -409,7 +409,8 @@
   function getSubstackRouletteDimmingCss() {
     return [
       '[data-affo-substack-dim] { filter: brightness(var(--affo-substack-dim-brightness)) !important; }',
-      'p[data-affo-substack-dim], li[data-affo-substack-dim], blockquote[data-affo-substack-dim] { background-color: transparent !important; }'
+      'p[data-affo-substack-dim], li[data-affo-substack-dim], blockquote[data-affo-substack-dim] { background: transparent !important; background-color: transparent !important; }',
+      'html body article.post .body.markup blockquote[data-affo-substack-dim], html body article.post .body.markup blockquote [data-affo-substack-dim], html body .available-content .body.markup blockquote[data-affo-substack-dim], html body .available-content .body.markup blockquote [data-affo-substack-dim] { background: transparent !important; background-color: transparent !important; }'
     ].join('\n');
   }
 
