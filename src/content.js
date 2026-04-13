@@ -407,7 +407,10 @@
   var SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS = 54.8; // #363737
 
   function getSubstackRouletteDimmingCss() {
-    return '[data-affo-substack-dim] { filter: brightness(var(--affo-substack-dim-brightness)) !important; }';
+    return [
+      '[data-affo-substack-dim] { filter: brightness(var(--affo-substack-dim-brightness)) !important; }',
+      'p[data-affo-substack-dim], li[data-affo-substack-dim], blockquote[data-affo-substack-dim] { background-color: transparent !important; }'
+    ].join('\n');
   }
 
   function getRgbArray(colorStr) {
