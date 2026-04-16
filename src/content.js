@@ -255,9 +255,11 @@
   var aggressiveDomains = [];
   var waitForItDomains = [];
   var ignoreCommentsDomains = [];
+  var substackRouletteBeigeDisabledDomains = [];
   var pendingSubstackRoulette = null;
+  var substackRouletteActive = false;
   try {
-    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
+    browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
         fontFaceOnlyDomains = data.affoFontFaceOnlyDomains;
         debugLog(`[AFFO Content] FontFace-only domains:`, fontFaceOnlyDomains);
@@ -277,6 +279,10 @@
       if (Array.isArray(data.affoIgnoreCommentsDomains)) {
         ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
         debugLog(`[AFFO Content] Ignore comments domains:`, ignoreCommentsDomains);
+      }
+      if (Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains)) {
+        substackRouletteBeigeDisabledDomains = data.affoSubstackRouletteBeigeDisabledDomains;
+        debugLog(`[AFFO Content] Substack Roulette beige disabled domains:`, substackRouletteBeigeDisabledDomains);
       }
     }).catch(function () { });
   } catch (e) { }
@@ -405,13 +411,63 @@
   }
 
   var SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS = 54.8; // #363737
+  var SUBSTACK_ROULETTE_BEIGE_STYLE_ID = 'a-font-face-off-style-substack-roulette-beige';
+  var SUBSTACK_ROULETTE_DIMMING_STYLE_ID = 'a-font-face-off-style-substack-roulette-dimming';
 
   function getSubstackRouletteDimmingCss() {
     return [
       '[data-affo-substack-dim] { filter: brightness(var(--affo-substack-dim-brightness)) !important; }',
       'p[data-affo-substack-dim], li[data-affo-substack-dim], blockquote[data-affo-substack-dim] { background: transparent !important; background-color: transparent !important; }',
+      'html body article.post .body.markup [data-affo-substack-dim], html body .available-content .body.markup [data-affo-substack-dim] { background: transparent !important; background-color: transparent !important; }',
       'html body article.post .body.markup blockquote[data-affo-substack-dim], html body article.post .body.markup blockquote [data-affo-substack-dim], html body .available-content .body.markup blockquote[data-affo-substack-dim], html body .available-content .body.markup blockquote [data-affo-substack-dim] { background: transparent !important; background-color: transparent !important; }'
     ].join('\n');
+  }
+
+  function getSubstackRouletteBeigeCss() {
+    return [
+      ':root { color-scheme: light !important; --affo-substack-beige: #fff8dc !important; --affo-substack-beige-muted: #eee8cd !important; }',
+      'html, body, .single-post-container, .topbar-content, .available-content, .available-content .body.markup, article.post, article.post .body.markup { background: var(--affo-substack-beige) !important; background-color: var(--affo-substack-beige) !important; }',
+      '.available-content .body.markup p, .available-content .body.markup li, article.post .body.markup p, article.post .body.markup li { background: var(--affo-substack-beige) !important; background-color: var(--affo-substack-beige) !important; }',
+      '.available-content .body.markup blockquote, .available-content .body.markup blockquote p, article.post .body.markup blockquote, article.post .body.markup blockquote p { background: var(--affo-substack-beige) !important; background-color: var(--affo-substack-beige) !important; }',
+      '.available-content .body.markup pre, .available-content .body.markup code, article.post .body.markup pre, article.post .body.markup code { background: var(--affo-substack-beige-muted) !important; background-color: var(--affo-substack-beige-muted) !important; }'
+    ].join('\n');
+  }
+
+  function isSubstackRouletteBeigeDisabled() {
+    return substackRouletteBeigeDisabledDomains.indexOf(currentOrigin) !== -1;
+  }
+
+  function removeSubstackRouletteBeige() {
+    try {
+      var existing = document.getElementById(SUBSTACK_ROULETTE_BEIGE_STYLE_ID);
+      if (existing) existing.remove();
+    } catch (_) { }
+    maybeStopNonAggressiveStyleOrderChaser();
+  }
+
+  function applySubstackRouletteBeige() {
+    if (isSubstackRouletteBeigeDisabled()) {
+      removeSubstackRouletteBeige();
+      return;
+    }
+    if (!document.head) return;
+    try {
+      var existing = document.getElementById(SUBSTACK_ROULETTE_BEIGE_STYLE_ID);
+      if (existing) existing.remove();
+      var styleEl = document.createElement('style');
+      styleEl.id = SUBSTACK_ROULETTE_BEIGE_STYLE_ID;
+      styleEl.textContent = getSubstackRouletteBeigeCss();
+      document.head.appendChild(styleEl);
+      ensureNonAggressiveStyleOrderChaser();
+    } catch (_) { }
+  }
+
+  function syncSubstackRouletteBeige() {
+    if (isSubstackRouletteBeigeDisabled()) {
+      removeSubstackRouletteBeige();
+    } else {
+      applySubstackRouletteBeige();
+    }
   }
 
   function getRgbArray(colorStr) {
@@ -563,9 +619,15 @@
   function removeSubstackRouletteDimming() {
     clearSubstackRouletteDimMarkers();
     try {
-      var existing = document.getElementById('a-font-face-off-style-substack-roulette-dimming');
+      var existing = document.getElementById(SUBSTACK_ROULETTE_DIMMING_STYLE_ID);
       if (existing) existing.remove();
     } catch (_) { }
+  }
+
+  function removeSubstackRouletteEnhancements() {
+    substackRouletteActive = false;
+    removeSubstackRouletteDimming();
+    removeSubstackRouletteBeige();
   }
 
   function applySubstackRouletteDimming() {
@@ -599,7 +661,7 @@
     });
     if (!markedCount || !document.head) return;
     var styleEl = document.createElement('style');
-    styleEl.id = 'a-font-face-off-style-substack-roulette-dimming';
+    styleEl.id = SUBSTACK_ROULETTE_DIMMING_STYLE_ID;
     styleEl.textContent = getSubstackRouletteDimmingCss();
     document.head.appendChild(styleEl);
     ensureNonAggressiveStyleOrderChaser();
@@ -847,7 +909,9 @@
         document.getElementById('a-font-face-off-style-body') ||
         document.getElementById('a-font-face-off-style-serif') ||
         document.getElementById('a-font-face-off-style-sans') ||
-        document.getElementById('a-font-face-off-style-mono')
+        document.getElementById('a-font-face-off-style-mono') ||
+        document.getElementById(SUBSTACK_ROULETTE_BEIGE_STYLE_ID) ||
+        document.getElementById(SUBSTACK_ROULETTE_DIMMING_STYLE_ID)
       ));
     } catch (_) {
       return false;
@@ -875,7 +939,9 @@
         document.getElementById('a-font-face-off-style-body'),
         document.getElementById('a-font-face-off-style-serif'),
         document.getElementById('a-font-face-off-style-sans'),
-        document.getElementById('a-font-face-off-style-mono')
+        document.getElementById('a-font-face-off-style-mono'),
+        document.getElementById(SUBSTACK_ROULETTE_BEIGE_STYLE_ID),
+        document.getElementById(SUBSTACK_ROULETTE_DIMMING_STYLE_ID)
       ].filter(function (node) { return !!(node && node.tagName === 'STYLE' && node.parentNode === head); });
     } catch (_) { }
 
@@ -2721,7 +2787,7 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
       // Ensure domain lists are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -2739,6 +2805,9 @@
       if (Array.isArray(data.affoIgnoreCommentsDomains)) {
         ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
       }
+      if (Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains)) {
+        substackRouletteBeigeDisabledDomains = data.affoSubstackRouletteBeigeDisabledDomains;
+      }
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
       if (!entry) {
@@ -2746,7 +2815,7 @@
         refreshSharedTmiCssObserver();
         // Clean up all stale styles if no entry exists
         ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
-        removeSubstackRouletteDimming();
+        removeSubstackRouletteEnhancements();
         maybeStopNonAggressiveStyleOrderChaser();
 
         // --- Substack Roulette ---
@@ -2772,6 +2841,8 @@
 
             // Resolve css2 URLs before applying so first paint gets the metadata-derived URL.
             resolveCss2UrlsForEntry({ serif: serifConfig, sans: sansConfig }).then(function () {
+              substackRouletteActive = true;
+              syncSubstackRouletteBeige();
               // Apply via existing TMI path
               reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
               scheduleSubstackRouletteDimming();
@@ -2811,7 +2882,7 @@
 
       // Content script handles cleanup AND reapplies stored fonts on page load
       debugLog(`[AFFO Content] Reapplying stored fonts for origin: ${origin}`, entry);
-      removeSubstackRouletteDimming();
+      removeSubstackRouletteEnhancements();
 
       // Remove style elements for fonts that are not applied
       if (!entry.body) {
@@ -2926,6 +2997,13 @@
           ignoreCommentsDomains = newIgnoreList;
           ignoreCommentsMembershipChanged = oldIgnoreList.includes(origin) !== newIgnoreList.includes(origin);
         }
+        var substackBeigeMembershipChanged = false;
+        if (changes.affoSubstackRouletteBeigeDisabledDomains) {
+          var oldBeigeDisabledList = Array.isArray(changes.affoSubstackRouletteBeigeDisabledDomains.oldValue) ? changes.affoSubstackRouletteBeigeDisabledDomains.oldValue : [];
+          var newBeigeDisabledList = Array.isArray(changes.affoSubstackRouletteBeigeDisabledDomains.newValue) ? changes.affoSubstackRouletteBeigeDisabledDomains.newValue : [];
+          substackRouletteBeigeDisabledDomains = newBeigeDisabledList;
+          substackBeigeMembershipChanged = oldBeigeDisabledList.includes(origin) !== newBeigeDisabledList.includes(origin);
+        }
         var rouletteKeysChanged = !!(
           changes.affoSubstackRoulette ||
           changes.affoSubstackRouletteSerif ||
@@ -2933,6 +3011,12 @@
           changes.affoFavorites
         );
         if (!changes.affoApplyMap) {
+          if (substackBeigeMembershipChanged && !rouletteKeysChanged) {
+            if (getIsSubstack() && substackRouletteActive) {
+              syncSubstackRouletteBeige();
+            }
+            return;
+          }
           if (ignoreCommentsMembershipChanged) {
             browser.storage.local.get(['affoApplyMap']).then(function (data) {
               try {
@@ -2945,7 +3029,7 @@
                     if (node) node.remove();
                   } catch (_) { }
                 });
-                removeSubstackRouletteDimming();
+                removeSubstackRouletteEnhancements();
 
                 if (!entry) {
                   if (getIsSubstack() && pendingSubstackRoulette) {
@@ -2965,16 +3049,17 @@
           }
           if (!rouletteKeysChanged) return;
           if (!getIsSubstack()) return;
-          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function (data) {
+          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites']).then(function (data) {
             try {
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
               if (map[origin]) return;
+              substackRouletteBeigeDisabledDomains = Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains) ? data.affoSubstackRouletteBeigeDisabledDomains : [];
               var rouletteEnabled = data.affoSubstackRoulette !== false;
               var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
               var rouletteSans = Array.isArray(data.affoSubstackRouletteSans) ? data.affoSubstackRouletteSans : [];
               var favorites = data.affoFavorites || {};
               if (!rouletteEnabled || rouletteSerif.length < 1 || rouletteSans.length < 1) {
-                removeSubstackRouletteDimming();
+                removeSubstackRouletteEnhancements();
                 return;
               }
               var serifName = rouletteSerif[Math.floor(Math.random() * rouletteSerif.length)];
@@ -2982,9 +3067,11 @@
               var serifConfig = favorites[serifName];
               var sansConfig = favorites[sansName];
               if (!serifConfig || !serifConfig.fontName || !sansConfig || !sansConfig.fontName) {
-                removeSubstackRouletteDimming();
+                removeSubstackRouletteEnhancements();
                 return;
               }
+              substackRouletteActive = true;
+              syncSubstackRouletteBeige();
               reapplyStoredFontsFromEntry({ serif: serifConfig, sans: sansConfig });
               scheduleSubstackRouletteDimming();
             } catch (_) { }
@@ -3014,7 +3101,7 @@
             }
           } catch (e) { }
         });
-        removeSubstackRouletteDimming();
+        removeSubstackRouletteEnhancements();
 
         // Apply fonts when storage changes (both immediate apply and reload persistence)
         if (entry) {

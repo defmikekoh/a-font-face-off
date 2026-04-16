@@ -36,6 +36,8 @@ const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_NAME = 'ignore-comments-domains.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME = 'ignore-comments-domains-meta.json';
+const SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME = 'substack-beige-disabled-domains.json';
+const SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_META_NAME = 'substack-beige-disabled-domains-meta.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
@@ -51,6 +53,8 @@ const WAITFORIT_DOMAINS_KEY = 'affoWaitForItDomains';
 const WAITFORIT_DOMAINS_META_KEY = 'affoWaitForItDomainsMeta';
 const IGNORE_COMMENTS_DOMAINS_KEY = 'affoIgnoreCommentsDomains';
 const IGNORE_COMMENTS_DOMAINS_META_KEY = 'affoIgnoreCommentsDomainsMeta';
+const SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY = 'affoSubstackRouletteBeigeDisabledDomains';
+const SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY = 'affoSubstackRouletteBeigeDisabledDomainsMeta';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
 const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
@@ -1687,6 +1691,13 @@ async function runSync() {
       filename: SYNC_IGNORE_COMMENTS_DOMAINS_NAME,
       metaFilename: SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME,
       label: 'Ignore comments domains'
+    },
+    {
+      key: SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY,
+      localMetaStorageKey: SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY,
+      filename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME,
+      metaFilename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_META_NAME,
+      label: 'Substack Roulette beige disabled domains'
     }
   ];
   for (const item of domainArrayItems) {
@@ -2708,6 +2719,18 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).catch((e) => {
       console.warn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
       markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
+  }
+  if (changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY])) {
+    markDomainOriginArrayModified(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY], {
+      localMetaStorageKey: SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME,
+      syncMetaFilename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      console.warn('[AFFO Background] Failed to update Substack Roulette beige disabled domains metadata:', e);
+      markLocalItemModified(SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
   if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {

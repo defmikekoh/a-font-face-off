@@ -99,6 +99,8 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
+| `affoSubstackRouletteBeigeDisabledDomains` | Domains where Substack Roulette keeps original backgrounds instead of applying the default beige layer | `["example.substack.com"]` |
+| `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin sync metadata for Substack Roulette beige disabled domains | `{ version: 1, byOrigin: { "example.substack.com": { modified: 1700000000000 } } }` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
 | `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoGDriveAuthStatus` | Local-only Google Drive auth recovery state used when refresh-token renewal fails. Preserves backend selection while prompting reconnect. Not synced. | `{ state: "reconnect_required", reason: "invalid_grant", detail: "Token has been expired or revoked.", errorSubtype: "", updatedAt: 1700000000000, message: "Google Drive authorization expired (Token has been expired or revoked.). Reconnect Google Drive." }` |
@@ -149,8 +151,10 @@ The extension uses `browser.storage.local` for all persistence.
 | `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
 | `ignore-comments-domains.json` | `affoIgnoreCommentsDomains` | Ignore Comments domain list |
 | `ignore-comments-domains-meta.json` | `affoIgnoreCommentsDomainsMeta` | Per-origin merge metadata for Ignore Comments domain list |
+| `substack-beige-disabled-domains.json` | `affoSubstackRouletteBeigeDisabledDomains` | Substack Roulette beige disabled domain list |
+| `substack-beige-disabled-domains-meta.json` | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin merge metadata for Substack Roulette beige disabled domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
-| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools. Overly light roulette-applied main text is clamped to `#363737` at render time. |
+| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools. Roulette applies a beige page layer by default unless the domain is listed in `affoSubstackRouletteBeigeDisabledDomains`; overly light roulette-applied main text is clamped to `#363737` at render time. |
 
 See `docs/architecture/SYNC.md` for backend interface details and sync algorithm.
 

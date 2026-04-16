@@ -230,6 +230,7 @@
   const DEFAULT_AGGRESSIVE = [];
   const DEFAULT_WAITFORIT = [];
   const DEFAULT_IGNORE_COMMENTS = [];
+  const DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED = [];
   const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
   const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
@@ -536,6 +537,7 @@
     const statusEl = document.getElementById('status-substack-roulette');
     try {
       const enabled = document.getElementById('substack-roulette-enabled').checked;
+      const beigeDisabled = fromTextarea(document.getElementById('substack-roulette-beige-disabled-domains').value);
       const serifNames = [];
       const sansNames = [];
       document.querySelectorAll('#substack-roulette-tbody input[type="checkbox"]').forEach(cb => {
@@ -546,7 +548,8 @@
       await browser.storage.local.set({
         affoSubstackRoulette: enabled,
         affoSubstackRouletteSerif: serifNames,
-        affoSubstackRouletteSans: sansNames
+        affoSubstackRouletteSans: sansNames,
+        affoSubstackRouletteBeigeDisabledDomains: beigeDisabled
       });
       await browser.storage.local.remove('affoSubstackRouletteBrightness');
       statusEl.textContent = 'Saved';
@@ -809,6 +812,7 @@
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
+        'affoSubstackRouletteBeigeDisabledDomains',
         'affoFavorites',
         'affoFavoritesOrder',
         'affoToolbarEnabled',
@@ -838,6 +842,8 @@
       document.getElementById('waitforit-domains').value = toTextarea(waitforit);
       const ignoreComments = Array.isArray(data.affoIgnoreCommentsDomains) ? data.affoIgnoreCommentsDomains : DEFAULT_IGNORE_COMMENTS.slice();
       document.getElementById('ignore-comments-domains').value = toTextarea(ignoreComments);
+      const substackRouletteBeigeDisabled = Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains) ? data.affoSubstackRouletteBeigeDisabledDomains : DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED.slice();
+      document.getElementById('substack-roulette-beige-disabled-domains').value = toTextarea(substackRouletteBeigeDisabled);
 
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
@@ -1190,6 +1196,7 @@
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
       document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
       document.getElementById('ignore-comments-domains').value = toTextarea(DEFAULT_IGNORE_COMMENTS);
+      document.getElementById('substack-roulette-beige-disabled-domains').value = toTextarea(DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED);
 
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';

@@ -822,10 +822,12 @@
             { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
             { id: 'affo-quick-pick-waitforit', label: 'Wait For It Domain' },
             { id: 'affo-quick-pick-ignore-comments', label: 'Ignore Comments Domain' },
+            { id: 'affo-quick-pick-substack-beige-disabled', label: 'Disable Substack Beige', substackOnly: true },
         ];
 
         for (const def of checkboxDefs) {
             const lbl = document.createElement('label');
+            lbl.dataset.affoSubstackOnly = def.substackOnly ? 'true' : 'false';
             lbl.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 6px !important; cursor: pointer !important; font-size: 12px !important; font-family: inherit !important; color: #495057 !important; margin: 0 !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important; width: 100% !important; box-sizing: border-box !important; text-align: left !important; direction: ltr !important;';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
@@ -904,7 +906,7 @@
             const origin = location.hostname;
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
-                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains',
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains',
                 'affoSyncBackend'
             ]);
             const favorites = data.affoFavorites || {};
@@ -918,6 +920,7 @@
                 aggressive: data.affoAggressiveDomains || [],
                 waitforit: data.affoWaitForItDomains || [],
                 ignorecomments: data.affoIgnoreCommentsDomains || [],
+                substackbeigedisabled: data.affoSubstackRouletteBeigeDisabledDomains || [],
             };
 
             // Get top 5 favorites (preserve both name and config like Load Favorites modal)
@@ -976,6 +979,20 @@
         }, QUICK_PICK_SUCCESS_CLOSE_DELAY_MS);
     }
 
+    function isSubstackSite() {
+        try {
+            if (location.hostname.endsWith('.substack.com')) return true;
+            if (typeof window.__SUBSTACK_PUB_ID__ === 'string') return true;
+            const generator = document.querySelector('meta[name="generator"]');
+            if (generator && /substack/i.test(generator.getAttribute('content') || '')) return true;
+            const canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical && /\.substack\.com/i.test(canonical.getAttribute('href') || '')) return true;
+            return !!document.querySelector('link[href*="substackcdn"], script[src*="substack"]');
+        } catch (_) {
+            return false;
+        }
+    }
+
     // Set disabled/loading state on all quick-pick buttons
     function setQuickPickButtonsDisabled(disabled) {
         const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
@@ -1005,6 +1022,7 @@
         const message = document.getElementById('affo-quick-pick-message');
         const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
         const currentOrigin = origin || location.hostname;
+        const currentIsSubstack = isSubstackSite();
 
         if (quickPickCloseTimer) {
             clearTimeout(quickPickCloseTimer);
@@ -1018,11 +1036,17 @@
             { id: 'affo-quick-pick-aggressive', key: 'affoAggressiveDomains', listKey: 'aggressive' },
             { id: 'affo-quick-pick-waitforit', key: 'affoWaitForItDomains', listKey: 'waitforit' },
             { id: 'affo-quick-pick-ignore-comments', key: 'affoIgnoreCommentsDomains', listKey: 'ignorecomments' },
+            { id: 'affo-quick-pick-substack-beige-disabled', key: 'affoSubstackRouletteBeigeDisabledDomains', listKey: 'substackbeigedisabled', substackOnly: true },
         ];
 
         for (const cfg of checkboxConfig) {
             const cb = document.getElementById(cfg.id);
             if (!cb) continue;
+            const row = cb.parentElement;
+            if (cfg.substackOnly && row) {
+                row.style.setProperty('display', currentIsSubstack ? 'flex' : 'none', 'important');
+            }
+            if (cfg.substackOnly && !currentIsSubstack) continue;
             const list = (domainLists && domainLists[cfg.listKey]) || [];
             cb.checked = list.includes(currentOrigin);
             cb.onchange = async function() {
