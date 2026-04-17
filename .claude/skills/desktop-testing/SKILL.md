@@ -117,6 +117,30 @@ const affoBase = await driver.executeScript(
 // Returns 'serif', 'sans', or 'mono'
 ```
 
+### Android Firefox Inspection
+
+For real Android Firefox DOM and computed-style inspection, use the project harness:
+
+```bash
+npm run build:latest
+npm run inspect:android-firefox -- --serial DEVICE_ID --package org.mozilla.fenix --expect-affo --out ztemp/android-firefox-inspect.json
+```
+
+The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Pass `--skip-addon` when the extension is already installed by another workflow.
+
+Speed/fidelity rule:
+- Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
+- Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, or final computed CSS with AFFO active.
+- If Chrome reveals a selector or page structure, verify in Firefox before treating it as extension behavior; sites and engines can diverge.
+
+Geckodriver installs the temporary addon into a fresh extension profile. Storage-dependent features will not be configured unless the script seeds storage or the workflow uses an already-configured install. For Substack Roulette checks, seed deterministic favorites before inspection:
+
+```bash
+npm run inspect:android-firefox -- --serial DEVICE_ID --package org.mozilla.fenix --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
+```
+
+Use a seed font that differs from the site default when proving font application. On Substack, `Lora` is a better serif proof than `Spectral` because many Substack pages already use Spectral.
+
 ## Popup panel details
 
 - The popup opens inside the `customizationui-widget-panel` panel element in chrome context
@@ -128,6 +152,15 @@ const affoBase = await driver.executeScript(
 - Some sites detect Selenium and show CAPTCHA (Wikipedia works fine)
 - Requires Firefox Developer Edition (geckodriver needs it for `-remote-allow-system-access`)
 - `popupExec` only works with `extensions.webextensions.remote=false` (in-process mode)
+
+### Computer Use Boundary
+
+Computer Use is the GUI escape hatch, not the default AFFO test path. Use it when the target is the Mac app UI itself:
+- Firefox Developer Edition helper/update prompts, permission prompts, and browser chrome dialogs.
+- `about:debugging` or DevTools windows when the workflow requires visible panel navigation.
+- One-off visual confirmation of desktop browser state before deciding whether to automate with Selenium.
+
+Do not use Computer Use for repeatable popup/content-script regression checks, real DOM/computed-style assertions, or Android page inspection when Selenium/geckodriver, the Android Firefox harness, Chrome CDP, or ADB can provide structured output.
 
 ## Troubleshooting
 
