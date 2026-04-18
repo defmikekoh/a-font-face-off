@@ -1,11 +1,11 @@
 ---
-name: desktop-testing
-description: Automated testing of the Firefox extension using Selenium, geckodriver, and Firefox Developer Edition
+name: firefox-extension-testing
+description: Test and inspect the A Font Face-off Firefox extension on desktop Firefox and Android Firefox using Selenium, geckodriver, Firefox Developer Edition, and the Android Firefox WebDriver harness.
 ---
 
-# Desktop Firefox Testing
+# Firefox Extension Testing
 
-Automated testing of the extension using Firefox Developer Edition, Selenium, and geckodriver. Tests interact with the real browser action popup (not a direct moz-extension:// URL).
+Automated and semi-automated testing of the extension on desktop Firefox Developer Edition and Android Firefox. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android inspection uses the project WebDriver harness for real Firefox Android DOM and computed CSS.
 
 ## Prerequisites
 
@@ -15,6 +15,17 @@ npm install  # selenium-webdriver is a devDependency
 ```
 
 Firefox Developer Edition must be installed at `/Applications/Firefox Developer Edition.app`.
+
+Android Firefox inspection also requires ADB and an authorized Android device.
+
+## AFFO Debugging Order
+
+1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
+2. Use desktop Selenium/geckodriver for repeatable popup and desktop content-script behavior.
+3. Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
+4. Use the Android Firefox WebDriver harness for authoritative Firefox Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final extension behavior matters.
+5. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
+6. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
 ## Running Tests
 
