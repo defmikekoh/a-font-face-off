@@ -43,3 +43,4 @@ All three CSS generators produce explicit rules for italic elements (`<em>`, `<i
 - **Bold-italic rule**: `:where(strong, b) :where(em, i)` gets italic props plus `font-weight: 700` with `wght` axis override
 - Built via `buildItalicProps(payload, imp, weightOverride?)` in `css-generators.js`
 - TMI mode uses `[data-affo-font-type]` attribute selectors; body/body-contact use `body :where(...)` descendant selectors
+- TMI bold CSS also excludes `[data-affo-was-bold="true"]` nodes from the non-bold rule and routes them through the bold override, so walker-marked links/spans nested inside bold wrappers keep `700` instead of being flattened to the configured text weight

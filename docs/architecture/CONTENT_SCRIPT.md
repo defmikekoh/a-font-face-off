@@ -94,4 +94,4 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 
 ## Bold Override Strategy
 
-Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. In the inline-apply path, bold elements are marked with `data-affo-was-bold="true"` so subsequent reapply cycles can detect them without relying on computed style.
+Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. The TMI walker stamps computed-bold marked nodes with `data-affo-was-bold="true"` so CSS-mode TMI can keep marked links/spans out of the non-bold rule, and inline reapply cycles can detect them without re-reading computed style every time.

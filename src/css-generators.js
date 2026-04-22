@@ -321,7 +321,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
-        lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b) { ${nonBoldProps.join('; ')}; }`);
+        lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b):not([data-affo-was-bold="true"]) { ${nonBoldProps.join('; ')}; }`);
     }
 
     // Bold rule
@@ -332,7 +332,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         if (boldAxes.length > 0) {
             boldProps.push(`font-variation-settings: ${boldAxes.join(', ')}${imp}`);
         }
-        lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
+        lines.push(`strong[data-affo-font-type="${ft}"], b[data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"][data-affo-was-bold="true"], [data-affo-font-type="${ft}"] strong, [data-affo-font-type="${ft}"] b { ${boldProps.join('; ')}; }`);
     }
 
     lines.push(`[data-affo-font-type="${ft}"] h1, [data-affo-font-type="${ft}"] h2, [data-affo-font-type="${ft}"] h3, [data-affo-font-type="${ft}"] h4, [data-affo-font-type="${ft}"] h5, [data-affo-font-type="${ft}"] h6 { font-family: revert${imp}; font-weight: revert${imp}; font-stretch: revert${imp}; font-style: revert${imp}; font-variation-settings: normal${imp}; }`);

@@ -853,6 +853,14 @@
     el.setAttribute('data-affo-font-name', propsObj['font-family']);
   }
 
+  function isBoldFontWeightValue(weightValue) {
+    if (weightValue == null) return false;
+    var normalized = String(weightValue).trim().toLowerCase();
+    if (normalized === 'bold' || normalized === 'bolder') return true;
+    var numeric = Number(normalized);
+    return isFinite(numeric) && numeric >= 700;
+  }
+
   // TMI-aware wrapper: detects bold elements before overwriting, preserves weight 700
   function applyTmiProtection(el, propsObj, effectiveWeight) {
     // Detect bold BEFORE applying — check tag, prior-run marker, or computed style
@@ -865,7 +873,7 @@
         isBold = true;
       } else {
         var cw = window.getComputedStyle(el).fontWeight;
-        isBold = cw && Number(cw) >= 700;
+        isBold = isBoldFontWeightValue(cw);
       }
     } catch (_) { }
 
@@ -1539,7 +1547,7 @@
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
       if (nonBoldProps.length > 0) {
-        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b) { ' + nonBoldProps.join('; ') + '; }');
+        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"]) { ' + nonBoldProps.join('; ') + '; }');
       }
 
       // Bold rule — font-weight 700; stretch/style inherit from parent
@@ -1552,7 +1560,7 @@
         if (boldAxes.length > 0) {
           boldProps.push('font-variation-settings: ' + boldAxes.join(', ') + imp);
         }
-        lines.push('strong[data-affo-font-type="' + fontType + '"], b[data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"] strong, [data-affo-font-type="' + fontType + '"] b { ' + boldProps.join('; ') + '; }');
+        lines.push('strong[data-affo-font-type="' + fontType + '"], b[data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"], [data-affo-font-type="' + fontType + '"] strong, [data-affo-font-type="' + fontType + '"] b { ' + boldProps.join('; ') + '; }');
       }
 
       lines.push('[data-affo-font-type="' + fontType + '"] h1, [data-affo-font-type="' + fontType + '"] h2, [data-affo-font-type="' + fontType + '"] h3, [data-affo-font-type="' + fontType + '"] h4, [data-affo-font-type="' + fontType + '"] h5, [data-affo-font-type="' + fontType + '"] h6 { font-family: revert' + imp + '; font-weight: revert' + imp + '; font-stretch: revert' + imp + '; font-style: revert' + imp + '; font-variation-settings: normal' + imp + '; }');
@@ -2627,10 +2635,16 @@
               if (currentMarker !== detectedType) {
                 element.setAttribute('data-affo-font-type', detectedType);
               }
+              if (isBoldFontWeightValue(cs.fontWeight)) {
+                element.setAttribute('data-affo-was-bold', 'true');
+              } else {
+                element.removeAttribute('data-affo-was-bold');
+              }
               markedCounts[detectedType]++;
             } else if (currentMarker && typeSet[currentMarker]) {
               // Element had a marker for one of the types we're walking, but shouldn't anymore
               element.removeAttribute('data-affo-font-type');
+              element.removeAttribute('data-affo-was-bold');
             }
           }
 
@@ -3210,8 +3224,9 @@
 
           // Remove any Third Man In data attributes
           try {
-            document.querySelectorAll('[data-affo-font-type]').forEach(function (el) {
+            document.querySelectorAll('[data-affo-font-type], [data-affo-was-bold]').forEach(function (el) {
               el.removeAttribute('data-affo-font-type');
+              el.removeAttribute('data-affo-was-bold');
             });
           } catch (e) { }
 

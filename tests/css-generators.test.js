@@ -104,6 +104,16 @@ describe('css-generators bold variable-axis overrides', () => {
         assert.doesNotMatch(boldRule, /"wght" 385/);
     });
 
+    it('keeps walker-marked bold descendants out of the non-bold TMI rule', () => {
+        const css = generateThirdManInCSS('serif', payload, false);
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not(strong)'));
+        const boldRule = css.split('\n').find(line => line.startsWith('strong[data-affo-font-type="serif"]'));
+        assert.ok(nonBoldRule);
+        assert.ok(boldRule);
+        assert.match(nonBoldRule, /:not\(\[data-affo-was-bold="true"\]\)/);
+        assert.match(boldRule, /\[data-affo-font-type="serif"\]\[data-affo-was-bold="true"\]/);
+    });
+
     it('resets headings inside third-man-in marked containers', () => {
         const css = generateThirdManInCSS('serif', payload, false);
         const headingRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"] h1'));
