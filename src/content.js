@@ -1908,6 +1908,7 @@
   }
 
   var loadedGoogleFontFaceKeys = {};
+  var loadedCustomFontFaceKeys = {};
 
   function getGoogleFontFaceLoadKey(fontName, descriptors) {
     var desc = descriptors || {};
@@ -1920,6 +1921,51 @@
     ].join('|');
   }
 
+  function getCustomFontFaceLoadKey(fontName, descriptors, index) {
+    return getGoogleFontFaceLoadKey(fontName, descriptors) + '|' + index;
+  }
+
+  function getFontFaceSrcUrl(block) {
+    var srcMatch = String(block || '').match(/src\s*:\s*url\(\s*(['"]?)(.*?)\1\s*\)/i);
+    return srcMatch ? srcMatch[2].trim() : '';
+  }
+
+  function buildCustomFontFaceDescriptors(block) {
+    var unicodeRange = parseFontFaceSimpleDescriptor(block, 'unicode-range');
+    return buildFontFaceDescriptors({
+      weightInfo: parseFontFaceWeightDescriptor(block),
+      style: parseFontFaceStyleDescriptor(block),
+      unicodeRange: unicodeRange,
+      stretch: parseFontFaceSimpleDescriptor(block, 'font-stretch')
+    });
+  }
+
+  function getDataUrlFontFormat(fontUrl) {
+    var header = String(fontUrl || '').split(',')[0].toLowerCase();
+    if (header.indexOf('woff2') !== -1) return 'WOFF2';
+    if (header.indexOf('woff') !== -1) return 'WOFF';
+    if (header.indexOf('opentype') !== -1 || header.indexOf('otf') !== -1) return 'OTF';
+    if (header.indexOf('truetype') !== -1 || header.indexOf('ttf') !== -1) return 'TTF';
+    return 'font';
+  }
+
+  function decodeBase64DataUrl(fontUrl) {
+    var value = String(fontUrl || '');
+    var commaIndex = value.indexOf(',');
+    if (commaIndex === -1) return null;
+    var header = value.slice(0, commaIndex);
+    if (!/;base64/i.test(header)) return null;
+    var base64Data = value.slice(commaIndex + 1).replace(/\s+/g, '');
+    if (!base64Data) return null;
+
+    var binaryString = atob(base64Data);
+    var bytes = new Uint8Array(binaryString.length);
+    for (var i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
   function tryCustomFontFaceAPI(fontName, fontFaceRule, fontConfig) {
     if (!window.FontFace || !document.fonts) {
       debugLog(`[AFFO Content] FontFace API not supported for custom font ${fontName}`);
@@ -1927,23 +1973,6 @@
     }
 
     try {
-      // Check if font is already loaded in document.fonts
-      var fontAlreadyLoaded = false;
-      try {
-        document.fonts.forEach(function (fontFace) {
-          if (fontFace.family === fontName && fontFace.status === 'loaded') {
-            fontAlreadyLoaded = true;
-          }
-        });
-      } catch (e) {
-        debugLog(`[AFFO Content] Error checking document.fonts for custom font ${fontName}:`, e);
-      }
-
-      if (fontAlreadyLoaded) {
-        debugLog(`[AFFO Content] Custom font ${fontName} already loaded in document.fonts, skipping download`);
-        return Promise.resolve();
-      }
-
       debugLog(`[AFFO Content] Parsing custom @font-face rule for ${fontName}`);
 
       // Parse @font-face rule to extract WOFF2 URLs and font descriptors
@@ -1961,46 +1990,33 @@
 
       var loadPromises = selectedFontFaceBlocks.map(function (block, index) {
         // Extract src URL - handle HTTP URLs, data: URLs, and WOFF/WOFF2 formats
-        var srcMatch = block.match(/src:\s*url\(["']?([^"'\)]+)["']?\)/i);
-        if (!srcMatch) {
+        var fontUrl = getFontFaceSrcUrl(block);
+        if (!fontUrl) {
           debugLog(`[AFFO Content] No URL found in @font-face block ${index + 1} for ${fontName}`);
           return Promise.resolve(false);
         }
 
-        var fontUrl = srcMatch[1];
-
         // Extract font descriptors
-        var weightInfo = parseFontFaceWeightDescriptor(block);
-        var styleMatch = block.match(/font-style:\s*(normal|italic)/i);
-
-        var descriptors = {
-          weight: weightInfo.descriptor,
-          style: styleMatch ? styleMatch[1] : 'normal',
-          display: 'swap'
-        };
+        var descriptors = buildCustomFontFaceDescriptors(block);
+        var loadKey = getCustomFontFaceLoadKey(fontName, descriptors, index);
+        if (loadedCustomFontFaceKeys[loadKey]) {
+          debugLog(`[AFFO Content] Custom FontFace already loaded for ${fontName} variant ${index + 1}, skipping`);
+          return Promise.resolve(true);
+        }
 
         debugLog(`[AFFO Content] Font descriptors ${index + 1}:`, descriptors);
 
         // Handle data: URLs (for AP fonts and other base64-embedded fonts)
-        if (fontUrl.startsWith('data:font/woff2;base64,') || fontUrl.startsWith('data:font/woff;base64,')) {
-          var fontFormat = fontUrl.startsWith('data:font/woff2') ? 'WOFF2' : 'WOFF';
+        if (/^data:/i.test(fontUrl)) {
+          var fontFormat = getDataUrlFontFormat(fontUrl);
           debugLog(`[AFFO Content] Found ${fontFormat} data: URL ${index + 1} for ${fontName}`);
 
           try {
-            // Extract base64 data after the comma
-            var base64Data = fontUrl.split(',')[1];
-            if (!base64Data) {
+            var arrayBuffer = decodeBase64DataUrl(fontUrl);
+            if (!arrayBuffer) {
               debugLog(`[AFFO Content] Invalid data: URL format for ${fontName} variant ${index + 1}`);
               return Promise.resolve(false);
             }
-
-            // Decode base64 to binary string
-            var binaryString = atob(base64Data);
-            var bytes = new Uint8Array(binaryString.length);
-            for (var i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            var arrayBuffer = bytes.buffer;
 
             debugLog(`[AFFO Content] Decoded data: URL for ${fontName} variant ${index + 1} (${arrayBuffer.byteLength} bytes)`);
 
@@ -2009,6 +2025,7 @@
             document.fonts.add(fontFace);
 
             return fontFace.load().then(function () {
+              loadedCustomFontFaceKeys[loadKey] = true;
               debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} data: URL variant ${index + 1}`);
               return true;
             }).catch(function (e) {
@@ -2045,6 +2062,7 @@
             document.fonts.add(fontFace);
 
             return fontFace.load().then(function () {
+              loadedCustomFontFaceKeys[loadKey] = true;
               debugLog(`[AFFO Content] Custom FontFace API successful for ${fontName} variant ${index + 1}`);
               return true;
             }).catch(function (e) {
