@@ -4,7 +4,7 @@ x.com requires unique treatment due to aggressive style clearing.
 
 ## FontFace-only Loading
 
-Background script fetches WOFF2 with unicode-range filtering. Domain lists configurable via `affoFontFaceOnlyDomains` and `affoInlineApplyDomains` storage keys. Custom non-Google families only load `@font-face` blocks matching the active weight or 700, and preserve variable `font-weight` ranges when registering `FontFace` instances.
+Background script fetches WOFF2 with unicode-range filtering. Domain lists configurable via `affoFontFaceOnlyDomains` and `affoInlineApplyDomains` storage keys. The document-start toolbar preloader skips page-level Google Fonts `<link>` injection on FontFace-only domains. Google Fonts only load the configured weight plus 700 for bold descendants, and register `FontFace` instances with CSS-derived `font-weight`, `font-style`, `unicode-range`, and `font-stretch` descriptors. Custom non-Google families only load `@font-face` blocks matching the active weight or 700, and preserve variable `font-weight` ranges when registering `FontFace` instances.
 
 ## Inline Style Application
 

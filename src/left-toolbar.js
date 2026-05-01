@@ -174,7 +174,7 @@
     (function earlyFontPreload() {
         try {
             const origin = location.hostname;
-            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains']).then(data => {
+            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains', 'affoFontFaceOnlyDomains']).then(data => {
                 const map = data.affoApplyMap || {};
                 const entry = map[origin];
 
@@ -183,6 +183,13 @@
                 // Skip preloading on Wait For It domains — fonts loaded on demand via long-press
                 const waitForItDomains = data.affoWaitForItDomains || [];
                 if (waitForItDomains.includes(origin)) return;
+
+                // FontFace-only domains intentionally avoid page-level Google Fonts
+                // stylesheets; content.js loads WOFF2 files through the background page.
+                const fontFaceOnlyDomains = Array.isArray(data.affoFontFaceOnlyDomains)
+                    ? data.affoFontFaceOnlyDomains
+                    : ['x.com'];
+                if (fontFaceOnlyDomains.includes(origin)) return;
 
                 // Wait for document.head to be available
                 function injectWhenReady() {

@@ -8,7 +8,7 @@ All async operations are Promise-based (2024 refactor complete). No setTimeout p
 
 A 4-stage pipeline ensures fonts load as early as possible:
 
-1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` from storage, asks background.js to resolve Google Fonts css2 URLs at runtime, and injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is fully parsed.
+1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` from storage, asks background.js to resolve Google Fonts css2 URLs at runtime, and injects preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. This gives the browser maximum lead time to start fetching fonts before the page is fully parsed. FontFace-only domains such as x.com skip this page-level stylesheet path.
 2. **Eager custom font reads in `content.js`** (module load): `ensureCustomFontsLoaded()` is kicked off immediately when the script loads, not lazily when first needed.
 3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is resolved and injected alongside the CSS `<style>` element, before or in parallel with the `loadFont()` chain.
 4. **CSS injection before font loads**: CSS rules targeting `[data-affo-font-type="..."]` are injected immediately, before font files load. The browser shows fallback fonts until the font file loads, then swaps in via `font-display: swap`.

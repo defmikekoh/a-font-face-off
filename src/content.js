@@ -1822,6 +1822,17 @@
     };
   }
 
+  function parseFontFaceSimpleDescriptor(block, propertyName) {
+    var re = new RegExp(propertyName + '\\s*:\\s*([^;]+);', 'i');
+    var match = String(block || '').match(re);
+    return match ? match[1].trim() : '';
+  }
+
+  function parseFontFaceStyleDescriptor(block) {
+    var style = parseFontFaceSimpleDescriptor(block, 'font-style').toLowerCase();
+    return style || 'normal';
+  }
+
   function shouldLoadCustomFontFaceBlock(weightInfo, fontConfig) {
     if (!weightInfo || !fontConfig) return true;
 
@@ -1833,6 +1844,80 @@
     return wantedWeights.some(function (weight) {
       return weight >= weightInfo.min && weight <= weightInfo.max;
     });
+  }
+
+  function getWantedGoogleFontStyle(fontConfig) {
+    var effectiveItalic = getEffectiveItalic(fontConfig || {});
+    return effectiveItalic !== null && effectiveItalic >= 1 ? 'italic' : 'normal';
+  }
+
+  function shouldLoadGoogleFontFaceEntry(entry, fontConfig) {
+    if (!entry) return false;
+    if (!shouldLoadCustomFontFaceBlock(entry.weightInfo, fontConfig)) return false;
+
+    var wantedStyle = getWantedGoogleFontStyle(fontConfig);
+    var entryStyle = entry.style || 'normal';
+    if (entryStyle === wantedStyle) return true;
+
+    // Oblique descriptors are uncommon in Google Fonts CSS, but if present they
+    // are the closest match for AFFO's slant control.
+    return wantedStyle === 'italic' && entryStyle.indexOf('oblique') === 0;
+  }
+
+  function filterGoogleFontFaceEntriesForConfig(entries, fontConfig) {
+    if (!entries || entries.length === 0) return [];
+
+    var matchingStyleAndWeight = entries.filter(function (entry) {
+      return shouldLoadGoogleFontFaceEntry(entry, fontConfig);
+    });
+    if (matchingStyleAndWeight.length > 0) return matchingStyleAndWeight;
+
+    var matchingWeight = entries.filter(function (entry) {
+      return shouldLoadCustomFontFaceBlock(entry.weightInfo, fontConfig);
+    });
+    return matchingWeight.length > 0 ? matchingWeight : entries;
+  }
+
+  function buildFontFaceDescriptors(entry) {
+    var descriptors = {
+      display: 'swap'
+    };
+    if (entry && entry.weightInfo && entry.weightInfo.descriptor) {
+      descriptors.weight = entry.weightInfo.descriptor;
+    }
+    if (entry && entry.style) {
+      descriptors.style = entry.style;
+    }
+    if (entry && entry.unicodeRange) {
+      descriptors.unicodeRange = entry.unicodeRange;
+    }
+    if (entry && entry.stretch) {
+      descriptors.stretch = entry.stretch;
+    }
+    return descriptors;
+  }
+
+  function buildDescriptorMapByUrl(entries) {
+    var byUrl = {};
+    (entries || []).forEach(function (entry) {
+      if (entry && entry.url && !byUrl[entry.url]) {
+        byUrl[entry.url] = buildFontFaceDescriptors(entry);
+      }
+    });
+    return byUrl;
+  }
+
+  var loadedGoogleFontFaceKeys = {};
+
+  function getGoogleFontFaceLoadKey(fontName, descriptors) {
+    var desc = descriptors || {};
+    return [
+      String(fontName || ''),
+      desc.weight || '400',
+      desc.style || 'normal',
+      desc.stretch || 'normal',
+      desc.unicodeRange || 'U+0-10FFFF'
+    ].join('|');
   }
 
   function tryCustomFontFaceAPI(fontName, fontFaceRule, fontConfig) {
@@ -2049,9 +2134,14 @@
         var urlMatch = block.match(/url\((['"]?)([^'")]+\.woff2[^'")]*)\1\)/i);
         if (!urlMatch) continue;
         var unicodeMatch = block.match(/unicode-range\s*:\s*([^;]+);/i);
+        var unicodeRange = unicodeMatch ? unicodeMatch[1].trim() : '';
         entries.push({
           url: urlMatch[2],
-          ranges: parseUnicodeRanges(unicodeMatch ? unicodeMatch[1] : '')
+          ranges: parseUnicodeRanges(unicodeRange),
+          unicodeRange: unicodeRange,
+          weightInfo: parseFontFaceWeightDescriptor(block),
+          style: parseFontFaceStyleDescriptor(block),
+          stretch: parseFontFaceSimpleDescriptor(block, 'font-stretch')
         });
       }
     } catch (e) {
@@ -2235,23 +2325,6 @@
     }
 
     try {
-      // Check if font is already loaded in document.fonts
-      var fontAlreadyLoaded = false;
-      try {
-        document.fonts.forEach(function (fontFace) {
-          if (fontFace.family === fontName && fontFace.status === 'loaded') {
-            fontAlreadyLoaded = true;
-          }
-        });
-      } catch (e) {
-        debugLog(`[AFFO Content] Error checking document.fonts for ${fontName}:`, e);
-      }
-
-      if (fontAlreadyLoaded) {
-        debugLog(`[AFFO Content] Font ${fontName} already loaded in document.fonts, skipping download`);
-        return Promise.resolve();
-      }
-
       debugLog(`[AFFO Content] Downloading WOFF2 font data for ${fontName} via background script`);
 
       return resolveCss2Url(fontName, { fallbackWhenMissing: true }).then(function (cssUrl) {
@@ -2277,11 +2350,17 @@
           if (woff2Matches && woff2Matches.length > 0) {
             debugLog(`[AFFO Content] Found ${woff2Matches.length} WOFF2 URLs in CSS (different subsets/styles)`);
 
-            // Extract all WOFF2 URLs first
-            var woff2Urls = woff2Matches.map(function (match) {
+            // Extract all WOFF2 URLs first, then narrow to the configured style
+            // and weight plus 700 for bold descendants.
+            var fontFaceEntries = extractFontFaceEntries(css);
+            var candidateEntries = filterGoogleFontFaceEntriesForConfig(fontFaceEntries, fontConfig);
+            var woff2Urls = (candidateEntries.length > 0 ? candidateEntries.map(function (entry) {
+              return entry.url;
+            }) : woff2Matches.map(function (match) {
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
-            });
+            }));
             var uniqueWoff2Urls = dedupeUrls(woff2Urls);
+            var descriptorMap = buildDescriptorMapByUrl(candidateEntries.length > 0 ? candidateEntries : fontFaceEntries);
 
             // Skip subset filtering for fonts with comprehensive IPA/Unicode coverage
             var skipSubsetFiltering = FONTFACE_FULL_SUBSET_FONTS.indexOf(fontName) !== -1;
@@ -2291,9 +2370,8 @@
               debugLog('[AFFO Content] Skipping subset filtering for IPA-complete font: ' + fontName);
             } else {
               // Build unicode-range map per URL so we can mimic browser subset selection
-              var fontFaceEntries = extractFontFaceEntries(css);
               var neededCodePoints = collectNeededCodePoints();
-              filteredUrls = selectUrlsByUnicodeRange(uniqueWoff2Urls, fontFaceEntries, neededCodePoints, {
+              filteredUrls = selectUrlsByUnicodeRange(uniqueWoff2Urls, candidateEntries.length > 0 ? candidateEntries : fontFaceEntries, neededCodePoints, {
                 maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS
               });
 
@@ -2324,8 +2402,17 @@
               return Promise.resolve();
             }
 
+            debugLog(`[AFFO Content] Selected ${prioritizedUrls.length}/${dedupeUrls(fontFaceEntries.map(function (entry) { return entry.url; })).length || uniqueWoff2Urls.length} WOFF2 URLs for ${fontName} (${getWantedGoogleFontStyle(fontConfig)}, configured/bold weights)`);
+
             return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function (woff2Url, index) {
               debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${prioritizedUrls.length}: ${woff2Url}`);
+
+              var descriptors = descriptorMap[woff2Url] || { display: 'swap' };
+              var loadKey = getGoogleFontFaceLoadKey(fontName, descriptors);
+              if (loadedGoogleFontFaceKeys[loadKey]) {
+                debugLog(`[AFFO Content] FontFace already loaded for ${fontName} subset ${index + 1}, skipping`);
+                return Promise.resolve(true);
+              }
 
               return sendBackgroundMessage({
                 type: 'affoFetch',
@@ -2342,10 +2429,11 @@
                   debugLog(`[AFFO Content] Created ArrayBuffer ${index + 1} for ${fontName} (${arrayBuffer.byteLength} bytes)`);
 
                   // Create FontFace with ArrayBuffer - load each subset
-                  var fontFace = new FontFace(fontName, arrayBuffer);
+                  var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
                   document.fonts.add(fontFace);
 
                   return fontFace.load().then(function () {
+                    loadedGoogleFontFaceKeys[loadKey] = true;
                     debugLog(`[AFFO Content] FontFace API successful for ${fontName} subset ${index + 1}`);
                     return true;
                   }).catch(function (e) {
