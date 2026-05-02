@@ -1,4 +1,4 @@
-/* global AFFOMessaging */
+/* global AFFOMessaging, AFFOFontFaceUtils */
 // Content script: cleanup and storage monitoring only
 // All font injection is now handled by popup.js using insertCSS
 
@@ -1926,8 +1926,7 @@
   }
 
   function getFontFaceSrcUrl(block) {
-    var srcMatch = String(block || '').match(/src\s*:\s*url\(\s*(['"]?)(.*?)\1\s*\)/i);
-    return srcMatch ? srcMatch[2].trim() : '';
+    return AFFOFontFaceUtils.extractFontFaceSrcUrl(block);
   }
 
   function buildCustomFontFaceDescriptors(block) {

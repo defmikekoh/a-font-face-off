@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -206,6 +206,23 @@ export default [
             sourceType: "script",
             globals: {
                 isFinite: "readonly",
+                module: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+        },
+    },
+
+    // font-face-utils.js — pure browser/Node helpers for @font-face parsing
+    {
+        files: ["src/font-face-utils.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
                 module: "readonly",
             },
         },
