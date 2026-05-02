@@ -91,7 +91,7 @@ A Chrome/Edge manifest.json would need:
 
 ### 8. Data URL handling in @font-face
 
-Firefox extension popups won't render fonts from `data:` URLs (workaround: convert to blob URLs at runtime). Chrome/Edge may handle `data:` URLs natively in extension contexts — needs testing. The blob URL workaround should work on both.
+The Firefox extension popup path converts embedded AP/APVar font URLs from `data:` to `blob:` before injecting `@font-face` rules. This is an extension-popup compatibility workaround based on unreliable raw `data:` font rendering in that context, not a general claim that Firefox cannot load `data:` fonts. Chrome/Edge may handle raw `data:` URLs natively in extension contexts — needs testing. The blob URL workaround should work on both.
 
 ### 9. AP fonts on FontFace-only domains
 

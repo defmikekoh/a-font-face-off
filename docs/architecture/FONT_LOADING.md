@@ -36,6 +36,10 @@ Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts
 - AP fonts use `data:font/woff2;base64,...` URLs in `ap-fonts.css`. On FontFace-only domains (x.com), `tryCustomFontFaceAPI` detects data: URLs, decodes base64 → ArrayBuffer → FontFace
 - On FontFace-only domains, custom families only load `@font-face` blocks whose `font-weight` range overlaps the current config weight or 700 (for bold descendants). Variable custom fonts preserve range descriptors like `font-weight: 100 900` when creating `FontFace` objects.
 
-## Firefox Popup `data:` URL Limitation
+## Firefox Popup Embedded Font Handling
 
-The extension popup **will not render fonts from `data:` URLs** in @font-face rules, even with `data:` in CSP `font-src`. This fails silently. Workaround: convert data URLs to blob URLs at runtime (`atob` → `Uint8Array` → `Blob` → `URL.createObjectURL`). Requires `blob:` in CSP `font-src`. AP/APVar fonts use this path: base64 in `ap-fonts.css`, converted to blob URLs by `injectApFonts()` in popup.js.
+The extension popup converts embedded AP/APVar font URLs from `data:font/woff2;base64,...` to `blob:` URLs before injecting their `@font-face` rules. The manifest allows both `data:` and `blob:` in `font-src`, but Firefox extension popups have not rendered the raw `data:` font rules reliably. This is an extension-popup compatibility workaround, not a general claim that Firefox cannot load `data:` fonts.
+
+Popup path: `atob` → `Uint8Array` → `Blob` → `URL.createObjectURL`, handled by `injectApFonts()` in `popup.js`.
+
+FontFace-only page path: avoids CSS font URLs entirely. `tryCustomFontFaceAPI()` decodes the same base64 payload to an ArrayBuffer and passes it to `new FontFace(...)`.
