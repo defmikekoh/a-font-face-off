@@ -1908,6 +1908,8 @@
   }
 
   var loadedGoogleFontFaceKeys = {};
+  var loadingGoogleFontFaceKeys = {};
+  var queuedGoogleFontFaceKeys = {};
   var loadedCustomFontFaceKeys = {};
 
   function getGoogleFontFaceLoadKey(fontName, descriptors) {
@@ -2193,7 +2195,8 @@
   var FONTFACE_SUBSET_SAMPLE_LIMIT = 20000;
   var FONTFACE_MAX_UNIQUE_CODEPOINTS = 2000;
   var FONTFACE_MAX_SUBSET_DOWNLOADS = 16;
-  var FONTFACE_MAX_PARALLEL_DOWNLOADS = 4;
+  var FONTFACE_INITIAL_PARALLEL_DOWNLOADS = 1;
+  var FONTFACE_DEFERRED_DOWNLOAD_DELAY_MS = 350;
   var FONTFACE_FULL_SUBSET_FONTS = [
     'Charis SIL', 'Gentium Plus', 'Gentium Book Plus', 'Noto Sans Mono'
   ];
@@ -2220,6 +2223,67 @@
       }
       return map;
     }, {});
+  }
+
+  function buildEntriesByUrl(entries) {
+    return (entries || []).reduce(function (map, entry) {
+      if (!entry || !entry.url) return map;
+      if (!map[entry.url]) map[entry.url] = [];
+      map[entry.url].push(entry);
+      return map;
+    }, {});
+  }
+
+  function rangesOverlap(ranges, start, end) {
+    if (!ranges || ranges.length === 0) return false;
+    return ranges.some(function (range) {
+      return range && range.length >= 2 && range[0] <= end && range[1] >= start;
+    });
+  }
+
+  function entryOverlapsAnyRange(entries, targetRanges) {
+    return (entries || []).some(function (entry) {
+      return targetRanges.some(function (target) {
+        return rangesOverlap(entry.ranges, target[0], target[1]);
+      });
+    });
+  }
+
+  function classifyFontFaceUrlsByUnicodeRange(urls, entries) {
+    var entriesByUrl = buildEntriesByUrl(entries);
+    var latinCoreRanges = [
+      [0x0000, 0x00FF], // Basic Latin + Latin-1 Supplement
+      [0x2000, 0x206F], // General punctuation
+      [0x20A0, 0x20CF]  // Currency symbols
+    ];
+    var latinExtRanges = [
+      [0x0100, 0x024F], // Latin Extended-A/B
+      [0x1E00, 0x1EFF], // Latin Extended Additional
+      [0x2100, 0x214F], // Letterlike symbols
+      [0x2150, 0x218F], // Number forms
+      [0xFB00, 0xFB06]  // Latin ligatures
+    ];
+
+    var latinUrls = [];
+    var latinExtUrls = [];
+    var otherUrls = [];
+
+    (urls || []).forEach(function (url) {
+      var urlEntries = entriesByUrl[url] || [];
+      if (entryOverlapsAnyRange(urlEntries, latinCoreRanges) || (url.indexOf('latin') !== -1 && url.indexOf('latin-ext') === -1)) {
+        latinUrls.push(url);
+      } else if (entryOverlapsAnyRange(urlEntries, latinExtRanges) || url.indexOf('latin-ext') !== -1) {
+        latinExtUrls.push(url);
+      } else {
+        otherUrls.push(url);
+      }
+    });
+
+    return {
+      latinUrls: latinUrls,
+      latinExtUrls: latinExtUrls,
+      otherUrls: otherUrls
+    };
   }
 
   // Collect a snapshot of code points in the current document to choose subsets
@@ -2377,7 +2441,9 @@
               return match.replace(/url\((['"]?)([^'"]+)\1\)/, '$2');
             }));
             var uniqueWoff2Urls = dedupeUrls(woff2Urls);
+            var totalCssWoff2UrlCount = dedupeUrls(fontFaceEntries.map(function (entry) { return entry.url; })).length || uniqueWoff2Urls.length;
             var descriptorMap = buildDescriptorMapByUrl(candidateEntries.length > 0 ? candidateEntries : fontFaceEntries);
+            debugLog(`[AFFO Content] Eligible WOFF2 URLs after style/weight filtering: ${uniqueWoff2Urls.length}/${totalCssWoff2UrlCount} for ${fontName}`);
 
             // Skip subset filtering for fonts with comprehensive IPA/Unicode coverage
             var skipSubsetFiltering = FONTFACE_FULL_SUBSET_FONTS.indexOf(fontName) !== -1;
@@ -2398,20 +2464,18 @@
               }
             }
 
-            // Prioritize Latin subsets for faster initial render
-            var latinUrls = filteredUrls.filter(function (url) {
-              return url.includes('latin') && !url.includes('ext');
-            });
-            var latinExtUrls = filteredUrls.filter(function (url) {
-              return url.includes('latin-ext');
-            });
-            var otherUrls = filteredUrls.filter(function (url) {
-              return !url.includes('latin');
-            });
+            // Prioritize Latin subsets for faster initial render. Google Fonts
+            // WOFF2 URLs are opaque, so classify by parsed unicode-range.
+            var fontFaceEntriesForSelection = candidateEntries.length > 0 ? candidateEntries : fontFaceEntries;
+            var urlGroups = classifyFontFaceUrlsByUnicodeRange(filteredUrls, fontFaceEntriesForSelection);
+            var latinUrls = urlGroups.latinUrls;
+            var latinExtUrls = urlGroups.latinExtUrls;
+            var otherUrls = urlGroups.otherUrls;
 
             debugLog(`[AFFO Content] Prioritizing font loading after unicode filtering: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets for ${fontName}`);
 
-            // Load Latin first (most critical), then others in parallel
+            // Load core Latin first, then defer broader coverage serially to
+            // reduce first-apply memory spikes on FontFace-only domains.
             var prioritizedUrls = latinUrls.concat(latinExtUrls).concat(otherUrls);
 
             if (prioritizedUrls.length === 0) {
@@ -2419,17 +2483,36 @@
               return Promise.resolve();
             }
 
-            debugLog(`[AFFO Content] Selected ${prioritizedUrls.length}/${dedupeUrls(fontFaceEntries.map(function (entry) { return entry.url; })).length || uniqueWoff2Urls.length} WOFF2 URLs for ${fontName} (${getWantedGoogleFontStyle(fontConfig)}, configured/bold weights)`);
+            debugLog(`[AFFO Content] Selected ${prioritizedUrls.length}/${uniqueWoff2Urls.length} eligible WOFF2 URLs for ${fontName} after unicode filtering (${totalCssWoff2UrlCount} total CSS URLs; ${getWantedGoogleFontStyle(fontConfig)}, configured/bold weights)`);
 
-            return runWithConcurrency(prioritizedUrls, FONTFACE_MAX_PARALLEL_DOWNLOADS, function (woff2Url, index) {
-              debugLog(`[AFFO Content] Downloading WOFF2 ${index + 1}/${prioritizedUrls.length}: ${woff2Url}`);
+            var urlOrder = {};
+            prioritizedUrls.forEach(function (url, index) {
+              urlOrder[url] = index;
+            });
+
+            var initialUrls = latinUrls.slice();
+            var deferredUrls = latinExtUrls.concat(otherUrls);
+            if (initialUrls.length === 0) {
+              initialUrls = prioritizedUrls.slice(0, 1);
+              deferredUrls = prioritizedUrls.slice(1);
+            }
+
+            function loadGoogleWoff2Url(woff2Url) {
+              var displayIndex = Object.prototype.hasOwnProperty.call(urlOrder, woff2Url) ? urlOrder[woff2Url] + 1 : '?';
+              debugLog(`[AFFO Content] Requesting WOFF2 ${displayIndex}/${prioritizedUrls.length}: ${woff2Url}`);
 
               var descriptors = descriptorMap[woff2Url] || { display: 'swap' };
               var loadKey = getGoogleFontFaceLoadKey(fontName, descriptors);
+              delete queuedGoogleFontFaceKeys[loadKey];
               if (loadedGoogleFontFaceKeys[loadKey]) {
-                debugLog(`[AFFO Content] FontFace already loaded for ${fontName} subset ${index + 1}, skipping`);
+                debugLog(`[AFFO Content] FontFace already loaded for ${fontName} subset ${displayIndex}, skipping`);
                 return Promise.resolve(true);
               }
+              if (loadingGoogleFontFaceKeys[loadKey]) {
+                debugLog(`[AFFO Content] FontFace already queued for ${fontName} subset ${displayIndex}, skipping duplicate request`);
+                return Promise.resolve(true);
+              }
+              loadingGoogleFontFaceKeys[loadKey] = true;
 
               return sendBackgroundMessage({
                 type: 'affoFetch',
@@ -2437,13 +2520,14 @@
                 binary: true
               }).then(function (woff2Response) {
                 if (woff2Response && woff2Response.ok && woff2Response.binary && woff2Response.data) {
-                  debugLog(`[AFFO Content] WOFF2 download ${index + 1} successful for ${fontName}`);
+                  var cacheStatus = woff2Response.cached ? 'cache hit' : 'downloaded';
+                  debugLog(`[AFFO Content] WOFF2 ${cacheStatus} ${displayIndex}/${prioritizedUrls.length} successful for ${fontName}`);
 
                   // Convert binary data to ArrayBuffer
                   var uint8Array = new Uint8Array(woff2Response.data);
                   var arrayBuffer = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength);
 
-                  debugLog(`[AFFO Content] Created ArrayBuffer ${index + 1} for ${fontName} (${arrayBuffer.byteLength} bytes)`);
+                  debugLog(`[AFFO Content] Created ArrayBuffer ${displayIndex} for ${fontName} (${arrayBuffer.byteLength} bytes)`);
 
                   // Create FontFace with ArrayBuffer - load each subset
                   var fontFace = new FontFace(fontName, arrayBuffer, descriptors);
@@ -2451,24 +2535,52 @@
 
                   return fontFace.load().then(function () {
                     loadedGoogleFontFaceKeys[loadKey] = true;
-                    debugLog(`[AFFO Content] FontFace API successful for ${fontName} subset ${index + 1}`);
+                    debugLog(`[AFFO Content] FontFace API successful for ${fontName} subset ${displayIndex}`);
                     return true;
                   }).catch(function (e) {
-                    debugLog(`[AFFO Content] FontFace API failed for ${fontName} subset ${index + 1}:`, e);
+                    debugLog(`[AFFO Content] FontFace API failed for ${fontName} subset ${displayIndex}:`, e);
                     return false;
                   });
 
                 } else {
-                  debugLog(`[AFFO Content] WOFF2 download ${index + 1} failed for ${woff2Url}`);
+                  debugLog(`[AFFO Content] WOFF2 request ${displayIndex} failed for ${woff2Url}`);
                   return false;
                 }
               }).catch(function (e) {
-                debugLog(`[AFFO Content] WOFF2 download ${index + 1} exception:`, e);
+                debugLog(`[AFFO Content] WOFF2 request ${displayIndex} exception:`, e);
                 return false;
+              }).then(function (result) {
+                delete loadingGoogleFontFaceKeys[loadKey];
+                return result;
               });
-            }).then(function (results) {
+            }
+
+            function scheduleDeferredGoogleWoff2Loads() {
+              var queuedDeferredUrls = deferredUrls.filter(function (woff2Url) {
+                var descriptors = descriptorMap[woff2Url] || { display: 'swap' };
+                var loadKey = getGoogleFontFaceLoadKey(fontName, descriptors);
+                if (loadedGoogleFontFaceKeys[loadKey] || loadingGoogleFontFaceKeys[loadKey] || queuedGoogleFontFaceKeys[loadKey]) {
+                  return false;
+                }
+                queuedGoogleFontFaceKeys[loadKey] = true;
+                return true;
+              });
+              if (queuedDeferredUrls.length === 0) return;
+              debugLog(`[AFFO Content] Deferring ${queuedDeferredUrls.length} non-core-Latin WOFF2 subsets for ${fontName} (serial)`);
+              setTimeout(function () {
+                runWithConcurrency(queuedDeferredUrls, 1, loadGoogleWoff2Url).then(function (results) {
+                  var successCount = results.filter(Boolean).length;
+                  debugLog(`[AFFO Content] Deferred WOFF2 load completed ${successCount}/${results.length} subsets for ${fontName}`);
+                }).catch(function (e) {
+                  debugLog(`[AFFO Content] Deferred WOFF2 load failed for ${fontName}:`, e);
+                });
+              }, FONTFACE_DEFERRED_DOWNLOAD_DELAY_MS);
+            }
+
+            return runWithConcurrency(initialUrls, FONTFACE_INITIAL_PARALLEL_DOWNLOADS, loadGoogleWoff2Url).then(function (results) {
               var successCount = results.filter(Boolean).length;
-              debugLog(`[AFFO Content] Loaded ${successCount}/${results.length} font subsets for ${fontName}`);
+              debugLog(`[AFFO Content] Loaded initial WOFF2 subsets ${successCount}/${results.length} for ${fontName}`);
+              scheduleDeferredGoogleWoff2Loads();
               return results;
             });
 
