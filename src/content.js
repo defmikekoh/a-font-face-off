@@ -563,6 +563,37 @@
     return elementHasOnlySimpleInlineTextDescendants(node);
   }
 
+  function getLowerClassTokens(className) {
+    var raw = typeof className === 'string' ? className : String(className || '');
+    return raw.split(/\s+/).map(function (token) {
+      return token.toLowerCase();
+    }).filter(function (token) {
+      return !!token;
+    });
+  }
+
+  function isFontFamilyClassToken(token) {
+    return /(?:^|:)font[-_]/.test(token || '');
+  }
+
+  function hasNonFontClassTokenMatch(className, pattern) {
+    var tokens = getLowerClassTokens(className);
+    for (var i = 0; i < tokens.length; i++) {
+      if (isFontFamilyClassToken(tokens[i])) continue;
+      if (pattern.test(tokens[i])) return true;
+    }
+    return false;
+  }
+
+  function getTmiFontHintClassText(className) {
+    return getLowerClassTokens(className).filter(function (token) {
+      // Tailwind-style variant tokens such as "scene:font-noto-sans" are only
+      // active under their variant condition. Computed font-family below is the
+      // authoritative signal for those conditional utilities.
+      return token.indexOf(':') === -1;
+    }).join(' ');
+  }
+
   function isLikelyArticleBodyText(node) {
     if (!node || node.nodeType !== 1) return false;
     var tagName = String(node.tagName || '').toUpperCase();
@@ -2654,8 +2685,9 @@
     if (classText && /\b(small-caps|smallcaps|smcp)\b/.test(classText)) return null;
     if (classText && /(?:^|\s)sc(?:\s|$)/.test(classText)) return null;
 
-    // Exclude metadata and byline patterns
-    if (classText && /\b(byline|author|date|meta)\b/.test(classText)) return null;
+    // Exclude metadata and byline patterns, but do not mistake font family
+    // utility classes such as "font-meta-serif-pro" for page metadata.
+    if (hasNonFontClassTokenMatch(className, /(?:^|[-_])(byline|author|date|meta)(?:[-_]|$)/)) return null;
 
     // Exclude widget, ad, and UI chrome patterns
     if (classText && /\b(widget|dropdown|modal|tooltip|advertisement)\b/.test(classText)) return null;
@@ -2684,18 +2716,14 @@
 
     var styleText = style.toLowerCase();
     var computedText = computedFontFamily.toLowerCase();
+    var fontHintClassText = getTmiFontHintClassText(className);
 
     // Check for monospace keywords
-    if (/\b(monospace|mono|code)\b/.test(classText) ||
+    if (/\b(monospace|mono|code)\b/.test(fontHintClassText) ||
       /\b(monospace|mono)\b/.test(styleText)) return 'mono';
 
-    // Check for sans-serif as complete phrase first
-    if (/\bsans-serif\b/.test(classText) || /\bsans-serif\b/.test(styleText)) return 'sans';
-
-    // Check for standalone sans (but not sans-serif)
-    if (/\bsans\b(?!-serif)/.test(classText) || /\bsans\b(?!-serif)/.test(styleText)) return 'sans';
-
-    // Check known font names FIRST (before generic keywords) so specific fonts take priority
+    // Check computed font names before class/inline serif/sans hints so
+    // inactive utility tokens cannot override the font actually being rendered.
     // e.g. "Spectral", serif, ..., sans-serif → Spectral is known serif, don't misclassify as sans
     // Reuse computedParts if already parsed for preserved fonts check, otherwise parse now
     if (!computedParts) computedParts = computedFontFamily.split(',').map(function (s) { return s.trim().toLowerCase().replace(/['"]/g, ''); });
@@ -2731,8 +2759,15 @@
       return 'serif';
     }
 
+    // Check inline style and active-looking class hints only after computed
+    // font-family has had a chance to classify the rendered typeface.
+    if (/\bsans-serif\b/.test(styleText)) return 'sans';
+    if (/\bsans\b(?!-serif)/.test(styleText)) return 'sans';
+    if (/\bsans-serif\b/.test(fontHintClassText)) return 'sans';
+    if (/\bsans\b(?!-serif)/.test(fontHintClassText)) return 'sans';
+
     // Check for serif (but not sans-serif) in class names and inline styles
-    if (/\bserif\b/.test(classText.replace('sans-serif', '')) ||
+    if (/\bserif\b/.test(fontHintClassText.replace('sans-serif', '')) ||
       /\bserif\b/.test(styleText.replace('sans-serif', ''))) {
       return 'serif';
     }
