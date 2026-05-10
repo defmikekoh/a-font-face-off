@@ -2589,6 +2589,33 @@ body.view-faceoff .favorites-container {
     color: #ecf0f1;
 }
 
+.favorites-search-toolbar {
+    padding: 10px 16px;
+    border-bottom: 1px solid #34495e;
+    background: #2c3e50;
+}
+
+.favorites-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #4a5a6a;
+    border-radius: 4px;
+    background: #34495e;
+    color: #ecf0f1;
+    font-size: 12px;
+}
+
+.favorites-search:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.favorites-search::placeholder {
+    color: #95a5a6;
+}
+
 .popup-close {
     background: none;
     border: none;
@@ -2873,6 +2900,11 @@ body.view-faceoff .favorites-container {
     touch-action: none; /* enable pointer-based drag on mobile */
 }
 .drag-handle:active { cursor: grabbing; }
+.drag-handle-disabled,
+.drag-handle-disabled:active {
+    cursor: default;
+    opacity: 0.35;
+}
 .edit-favorite-item.dragging { opacity: 0.25; }
 
 /* Floating proxy shown while dragging (pointer fallback) */

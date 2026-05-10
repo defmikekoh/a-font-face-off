@@ -196,6 +196,24 @@ function generateDetailedFavoritePreview(config) {
     return lines.join('<br>');
 }
 
+function normalizeFavoriteSearch(str) {
+    return String(str || '').trim().toLowerCase();
+}
+
+function favoriteMatchesSearch(name, config, query) {
+    const q = normalizeFavoriteSearch(query);
+    if (!q) return true;
+
+    const searchable = [
+        name,
+        config && config.fontName,
+        generateFavoritePreview(config),
+        generateDetailedFavoritePreview(config).replace(/<br>/g, ' ')
+    ].join(' ').toLowerCase();
+
+    return searchable.includes(q);
+}
+
 // ── Config Name & Preview (for Save Modal) ──────────────────────────────────
 
 function generateFontConfigName(position) {
@@ -341,17 +359,42 @@ function showFavoritesPopup(position) {
     const popup = document.getElementById('favorites-popup');
     const listContainer = document.getElementById('favorites-popup-list');
     const noFavorites = document.getElementById('no-favorites');
-    console.log('Favorites popup elements:', {popup, listContainer, noFavorites});
+    const searchInput = document.getElementById('favorites-search');
+    console.log('Favorites popup elements:', {popup, listContainer, noFavorites, searchInput});
 
-    // Clear existing content
-    listContainer.innerHTML = '';
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = () => renderFavoritesPopupList(position, searchInput.value);
+    }
+
+    renderFavoritesPopupList(position, '');
+
+    popup.classList.add('visible');
+}
+
+function renderFavoritesPopupList(position, query) {
+    const listContainer = document.getElementById('favorites-popup-list');
+    const noFavorites = document.getElementById('no-favorites');
+    if (!listContainer || !noFavorites) return;
 
     // Check if there are any favorites
     const names = getOrderedFavoriteNames();
+    const filteredNames = names.filter(name => favoriteMatchesSearch(name, savedFavorites[name], query));
     console.log('savedFavorites:', savedFavorites);
     console.log('savedFavoritesOrder:', savedFavoritesOrder);
-    console.log('Favorite names to show:', names);
+    console.log('Favorite names to show:', filteredNames);
+
+    listContainer.innerHTML = '';
+
     if (names.length === 0) {
+        noFavorites.textContent = 'No saved favorites yet.';
+        noFavorites.style.display = 'block';
+        listContainer.style.display = 'none';
+        return;
+    }
+
+    if (filteredNames.length === 0) {
+        noFavorites.textContent = 'No favorites match your search.';
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
     } else {
@@ -359,7 +402,7 @@ function showFavoritesPopup(position) {
         listContainer.style.display = 'flex';
 
         // Populate favorites in saved order
-        names.forEach(name => {
+        filteredNames.forEach(name => {
             const config = savedFavorites[name];
             const item = document.createElement('div');
             item.className = 'favorite-item';
@@ -420,12 +463,12 @@ function showFavoritesPopup(position) {
             listContainer.appendChild(item);
         });
     }
-
-    popup.classList.add('visible');
 }
 
 function hideFavoritesPopup() {
     const popup = document.getElementById('favorites-popup');
+    const searchInput = document.getElementById('favorites-search');
+    if (searchInput) searchInput.value = '';
     popup.classList.remove('visible');
 }
 
@@ -433,15 +476,37 @@ function hideFavoritesPopup() {
 
 function showEditFavoritesModal() {
     const modal = document.getElementById('edit-favorites-modal');
+    const searchInput = document.getElementById('edit-favorites-search');
+
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = () => renderEditFavoritesList(searchInput.value);
+    }
+
+    renderEditFavoritesList('');
+
+    modal.classList.add('visible');
+}
+
+function renderEditFavoritesList(query) {
     const listContainer = document.getElementById('edit-favorites-list');
     const noFavorites = document.getElementById('no-edit-favorites');
+    if (!listContainer || !noFavorites) return;
 
     // Clear existing content
     listContainer.innerHTML = '';
 
     // Check if there are any favorites
     const names = getOrderedFavoriteNames();
+    const filteredNames = names.filter(name => favoriteMatchesSearch(name, savedFavorites[name], query));
+    const isFiltering = normalizeFavoriteSearch(query).length > 0;
+
     if (names.length === 0) {
+        noFavorites.textContent = 'No saved favorites to edit.';
+        noFavorites.style.display = 'block';
+        listContainer.style.display = 'none';
+    } else if (filteredNames.length === 0) {
+        noFavorites.textContent = 'No favorites match your search.';
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
     } else {
@@ -449,7 +514,7 @@ function showEditFavoritesModal() {
         listContainer.style.display = 'flex';
 
         // Populate editable favorites in saved order
-        names.forEach(name => {
+        filteredNames.forEach(name => {
             const config = savedFavorites[name];
             const item = document.createElement('div');
             item.className = 'edit-favorite-item';
@@ -458,14 +523,21 @@ function showEditFavoritesModal() {
             // Drag handle
             const drag = document.createElement('div');
             drag.className = 'drag-handle';
-            drag.setAttribute('title', 'Drag to reorder');
+            drag.setAttribute('title', isFiltering ? 'Clear search to reorder' : 'Drag to reorder');
             drag.textContent = '⋮⋮';
             // Only allow drag when dragging the handle
-            drag.addEventListener('mousedown', function() { item.setAttribute('draggable', 'true'); });
-            drag.addEventListener('touchstart', function() { item.setAttribute('draggable', 'true'); }, { passive: true });
+            drag.addEventListener('mousedown', function() {
+                if (!isFiltering) item.setAttribute('draggable', 'true');
+            });
+            drag.addEventListener('touchstart', function() {
+                if (!isFiltering) item.setAttribute('draggable', 'true');
+            }, { passive: true });
             const disableDrag = () => item.removeAttribute('draggable');
             drag.addEventListener('mouseup', disableDrag);
             drag.addEventListener('touchend', disableDrag);
+            if (isFiltering) {
+                drag.classList.add('drag-handle-disabled');
+            }
 
             const info = document.createElement('div');
             info.className = 'edit-favorite-info';
@@ -498,7 +570,8 @@ function showEditFavoritesModal() {
                             if (i !== -1) savedFavoritesOrder.splice(i, 1);
                         }
                         saveFavoritesToStorage();
-                        showEditFavoritesModal(); // Refresh the modal
+                        const searchInput = document.getElementById('edit-favorites-search');
+                        renderEditFavoritesList(searchInput ? searchInput.value : '');
                     }
                 });
             });
@@ -510,14 +583,16 @@ function showEditFavoritesModal() {
             listContainer.appendChild(item);
         });
         // Enable drag-and-drop reordering
-        enableFavoritesReorder(listContainer);
+        if (!isFiltering) {
+            enableFavoritesReorder(listContainer);
+        }
     }
-
-    modal.classList.add('visible');
 }
 
 function hideEditFavoritesModal() {
     const modal = document.getElementById('edit-favorites-modal');
+    const searchInput = document.getElementById('edit-favorites-search');
+    if (searchInput) searchInput.value = '';
     modal.classList.remove('visible');
 }
 
@@ -806,5 +881,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         hasInCollection,
         generateFavoritePreview,
+        normalizeFavoriteSearch,
+        favoriteMatchesSearch,
     };
 }
