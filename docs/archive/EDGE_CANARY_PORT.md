@@ -1,11 +1,14 @@
 # Edge Canary Android Port — What Would Have to Happen
 
 > Assumes Firefox MV2 → MV3 migration is already complete.
-> Research date: Feb 2026. Edge Android extension support is Canary-only for sideloading.
+> Research date: Feb 2026. Updated May 2026 for the visible CRX sideload option.
+> Edge Android extension support is Canary-only for arbitrary sideloading.
 
 ## Overview
 
 Edge Android (Canary) supports Chrome-format MV3 extensions installed via developer options ("Extension install by ID" or "Extension install by crx"). A Firefox MV3 extension cannot run on Edge directly — a separate Chrome/Edge build is required.
+
+**May 2026 note:** the visible "Extension install by crx" item is useful for local testing because it can install a self-packed Chrome/Edge `.crx` directly, instead of requiring an extension ID from Microsoft Edge Add-ons. Stable Edge Android now has a curated extension store, but arbitrary/local extension testing still belongs to Canary developer options. The CRX option does **not** make the current Firefox `.xpi` or MV2 manifest installable on Edge Android; all Chrome/Edge MV3 compatibility work below still applies.
 
 ## What the Firefox MV3 migration already solves
 
@@ -123,13 +126,15 @@ Platform-specific code:
 - Install Edge Canary from Play Store (coexists with stable Edge)
 - Enable `edge://flags` → "Android extensions" / "Android extensions v3"
 - Settings → About → tap version 5 times → Developer Options
-- Install via "Extension install by crx" with built .crx file
+- Build a Chrome/Edge MV3 package and pack it as `.crx` (not the Firefox `.xpi`)
+- Install via "Extension install by crx" for local testing, or "Extension install by ID" for an Edge Add-ons hosted extension
+- Preserve the CRX signing key/PEM between builds if a stable extension ID is needed for testing OAuth redirect URIs or stored extension data
 - Debug via `edge://inspect` on desktop Edge/Chrome (USB + Chrome DevTools Protocol)
 
 ## Decision
 
-As of Feb 2026, this port is **not worth pursuing**:
-- Edge Android sideloading is Canary-only (daily builds, crash-prone)
-- No path to stable Edge Android distribution without Microsoft curation
+As of May 2026, this port is **not worth pursuing**:
+- Arbitrary Edge Android sideloading is still Canary/developer-option territory
+- Stable Edge Android has a curated extension store, but no general stable-channel CRX distribution path without Microsoft curation/listing
 - The `cssOrigin` gap means permanently degraded font override quality
 - Firefox Android is the proven, stable target with full MV2 support and no deprecation timeline
