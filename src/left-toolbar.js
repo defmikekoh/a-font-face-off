@@ -29,6 +29,7 @@
     const QUICK_PICK_SUCCESS_COLOR = '#198754';
     const QUICK_PICK_ERROR_COLOR = '#dc3545';
     const QUICK_PICK_SUCCESS_CLOSE_DELAY_MS = 800;
+    const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -986,6 +987,18 @@
         }, QUICK_PICK_SUCCESS_CLOSE_DELAY_MS);
     }
 
+    async function ensureQuickPickSyncDataConsent(browserAPI) {
+        const data = await browserAPI.storage.local.get(SYNC_LEGACY_DATA_CONSENT_KEY);
+        if (data[SYNC_LEGACY_DATA_CONSENT_KEY] === true) return true;
+
+        const promptText = 'Cloud sync sends extension settings and sync credentials/configuration to your selected provider (Google Drive or WebDAV). Allow sync data sharing?';
+        if (!window.confirm(promptText)) {
+            throw new Error('Sync consent was not granted');
+        }
+        await browserAPI.storage.local.set({ [SYNC_LEGACY_DATA_CONSENT_KEY]: true });
+        return true;
+    }
+
     function isSubstackSite() {
         try {
             if (location.hostname.endsWith('.substack.com')) return true;
@@ -1070,7 +1083,7 @@
             };
         }
 
-        // Sync Now button — show only when a sync backend is configured
+        // Sync button — can connect Google Drive when options_ui is unavailable on mobile.
         const syncSection = document.getElementById('affo-quick-pick-sync-section');
         const syncBtn = document.getElementById('affo-quick-pick-sync-now');
         if (syncSection && syncBtn) {
@@ -1109,7 +1122,53 @@
                     }, 2000);
                 };
             } else {
-                syncSection.style.setProperty('display', 'none', 'important');
+                syncSection.style.setProperty('display', 'block', 'important');
+                syncBtn.disabled = false;
+                syncBtn.textContent = 'Connect Google Drive';
+                syncBtn.style.setProperty('opacity', '1', 'important');
+                syncBtn.style.setProperty('background', 'white', 'important');
+                syncBtn.style.setProperty('border-color', '#0d6efd', 'important');
+                syncBtn.style.setProperty('color', '#0d6efd', 'important');
+                syncBtn.onclick = async function() {
+                    syncBtn.disabled = true;
+                    syncBtn.textContent = 'Connecting...';
+                    syncBtn.style.setProperty('opacity', '0.7', 'important');
+                    setQuickPickMessage(message, 'Opening Google sign-in...', { color: QUICK_PICK_MESSAGE_COLOR });
+
+                    try {
+                        await ensureQuickPickSyncDataConsent(browserAPI);
+                        const authResult = await sendRuntimeMessageWithRetry({ type: 'affoGDriveAuth' }, { retryMs: 5000, retryDelayMs: 100 });
+                        if (!authResult || !authResult.ok) {
+                            throw new Error(authResult && authResult.error ? authResult.error : 'Google Drive connection failed');
+                        }
+
+                        syncBtn.textContent = 'Syncing...';
+                        setQuickPickMessage(message, 'Connected. Syncing...', { color: QUICK_PICK_MESSAGE_COLOR });
+                        const syncResult = await sendRuntimeMessageWithRetry({ type: 'affoSyncNow' }, { retryMs: 5000, retryDelayMs: 100 });
+                        if (!syncResult || !syncResult.ok) {
+                            throw new Error(syncResult && syncResult.error ? syncResult.error : 'Sync failed');
+                        }
+
+                        syncBtn.textContent = 'Synced!';
+                        setQuickPickMessage(message, 'Google Drive connected and synced.', { color: QUICK_PICK_SUCCESS_COLOR });
+                    } catch (e) {
+                        const messageText = e && e.message ? e.message : String(e);
+                        syncBtn.textContent = 'Connect Failed';
+                        syncBtn.style.setProperty('color', '#dc3545', 'important');
+                        syncBtn.style.setProperty('border-color', '#dc3545', 'important');
+                        syncBtn.style.setProperty('background', '#fff5f5', 'important');
+                        setQuickPickMessage(message, messageText, { color: QUICK_PICK_ERROR_COLOR });
+                    }
+
+                    setTimeout(() => {
+                        syncBtn.disabled = false;
+                        syncBtn.textContent = 'Connect Google Drive';
+                        syncBtn.style.setProperty('opacity', '1', 'important');
+                        syncBtn.style.setProperty('background', 'white', 'important');
+                        syncBtn.style.setProperty('border-color', '#0d6efd', 'important');
+                        syncBtn.style.setProperty('color', '#0d6efd', 'important');
+                    }, 2500);
+                };
             }
         }
 

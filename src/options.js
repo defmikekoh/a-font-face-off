@@ -320,6 +320,7 @@
     tabs[0].tab.classList.add('active');
 
     const faceoffCircle = document.querySelector('#settingsTabs .faceoff-circle');
+    const isChromiumOptions = document.documentElement.classList.contains('affo-chromium-options');
 
     tabs.forEach(({ tab, section }) => {
       tab.addEventListener('click', () => {
@@ -335,7 +336,8 @@
         // Darken faceoff circle when custom tab (center) is active
         if (faceoffCircle) {
           faceoffCircle.style.background = tab.id === 'customTab'
-            ? 'rgba(0, 51, 160, 0.2)' : '#ffffff';
+            ? (isChromiumOptions ? 'rgba(0, 51, 160, 0.12)' : 'rgba(0, 51, 160, 0.2)')
+            : (isChromiumOptions ? 'transparent' : '#ffffff');
         }
 
         // Load custom CSS and axes when switching to that tab

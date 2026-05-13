@@ -1,0 +1,185 @@
+name: Build prerelease Edge Android CRX
+
+concurrency:
+  group: edge-crx-prerelease-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: 'npm'
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq zip
+
+      - name: Locate native CRX packer
+        run: |
+          set -euo pipefail
+          for bin in google-chrome google-chrome-stable chromium chromium-browser microsoft-edge; do
+            if command -v "$bin" >/dev/null 2>&1; then
+              packer="$(command -v "$bin")"
+              echo "AFFO_EDGE_CRX_PACKER=$packer" >> "$GITHUB_ENV"
+              echo "Using CRX packer: $packer"
+              exit 0
+            fi
+          done
+          echo "No Chrome/Chromium/Edge binary found for native CRX packing." >&2
+          exit 1
+
+      - name: Create gdrive-config.js from secrets
+        run: |
+          printf "const GDRIVE_CLIENT_ID = '%s';\nconst GDRIVE_CLIENT_SECRET = '%s';\n" \
+            "$GDRIVE_CLIENT_ID" "$GDRIVE_CLIENT_SECRET" > src/gdrive-config.js
+        env:
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+
+      - name: Create CRX private key from secret
+        run: |
+          set -euo pipefail
+          if [ -z "${EDGE_CRX_PRIVATE_KEY_PEM:-}" ]; then
+            echo "EDGE_CRX_PRIVATE_KEY_PEM is required so CRX builds keep a stable extension ID." >&2
+            exit 1
+          fi
+          mkdir -p ztemp
+          printf '%s' "$EDGE_CRX_PRIVATE_KEY_PEM" > ztemp/edge-mv3-key.pem
+          chmod 600 ztemp/edge-mv3-key.pem
+        env:
+          EDGE_CRX_PRIVATE_KEY_PEM: ${{ secrets.EDGE_CRX_PRIVATE_KEY_PEM }}
+
+      - name: Install deps, lint, and test
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+      - name: Build Edge MV3 source
+        run: |
+          node scripts/set-debug.js false
+          npm run build:edge-mv3
+
+      - name: Bump generated manifest version
+        run: |
+          set -euo pipefail
+          MF="ztemp/edge-mv3-src/manifest.json"
+          base=$(jq -r .version "$MF" | cut -d. -f1-3)
+          if ! echo "$base" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: manifest.json version must start with three numeric components" >&2
+            exit 1
+          fi
+          rn="$((GITHUB_RUN_NUMBER + 100))"
+          new_version="${base}.${rn}"
+          jq --arg v "$new_version" '.version = $v' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
+          echo "New Edge MV3 version: $(jq -r .version "$MF")"
+
+      - name: Capture version
+        id: ver
+        run: |
+          MF="ztemp/edge-mv3-src/manifest.json"
+          echo "v=$(jq -r .version "$MF")" >> "$GITHUB_OUTPUT"
+          echo "Version: $(jq -r .version "$MF")"
+
+      - name: Pack CRX
+        run: npm run pack:edge-crx
+
+      - name: Upload CRX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-crx-${{ steps.ver.outputs.v }}
+          path: web-ext-artifacts/a-font-face-off-edge-mv3.crx
+
+      - name: Move edge-test-latest tag to this commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force
+          git tag -f edge-test-latest "$GITHUB_SHA"
+          git push -f origin edge-test-latest
+
+      - name: Create/Update "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: edge-test-latest
+          target_commitish: ${{ github.sha }}
+          name: Edge Android test (latest) ${{ steps.ver.outputs.v }}
+          body: |
+            Draft Edge/Chrome MV3 CRX build for Android testing.
+            Version: ${{ steps.ver.outputs.v }}
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: true
+          make_latest: false
+          files: web-ext-artifacts/a-font-face-off-edge-mv3.crx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prune old assets from edge-test-latest release
+        run: |
+          set -euo pipefail
+          echo "Pruning old assets..."
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/edge-test-latest"
+          RELEASE_JSON=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$API_URL")
+          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
+          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+            echo "No release found for tag edge-test-latest."
+            exit 0
+          fi
+          ASSET_IDS=($(echo "$RELEASE_JSON" | jq -r '.assets | sort_by(.created_at) | reverse | .[5:] | .[].id'))
+          if [ ${#ASSET_IDS[@]} -eq 0 ]; then
+            echo "No old assets to delete."
+            exit 0
+          fi
+          for AID in "${ASSET_IDS[@]}"; do
+            echo "Deleting asset ID $AID..."
+            curl -sSL -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$AID"
+          done
+
+      - name: Print direct link and QR to latest CRX
+        run: |
+          set -euo pipefail
+          echo "Fetching latest (tagged) release download URL..."
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/edge-test-latest"
+
+          attempts=3
+          attempt=1
+          while [ $attempt -le $attempts ]; do
+            echo "Attempt $attempt/$attempts: Checking for CRX release asset..."
+            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r '.assets[] | select(.name | endswith(".crx")) | .browser_download_url' | head -n 1)
+            if [ -n "$DOWNLOAD_URL" ]; then
+              echo "Asset found!"
+              break
+            fi
+            if [ $attempt -lt $attempts ]; then
+              echo "No CRX asset found yet, waiting 10 seconds..."
+              sleep 10
+            fi
+            attempt=$((attempt+1))
+          done
+
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "No CRX asset found for latest tagged release after $attempts attempts." >&2
+            exit 1
+          fi
+          echo "Direct download URL: $DOWNLOAD_URL"
+          echo
+          echo "QR code for mobile download:"
+          curl -s "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${DOWNLOAD_URL}" --output qrcode.png
+          echo "data:image/png;base64,$(base64 -w0 qrcode.png)"

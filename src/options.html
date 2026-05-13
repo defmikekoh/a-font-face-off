@@ -38,7 +38,7 @@
       border-radius: 8px !important; /* Less rounded, more rink-like */
       /* Use background-color so we don't reset background-image layers */
       background-color: var(--tab-background) !important;
-      overflow: visible; /* Allow creases to show */
+      overflow: visible; /* Allow creases and vertical center labels to show in Firefox. */
       height: 60px; /* Match popup tab height */
     }
     
@@ -224,7 +224,50 @@
       position: relative;
     }
 
-    /* Ensure tab labels appear above rink decor */
+    .affo-chromium-options #settingsTabs {
+      overflow: hidden;
+    }
+
+    .affo-chromium-options #settingsTabs .faceoff-circle {
+      width: 34px;
+      height: 34px;
+      border: 2px solid rgba(68, 102, 187, 0.45);
+      background: transparent;
+    }
+
+    .affo-chromium-options #settingsTabs .faceoff-dot {
+      display: none;
+    }
+
+    .affo-chromium-options #settingsTabs > div#toolbarTab,
+    .affo-chromium-options #settingsTabs > div#customTab,
+    .affo-chromium-options #settingsTabs > div#advancedTab {
+      flex: 1 1 0 !important;
+      width: auto !important;
+      min-width: 0;
+      padding: 0 12px !important;
+      color: var(--text-color);
+      font-size: 14px;
+      line-height: 1.2;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .affo-chromium-options #customTab .custom-text,
+    .affo-chromium-options #customTab .css-text {
+      position: static;
+      transform: none;
+      writing-mode: horizontal-tb;
+      z-index: auto;
+      font-size: inherit;
+      font-weight: inherit;
+      letter-spacing: 0px;
+      color: inherit;
+    }
+
+    .affo-chromium-options #customTab .custom-text::after {
+      content: ' ';
+    }
     
     /* Shorter red bar at bottom like popup - using pseudo-element */
     #settingsTabs div.active::after {

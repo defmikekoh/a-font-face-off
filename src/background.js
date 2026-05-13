@@ -809,22 +809,26 @@ function startGDriveAuthViaTab(redirectUri, forceConsent) {
   return new Promise(async (resolve, reject) => {
     let settled = false;
     let oauthTabId = -1;
+    let canCancelOAuthRedirect = false;
+    let webRequestListenerRegistered = false;
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     const state = generateCodeVerifier(); // random string for CSRF protection
     const authUrl = buildAuthUrl(codeChallenge, redirectUri, state, forceConsent);
 
     const cleanup = () => {
-      browser.webRequest.onBeforeRequest.removeListener(listener);
+      if (webRequestListenerRegistered) {
+        browser.webRequest.onBeforeRequest.removeListener(listener);
+      }
       browser.tabs.onUpdated.removeListener(onTabUpdated);
     };
 
-    const listener = (details) => {
+    const handleRedirectUrl = (redirectUrl, tabId) => {
       if (settled) return;
       // The filter pattern is broad (port stripped for Firefox compat),
       // so verify this is actually our redirect before acting
-      if (!details.url.startsWith(redirectUri)) return;
-      const url = new URL(details.url);
+      if (!redirectUrl || !redirectUrl.startsWith(redirectUri)) return false;
+      const url = new URL(redirectUrl);
       if (url.searchParams.get('state') !== state) return; // CSRF check
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
@@ -833,8 +837,10 @@ function startGDriveAuthViaTab(redirectUri, forceConsent) {
       cleanup();
 
       // Close the OAuth tab
-      if (details.tabId >= 0) {
-        browser.tabs.remove(details.tabId).catch(() => { });
+      if (tabId >= 0) {
+        browser.tabs.remove(tabId).catch(() => { });
+      } else if (oauthTabId >= 0) {
+        browser.tabs.remove(oauthTabId).catch(() => { });
       }
 
       if (error) {
@@ -847,13 +853,19 @@ function startGDriveAuthViaTab(redirectUri, forceConsent) {
         reject(new Error('No authorization code received'));
       }
 
-      return { cancel: true };
+      return true;
+    };
+
+    const listener = (details) => {
+      const handled = handleRedirectUrl(details.url, details.tabId);
+      return handled && canCancelOAuthRedirect ? { cancel: true } : undefined;
     };
 
     const onTabUpdated = (tabId, changeInfo) => {
       if (settled) return;
       if (tabId !== oauthTabId) return;
       if (!changeInfo.url) return;
+      if (handleRedirectUrl(changeInfo.url, tabId)) return;
       if (changeInfo.url.startsWith('https://accounts.google.com/info/unknownerror')) {
         settled = true;
         if (oauthTabId >= 0) {
@@ -867,11 +879,16 @@ function startGDriveAuthViaTab(redirectUri, forceConsent) {
     // Firefox match patterns don't support port numbers — strip port for the filter,
     // then do precise matching inside the listener via full URL comparison
     const filterPattern = redirectUri.replace(/:\d+/, '') + '*';
-    browser.webRequest.onBeforeRequest.addListener(
-      listener,
-      { urls: [filterPattern], types: ['main_frame', 'xmlhttprequest'] },
-      ['blocking']
-    );
+    const webRequestFilter = { urls: [filterPattern], types: ['main_frame', 'xmlhttprequest'] };
+    try {
+      browser.webRequest.onBeforeRequest.addListener(listener, webRequestFilter, ['blocking']);
+      canCancelOAuthRedirect = true;
+      webRequestListenerRegistered = true;
+    } catch (e) {
+      console.warn('[AFFO Background] Blocking OAuth redirect listener unavailable; observing redirect without cancellation:', e);
+      browser.webRequest.onBeforeRequest.addListener(listener, webRequestFilter);
+      webRequestListenerRegistered = true;
+    }
     browser.tabs.onUpdated.addListener(onTabUpdated);
 
     try {

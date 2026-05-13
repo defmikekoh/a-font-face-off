@@ -444,6 +444,35 @@ function getContextFromUrlParams() {
     };
 }
 
+async function openOptionsFromPopup() {
+    const optionsUrl = browser.runtime.getURL('options.html');
+    const closePopup = () => {
+        try { window.close(); } catch (_) {}
+    };
+
+    if (browser.runtime && typeof browser.runtime.openOptionsPage === 'function') {
+        try {
+            await browser.runtime.openOptionsPage();
+            closePopup();
+            return;
+        } catch (e) {
+            console.warn('[AFFO Popup] runtime.openOptionsPage failed, trying tab fallback:', e);
+        }
+    }
+
+    if (browser.tabs && typeof browser.tabs.create === 'function') {
+        try {
+            await browser.tabs.create({ url: optionsUrl, active: true });
+            closePopup();
+            return;
+        } catch (e) {
+            console.warn('[AFFO Popup] tabs.create options fallback failed, navigating popup:', e);
+        }
+    }
+
+    window.location.href = optionsUrl;
+}
+
 // Dynamic font axis cache populated from Google Fonts metadata + CSS parsing
 // Track last applied CSS for the active tab to avoid 'tabs' permission
 const appliedCssActive = { serif: null, sans: null, mono: null, body: null };
@@ -2842,6 +2871,15 @@ function cloneControlPanel(position) {
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded fired, starting popup initialization');
+
+    const openOptionsButton = document.getElementById('open-options-button');
+    if (openOptionsButton) {
+        openOptionsButton.addEventListener('click', function() {
+            openOptionsFromPopup().catch(error => {
+                console.error('[AFFO Popup] Failed to open settings:', error);
+            });
+        });
+    }
 
     // Clone body panel to create top/bottom/serif/sans/mono panels
     ['top', 'bottom', 'serif', 'mono', 'sans'].forEach(cloneControlPanel);

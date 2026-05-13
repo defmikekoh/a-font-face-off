@@ -107,6 +107,45 @@ A build step would produce two outputs from the same source:
 1. **Firefox build** (`.xpi`): Firefox manifest, `browser.*` namespace, event page background, `origin: 'USER'` in insertCSS
 2. **Chrome/Edge build** (`.crx`): Chrome manifest, polyfill or `chrome.*` namespace, service worker background, `!important` on all declarations
 
+### Side-by-side prototype build
+
+The repo now has a generated Edge MV3 prototype path that leaves the Firefox MV2 source untouched:
+
+```sh
+npm run build:edge-crx
+```
+
+Outputs:
+- Generated MV3 source: `ztemp/edge-mv3-src/`
+- Reusable local CRX signing key: `ztemp/edge-mv3-key.pem`
+- Source ZIP used for packing: `ztemp/edge-mv3.zip`
+- Installable CRX: `web-ext-artifacts/a-font-face-off-edge-mv3.crx`
+
+Packing note: `scripts/pack-edge-crx.js` uses a local Chromium/Chrome/Edge binary's native `--pack-extension` implementation. A hand-written CRX3 packer produced files that Edge Canary Android accepted from the file picker but then silently ignored. The native-packed control CRX produced the expected permission prompt and appeared in the Extensions list. Set `AFFO_EDGE_CRX_PACKER=/path/to/browser` or pass `--packer /path/to/browser` if the auto-detected browser is not the one to use.
+
+### GitHub Actions latest CRX
+
+`.github/workflows/edge-crx-prerelease.yml` mirrors the Firefox Android prerelease pattern with a separate moving tag:
+
+- Tag/release: `edge-test-latest`
+- Release asset: `web-ext-artifacts/a-font-face-off-edge-mv3.crx`
+- Trigger: manual `workflow_dispatch`
+- Version bump: generated MV3 manifest gets a fourth component from `GITHUB_RUN_NUMBER + 100`
+
+Set the repository secret `EDGE_CRX_PRIVATE_KEY_PEM` to the local `ztemp/edge-mv3-key.pem` contents before running it. Keeping this key stable keeps the CRX extension ID stable across GitHub Actions builds. The workflow also uses the existing `GDRIVE_CLIENT_ID` and `GDRIVE_CLIENT_SECRET` secrets to include `src/gdrive-config.js` in the generated MV3 source.
+
+The generated build:
+- Converts `browser_action` to `action`
+- Converts host match patterns from `permissions` into MV3 `host_permissions`
+- Uses a service worker wrapper (`edge-mv3-service-worker.js`) that imports the current background scripts
+- Injects `browser-polyfill-lite.js` before extension scripts so existing `browser.*` calls can run on Chrome/Edge
+- Adapts old `tabs.insertCSS`/`removeCSS`/`executeScript` call sites to MV3 `chrome.scripting`
+- Forces CSS generators into aggressive mode so generated CSS uses `!important`
+
+Prototype caveat: the `tabs.executeScript({ code })` adapter uses an MV3 scripting wrapper to evaluate existing dynamic code strings in the target tab. That is good enough for local Canary testing, but it is not a store-ready architecture; a production MV3 port should replace those dynamic code strings with fixed content-script message handlers.
+
+Google Drive sync prototype caveat: the current code still uses the desktop OAuth loopback flow. Firefox can cancel the loopback redirect with a blocking `webRequest` listener; Edge/Chrome MV3 may not allow that listener, so `background.js` also observes the redirect through non-blocking `webRequest`/`tabs.onUpdated` and closes the auth tab after capturing the code. Edge Canary Android does not currently surface the extension `options_ui` as a Settings item in the extension menu; the Quick Pick panel includes a `Connect Google Drive` action as a mobile-accessible sync entry point.
+
 Shared code (no changes needed):
 - `css-generators.js` (already accepts `aggressive` parameter)
 - `config-utils.js` (pure logic, no browser APIs)
@@ -128,6 +167,8 @@ Platform-specific code:
 - Settings → About → tap version 5 times → Developer Options
 - Build a Chrome/Edge MV3 package and pack it as `.crx` (not the Firefox `.xpi`)
 - Install via "Extension install by crx" for local testing, or "Extension install by ID" for an Edge Add-ons hosted extension
+- A successful CRX install shows a permissions prompt and then appears under Edge menu → Extensions. Silent return to the previous web page means the CRX did not register.
+- If Edge Canary hangs on an extension Details page, avoid the Details page. The extension menu may only show Details and Permissions; use the in-page AFFO toolbar → Quick Pick → `Connect Google Drive` for sync testing.
 - Preserve the CRX signing key/PEM between builds if a stable extension ID is needed for testing OAuth redirect URIs or stored extension data
 - Debug via `edge://inspect` on desktop Edge/Chrome (USB + Chrome DevTools Protocol)
 
