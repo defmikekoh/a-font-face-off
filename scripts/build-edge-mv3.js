@@ -243,12 +243,42 @@ function writeBrowserPolyfillLite() {
     return target;
   }
 
+  function selectActivePageTab(tabs) {
+    if (!tabs || !tabs.length) return null;
+    for (var i = 0; i < tabs.length; i++) {
+      var tab = tabs[i];
+      if (tab && /^https?:\\/\\//.test(tab.url || '')) return tab;
+    }
+    for (var j = 0; j < tabs.length; j++) {
+      if (tabs[j] && tabs[j].id != null) return tabs[j];
+    }
+    return tabs[0];
+  }
+
+  function queryActiveTabFallbacks() {
+    var queries = [
+      { active: true, currentWindow: true },
+      { active: true, lastFocusedWindow: true },
+      { active: true }
+    ];
+    var chain = Promise.resolve(null);
+    queries.forEach(function(queryInfo) {
+      chain = chain.then(function(tab) {
+        if (tab) return tab;
+        return browserApi.tabs.query(queryInfo).then(selectActivePageTab).catch(function() {
+          return null;
+        });
+      });
+    });
+    return chain;
+  }
+
   function getActiveTabId() {
-    return browserApi.tabs.query({ active: true, currentWindow: true }).then(function(tabs) {
-      if (!tabs || !tabs[0] || tabs[0].id == null) {
+    return queryActiveTabFallbacks().then(function(tab) {
+      if (!tab || tab.id == null) {
         throw new Error('No active tab available for MV3 scripting call');
       }
-      return tabs[0].id;
+      return tab.id;
     });
   }
 

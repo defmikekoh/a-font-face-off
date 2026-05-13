@@ -2417,12 +2417,25 @@ async function handleAffoRuntimeMessage(msg, sender) {
     // Handle getting current tab info
     if (msg.type === 'getCurrentTab') {
       try {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tabs.length > 0) {
-          return { success: true, tabId: tabs[0].id, url: tabs[0].url };
-        } else {
-          return { success: false, error: 'No active tab found' };
+        if (sender && sender.tab && sender.tab.id != null) {
+          return { success: true, tabId: sender.tab.id, url: sender.tab.url };
         }
+
+        const queries = [
+          { active: true, currentWindow: true },
+          { active: true, lastFocusedWindow: true },
+          { active: true }
+        ];
+        for (const queryInfo of queries) {
+          const tabs = await browser.tabs.query(queryInfo).catch(() => []);
+          const tab = tabs.find(candidate => candidate && /^https?:\/\//.test(candidate.url || ''))
+            || tabs.find(candidate => candidate && candidate.id != null)
+            || tabs[0];
+          if (tab && tab.id != null) {
+            return { success: true, tabId: tab.id, url: tab.url };
+          }
+        }
+        return { success: false, error: 'No active tab found' };
       } catch (e) {
         console.error('[AFFO Background] Error getting current tab:', e);
         return { success: false, error: e.message };

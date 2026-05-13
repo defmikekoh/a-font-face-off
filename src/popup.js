@@ -333,12 +333,128 @@ async function loadModeSettings(options = {}) {
     // Note: Other modes like 'body-contact' and 'third-man-in' are handled above
 }
 
-// Helper: get current active tab's origin without requiring 'tabs' permission
-function getActiveOrigin() {
-    return executeScriptInTargetTab({ code: 'location.hostname' }).then(res => {
-        if (Array.isArray(res) && res.length) return String(res[0]);
+function normalizeHostname(value) {
+    if (value == null) return null;
+    const hostname = String(value).trim();
+    if (!hostname || hostname === 'null' || hostname === 'undefined') return null;
+    return hostname;
+}
+
+function getHostnameFromUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+        return normalizeHostname(parsed.hostname);
+    } catch (_) {
         return null;
-    }).catch(() => null);
+    }
+}
+
+function selectActivePageTab(tabs) {
+    if (!Array.isArray(tabs) || !tabs.length) return null;
+    return tabs.find(tab => getHostnameFromUrl(tab && tab.url))
+        || tabs.find(tab => tab && tab.id != null)
+        || tabs[0];
+}
+
+function queryActivePageTab() {
+    const queries = [
+        { active: true, currentWindow: true },
+        { active: true, lastFocusedWindow: true },
+        { active: true }
+    ];
+
+    let chain = Promise.resolve(null);
+    queries.forEach(queryInfo => {
+        chain = chain.then(tab => {
+            if (tab) return tab;
+            return browser.tabs.query(queryInfo)
+                .then(selectActivePageTab)
+                .catch(() => null);
+        });
+    });
+    return chain;
+}
+
+function getTargetTabForPopup() {
+    if (window.sourceTabId) {
+        return Promise.resolve({ id: Number(window.sourceTabId) });
+    }
+    return queryActivePageTab();
+}
+
+function getContextDomainFromUrl() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const domain = normalizeHostname(urlParams.get('domain'));
+        const sourceTabId = urlParams.get('sourceTabId');
+        if (sourceTabId && !window.sourceTabId) {
+            window.sourceTabId = parseInt(sourceTabId);
+        }
+        return domain;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function getHostnameByScript(tab) {
+    try {
+        const result = (tab && tab.id != null)
+            ? await browser.tabs.executeScript(tab.id, { code: 'location.hostname' })
+            : await executeScriptInTargetTab({ code: 'location.hostname' });
+        if (Array.isArray(result) && result.length) {
+            return normalizeHostname(result[0]);
+        }
+    } catch (error) {
+        console.warn('[AFFO Popup] Could not read hostname via script:', error);
+    }
+    return null;
+}
+
+async function getHostnameByContentMessage(tab) {
+    if (!tab || tab.id == null) return null;
+    try {
+        const response = await AFFOMessaging.sendTabMessage(browser, tab.id, { type: 'affoGetPageInfo' }, {
+            ignoreNoReceiver: true
+        });
+        return normalizeHostname(response && (response.hostname || response.origin));
+    } catch (error) {
+        console.warn('[AFFO Popup] Could not read hostname via content message:', error);
+        return null;
+    }
+}
+
+// Helper: get current active tab's hostname. Edge Android can open the popup
+// outside the page window, so use tab URL, explicit-tab script injection, and
+// content-script messaging before falling back to cached context.
+async function getActiveOrigin() {
+    const contextDomain = getContextDomainFromUrl();
+    if (contextDomain) {
+        window.currentTabHostname = contextDomain;
+        return contextDomain;
+    }
+
+    const tab = await getTargetTabForPopup().catch(() => null);
+    const tabHostname = getHostnameFromUrl(tab && tab.url);
+    if (tabHostname) {
+        window.currentTabHostname = tabHostname;
+        return tabHostname;
+    }
+
+    const scriptHostname = await getHostnameByScript(tab);
+    if (scriptHostname) {
+        window.currentTabHostname = scriptHostname;
+        return scriptHostname;
+    }
+
+    const messageHostname = await getHostnameByContentMessage(tab);
+    if (messageHostname) {
+        window.currentTabHostname = messageHostname;
+        return messageHostname;
+    }
+
+    return normalizeHostname(window.currentTabHostname);
 }
 
 // Update domain display in the preview domain rink
@@ -422,9 +538,9 @@ function sendMessageToTargetTab(message) {
         });
     } else {
         console.log('[AFFO Popup] Sending message to active tab');
-        return browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
-            if (tabs[0]) {
-                return AFFOMessaging.sendTabMessage(browser, tabs[0].id, message, {
+        return queryActivePageTab().then(tab => {
+            if (tab && tab.id != null) {
+                return AFFOMessaging.sendTabMessage(browser, tab.id, message, {
                     ignoreNoReceiver: true
                 });
             }

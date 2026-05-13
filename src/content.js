@@ -3390,7 +3390,15 @@
   // Message listener - handles cleanup, fonts applied by popup insertCSS
   try {
     browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-      if (message.type === 'affoFilterFontSubsets') {
+      if (message.type === 'affoGetPageInfo') {
+        sendResponse({
+          ok: true,
+          success: true,
+          hostname: location.hostname,
+          origin: location.hostname,
+          href: location.href
+        });
+      } else if (message.type === 'affoFilterFontSubsets') {
         try {
           var cssText = typeof message.cssText === 'string' ? message.cssText : '';
           var urls = Array.isArray(message.urls) ? message.urls.filter(function (url) { return typeof url === 'string'; }) : [];
