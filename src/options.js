@@ -564,14 +564,27 @@
 
   // ─── Cloud Sync UI ───────────────────────────────────────────────────
 
-  function updateGDriveFolderPreview() {
-    const suffix = (document.getElementById('gdrive-folder-suffix').value || '').trim();
-    const preview = document.getElementById('gdrive-folder-preview');
+  function getSyncFolderPreviewText(suffix) {
+    const trimmed = String(suffix || '').trim();
+    return trimmed
+      ? `Folder: A Font Face-off ${trimmed}`
+      : 'Folder: A Font Face-off';
+  }
+
+  function updateFolderPreview(inputId, previewId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
     if (preview) {
-      preview.textContent = suffix
-        ? `Folder: A Font Face-off ${suffix}`
-        : 'Folder: A Font Face-off';
+      preview.textContent = getSyncFolderPreviewText(input ? input.value : '');
     }
+  }
+
+  function updateGDriveFolderPreview() {
+    updateFolderPreview('gdrive-folder-suffix', 'gdrive-folder-preview');
+  }
+
+  function updateWebDavFolderPreview() {
+    updateFolderPreview('webdav-folder-suffix', 'webdav-folder-preview');
   }
 
   function formatTimeAgo(timestamp) {
@@ -703,6 +716,7 @@
       if (!config.anonymous && (!config.username || !config.password)) {
         throw new Error('Username and password required (or check Anonymous)');
       }
+      await saveWebDavFolderSuffix();
       statusEl.textContent = 'Connecting...';
       const res = await sendRuntimeMessage({ type: 'affoWebDavConnect', config }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
@@ -727,6 +741,7 @@
         anonymous: document.getElementById('webdav-anonymous').checked
       };
       if (!config.serverUrl) throw new Error('Server URL is required');
+      await saveWebDavFolderSuffix();
       statusEl.textContent = 'Testing...';
       const res = await sendRuntimeMessage({ type: 'affoWebDavTest', config }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection test failed');
@@ -798,6 +813,11 @@
     await browser.storage.local.set({ affoGDriveFolderSuffix: suffix });
   }
 
+  async function saveWebDavFolderSuffix() {
+    const suffix = (document.getElementById('webdav-folder-suffix').value || '').trim();
+    await browser.storage.local.set({ affoWebDavFolderSuffix: suffix });
+  }
+
   // ─── Other settings (unchanged) ──────────────────────────────────────
 
   async function load(){
@@ -826,7 +846,8 @@
         'affoPageUpScrollOverlap',
         'affoPageUpLongpressOverlap',
         'affoIconTheme',
-        'affoGDriveFolderSuffix'
+        'affoGDriveFolderSuffix',
+        'affoWebDavFolderSuffix'
       ]);
       const serif = Array.isArray(data.affoKnownSerif) ? data.affoKnownSerif : DEFAULT_SERIF.slice();
       const sans = Array.isArray(data.affoKnownSans) ? data.affoKnownSans : DEFAULT_SANS.slice();
@@ -895,7 +916,12 @@
 
       // Load sync settings
       document.getElementById('gdrive-folder-suffix').value = data.affoGDriveFolderSuffix || '';
+      document.getElementById('webdav-folder-suffix').value =
+        data.affoWebDavFolderSuffix !== undefined
+          ? (data.affoWebDavFolderSuffix || '')
+          : (data.affoGDriveFolderSuffix || '');
       updateGDriveFolderPreview();
+      updateWebDavFolderPreview();
       await updateSyncConnectionState();
     } catch (e) {}
   }
@@ -1223,7 +1249,9 @@
 
       // Reset sync UI
       document.getElementById('gdrive-folder-suffix').value = '';
+      document.getElementById('webdav-folder-suffix').value = '';
       updateGDriveFolderPreview();
+      updateWebDavFolderPreview();
       await updateSyncConnectionState();
 
       statusEl.textContent = 'All settings reset successfully';
@@ -1295,6 +1323,10 @@
     document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
       updateGDriveFolderPreview();
       saveGDriveFolderSuffix();
+    });
+    document.getElementById('webdav-folder-suffix').addEventListener('input', function() {
+      updateWebDavFolderPreview();
+      saveWebDavFolderSuffix();
     });
     document.getElementById('sync-failure-ignore').addEventListener('click', hideSyncFailureModal);
     document.getElementById('sync-failure-retry').addEventListener('click', runSyncModalPrimaryAction);

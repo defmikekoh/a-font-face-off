@@ -82,6 +82,7 @@ const GDRIVE_REDIRECT_URIS = [
 
 // WebDAV constants
 const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';     // { serverUrl, username, password, anonymous }
+const WEBDAV_FOLDER_SUFFIX_KEY = 'affoWebDavFolderSuffix';
 
 // Shared cache promise to avoid reading storage.local multiple times concurrently
 let cacheReadPromise = null;
@@ -947,10 +948,23 @@ async function disconnectGDrive() {
 
 // ─── Google Drive: Folder & File Operations ────────────────────────────
 
+function buildSyncFolderName(suffix) {
+  const trimmed = String(suffix || '').trim();
+  return trimmed ? `${SYNC_FOLDER_NAME} ${trimmed}` : SYNC_FOLDER_NAME;
+}
+
 async function getAppFolderName() {
   const data = await browser.storage.local.get(GDRIVE_FOLDER_SUFFIX_KEY);
-  const suffix = String(data[GDRIVE_FOLDER_SUFFIX_KEY] || '').trim();
-  return suffix ? `${SYNC_FOLDER_NAME} ${suffix}` : SYNC_FOLDER_NAME;
+  const suffix = data[GDRIVE_FOLDER_SUFFIX_KEY];
+  return buildSyncFolderName(suffix);
+}
+
+async function getWebDavFolderName() {
+  const data = await browser.storage.local.get([WEBDAV_FOLDER_SUFFIX_KEY, GDRIVE_FOLDER_SUFFIX_KEY]);
+  const suffix = data[WEBDAV_FOLDER_SUFFIX_KEY] !== undefined
+    ? data[WEBDAV_FOLDER_SUFFIX_KEY]
+    : data[GDRIVE_FOLDER_SUFFIX_KEY];
+  return buildSyncFolderName(suffix);
 }
 
 async function findFolder(name, parentId) {
@@ -1179,9 +1193,7 @@ async function webdavInit() {
   if (!config || !config.serverUrl) throw new Error('WebDAV not configured');
   let url = config.serverUrl.trim();
   if (!url.endsWith('/')) url += '/';
-  const folderSuffixData = await browser.storage.local.get(GDRIVE_FOLDER_SUFFIX_KEY);
-  const suffix = (folderSuffixData[GDRIVE_FOLDER_SUFFIX_KEY] || '').trim();
-  const folderName = suffix ? `${SYNC_FOLDER_NAME} ${suffix}` : SYNC_FOLDER_NAME;
+  const folderName = await getWebDavFolderName();
   url += encodeURIComponent(folderName) + '/';
   const headers = webdavHeaders(config);
   // Ensure folder exists (MKCOL; 405 = already exists on most servers)

@@ -146,6 +146,8 @@ Prototype caveat: the `tabs.executeScript({ code })` adapter uses an MV3 scripti
 
 Google Drive sync prototype caveat: the current code still uses the desktop OAuth loopback flow. Firefox can cancel the loopback redirect with a blocking `webRequest` listener; Edge/Chrome MV3 may not allow that listener, so `background.js` also observes the redirect through non-blocking `webRequest`/`tabs.onUpdated` and closes the auth tab after capturing the code. Edge Canary Android does not currently surface the extension `options_ui` as a Settings item in the extension menu; the Quick Pick panel includes a `Connect Google Drive` action as a mobile-accessible sync entry point.
 
+WebDAV sync path note: configure the WebDAV server URL to the DAV root that answers `PROPFIND` with `207 Multi-Status`, then use the WebDAV folder suffix field to create a separate Chrome/Edge namespace such as `A Font Face-off Chrome`. Do not assume a human-browsable WebDAVNav URL path is also a DAV collection path.
+
 Shared code (no changes needed):
 - `css-generators.js` (already accepts `aggressive` parameter)
 - `config-utils.js` (pure logic, no browser APIs)

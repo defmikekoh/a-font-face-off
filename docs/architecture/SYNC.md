@@ -21,6 +21,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 ## WebDAV
 
 - Basic auth or anonymous, `credentials: 'omit'`, MKCOL for folder
+- Uses `affoWebDavFolderSuffix` to choose the remote folder name independently from Google Drive (`A Font Face-off` or `A Font Face-off {suffix}`)
 - Uses `ETag` as `remoteRev` when server provides it
 - Sends `If-Match` on `PUT` when an existing item has a stored WebDAV ETag (optimistic concurrency)
 - If server omits `ETag`, writes continue without optimistic revision protection for that item
