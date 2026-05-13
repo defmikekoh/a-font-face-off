@@ -1,11 +1,11 @@
 ---
 name: firefox-extension-testing
-description: Test and inspect the A Font Face-off Firefox extension on desktop Firefox and Android Firefox using Selenium, geckodriver, Firefox Developer Edition, and the Android Firefox WebDriver harness.
+description: Test and inspect the A Font Face-off extension on desktop Firefox, Android Firefox, and the Edge Canary Android MV3 CRX prototype using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows.
 ---
 
-# Firefox Extension Testing
+# A Font Face-off Extension Testing
 
-Automated and semi-automated testing of the extension on desktop Firefox Developer Edition and Android Firefox. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android inspection uses the project WebDriver harness for real Firefox Android DOM and computed CSS.
+Automated and semi-automated testing of the extension on desktop Firefox Developer Edition, Android Firefox, and the Edge Canary Android MV3 CRX prototype. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android Firefox inspection uses the project WebDriver harness for real DOM and computed CSS. Edge Canary Android work uses generated MV3 source, native-packed CRX artifacts, and ADB/manual Canary extension UI.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
 2. Use desktop Selenium/geckodriver for repeatable popup and desktop content-script behavior.
-3. Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
+3. Use Android Chrome/Edge DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
 4. Use the Android Firefox WebDriver harness for authoritative Firefox Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final extension behavior matters.
 5. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
 6. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
@@ -152,6 +152,53 @@ npm run inspect:android-firefox -- --serial DEVICE_ID --package org.mozilla.feni
 
 Use a seed font that differs from the site default when proving font application. On Substack, `Lora` is a better serif proof than `Spectral` because many Substack pages already use Spectral.
 
+## Edge Canary Android MV3 Prototype
+
+Build the side-by-side Edge/Chrome MV3 prototype without modifying Firefox source:
+
+```bash
+npm run build:edge-crx
+```
+
+Outputs:
+- Generated source: `ztemp/edge-mv3-src/`
+- Native-packed CRX: `web-ext-artifacts/a-font-face-off-edge-mv3.crx`
+- Stable local CRX key: `ztemp/edge-mv3-key.pem`
+
+Push a rebuilt CRX to the Note10:
+
+```bash
+adb -s RF8M81WSL1V push web-ext-artifacts/a-font-face-off-edge-mv3.crx /sdcard/Download/a-font-face-off-edge-mv3.crx
+```
+
+Edge Canary package/device details seen in testing:
+- Device: `RF8M81WSL1V` (Samsung Galaxy Note10)
+- Package: `com.microsoft.emmx.canary`
+- Stable extension ID from the local key: `jbomcpnpnenellkkkmhonikajmmalpig`
+
+Install path on device:
+1. Edge Canary → Settings → About → tap version 5 times.
+2. Developer Options → `Extension install by crx`.
+3. Pick the CRX from Downloads.
+4. A successful install shows a permissions prompt and then appears in Edge menu → Extensions.
+
+If selecting a CRX silently returns to the previous page, assume the CRX did not register. Native-packed CRX files from Chromium/Chrome/Edge worked; a hand-written CRX3 file was accepted by the picker but ignored.
+
+Avoid Edge Canary's extension Details page if it hangs. The extension menu may show only Details and Permissions, so use the AFFO popup gear/options path or in-page toolbar/Quick Pick where available.
+
+### Edge WebDAV Sync
+
+AFFO's WebDAV Server URL should be the DAV root that answers authenticated `PROPFIND` with `207 Multi-Status`, not necessarily a human-browsable WebDAVNav folder URL. For the local WebDAVNav server used in testing:
+
+```text
+Server URL: http://192.168.0.120:8080/
+Username: user
+Password: user
+Folder suffix: Chrome
+```
+
+This writes to `A Font Face-off Chrome/`. Browser GETs to paths like `/chrome/` can show a WebDAVNav HTML UI while authenticated `PROPFIND /chrome/` still returns 404, so do not treat GET success as a WebDAV sync proof.
+
 ## Popup panel details
 
 - The popup opens inside the `customizationui-widget-panel` panel element in chrome context
@@ -203,3 +250,16 @@ Recommended recovery:
 4. If the prompt still repeats, reinstall Firefox Developer Edition before debugging the test harness further.
 
 This issue can break Selenium launches even when the test code and skill are otherwise fine.
+
+### Firefox Android `web-ext run` duplicate RDP sockets
+
+If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
+
+```bash
+adb -s DEVICE_ID forward --list
+adb -s DEVICE_ID forward --remove tcp:PORT
+adb -s DEVICE_ID shell am force-stop org.mozilla.fenix
+adb -s DEVICE_ID shell grep org.mozilla.fenix /proc/net/unix
+```
+
+The final `grep` should print no duplicate `firefox-debugger-socket` rows before retrying. If sockets remain after force-stop, a device reboot is the blunt recovery.
