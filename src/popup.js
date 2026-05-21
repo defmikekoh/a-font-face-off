@@ -224,7 +224,7 @@ async function loadModeSettings(options = {}) {
                 const domainData = await getApplyMapForOrigin(origin);
                 console.log('DOMAIN-FIRST: domainData for origin:', origin, domainData);
 
-                if (domainData && (domainData.serif || domainData.sans || domainData.mono)) {
+                if (domainData && (domainData.serif || domainData.sans || domainData.mono || hasSrouletteIntent(domainData))) {
                     // Domain has applied settings - use those (ignore UI state)
                     console.log('DOMAIN-FIRST: Found applied third man in state for origin:', origin);
 
@@ -233,7 +233,12 @@ async function loadModeSettings(options = {}) {
                     let cssPromises = [];
 
                     for (const type of types) {
-                        if (domainData[type]) {
+                        const srouletteIntent = getSrouletteIntent(domainData, type);
+                        if (srouletteIntent) {
+                            markPanelAsSroulette(type, srouletteIntent.pool);
+                            if (!lastChangedThirdManInPanel) lastChangedThirdManInPanel = type;
+                        } else if (domainData[type]) {
+                            clearSroulettePanelState(type);
                             console.log(`DOMAIN-FIRST: Loading ${type} font:`, domainData[type]);
                             const config = normalizeConfig(domainData[type]);
                             console.log(`Built ${type} config:`, config);
@@ -249,6 +254,8 @@ async function loadModeSettings(options = {}) {
                                     })()
                                 );
                             }
+                        } else if (SROULETTE_POSITIONS.has(type)) {
+                            clearSroulettePanelState(type);
                         }
                     }
 
@@ -275,6 +282,8 @@ async function loadModeSettings(options = {}) {
                 const defaultLabels = { serif: 'Serif', sans: 'Sans', mono: 'Mono' };
 
                 types.forEach(type => {
+                    clearSroulettePanelState(type);
+
                     const fontNameElement = document.getElementById(`${type}-font-name`);
                     const fontDisplay = document.getElementById(`${type}-font-display`);
 
@@ -1513,6 +1522,10 @@ function getCurrentUIConfig(position) {
         return null;
     }
 
+    if (isPanelShowingSroulette(position)) {
+        return undefined;
+    }
+
     // Font color is optional for Third Man In mode positions
     const hasColorControl = !!fontColorControl;
 
@@ -1689,6 +1702,7 @@ async function applyFontConfig(position, config) {
     if (position === 'serif' || position === 'sans' || position === 'mono') {
         console.log(`applyFontConfig called for ${position}:`, config);
         console.trace('applyFontConfig call stack');
+        clearSroulettePanelState(position);
     }
     // Set font family (allow unset in Facade -> Default)
     if (config.fontName === null || String(config.fontName).toLowerCase() === 'default') {
@@ -2681,7 +2695,7 @@ function syncThirdManInButtons() {
                 const resetBtn = document.getElementById(`reset-${fontType}`);
 
                 if (applyBtn) {
-                    const on = !!(domainData && domainData[fontType]);
+                    const on = !!(domainData && (domainData[fontType] || getSrouletteIntent(domainData, fontType)));
                     applyBtn.classList.toggle('active', on);
                     applyBtn.textContent = on ? '✓' : 'Apply';
                     applyBtn.style.display = on ? 'inline-flex' : 'none';
@@ -2765,6 +2779,7 @@ function applyFont(position) {
     const textElement = document.getElementById(`${position}-font-text`);
     const nameElement = document.getElementById(`${position}-font-name`);
     if (!textElement || !nameElement) return;
+    if (isPanelShowingSroulette(position)) return;
 
     const cfg = getCurrentUIConfig(position);
     const GENERIC = { serif: 'serif', sans: 'sans-serif', mono: 'monospace' };
@@ -2936,6 +2951,125 @@ const PANEL_HEADINGS = {
 };
 // TMI positions get "Apply All" / "Reset All" button text
 const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
+const SROULETTE_POSITIONS = new Set(['serif', 'sans']);
+
+function isSrouletteSlot(value) {
+    return value === 'serif' || value === 'sans';
+}
+
+function getSrouletteIntent(domainData, fontType) {
+    if (!domainData || !isSrouletteSlot(fontType)) return null;
+    const intent = domainData.sroulette && domainData.sroulette[fontType];
+    if (!intent || !isSrouletteSlot(intent.pool)) return null;
+    return intent;
+}
+
+function hasSrouletteIntent(domainData) {
+    return !!(getSrouletteIntent(domainData, 'serif') || getSrouletteIntent(domainData, 'sans'));
+}
+
+function getSrouletteLabel(pool) {
+    return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+}
+
+function clearSrouletteIntentFromEntry(entry, fontType) {
+    if (!entry || !isSrouletteSlot(fontType)) return;
+    if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
+    delete entry.sroulette[fontType];
+    if (!entry.sroulette.serif && !entry.sroulette.sans) {
+        delete entry.sroulette;
+    }
+}
+
+function setSroulettePanelControlsDisabled(position, disabled) {
+    const panel = document.getElementById(`${position}-font-controls`);
+    if (!panel) return;
+
+    panel.querySelectorAll('.panel-body input, .panel-body select').forEach(el => {
+        el.disabled = disabled;
+    });
+
+    const display = document.getElementById(`${position}-font-display`);
+    if (display) {
+        if (disabled) {
+            if (!display.dataset.affoOriginalTabindex) {
+                display.dataset.affoOriginalTabindex = display.getAttribute('tabindex') || '';
+            }
+            display.setAttribute('tabindex', '-1');
+            display.setAttribute('aria-disabled', 'true');
+        } else {
+            const originalTabindex = display.dataset.affoOriginalTabindex;
+            if (originalTabindex === '') display.removeAttribute('tabindex');
+            else if (originalTabindex != null) display.setAttribute('tabindex', originalTabindex);
+            delete display.dataset.affoOriginalTabindex;
+            display.removeAttribute('aria-disabled');
+        }
+    }
+
+    panel.querySelectorAll('.family-reset-btn, .axis-reset-btn').forEach(btn => {
+        if (disabled) {
+            if (btn.dataset.affoOriginalText == null) btn.dataset.affoOriginalText = btn.textContent || '';
+            if (btn.dataset.affoOriginalTitle == null) btn.dataset.affoOriginalTitle = btn.getAttribute('title') || '';
+            if (btn.dataset.affoOriginalDisabled == null) btn.dataset.affoOriginalDisabled = btn.disabled ? 'true' : 'false';
+            btn.textContent = '☸';
+            btn.setAttribute('title', 'Sroulette applied');
+            btn.disabled = true;
+            btn.classList.add('sroulette-wheel-marker');
+        } else {
+            if (btn.dataset.affoOriginalText != null) btn.textContent = btn.dataset.affoOriginalText;
+            if (btn.dataset.affoOriginalTitle != null) btn.setAttribute('title', btn.dataset.affoOriginalTitle);
+            if (btn.dataset.affoOriginalDisabled != null) btn.disabled = btn.dataset.affoOriginalDisabled === 'true';
+            delete btn.dataset.affoOriginalText;
+            delete btn.dataset.affoOriginalTitle;
+            delete btn.dataset.affoOriginalDisabled;
+            btn.classList.remove('sroulette-wheel-marker');
+        }
+    });
+}
+
+function markPanelAsSroulette(position, pool) {
+    if (!SROULETTE_POSITIONS.has(position) || !isSrouletteSlot(pool)) return;
+    const label = getSrouletteLabel(pool);
+    const panel = document.getElementById(`${position}-font-controls`);
+    const display = document.getElementById(`${position}-font-display`);
+    const heading = document.getElementById(`${position}-font-name`);
+    const preview = document.getElementById(`${position}-font-text`);
+
+    if (panel) panel.classList.add('sroulette-applied');
+    if (display) {
+        display.textContent = label;
+        display.classList.remove('placeholder', 'default');
+        display.classList.add('sroulette-display');
+        display.dataset.affoSroulettePool = pool;
+    }
+    if (heading) {
+        heading.textContent = label;
+        heading.style.fontFamily = '';
+    }
+    if (preview) {
+        const generic = position === 'serif' ? 'serif' : 'sans-serif';
+        preview.style.cssText = `font-family: ${generic};`;
+    }
+
+    setSroulettePanelControlsDisabled(position, true);
+}
+
+function clearSroulettePanelState(position) {
+    if (!SROULETTE_POSITIONS.has(position)) return;
+    const panel = document.getElementById(`${position}-font-controls`);
+    const display = document.getElementById(`${position}-font-display`);
+    if (panel) panel.classList.remove('sroulette-applied');
+    if (display) {
+        delete display.dataset.affoSroulettePool;
+        display.classList.remove('sroulette-display');
+    }
+    setSroulettePanelControlsDisabled(position, false);
+}
+
+function isPanelShowingSroulette(position) {
+    const display = document.getElementById(`${position}-font-display`);
+    return !!(display && display.dataset.affoSroulettePool);
+}
 
 // Clone body-font-controls to create other panels before any other init code
 function cloneControlPanel(position) {
@@ -4130,6 +4264,11 @@ function saveApplyMapForOrigin(origin, fontType, config) {
         console.log(`🟢 saveApplyMapForOrigin: Current applyMap before save:`, applyMap);
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][fontType] = config;
+        if (fontType === 'body') {
+            delete applyMap[origin].sroulette;
+        } else {
+            clearSrouletteIntentFromEntry(applyMap[origin], fontType);
+        }
         console.log(`🟢 saveApplyMapForOrigin: New applyMap after save:`, applyMap);
         return browser.storage.local.set({ affoApplyMap: applyMap });
     }).then(() => {
@@ -4155,7 +4294,11 @@ function saveBatchApplyMapForOrigin(origin, fontConfigs) {
         Object.entries(fontConfigs).forEach(([fontType, config]) => {
             if (config) {
                 applyMap[origin][fontType] = config;
+                clearSrouletteIntentFromEntry(applyMap[origin], fontType);
                 console.log(`🟢 saveBatchApplyMapForOrigin: Added ${fontType} config:`, config);
+            } else {
+                delete applyMap[origin][fontType];
+                clearSrouletteIntentFromEntry(applyMap[origin], fontType);
             }
         });
 
@@ -4181,6 +4324,7 @@ function clearApplyMapForOrigin(origin, fontType = null) {
                 // Clear specific font type (e.g., just 'sans')
                 console.log(`🔴 clearApplyMapForOrigin: Clearing specific fontType "${fontType}" from ${origin}`);
                 delete applyMap[origin][fontType];
+                clearSrouletteIntentFromEntry(applyMap[origin], fontType);
             } else {
                 // Clear entire domain
                 console.log(`🔴 clearApplyMapForOrigin: Clearing entire domain "${origin}"`);
@@ -4242,7 +4386,7 @@ function determineInitialMode() {
 
             // Domain has data - determine mode based on what's applied
             const hasBodyFont = !!domainData.body;
-            const hasThirdManFonts = !!(domainData.serif || domainData.sans || domainData.mono);
+            const hasThirdManFonts = !!(domainData.serif || domainData.sans || domainData.mono || hasSrouletteIntent(domainData));
 
             if (hasThirdManFonts && !hasBodyFont) {
                 // Only Third Man In fonts applied
@@ -4274,6 +4418,8 @@ function resetThirdManInUI() {
     console.log('🔄 resetThirdManInUI: Resetting Third Man In UI to defaults');
 
     for (const fontType of ['serif', 'sans', 'mono']) {
+        clearSroulettePanelState(fontType);
+
         // Reset font name display
         const nameElement = document.getElementById(`${fontType}-font-name`);
         if (nameElement) nameElement.textContent = fontType.charAt(0).toUpperCase() + fontType.slice(1);
@@ -4339,6 +4485,13 @@ function restoreUIFromDomainStorage() {
 
             // Restore each font type (serif, sans, mono)
             for (const fontType of ['serif', 'sans', 'mono']) {
+                const srouletteIntent = getSrouletteIntent(domainData, fontType);
+                if (srouletteIntent) {
+                    markPanelAsSroulette(fontType, srouletteIntent.pool);
+                    if (!lastChangedThirdManInPanel) lastChangedThirdManInPanel = fontType;
+                    continue;
+                }
+
                 const savedFont = domainData[fontType];
 
                 // Check if saved font has any meaningful properties
@@ -4500,6 +4653,7 @@ function modeHasAppliedSettings(mode) {
 
         return getApplyMapForOrigin(origin).then(domainData => {
             if (!domainData) return false;
+            if (mode === 'third-man-in' && hasSrouletteIntent(domainData)) return true;
             return modeConfig.positions.some(pos => !!domainData[pos]);
         });
     }).catch(() => false);
@@ -4549,6 +4703,7 @@ function resetFontPreviews() {
     // Reset Third Man In mode previews
     const thirdManTypes = ['serif', 'sans', 'mono'];
     thirdManTypes.forEach(fontType => {
+        clearSroulettePanelState(fontType);
         const nameElement = document.getElementById(`${fontType}-font-name`);
         const textElement = document.getElementById(`${fontType}-font-text`);
         if (nameElement) {
@@ -5310,6 +5465,7 @@ function countThirdManInDifferences() {
             const appliedSerif = domainData ? domainData.serif : null;
             const appliedSans = domainData ? domainData.sans : null;
             const appliedMono = domainData ? domainData.mono : null;
+            const appliedSroulette = hasSrouletteIntent(domainData);
 
             console.log('countThirdManInDifferences: Applied configs:', {
                 serif: appliedSerif,
@@ -5322,7 +5478,7 @@ function countThirdManInDifferences() {
             console.log('countThirdManInDifferences: Applied body:', appliedBody);
 
             // Check if domain has any applied fonts (from either mode)
-            const domainHasAppliedFonts = appliedSerif || appliedSans || appliedMono || appliedBody;
+            const domainHasAppliedFonts = appliedSerif || appliedSans || appliedMono || appliedBody || appliedSroulette;
             console.log('countThirdManInDifferences: domainHasAppliedFonts:', domainHasAppliedFonts);
 
             // Check if current settings have any non-defaults
@@ -5331,6 +5487,7 @@ function countThirdManInDifferences() {
             for (const type of types) {
                 const current = getCurrentUIConfig(type);
                 const applied = domainData ? domainData[type] : null;
+                const srouletteApplied = !!getSrouletteIntent(domainData, type);
 
                 // Font is considered default/unset if config is missing or has no meaningful properties
                 const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
@@ -5344,10 +5501,12 @@ function countThirdManInDifferences() {
 
                 if (isDefaultFont) {
                     // Current is default - difference only if something is applied
-                    isDifferent = !!applied;
+                    isDifferent = !!applied || srouletteApplied;
                 } else {
                     // Current is non-default - difference if nothing applied or different config applied
-                    if (!applied) {
+                    if (srouletteApplied) {
+                        isDifferent = true;
+                    } else if (!applied) {
                         isDifferent = true;
                     } else {
                         // Convert applied payload back to flattened config format for comparison
@@ -5625,6 +5784,17 @@ async function updateAllThirdManInButtons(triggeringPanel = null) {
         lastChangedThirdManInPanel = triggeringPanel;
     }
 
+    if (!lastChangedThirdManInPanel) {
+        try {
+            const origin = await getActiveOrigin();
+            const domainData = await getApplyMapForOrigin(origin);
+            const activePanel = ['serif', 'sans', 'mono'].find(panelId => {
+                return !!(domainData && (domainData[panelId] || getSrouletteIntent(domainData, panelId)));
+            });
+            if (activePanel) lastChangedThirdManInPanel = activePanel;
+        } catch (_) {}
+    }
+
     await Promise.all(['serif', 'sans', 'mono'].map(async (panelId) => {
         const applyBtn = document.getElementById(`apply-${panelId}`);
         const resetBtn = document.getElementById(`reset-${panelId}`);
@@ -5649,7 +5819,7 @@ async function updateAllThirdManInButtons(triggeringPanel = null) {
         if (changeCount === 0) {
             const origin = await getActiveOrigin();
             const domainData = await getApplyMapForOrigin(origin);
-            domainHasFonts = !!(domainData && (domainData.serif || domainData.sans || domainData.mono));
+            domainHasFonts = !!(domainData && (domainData.serif || domainData.sans || domainData.mono || hasSrouletteIntent(domainData)));
         }
 
         const state = determineButtonState(changeCount, allDefaults, domainHasFonts);
@@ -5770,6 +5940,7 @@ function resetAllThirdManInFonts() {
 // Helper to unset all controls for a panel
 function unsetAllPanelControls(panelId) {
     console.log('unsetAllPanelControls called for:', panelId);
+    clearSroulettePanelState(panelId);
 
     // Unset font family (set to default)
     const fontDisplay = document.getElementById(`${panelId}-font-display`);

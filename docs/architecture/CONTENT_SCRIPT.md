@@ -21,6 +21,8 @@ var focusHandlers = [];              // Array of callbacks invoked on focus/visi
 
 The `affoApplyMap` storage change listener diffs `oldValue[origin]` vs `newValue[origin]` using `JSON.stringify` comparison. Only tears down and reapplies styles when the current origin's config actually changed, avoiding unnecessary work on tabs showing unrelated domains.
 
+For non-Substack Sroulette entries, `affoApplyMap[origin].sroulette` is materialized in memory before reapply. Each target slot samples a fresh favorite from the configured Substack Roulette serif/sans pool; the sampled font is not written back to storage, so page load and pool/favorite changes can reroll without sync churn.
+
 ## Unified Element Walker
 
 `runElementWalkerAll(fontTypes)` classifies all requested TMI types (serif/sans/mono) in a single DOM pass. Returns a `Promise<markedCounts>` that resolves when the chunked walk finishes (or `Promise.resolve({})` when all types are already completed).

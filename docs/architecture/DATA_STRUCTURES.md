@@ -7,7 +7,7 @@ This document outlines the key data structures used in the A Font Face-off brows
 The extension uses `browser.storage.local` for all persistence.
 
 ### Domain Storage (`affoApplyMap`)
-**Purpose**: Stores fonts applied to specific domains across all modes (Body Contact, Third Man In)
+**Purpose**: Stores fonts and Sroulette intent applied to specific domains across all modes (Body Contact, Third Man In)
 **Key**: `affoApplyMap`
 
 ```javascript
@@ -16,9 +16,17 @@ The extension uses `browser.storage.local` for all persistence.
     "body": {
       "fontName": "Roboto"
     }
+  },
+  "news.example.com": {
+    "sroulette": {
+      "serif": { "pool": "serif" },
+      "sans": { "pool": "sans" }
+    }
   }
 }
 ```
+
+`sroulette` stores synced intent only. It does not store the random font chosen for a page load; each device resolves `pool: "serif"` or `pool: "sans"` against its current Substack Roulette pools and favorites at render time. The slot key (`serif`/`sans`) is the target TMI slot, and `pool` is the source pool to sample.
 
 ### Domain Merge Metadata (`affoApplyMapMeta`)
 **Purpose**: Tracks per-origin sync timestamps and tombstones for bidirectional per-domain merge
@@ -137,7 +145,7 @@ The extension uses `browser.storage.local` for all persistence.
 | Remote File | Storage Key | Content |
 |---|---|---|
 | `sync-manifest.json` | — | Bidirectional merge timestamps |
-| `domains.json` | `affoApplyMap` | All domain font configs |
+| `domains.json` | `affoApplyMap` | All domain font configs and per-domain Sroulette intent |
 | `domains-meta.json` | `affoApplyMapMeta` | Per-origin modified/deleted timestamps for domain merge |
 | `favorites.json` | `affoFavorites` + `affoFavoritesOrder` | Saved favorites |
 | `custom-fonts.css` | `affoCustomFontsCss` | Custom @font-face rules |

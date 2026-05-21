@@ -67,6 +67,20 @@
         return waitForItDomains.includes(host);
     }
 
+    function getValidSroulettePoolInfo(data, pool) {
+        const key = pool === 'serif' ? 'affoSubstackRouletteSerif' : 'affoSubstackRouletteSans';
+        const names = Array.isArray(data && data[key]) ? data[key] : [];
+        const favorites = (data && data.affoFavorites) || {};
+        const validNames = names.filter(name => {
+            const cfg = favorites[name];
+            return !!(cfg && cfg.fontName);
+        });
+        return {
+            available: data && data.affoSubstackRoulette !== false && validNames.length > 0,
+            count: validNames.length
+        };
+    }
+
     async function sendWaitForItStateToIframe() {
         if (!leftToolbarIframe || !leftToolbarIframe.contentWindow) return;
         try {
@@ -713,7 +727,7 @@
         aggressiveHr.style.cssText = 'border: none !important; border-top: 1px solid #dee2e6 !important; margin: 2px 0 !important;';
         body.appendChild(aggressiveHr);
 
-        // Create 5 favorite buttons (matching Load Favorites modal button styling)
+        // Create Sroulette and favorite buttons (matching Load Favorites modal button styling)
         const buttonStyleFn = function(btn) {
             btn.style.cssText = `
                 padding: 0 !important;
@@ -739,6 +753,13 @@
             btn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#dee2e6', 'important'); };
             btn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#e9ecef', 'important'); };
         };
+
+        ['serif', 'sans'].forEach(pool => {
+            const btn = document.createElement('button');
+            btn.id = `affo-quick-pick-sroulette-${pool}`;
+            buttonStyleFn(btn);
+            body.appendChild(btn);
+        });
 
         for (let i = 1; i <= 5; i++) {
             const btn = document.createElement('button');
@@ -915,6 +936,7 @@
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
                 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains',
+                'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans',
                 'affoSyncBackend'
             ]);
             const favorites = data.affoFavorites || {};
@@ -948,6 +970,10 @@
                 domainData,
                 origin,
                 domainLists,
+                sroulettePools: {
+                    serif: getValidSroulettePoolInfo(data, 'serif'),
+                    sans: getValidSroulettePoolInfo(data, 'sans')
+                },
                 syncBackend: data.affoSyncBackend || null,
             });
 
@@ -1015,7 +1041,11 @@
 
     // Set disabled/loading state on all quick-pick buttons
     function setQuickPickButtonsDisabled(disabled) {
-        const allBtns = Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`));
+        const allBtns = [
+            document.getElementById('affo-quick-pick-sroulette-serif'),
+            document.getElementById('affo-quick-pick-sroulette-sans'),
+            ...Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`))
+        ];
         const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
         allBtns.forEach(b => {
             if (b && b.style.display !== 'none') {
@@ -1035,7 +1065,7 @@
     }
 
     // Populate menu with favorites (in page context)
-    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists, syncBackend }) {
+    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists, sroulettePools, syncBackend }) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         createQuickPickMenuIfNeeded();
 
@@ -1172,20 +1202,93 @@
             }
         }
 
-        // Hide all favorite buttons first
+        // Hide all Sroulette and favorite buttons first
+        ['serif', 'sans'].forEach(pool => {
+            const btn = document.getElementById(`affo-quick-pick-sroulette-${pool}`);
+            if (btn) btn.style.setProperty('display', 'none', 'important');
+        });
         for (let i = 1; i <= 5; i++) {
             const btn = document.getElementById(`affo-quick-pick-font-${i}`);
             if (btn) btn.style.setProperty('display', 'none', 'important');
         }
 
-        if (noFavorites) {
-            setQuickPickMessage(message, 'No favorites saved. Add favorites in the popup.');
+        if (showBodyModeMessage) {
+            setQuickPickMessage(message, 'Domain has already been set in Body Mode. Use popup.');
             unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
-        if (showBodyModeMessage) {
-            setQuickPickMessage(message, 'Domain has already been set in Body Mode. Use popup.');
+        let visibleSrouletteCount = 0;
+        if (!currentIsSubstack) {
+            ['serif', 'sans'].forEach(pool => {
+                const poolInfo = sroulettePools && sroulettePools[pool];
+                if (!poolInfo || !poolInfo.available) return;
+                const btn = document.getElementById(`affo-quick-pick-sroulette-${pool}`);
+                if (!btn) return;
+
+                visibleSrouletteCount += 1;
+                btn.disabled = false;
+                btn.style.setProperty('opacity', '1', 'important');
+                btn.innerHTML = '';
+                btn.style.setProperty('display', 'flex', 'important');
+                btn.style.setProperty('position', 'relative', 'important');
+                btn.style.setProperty('overflow', 'hidden', 'important');
+
+                const leftHint = document.createElement('div');
+                leftHint.style.cssText = 'position: absolute !important; left: 0 !important; top: 0 !important; bottom: 0 !important; width: 50% !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; border-left: none !important; border-top: none !important; border-bottom: none !important; margin: 0 !important; padding: 0 !important;';
+                btn.appendChild(leftHint);
+
+                const contentWrapper = document.createElement('div');
+                contentWrapper.style.cssText = 'flex: 1 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 4px 16px !important; pointer-events: none !important; gap: 2px !important;';
+
+                const nameEl = document.createElement('div');
+                nameEl.style.cssText = 'font-weight: 600 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
+                nameEl.textContent = pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+
+                const previewEl = document.createElement('div');
+                previewEl.style.cssText = 'font-size: 11px !important; font-family: inherit !important; color: #6c757d !important; line-height: 1.2 !important; letter-spacing: normal !important; text-transform: none !important;';
+                previewEl.textContent = `${poolInfo.count} font${poolInfo.count === 1 ? '' : 's'}`;
+
+                contentWrapper.appendChild(nameEl);
+                contentWrapper.appendChild(previewEl);
+                btn.appendChild(contentWrapper);
+
+                btn.onclick = (event) => {
+                    const buttonRect = btn.getBoundingClientRect();
+                    const clickX = event.clientX - buttonRect.left;
+                    const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
+                    const label = pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+
+                    setQuickPickButtonsDisabled(true);
+                    setQuickPickMessage(message, `Applying ${label} to ${position}...`);
+
+                    sendRuntimeMessageWithRetry({
+                        type: 'quickApplySroulette',
+                        origin: currentOrigin,
+                        pool,
+                        position
+                    }).then(response => {
+                        if (response && response.success) {
+                            showQuickPickSuccessThenClose(message, `Applied ${label} to ${position}.`);
+                        } else {
+                            console.error('[Left Toolbar] Sroulette application failed:', response?.error);
+                            setQuickPickMessage(message, 'Failed to apply Sroulette. Try again.', { color: QUICK_PICK_ERROR_COLOR });
+                            setQuickPickButtonsDisabled(false);
+                        }
+                    }).catch(err => {
+                        console.error('[Left Toolbar] Error applying Sroulette:', err);
+                        setQuickPickMessage(message, 'Error applying Sroulette.', { color: QUICK_PICK_ERROR_COLOR });
+                        setQuickPickButtonsDisabled(false);
+                    });
+                };
+
+                btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
+                btn.style.setProperty('cursor', 'pointer', 'important');
+            });
+        }
+
+        if (noFavorites && visibleSrouletteCount === 0) {
+            setQuickPickMessage(message, 'No favorites saved. Add favorites in the popup.');
             unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
@@ -1269,7 +1372,9 @@
         }
 
         // Show unapply button if fonts are applied
-        const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body);
+        const srouletteData = domainData && domainData.sroulette;
+        const hasSrouletteApplied = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
+        const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body || hasSrouletteApplied);
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;
             unapplyBtn.style.setProperty('opacity', '1', 'important');
@@ -1301,7 +1406,7 @@
 
         // Show rewalk button if TMI fonts are applied
         const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
-        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono);
+        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono || hasSrouletteApplied);
         if (rewalkBtn && hasTmiFonts) {
             rewalkBtn.disabled = false;
             rewalkBtn.style.setProperty('opacity', '1', 'important');

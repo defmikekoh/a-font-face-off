@@ -127,6 +127,9 @@ function setupFontPicker() {
     }
 
     async function open(position) {
+        const trigger = document.getElementById(`${position}-font-display`);
+        if (trigger && trigger.dataset && trigger.dataset.affoSroulettePool) return;
+
         currentPosition = position;
         titleEl.textContent = `Select ${getPanelLabel(position)} Font`;
         await ensureCustomFontsLoaded();

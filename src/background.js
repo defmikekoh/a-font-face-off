@@ -247,6 +247,35 @@ function jsonEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function isSrouletteSlot(value) {
+  return value === 'serif' || value === 'sans';
+}
+
+function clearSrouletteIntentForSlot(entry, slot) {
+  if (!entry || !isSrouletteSlot(slot)) return;
+  if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
+  delete entry.sroulette[slot];
+  if (!entry.sroulette.serif && !entry.sroulette.sans) {
+    delete entry.sroulette;
+  }
+}
+
+function setSrouletteIntentForSlot(entry, slot, pool) {
+  if (!entry || !isSrouletteSlot(slot) || !isSrouletteSlot(pool)) return false;
+  if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
+    entry.sroulette = {};
+  }
+  entry.sroulette[slot] = { pool };
+  delete entry[slot];
+  return true;
+}
+
+function hasSrouletteIntentForSlot(entry, slot) {
+  if (!entry || !isSrouletteSlot(slot)) return false;
+  const intent = entry.sroulette && entry.sroulette[slot];
+  return !!(intent && isSrouletteSlot(intent.pool));
+}
+
 async function markApplyMapOriginsModified(change) {
   const oldMap = sanitizeApplyMap(change && change.oldValue);
   const newMap = sanitizeApplyMap(change && change.newValue);
@@ -2507,6 +2536,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][position] = payload;
+        clearSrouletteIntentForSlot(applyMap[origin], position);
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
 
@@ -2524,6 +2554,35 @@ async function handleAffoRuntimeMessage(msg, sender) {
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Quick-apply failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Handle quick-apply Sroulette intent from toolbar. The stored value is only
+    // the synced on/off intent; content.js resolves a fresh random font locally.
+    if (msg.type === 'quickApplySroulette') {
+      try {
+        const { origin, position, pool } = msg;
+        const tabId = sender.tab ? sender.tab.id : null;
+
+        if (!origin || !isSrouletteSlot(position) || !isSrouletteSlot(pool) || !tabId) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        const result = await browser.storage.local.get(APPLY_MAP_KEY);
+        const applyMap = result[APPLY_MAP_KEY] || {};
+        if (!applyMap[origin]) applyMap[origin] = {};
+
+        if (!setSrouletteIntentForSlot(applyMap[origin], position, pool)) {
+          return { success: false, error: 'Invalid Sroulette target' };
+        }
+
+        await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+
+        console.log('[AFFO Background] Quick-apply Sroulette set', pool, 'pool for', position, 'on', origin);
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] Quick-apply Sroulette failed:', e);
         return { success: false, error: e.message };
       }
     }
@@ -2591,10 +2650,21 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
         const aggressive = aggressiveDomains.includes(origin);
 
+        const activeFontTypes = new Set();
         for (const fontType of ['serif', 'sans', 'mono']) {
-          if (!domainData[fontType]) continue;
+          if (domainData[fontType] || hasSrouletteIntentForSlot(domainData, fontType)) {
+            activeFontTypes.add(fontType);
+          }
+        }
 
+        if (activeFontTypes.size === 0) {
+          return { success: false, error: 'No TMI fonts applied for this domain' };
+        }
+
+        for (const fontType of activeFontTypes) {
           await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType });
+
+          if (!domainData[fontType]) continue;
 
           const css = generateThirdManInCSS(fontType, domainData[fontType], aggressive);
           if (css) {

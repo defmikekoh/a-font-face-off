@@ -1733,6 +1733,30 @@ body.mode-switching #panel-grips {
 }
 .reset-btn:hover { background: #c0392b; }
 
+.controls-panel.sroulette-applied .panel-body {
+    opacity: 0.62;
+}
+
+.controls-panel.sroulette-applied .font-family-display,
+.controls-panel.sroulette-applied input,
+.controls-panel.sroulette-applied select {
+    cursor: not-allowed;
+}
+
+.font-family-display.sroulette-display {
+    font-weight: 700;
+    color: #1f4f46;
+}
+
+.sroulette-wheel-marker {
+    cursor: default !important;
+    pointer-events: none;
+    background: #e7f3ef !important;
+    color: #1f4f46 !important;
+    border-color: #9ac8bb !important;
+    transform: none !important;
+}
+
 /* Excluder Controls */
 .excluder-description {
     font-size: 14px;

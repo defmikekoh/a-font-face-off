@@ -71,6 +71,7 @@
   var sharedTmiCssDebounceTimer = null; // debounced re-walk timer for non-inline TMI observer
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
+  var lastReappliedEntry = null; // resolved configs from the most recent page apply
 
   // Inline observer thresholds: only reapply on meaningful content additions
   var INLINE_REAPPLY_DEBOUNCE_MS = 250;
@@ -95,6 +96,94 @@
       fontConfig.letterSpacing != null ||
       fontConfig.fontColor
     ));
+  }
+
+  function isSrouletteSlot(value) {
+    return value === 'serif' || value === 'sans';
+  }
+
+  function getSrouletteIntent(entry, fontType) {
+    if (!entry || !isSrouletteSlot(fontType)) return null;
+    var intent = entry.sroulette && entry.sroulette[fontType];
+    if (!intent || !isSrouletteSlot(intent.pool)) return null;
+    return intent;
+  }
+
+  function hasSrouletteIntent(entry) {
+    return !!(getSrouletteIntent(entry, 'serif') || getSrouletteIntent(entry, 'sans'));
+  }
+
+  function hasConcreteFontEntry(entry) {
+    return !!(entry && ['body', 'serif', 'sans', 'mono'].some(function (fontType) {
+      return hasMeaningfulFontConfig(entry[fontType]);
+    }));
+  }
+
+  function shouldTreatSrouletteEntryAsEmptyOnSubstack(entry) {
+    return !!(entry && getIsSubstack() && hasSrouletteIntent(entry) && !hasConcreteFontEntry(entry));
+  }
+
+  function cloneFontConfig(config) {
+    if (!config || typeof config !== 'object') return null;
+    var cloned = {};
+    Object.keys(config).forEach(function (key) {
+      if (key === 'variableAxes' && config.variableAxes && typeof config.variableAxes === 'object') {
+        cloned.variableAxes = Object.assign({}, config.variableAxes);
+      } else {
+        cloned[key] = config[key];
+      }
+    });
+    return cloned;
+  }
+
+  function pickSrouletteFontConfig(data, pool) {
+    if (!data || data.affoSubstackRoulette === false || !isSrouletteSlot(pool)) return null;
+    var key = pool === 'serif' ? 'affoSubstackRouletteSerif' : 'affoSubstackRouletteSans';
+    var names = Array.isArray(data[key]) ? data[key] : [];
+    var favorites = data.affoFavorites || {};
+    var validNames = names.filter(function (name) {
+      var cfg = favorites[name];
+      return !!(cfg && cfg.fontName);
+    });
+    if (!validNames.length) return null;
+    var pickedName = validNames[Math.floor(Math.random() * validNames.length)];
+    return cloneFontConfig(favorites[pickedName]);
+  }
+
+  function materializeSrouletteEntry(entry, data) {
+    if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return entry;
+    var materialized = {};
+    Object.keys(entry).forEach(function (key) {
+      if (key !== 'sroulette') materialized[key] = entry[key];
+    });
+    ['serif', 'sans'].forEach(function (fontType) {
+      var intent = getSrouletteIntent(entry, fontType);
+      if (!intent) return;
+      var config = pickSrouletteFontConfig(data, intent.pool);
+      if (hasMeaningfulFontConfig(config)) {
+        materialized[fontType] = config;
+        debugLog('[AFFO Content] Sroulette materialized ' + fontType + ' from ' + intent.pool + ' pool:', config.fontName);
+      } else {
+        delete materialized[fontType];
+        debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + fontType);
+      }
+    });
+    return materialized;
+  }
+
+  function resolveSrouletteEntry(entry, data) {
+    if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return Promise.resolve(entry);
+    if (data) return Promise.resolve(materializeSrouletteEntry(entry, data));
+    return browser.storage.local.get([
+      'affoSubstackRoulette',
+      'affoSubstackRouletteSerif',
+      'affoSubstackRouletteSans',
+      'affoFavorites'
+    ]).then(function (stored) {
+      return materializeSrouletteEntry(entry, stored || {});
+    }).catch(function () {
+      return materializeSrouletteEntry(entry, {});
+    });
   }
 
   function getObservedTmiCssTypes() {
@@ -2959,6 +3048,7 @@
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry) {
     try {
+      lastReappliedEntry = entry || null;
       syncObservedTmiCssTypesFromEntry(entry);
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
@@ -3020,26 +3110,37 @@
     document.addEventListener('affo-custom-font-loaded', function (event) {
       debugLog(`[AFFO Content] Custom font loaded event received:`, event.detail.fontName);
 
-      // Re-apply styles for all active font types after custom font loads
+      function reapplyCustomFontEntry(entry) {
+        if (!entry) return;
+        ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
+          var fontConfig = entry[fontType];
+          if (fontConfig && fontConfig.fontName === event.detail.fontName) {
+            elementLog(`Re-applying ${fontType} styles after custom font ${event.detail.fontName} loaded`);
+
+            if (shouldUseInlineApply()) {
+              // For Third Man In mode, run element walker first if needed
+              if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
+                runElementWalker(fontType);
+              }
+              applyInlineStyles(fontConfig, fontType);
+            }
+          }
+        });
+      }
+
+      if (lastReappliedEntry) {
+        reapplyCustomFontEntry(lastReappliedEntry);
+        return;
+      }
+
+      // Fallback for pages that applied a concrete stored font before this listener cached it.
       browser.storage.local.get('affoApplyMap').then(function (data) {
         var map = data && data.affoApplyMap ? data.affoApplyMap : {};
         var entry = map[currentOrigin];
-        if (entry) {
-          ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
-            var fontConfig = entry[fontType];
-            if (fontConfig && fontConfig.fontName === event.detail.fontName) {
-              elementLog(`Re-applying ${fontType} styles after custom font ${event.detail.fontName} loaded`);
-
-              if (shouldUseInlineApply()) {
-                // For Third Man In mode, run element walker first if needed
-                if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-                  runElementWalker(fontType);
-                }
-                applyInlineStyles(fontConfig, fontType);
-              }
-            }
-          });
+        if (shouldTreatSrouletteEntryAsEmptyOnSubstack(entry)) {
+          entry = null;
         }
+        reapplyCustomFontEntry(entry);
       }).catch(function (e) {
         debugLog(`[AFFO Content] Error re-applying styles after custom font load:`, e);
       });
@@ -3076,7 +3177,11 @@
       }
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
+      if (shouldTreatSrouletteEntryAsEmptyOnSubstack(entry)) {
+        entry = null;
+      }
       if (!entry) {
+        lastReappliedEntry = null;
         clearObservedTmiCssTypes();
         refreshSharedTmiCssObserver();
         // Clean up all stale styles if no entry exists
@@ -3146,30 +3251,33 @@
         return;
       }
 
+      var effectiveEntry = materializeSrouletteEntry(entry, data);
+
       // Content script handles cleanup AND reapplies stored fonts on page load
-      debugLog(`[AFFO Content] Reapplying stored fonts for origin: ${origin}`, entry);
+      debugLog(`[AFFO Content] Reapplying stored fonts for origin: ${origin}`, effectiveEntry);
       removeSubstackRouletteEnhancements();
 
       // Remove style elements for fonts that are not applied
-      if (!entry.body) {
+      if (!effectiveEntry.body) {
         try { var s3 = document.getElementById('a-font-face-off-style-body'); if (s3) s3.remove(); } catch (e) { }
       }
-      if (!entry.serif) {
+      if (!effectiveEntry.serif) {
         try { var s = document.getElementById('a-font-face-off-style-serif'); if (s) s.remove(); } catch (e) { }
       }
-      if (!entry.sans) {
+      if (!effectiveEntry.sans) {
         try { var s2 = document.getElementById('a-font-face-off-style-sans'); if (s2) s2.remove(); } catch (e) { }
       }
-      if (!entry.mono) {
+      if (!effectiveEntry.mono) {
         try { var s4 = document.getElementById('a-font-face-off-style-mono'); if (s4) s4.remove(); } catch (e) { }
       }
 
       // Reapply stored fonts on page load - wait for DOM to be ready
       function reapplyStoredFonts() {
         try {
-          syncObservedTmiCssTypesFromEntry(entry);
+          lastReappliedEntry = effectiveEntry || null;
+          syncObservedTmiCssTypesFromEntry(effectiveEntry);
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
-            var fontConfig = entry[fontType];
+            var fontConfig = effectiveEntry[fontType];
             if (hasMeaningfulFontConfig(fontConfig)) {
               debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
 
@@ -3233,11 +3341,11 @@
 
       // Set up SPA navigation hooks for normal TMI mode (non-inline-apply domains)
       // On SPA nav, reset walker completion flags so TMI elements get re-marked
-      var hasTmiEntries = entry.serif || entry.sans || entry.mono;
+      var hasTmiEntries = effectiveEntry.serif || effectiveEntry.sans || effectiveEntry.mono;
       if (hasTmiEntries && !shouldUseInlineApply()) {
         function reapplyTmiAfterNavigation() {
           try {
-            var activeTmiTypes = ['serif', 'sans', 'mono'].filter(function (ft) { return !!entry[ft]; });
+            var activeTmiTypes = ['serif', 'sans', 'mono'].filter(function (ft) { return !!effectiveEntry[ft]; });
             activeTmiTypes.forEach(function (ft) {
               elementWalkerCompleted[ft] = false;
               elementWalkerRechecksScheduled[ft] = false;
@@ -3288,6 +3396,9 @@
               try {
                 var map = data && data.affoApplyMap ? data.affoApplyMap : {};
                 var entry = map[origin];
+                if (shouldTreatSrouletteEntryAsEmptyOnSubstack(entry)) {
+                  entry = null;
+                }
 
                 ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
                   try {
@@ -3307,14 +3418,36 @@
                   return;
                 }
 
-                resetWalkerStateForEntry(entry);
-                reapplyStoredFontsFromEntry(entry);
+                resolveSrouletteEntry(entry).then(function (effectiveEntry) {
+                  resetWalkerStateForEntry(effectiveEntry);
+                  reapplyStoredFontsFromEntry(effectiveEntry);
+                });
               } catch (_) { }
             }).catch(function () { });
             return;
           }
           if (!rouletteKeysChanged) return;
-          if (!getIsSubstack()) return;
+          if (!getIsSubstack()) {
+            browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(function (data) {
+              try {
+                var map = data && data.affoApplyMap ? data.affoApplyMap : {};
+                var entry = map[origin];
+                if (!entry || !hasSrouletteIntent(entry)) return;
+
+                ['a-font-face-off-style-serif', 'a-font-face-off-style-sans'].forEach(function (id) {
+                  try {
+                    var node = document.getElementById(id);
+                    if (node) node.remove();
+                  } catch (_) { }
+                });
+
+                var effectiveEntry = materializeSrouletteEntry(entry, data);
+                resetWalkerStateForEntry(effectiveEntry);
+                reapplyStoredFontsFromEntry(effectiveEntry);
+              } catch (_) { }
+            }).catch(function () { });
+            return;
+          }
           browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites']).then(function (data) {
             try {
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
@@ -3348,6 +3481,9 @@
         var newMap = changes.affoApplyMap.newValue || {};
         var oldEntry = oldMap[origin];
         var entry = newMap[origin];
+        if (shouldTreatSrouletteEntryAsEmptyOnSubstack(entry)) {
+          entry = null;
+        }
 
         // Skip if this origin's config didn't actually change
         if (JSON.stringify(oldEntry) === JSON.stringify(entry)) {
@@ -3372,8 +3508,11 @@
         // Apply fonts when storage changes (both immediate apply and reload persistence)
         if (entry) {
           debugLog(`[AFFO Content] Entry found - reapplying fonts:`, entry);
-          reapplyStoredFontsFromEntry(entry);
+          resolveSrouletteEntry(entry).then(function (effectiveEntry) {
+            reapplyStoredFontsFromEntry(effectiveEntry);
+          });
         } else {
+          lastReappliedEntry = null;
           clearObservedTmiCssTypes();
           refreshSharedTmiCssObserver();
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
@@ -3444,6 +3583,7 @@
         }
       } else if (message.action === 'restoreOriginal') {
         try {
+          lastReappliedEntry = null;
           // Clean up shared inline-apply infrastructure
           inlineConfigs = {};
           cleanupSharedInlineInfra();
@@ -3523,9 +3663,14 @@
     browser.storage.local.get('affoApplyMap').then(function (data) {
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[location.hostname];
+      if (shouldTreatSrouletteEntryAsEmptyOnSubstack(entry)) {
+        entry = null;
+      }
       if (entry) {
         debugLog('[AFFO Content] Wait For It: manually applying fonts for', location.hostname);
-        reapplyStoredFontsFromEntry(entry);
+        resolveSrouletteEntry(entry).then(function (effectiveEntry) {
+          reapplyStoredFontsFromEntry(effectiveEntry);
+        });
       } else if (pendingSubstackRoulette) {
         debugLog('[AFFO Content] Wait For It: manually triggering Substack Roulette for', location.hostname);
         pendingSubstackRoulette();
