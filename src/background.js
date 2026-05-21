@@ -98,6 +98,7 @@ let cachedAppFolderId = null;
 let runtimeGfMetadata = null;
 let runtimeGfMetadataPromise = null;
 let runtimeCss2UrlMemo = {};
+const srouletteInsertedCssByTab = new Map();
 
 async function fetchGfMetadataForRuntime(url) {
   const res = await fetch(url, { credentials: 'omit' });
@@ -275,6 +276,59 @@ function hasSrouletteIntentForSlot(entry, slot) {
   const intent = entry.sroulette && entry.sroulette[slot];
   return !!(intent && isSrouletteSlot(intent.pool));
 }
+
+async function removeTrackedSrouletteCss(tabId, fontTypes) {
+  if (tabId == null) return;
+  const tracked = srouletteInsertedCssByTab.get(tabId);
+  if (!tracked) return;
+
+  const types = Array.isArray(fontTypes) && fontTypes.length
+    ? fontTypes.filter(isSrouletteSlot)
+    : Object.keys(tracked).filter(isSrouletteSlot);
+
+  for (const fontType of types) {
+    const css = tracked[fontType];
+    if (!css) continue;
+    for (const cssOrigin of ['author', 'user']) {
+      try {
+        await browser.tabs.removeCSS(tabId, { code: css, cssOrigin });
+      } catch (e) {
+        console.log('[AFFO Background] Sroulette removeCSS note:', e.message);
+      }
+    }
+    delete tracked[fontType];
+  }
+
+  if (!tracked.serif && !tracked.sans) {
+    srouletteInsertedCssByTab.delete(tabId);
+  }
+}
+
+async function insertTrackedSrouletteCss(tabId, fontType, css) {
+  if (tabId == null || !isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) {
+    return false;
+  }
+
+  await removeTrackedSrouletteCss(tabId, [fontType]);
+  await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'author' });
+  await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
+
+  let tracked = srouletteInsertedCssByTab.get(tabId);
+  if (!tracked) {
+    tracked = {};
+    srouletteInsertedCssByTab.set(tabId, tracked);
+  }
+  tracked[fontType] = css;
+  return true;
+}
+
+try {
+  if (browser.tabs && browser.tabs.onRemoved) {
+    browser.tabs.onRemoved.addListener(tabId => {
+      srouletteInsertedCssByTab.delete(tabId);
+    });
+  }
+} catch (_) {}
 
 async function markApplyMapOriginsModified(change) {
   const oldMap = sanitizeApplyMap(change && change.oldValue);
@@ -2509,6 +2563,38 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    // Content scripts resolve Sroulette locally, then ask background to inject
+    // user-origin CSS so page style churn cannot temporarily outrank AFFO.
+    if (msg.type === 'affoInsertSrouletteCss') {
+      try {
+        const tabId = sender.tab ? sender.tab.id : null;
+        const { fontType, css } = msg;
+
+        if (tabId == null || !isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        const inserted = await insertTrackedSrouletteCss(tabId, fontType, css);
+        return inserted ? { success: true } : { success: false, error: 'Invalid Sroulette CSS request' };
+      } catch (e) {
+        console.error('[AFFO Background] Sroulette CSS injection failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    if (msg.type === 'affoRemoveSrouletteCss') {
+      try {
+        const tabId = sender.tab ? sender.tab.id : null;
+        if (tabId == null) return { success: false, error: 'Missing tab' };
+        const fontTypes = Array.isArray(msg.fontTypes) ? msg.fontTypes.filter(isSrouletteSlot) : null;
+        await removeTrackedSrouletteCss(tabId, fontTypes);
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] Sroulette CSS cleanup failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
     // Handle quick-apply favorite from toolbar
     if (msg.type === 'quickApplyFavorite') {
       try {
@@ -2539,6 +2625,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         clearSrouletteIntentForSlot(applyMap[origin], position);
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+        await removeTrackedSrouletteCss(tabId, [position]);
 
         const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
         const aggressive = aggressiveDomains.includes(origin);
@@ -2604,6 +2691,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
           delete applyMap[origin];
           await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
         }
+        await removeTrackedSrouletteCss(tabId);
 
         // Clear all applied styles by removing the injected CSS
         try {

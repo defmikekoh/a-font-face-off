@@ -43,6 +43,7 @@ function createStorage(seed = {}) {
 
 function loadBackground(seed = {}) {
     const storage = createStorage(seed);
+    const cssOps = [];
     const browserStub = {
         storage: {
             local: storage.local,
@@ -56,10 +57,17 @@ function loadBackground(seed = {}) {
         tabs: {
             query() { return Promise.resolve([]); },
             sendMessage() { return Promise.resolve({ success: true }); },
-            insertCSS() { return Promise.resolve(); },
-            removeCSS() { return Promise.resolve(); },
+            insertCSS(tabId, details) {
+                cssOps.push({ op: 'insertCSS', tabId, details: clone(details) });
+                return Promise.resolve();
+            },
+            removeCSS(tabId, details) {
+                cssOps.push({ op: 'removeCSS', tabId, details: clone(details) });
+                return Promise.resolve();
+            },
             executeScript() { return Promise.resolve(); },
-            create() { return Promise.resolve({ id: 1 }); }
+            create() { return Promise.resolve({ id: 1 }); },
+            onRemoved: { addListener() {} }
         },
         alarms: {
             create() { return Promise.resolve(); },
@@ -99,7 +107,7 @@ function loadBackground(seed = {}) {
     const source = fs.readFileSync(sourcePath, 'utf8');
     vm.runInContext(source, context, { filename: 'background.js' });
 
-    return { context, storage };
+    return { context, storage, cssOps };
 }
 
 describe('background quick-pick Sroulette', () => {
@@ -158,5 +166,95 @@ describe('background quick-pick Sroulette', () => {
             variableAxes: { wght: 500 }
         });
         assert.equal(storage.data.affoApplyMap['example.com'].sroulette, undefined);
+    });
+
+    it('injects resolved Sroulette CSS as tracked extension CSS', async () => {
+        const { context, cssOps } = loadBackground();
+
+        const firstResult = await context.self.affoHandleRuntimeMessage({
+            type: 'affoInsertSrouletteCss',
+            fontType: 'serif',
+            css: '.first { font-family: serif; }'
+        }, { tab: { id: 123 } });
+
+        const secondResult = await context.self.affoHandleRuntimeMessage({
+            type: 'affoInsertSrouletteCss',
+            fontType: 'serif',
+            css: '.second { font-family: serif; }'
+        }, { tab: { id: 123 } });
+
+        assert.equal(firstResult.success, true);
+        assert.equal(secondResult.success, true);
+        assert.deepEqual(cssOps, [
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.first { font-family: serif; }', cssOrigin: 'author' }
+            },
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.first { font-family: serif; }', cssOrigin: 'user' }
+            },
+            {
+                op: 'removeCSS',
+                tabId: 123,
+                details: { code: '.first { font-family: serif; }', cssOrigin: 'author' }
+            },
+            {
+                op: 'removeCSS',
+                tabId: 123,
+                details: { code: '.first { font-family: serif; }', cssOrigin: 'user' }
+            },
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.second { font-family: serif; }', cssOrigin: 'author' }
+            },
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.second { font-family: serif; }', cssOrigin: 'user' }
+            }
+        ]);
+    });
+
+    it('removes tracked Sroulette CSS when requested', async () => {
+        const { context, cssOps } = loadBackground();
+
+        await context.self.affoHandleRuntimeMessage({
+            type: 'affoInsertSrouletteCss',
+            fontType: 'sans',
+            css: '.sans { font-family: sans-serif; }'
+        }, { tab: { id: 123 } });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoRemoveSrouletteCss',
+            fontTypes: ['sans']
+        }, { tab: { id: 123 } });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(cssOps, [
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'author' }
+            },
+            {
+                op: 'insertCSS',
+                tabId: 123,
+                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'user' }
+            },
+            {
+                op: 'removeCSS',
+                tabId: 123,
+                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'author' }
+            },
+            {
+                op: 'removeCSS',
+                tabId: 123,
+                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'user' }
+            }
+        ]);
     });
 });

@@ -2614,6 +2614,7 @@ function unapplyThirdManInFont(fontType) {
                     try{
                         document.querySelectorAll('[data-affo-font-type="${fontType}"]').forEach(el => {
                             el.removeAttribute('data-affo-font-type');
+                            el.removeAttribute('data-affo-original-font-type');
                         });
                     }catch(_){}
                 })();

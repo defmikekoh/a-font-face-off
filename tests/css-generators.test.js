@@ -154,13 +154,19 @@ describe('css-generators third-man-in text sizing', () => {
             letterSpacing: 0.02,
             variableAxes: {}
         }, false);
-        const textRule = css.split('\n').find(line => line.startsWith('html body p[data-affo-font-type="serif"]'));
+        const textRule = css.split('\n').find(line => line.includes('font-size: 19px'));
         assert.ok(textRule);
+        assert.match(textRule, /html body div\[data-affo-font-type="serif"\]/);
+        assert.match(textRule, /html body blockquote\[data-affo-font-type="serif"\]/);
         assert.match(textRule, /html body a\[data-affo-font-type="serif"\]:not\(\.footnote-anchor\)/);
         assert.match(textRule, /html body em\[data-affo-font-type="serif"\]/);
         assert.match(textRule, /html body i\[data-affo-font-type="serif"\]/);
         assert.match(textRule, /html body p\[data-affo-font-type="serif"\] a:not\(\.footnote-anchor\)/);
+        assert.match(textRule, /html body div\[data-affo-font-type="serif"\] a:not\(\.footnote-anchor\)/);
+        assert.match(textRule, /html body blockquote\[data-affo-font-type="serif"\] a:not\(\.footnote-anchor\)/);
         assert.match(textRule, /html body p\[data-affo-font-type="serif"\] :where\(em, i\)/);
+        assert.match(textRule, /html body div\[data-affo-font-type="serif"\] :where\(em, i\)/);
+        assert.match(textRule, /html body blockquote\[data-affo-font-type="serif"\] :where\(em, i\)/);
         assert.match(textRule, /font-size: 19px/);
         assert.match(textRule, /line-height: 1\.7/);
         assert.match(textRule, /letter-spacing: 0\.02em/);

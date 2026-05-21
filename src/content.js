@@ -154,21 +154,61 @@
     if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return entry;
     var materialized = {};
     Object.keys(entry).forEach(function (key) {
-      if (key !== 'sroulette') materialized[key] = entry[key];
+      if (key !== 'sroulette' && key !== '__affoSrouletteResolved') materialized[key] = entry[key];
     });
+    var resolvedSlots = {};
     ['serif', 'sans'].forEach(function (fontType) {
       var intent = getSrouletteIntent(entry, fontType);
       if (!intent) return;
       var config = pickSrouletteFontConfig(data, intent.pool);
       if (hasMeaningfulFontConfig(config)) {
         materialized[fontType] = config;
+        resolvedSlots[fontType] = true;
         debugLog('[AFFO Content] Sroulette materialized ' + fontType + ' from ' + intent.pool + ' pool:', config.fontName);
       } else {
         delete materialized[fontType];
         debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + fontType);
       }
     });
+    if (resolvedSlots.serif || resolvedSlots.sans) {
+      materialized.__affoSrouletteResolved = resolvedSlots;
+    }
     return materialized;
+  }
+
+  function isResolvedSrouletteFont(entry, fontType) {
+    return !!(entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
+  }
+
+  function requestSrouletteCssRemoval(fontTypes) {
+    try {
+      var requestedTypes = Array.isArray(fontTypes) ? fontTypes.filter(isSrouletteSlot) : ['serif', 'sans'];
+      if (!requestedTypes.length) return;
+      browser.runtime.sendMessage({
+        type: 'affoRemoveSrouletteCss',
+        fontTypes: requestedTypes
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
+  function requestSrouletteCssInsert(fontType, css) {
+    if (!isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) return;
+    try {
+      browser.runtime.sendMessage({
+        type: 'affoInsertSrouletteCss',
+        fontType: fontType,
+        css: css
+      }).catch(function (e) {
+        debugLog('[AFFO Content] Sroulette user-origin CSS injection failed:', e);
+      });
+    } catch (_) {}
+  }
+
+  function syncSrouletteCssTrackingForEntry(entry) {
+    var staleTypes = ['serif', 'sans'].filter(function (fontType) {
+      return !isResolvedSrouletteFont(entry, fontType);
+    });
+    if (staleTypes.length) requestSrouletteCssRemoval(staleTypes);
   }
 
   function resolveSrouletteEntry(entry, data) {
@@ -941,6 +981,8 @@
 
   function getThirdManInTextSelector(fontType) {
     return [
+      'html body div[data-affo-font-type="' + fontType + '"]',
+      'html body blockquote[data-affo-font-type="' + fontType + '"]',
       'html body p[data-affo-font-type="' + fontType + '"]',
       'html body span[data-affo-font-type="' + fontType + '"]',
       'html body a[data-affo-font-type="' + fontType + '"]:not(.footnote-anchor)',
@@ -954,12 +996,16 @@
       'html body td[data-affo-font-type="' + fontType + '"] a:not(.footnote-anchor)',
       'html body th[data-affo-font-type="' + fontType + '"] a:not(.footnote-anchor)',
       'html body li[data-affo-font-type="' + fontType + '"] a:not(.footnote-anchor)',
+      'html body div[data-affo-font-type="' + fontType + '"] a:not(.footnote-anchor)',
+      'html body blockquote[data-affo-font-type="' + fontType + '"] a:not(.footnote-anchor)',
       'html body p[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body span[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body a[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body td[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body th[data-affo-font-type="' + fontType + '"] :where(em, i)',
-      'html body li[data-affo-font-type="' + fontType + '"] :where(em, i)'
+      'html body li[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body div[data-affo-font-type="' + fontType + '"] :where(em, i)',
+      'html body blockquote[data-affo-font-type="' + fontType + '"] :where(em, i)'
     ].join(', ');
   }
 
@@ -2791,6 +2837,16 @@
     // span/br/span). Larger structural wrappers still stay unmarked.
     if (!elementOwnsTmiText(element)) return null;
 
+    // Once AFFO has marked an element, its computed font-family may reflect the
+    // replacement font rather than the page's original serif/sans/mono role.
+    // Preserve the original role so font-load rechecks do not remove markers
+    // when applying a serif font to sans content or vice versa.
+    var currentAffoType = element.getAttribute && element.getAttribute('data-affo-font-type');
+    var originalAffoType = element.getAttribute && element.getAttribute('data-affo-original-font-type');
+    if (currentAffoType && (originalAffoType === 'serif' || originalAffoType === 'sans' || originalAffoType === 'mono')) {
+      return originalAffoType;
+    }
+
     // Use computed font-family from the style already obtained by the walker
     var computedFontFamily = computedStyle.fontFamily || '';
 
@@ -2976,6 +3032,9 @@
               if (currentMarker !== detectedType) {
                 element.setAttribute('data-affo-font-type', detectedType);
               }
+              if (!element.getAttribute('data-affo-original-font-type')) {
+                element.setAttribute('data-affo-original-font-type', detectedType);
+              }
               if (isBoldFontWeightValue(cs.fontWeight)) {
                 element.setAttribute('data-affo-was-bold', 'true');
               } else {
@@ -2985,6 +3044,7 @@
             } else if (currentMarker && typeSet[currentMarker]) {
               // Element had a marker for one of the types we're walking, but shouldn't anymore
               element.removeAttribute('data-affo-font-type');
+              element.removeAttribute('data-affo-original-font-type');
               element.removeAttribute('data-affo-was-bold');
             }
           }
@@ -3049,6 +3109,7 @@
   function reapplyStoredFontsFromEntry(entry) {
     try {
       lastReappliedEntry = entry || null;
+      syncSrouletteCssTrackingForEntry(entry);
       syncObservedTmiCssTypesFromEntry(entry);
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
@@ -3074,6 +3135,12 @@
                 walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
               } else {
                 applyInlineStyles(fontConfig, fontType);
+              }
+            } else if (isResolvedSrouletteFont(entry, fontType)) {
+              if (isTmi && walkerPromise) {
+                walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
+              } else {
+                requestSrouletteCssInsert(fontType, css);
               }
             } else {
               var styleId = 'a-font-face-off-style-' + fontType;
@@ -3182,6 +3249,7 @@
       }
       if (!entry) {
         lastReappliedEntry = null;
+        requestSrouletteCssRemoval(['serif', 'sans']);
         clearObservedTmiCssTypes();
         refreshSharedTmiCssObserver();
         // Clean up all stale styles if no entry exists
@@ -3275,6 +3343,7 @@
       function reapplyStoredFonts() {
         try {
           lastReappliedEntry = effectiveEntry || null;
+          syncSrouletteCssTrackingForEntry(effectiveEntry);
           syncObservedTmiCssTypesFromEntry(effectiveEntry);
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = effectiveEntry[fontType];
@@ -3301,6 +3370,12 @@
                     walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
                   } else {
                     applyInlineStyles(fontConfig, fontType);
+                  }
+                } else if (isResolvedSrouletteFont(effectiveEntry, fontType)) {
+                  if (isTmi && walkerPromise) {
+                    walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
+                  } else {
+                    requestSrouletteCssInsert(fontType, css);
                   }
                 } else {
                   var styleId = 'a-font-face-off-style-' + fontType;
@@ -3409,6 +3484,8 @@
                 removeSubstackRouletteEnhancements();
 
                 if (!entry) {
+                  lastReappliedEntry = null;
+                  requestSrouletteCssRemoval(['serif', 'sans']);
                   if (getIsSubstack() && pendingSubstackRoulette) {
                     resetWalkerStateForEntry({ serif: true, sans: true });
                     pendingSubstackRoulette();
@@ -3513,6 +3590,7 @@
           });
         } else {
           lastReappliedEntry = null;
+          requestSrouletteCssRemoval(['serif', 'sans']);
           clearObservedTmiCssTypes();
           refreshSharedTmiCssObserver();
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
@@ -3584,6 +3662,7 @@
       } else if (message.action === 'restoreOriginal') {
         try {
           lastReappliedEntry = null;
+          requestSrouletteCssRemoval(['serif', 'sans']);
           // Clean up shared inline-apply infrastructure
           inlineConfigs = {};
           cleanupSharedInlineInfra();
@@ -3624,8 +3703,9 @@
 
           // Remove any Third Man In data attributes
           try {
-            document.querySelectorAll('[data-affo-font-type], [data-affo-was-bold]').forEach(function (el) {
+            document.querySelectorAll('[data-affo-font-type], [data-affo-original-font-type], [data-affo-was-bold]').forEach(function (el) {
               el.removeAttribute('data-affo-font-type');
+              el.removeAttribute('data-affo-original-font-type');
               el.removeAttribute('data-affo-was-bold');
             });
           } catch (e) { }

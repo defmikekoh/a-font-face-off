@@ -92,6 +92,8 @@ function getSiteSpecificRules(fontType, otherProps, hostname) {
 
 function buildThirdManInTextSelector(fontType) {
     return [
+        `html body div[data-affo-font-type="${fontType}"]`,
+        `html body blockquote[data-affo-font-type="${fontType}"]`,
         `html body p[data-affo-font-type="${fontType}"]`,
         `html body span[data-affo-font-type="${fontType}"]`,
         `html body a[data-affo-font-type="${fontType}"]:not(.footnote-anchor)`,
@@ -105,12 +107,16 @@ function buildThirdManInTextSelector(fontType) {
         `html body td[data-affo-font-type="${fontType}"] a:not(.footnote-anchor)`,
         `html body th[data-affo-font-type="${fontType}"] a:not(.footnote-anchor)`,
         `html body li[data-affo-font-type="${fontType}"] a:not(.footnote-anchor)`,
+        `html body div[data-affo-font-type="${fontType}"] a:not(.footnote-anchor)`,
+        `html body blockquote[data-affo-font-type="${fontType}"] a:not(.footnote-anchor)`,
         `html body p[data-affo-font-type="${fontType}"] :where(em, i)`,
         `html body span[data-affo-font-type="${fontType}"] :where(em, i)`,
         `html body a[data-affo-font-type="${fontType}"] :where(em, i)`,
         `html body td[data-affo-font-type="${fontType}"] :where(em, i)`,
         `html body th[data-affo-font-type="${fontType}"] :where(em, i)`,
-        `html body li[data-affo-font-type="${fontType}"] :where(em, i)`
+        `html body li[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body div[data-affo-font-type="${fontType}"] :where(em, i)`,
+        `html body blockquote[data-affo-font-type="${fontType}"] :where(em, i)`
     ].join(', ');
 }
 
