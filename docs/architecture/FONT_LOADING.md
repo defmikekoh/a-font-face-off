@@ -19,9 +19,10 @@ Result: Font loading starts at `document_start` (earliest possible), eliminating
 
 Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts metadata. They are not stored in domain storage or a local storage URL cache:
 
-- **font-url-utils.js**: Shared pure URL builder used by popup.js and background.js
+- **font-url-utils.js**: Shared pure URL builder used by popup.js and the background font runtime
 - **popup.js**: Computes css2 URLs directly for popup previews and immediate tab injection, but does not include them in `buildPayload()`
-- **background.js**: Handles `resolveCss2Url` runtime messages, loading `gfMetadataCache` or bundled `data/gf-axis-registry.json`, and memoizes resolved URLs in memory only
+- **background.js**: Routes `resolveCss2Url` runtime messages to `background-font-runtime.js`
+- **background-font-runtime.js**: Loads `gfMetadataCache` or bundled `data/gf-axis-registry.json`, memoizes resolved URLs in memory only, and owns CORS-safe font fetch/WOFF2 cache handling
 - **content.js**: Requests css2 URLs from background.js when loading standard Google Fonts or FontFace-only Google Fonts
 - **left-toolbar.js**: Requests css2 URLs from background.js at `document_start` for early font preloading
 - **Domain storage (affoApplyMap)**: Does NOT store css2Url

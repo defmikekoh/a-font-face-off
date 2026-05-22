@@ -6,11 +6,7 @@ function affoDebugLog() {
 function affoDebugWarn() {
   if (AFFO_DEBUG) console.warn.apply(console, arguments);
 }
-// Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
-const FONT_CACHE_KEY = 'affoFontCache';
-const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
-const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
-const AFFO_FETCH_TIMEOUT_MS = 15000; // 15s timeout for remote CSS/font fetches
+// Background sync/message coordinator. Font fetch/cache runtime lives in background-font-runtime.js.
 const CUSTOM_FONTS_CSS_KEY = 'affoCustomFontsCss';
 const APPLY_MAP_KEY = 'affoApplyMap';
 const APPLY_MAP_META_KEY = 'affoApplyMapMeta';
@@ -86,10 +82,6 @@ const GDRIVE_REDIRECT_URIS = [
 const WEBDAV_CONFIG_KEY = 'affoWebDavConfig';     // { serverUrl, username, password, anonymous }
 const WEBDAV_FOLDER_SUFFIX_KEY = 'affoWebDavFolderSuffix';
 
-// Shared cache promise to avoid reading storage.local multiple times concurrently
-let cacheReadPromise = null;
-let cachedFontData = null;
-const CACHE_STALE_TIME = 5000; // 5 seconds
 let syncQueue = Promise.resolve();
 let syncMetaQueue = Promise.resolve();
 let syncWriteDepth = 0;
@@ -97,72 +89,7 @@ let syncWriteDepth = 0;
 // Cached folder ID (cleared on background script restart)
 let cachedAppFolderId = null;
 
-let runtimeGfMetadata = null;
-let runtimeGfMetadataPromise = null;
-let runtimeCss2UrlMemo = {};
 const srouletteInsertedCssByTab = new Map();
-
-async function fetchGfMetadataForRuntime(url) {
-  const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return affoParseGfMetadataText(await res.text());
-}
-
-async function ensureRuntimeGfMetadata() {
-  if (runtimeGfMetadata) return runtimeGfMetadata;
-  if (runtimeGfMetadataPromise) return runtimeGfMetadataPromise;
-
-  runtimeGfMetadataPromise = browser.storage.local.get('gfMetadataCache').then(async data => {
-    if (data.gfMetadataCache && affoGetMetadataFamilies(data.gfMetadataCache).length) {
-      return data.gfMetadataCache;
-    }
-
-    const localUrl = browser.runtime.getURL('data/gf-axis-registry.json');
-    try {
-      const metadata = await fetchGfMetadataForRuntime(localUrl);
-      await browser.storage.local.set({
-        gfMetadataCache: metadata,
-        gfMetadataTimestamp: Date.now()
-      }).catch(e => affoDebugWarn('[AFFO Background] Failed to store local GF metadata:', e));
-      return metadata;
-    } catch (localError) {
-      affoDebugWarn('[AFFO Background] Local GF metadata load failed; trying remote metadata', localError);
-      const metadata = await fetchGfMetadataForRuntime('https://fonts.google.com/metadata/fonts');
-      await browser.storage.local.set({
-        gfMetadataCache: metadata,
-        gfMetadataTimestamp: Date.now()
-      }).catch(e => affoDebugWarn('[AFFO Background] Failed to store remote GF metadata:', e));
-      return metadata;
-    }
-  }).catch(e => {
-    affoDebugWarn('[AFFO Background] GF metadata unavailable for css2 URL resolution:', e);
-    return { familyMetadataList: [] };
-  }).then(metadata => {
-    runtimeGfMetadata = metadata || { familyMetadataList: [] };
-    runtimeGfMetadataPromise = null;
-    return runtimeGfMetadata;
-  });
-
-  return runtimeGfMetadataPromise;
-}
-
-async function resolveRuntimeCss2Url(fontName, options = {}) {
-  const key = String(fontName || '').trim();
-  if (!key || key.toLowerCase() === 'default') return '';
-  const fallbackWhenMissing = !!options.fallbackWhenMissing;
-  const memoKey = key + '|' + (fallbackWhenMissing ? 'fallback' : 'strict');
-  if (Object.prototype.hasOwnProperty.call(runtimeCss2UrlMemo, memoKey)) {
-    return runtimeCss2UrlMemo[memoKey];
-  }
-
-  const metadata = await ensureRuntimeGfMetadata();
-  const css2Url = affoBuildCss2UrlFromMetadata(key, metadata, {
-    fallbackWhenMissing,
-    fallbackWhenMetadataEmpty: true
-  });
-  runtimeCss2UrlMemo[memoKey] = css2Url || '';
-  return runtimeCss2UrlMemo[memoKey];
-}
 
 function sanitizeTimestamp(value) {
   const n = Number(value);
@@ -2176,175 +2103,13 @@ isSyncConfigured().then(configured => {
   if (configured) startSyncAlarm();
 });
 
-async function getCachedFont(url) {
-  const startTime = performance.now();
-  try {
-    // If we have a recent cache read, use it
-    if (cachedFontData && Date.now() - cachedFontData.timestamp < CACHE_STALE_TIME) {
-      const entry = cachedFontData.cache[url];
-      if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-        const duration = (performance.now() - startTime).toFixed(2);
-        affoDebugLog(`[AFFO Background] Font cache HIT from memory (${duration}ms) for ${url}`);
-        return entry.data;
-      }
-    }
-
-    // If a cache read is already in progress, wait for it
-    if (!cacheReadPromise) {
-      cacheReadPromise = browser.storage.local.get(FONT_CACHE_KEY).then(result => {
-        const cache = result[FONT_CACHE_KEY] || {};
-        cachedFontData = {
-          cache: cache,
-          timestamp: Date.now()
-        };
-        cacheReadPromise = null;
-        return cache;
-      });
-    }
-
-    const fontCache = await cacheReadPromise;
-    const entry = fontCache[url];
-
-    if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
-      const duration = (performance.now() - startTime).toFixed(2);
-      affoDebugLog(`[AFFO Background] Font cache HIT (${duration}ms) for ${url}`);
-      return entry.data;
-    }
-    affoDebugLog(`[AFFO Background] Font cache MISS for ${url}`);
-    return null;
-  } catch (e) {
-    console.error(`[AFFO Background] Error reading font cache:`, e);
-    return null;
-  }
-}
-
-// Pending cache writes - batch them to avoid storage thrashing
-let pendingCacheWrites = new Map();
-let cacheWriteTimer = null;
-const CACHE_WRITE_DEBOUNCE = 100; // Wait 100ms for more writes
-
-async function setCachedFont(url, arrayBufferData) {
-  try {
-    // Add to pending writes (in-memory)
-    pendingCacheWrites.set(url, {
-      data: Array.from(new Uint8Array(arrayBufferData)),
-      timestamp: Date.now(),
-      size: arrayBufferData.byteLength
-    });
-
-    affoDebugLog(`[AFFO Background] Queued font for batch cache write: ${url} (${arrayBufferData.byteLength} bytes), ${pendingCacheWrites.size} pending`);
-
-    // Debounce: wait for more writes to come in
-    if (cacheWriteTimer) {
-      clearTimeout(cacheWriteTimer);
-    }
-
-    cacheWriteTimer = setTimeout(async () => {
-      await flushCacheWrites();
-    }, CACHE_WRITE_DEBOUNCE);
-
-  } catch (e) {
-    console.error(`[AFFO Background] Error queuing font cache:`, e);
-  }
-}
-
-async function flushCacheWrites() {
-  if (pendingCacheWrites.size === 0) return;
-
-  try {
-    affoDebugLog(`[AFFO Background] Flushing ${pendingCacheWrites.size} cached fonts to storage (batch write)...`);
-    const startTime = performance.now();
-
-    // Read cache once
-    const cache = await browser.storage.local.get(FONT_CACHE_KEY);
-    let fontCache = cache[FONT_CACHE_KEY] || {};
-
-    // Add all pending writes to cache
-    let totalSize = 0;
-    for (const [url, entry] of pendingCacheWrites.entries()) {
-      fontCache[url] = entry;
-      totalSize += entry.size;
-    }
-
-    // Calculate current cache size
-    const entries = Object.entries(fontCache);
-    const currentSize = entries.reduce((sum, [_url, entry]) => sum + (entry.size || 0), 0);
-
-    // Clean up if cache is too large
-    if (currentSize > MAX_CACHE_SIZE_BYTES) {
-      affoDebugLog(`[AFFO Background] Cache too large (${(currentSize / (1024 * 1024)).toFixed(2)}MB), cleaning...`);
-      const sortedEntries = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
-
-      let newSize = 0;
-      const keptEntries = [];
-
-      for (const [entryUrl, entry] of sortedEntries) {
-        if (newSize + entry.size <= MAX_CACHE_SIZE_BYTES) {
-          keptEntries.push([entryUrl, entry]);
-          newSize += entry.size;
-        }
-      }
-
-      fontCache = Object.fromEntries(keptEntries);
-      affoDebugLog(`[AFFO Background] Cleaned font cache: kept ${keptEntries.length} entries, ${(newSize / (1024 * 1024)).toFixed(2)}MB`);
-    }
-
-    // Write cache once
-    await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
-
-    // Invalidate in-memory cache so next read gets fresh data
-    cachedFontData = null;
-
-    const duration = (performance.now() - startTime).toFixed(2);
-    affoDebugLog(`[AFFO Background] Batch cached ${pendingCacheWrites.size} fonts (${(totalSize / (1024 * 1024)).toFixed(2)}MB) in ${duration}ms`);
-
-    // Clear pending writes
-    pendingCacheWrites.clear();
-    cacheWriteTimer = null;
-
-  } catch (e) {
-    console.error(`[AFFO Background] Error flushing font cache:`, e);
-  }
-}
-
-async function clearExpiredCache() {
-  try {
-    const cache = await browser.storage.local.get(FONT_CACHE_KEY);
-    const fontCache = cache[FONT_CACHE_KEY] || {};
-    const now = Date.now();
-    let cleaned = 0;
-
-    for (const [url, entry] of Object.entries(fontCache)) {
-      if (now - entry.timestamp >= CACHE_TTL) {
-        delete fontCache[url];
-        cleaned++;
-      }
-    }
-
-    if (cleaned > 0) {
-      await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
-      affoDebugLog(`[AFFO Background] Cleaned ${cleaned} expired font cache entries`);
-    }
-  } catch (e) {
-    console.error(`[AFFO Background] Error cleaning font cache:`, e);
-  }
-}
-
-// Clean expired cache entries on startup and log cache status
-clearExpiredCache().then(() => {
-  browser.storage.local.get(FONT_CACHE_KEY).then(cache => {
-    const fontCache = cache[FONT_CACHE_KEY] || {};
-    const count = Object.keys(fontCache).length;
-    const totalSize = Object.values(fontCache).reduce((sum, entry) => sum + (entry.size || 0), 0);
-    affoDebugLog(`[AFFO Background] Startup cache status: ${count} fonts cached, ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
-  });
-});
+AFFOBackgroundFontRuntime.startup();
 
 async function handleAffoRuntimeMessage(msg, sender) {
   try {
     // Handle cache flush requests
     if (msg.type === 'flushFontCache') {
-      await flushCacheWrites();
+      await AFFOBackgroundFontRuntime.flushCacheWrites();
       return { ok: true };
     }
 
@@ -2440,7 +2205,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
     if (msg.type === 'resolveCss2Url') {
       try {
-        const css2Url = await resolveRuntimeCss2Url(msg.fontName, {
+        const css2Url = await AFFOBackgroundFontRuntime.resolveCss2Url(msg.fontName, {
           fallbackWhenMissing: !!msg.fallbackWhenMissing
         });
         return { ok: true, css2Url };
@@ -2767,43 +2532,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
     // Handle font fetching requests
     if (!msg || msg.type !== 'affoFetch') return;
-    const url = msg.url;
-    const binary = !!msg.binary;
-
-    // For binary requests (fonts), check cache first
-    if (binary) {
-      const cachedData = await getCachedFont(url);
-      if (cachedData) {
-        return { ok: true, binary: true, data: cachedData, cached: true };
-      }
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(function () {
-      try { controller.abort(); } catch (_) { }
-    }, AFFO_FETCH_TIMEOUT_MS);
-
-    let res;
-    try {
-      res = await fetch(url, { credentials: 'omit', signal: controller.signal });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-
-    if (binary) {
-      const buf = await res.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-      const dataArray = Array.from(u8);
-
-      // Cache the font data
-      await setCachedFont(url, buf);
-
-      return { ok: true, binary: true, data: dataArray, cached: false };
-    } else {
-      const text = await res.text();
-      return { ok: true, binary: false, data: text };
-    }
+    return AFFOBackgroundFontRuntime.handleFetchMessage(msg);
   } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
   }
@@ -2824,9 +2553,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     cachedAppFolderId = null;
   }
   if (changes.gfMetadataCache || changes.gfMetadataTimestamp) {
-    runtimeGfMetadata = null;
-    runtimeGfMetadataPromise = null;
-    runtimeCss2UrlMemo = {};
+    AFFOBackgroundFontRuntime.resetGfMetadataCache();
   }
   const trackSyncManagedChanges = syncWriteDepth === 0;
 

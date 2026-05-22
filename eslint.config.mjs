@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -99,6 +99,8 @@ export default [
                 affoBuildCss2UrlFromMetadata: "readonly",
                 // From sroulette-utils.js
                 AFFOSroulette: "readonly",
+                // From background-font-runtime.js
+                AFFOBackgroundFontRuntime: "readonly",
 
                 // From favorites.js (loaded before popup.js)
                 loadFavoritesFromStorage: "readonly",
@@ -247,6 +249,44 @@ export default [
         },
         rules: {
             "no-undef": "error",
+        },
+    },
+
+    // background-font-runtime.js — background font fetch/cache and CSS2 URL resolution
+    {
+        files: ["src/background-font-runtime.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
+                module: "readonly",
+                browser: "readonly",
+                fetch: "readonly",
+                console: "readonly",
+                performance: "readonly",
+                Date: "readonly",
+                Map: "readonly",
+                Object: "readonly",
+                Array: "readonly",
+                Uint8Array: "readonly",
+                AbortController: "readonly",
+                setTimeout: "readonly",
+                clearTimeout: "readonly",
+                affoParseGfMetadataText: "readonly",
+                affoGetMetadataFamilies: "readonly",
+                affoBuildCss2UrlFromMetadata: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+            "no-unused-vars": ["warn", {
+                argsIgnorePattern: "^_",
+                varsIgnorePattern: "^_",
+                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
+            }],
+            "no-console": "off",
         },
     },
 

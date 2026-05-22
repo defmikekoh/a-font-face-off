@@ -5,6 +5,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const AFFOSroulette = require('../src/sroulette-utils.js');
 
+function readBackgroundSource(extra = '') {
+    const runtimeSourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
+    const backgroundSourcePath = path.join(__dirname, '..', 'src', 'background.js');
+    return fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(backgroundSourcePath, 'utf8') + extra;
+}
+
 function createStorageStub(seed = {}) {
     const data = { ...seed };
     const onChangedListeners = [];
@@ -187,8 +193,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
         AFFOSroulette,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoTest = { runSync };';
+    const source = readBackgroundSource('\n;globalThis.__affoTest = { runSync };');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     context.isGDriveConfigured = async () => true;
@@ -295,8 +300,7 @@ function createQueueHarness() {
         AFFOSroulette,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoQueue = { enqueueSync };';
+    const source = readBackgroundSource('\n;globalThis.__affoQueue = { enqueueSync };');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return {
@@ -358,8 +362,7 @@ function createSyncMetaHarness() {
         AFFOSroulette,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoMeta = { markLocalItemModified };';
+    const source = readBackgroundSource('\n;globalThis.__affoMeta = { markLocalItemModified };');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return {
@@ -417,8 +420,7 @@ function createDriveOpsHarness() {
         AFFOSroulette,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoDriveOps = { gdrivePutFile, gdriveDeleteFile };';
+    const source = readBackgroundSource('\n;globalThis.__affoDriveOps = { gdrivePutFile, gdriveDeleteFile };');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return {
@@ -499,8 +501,7 @@ function createGDriveAuthHarness({ localSeed, fetchImpl }) {
         AFFOSroulette,
     });
 
-    const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoAuth = { exchangeCodeForTokens, refreshAccessToken };';
+    const source = readBackgroundSource('\n;globalThis.__affoAuth = { exchangeCodeForTokens, refreshAccessToken };');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return {
@@ -1094,8 +1095,7 @@ describe('Google Drive alarms API fallback', () => {
             AFFOSroulette,
         });
 
-        const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-        const source = fs.readFileSync(sourcePath, 'utf8') + '\n;globalThis.__affoAlarms = { startSyncAlarm };';
+        const source = readBackgroundSource('\n;globalThis.__affoAlarms = { startSyncAlarm };');
         vm.runInContext(source, context, { filename: 'background.js' });
 
         const res = await context.__affoAlarms.startSyncAlarm();

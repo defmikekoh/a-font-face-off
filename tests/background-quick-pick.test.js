@@ -105,8 +105,9 @@ function loadBackground(seed = {}) {
         generateThirdManInCSS: () => '/* css */'
     });
 
+    const runtimeSourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(sourcePath, 'utf8');
+    const source = fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(sourcePath, 'utf8');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return { context, storage, cssOps };
