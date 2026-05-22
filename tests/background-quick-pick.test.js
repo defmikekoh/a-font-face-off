@@ -159,7 +159,7 @@ describe('background quick-pick Sroulette', () => {
         assert.equal(storage.data.affoApplyMap['example.com'].body, undefined);
     });
 
-    it('clears Sroulette intent for a slot when a normal favorite is quick-applied', async () => {
+    it('clears Sroulette intent for a target when a normal favorite is quick-applied', async () => {
         const { context, storage } = loadBackground({
             affoApplyMap: {
                 'example.com': {

@@ -256,28 +256,28 @@ function isSrouletteTarget(value) {
   return value === 'body' || value === 'serif' || value === 'sans';
 }
 
-function clearSrouletteIntentForSlot(entry, slot) {
-  if (!entry || !isSrouletteTarget(slot)) return;
+function clearSrouletteIntentForTarget(entry, target) {
+  if (!entry || !isSrouletteTarget(target)) return;
   if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
-  delete entry.sroulette[slot];
+  delete entry.sroulette[target];
   if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
     delete entry.sroulette;
   }
 }
 
-function setSrouletteIntentForSlot(entry, slot, pool) {
-  if (!entry || !isSrouletteTarget(slot) || !isSroulettePool(pool)) return false;
+function setSrouletteIntentForTarget(entry, target, pool) {
+  if (!entry || !isSrouletteTarget(target) || !isSroulettePool(pool)) return false;
   if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
     entry.sroulette = {};
   }
-  entry.sroulette[slot] = { pool };
-  delete entry[slot];
+  entry.sroulette[target] = { pool };
+  delete entry[target];
   return true;
 }
 
-function hasSrouletteIntentForSlot(entry, slot) {
-  if (!entry || !isSrouletteTarget(slot)) return false;
-  const intent = entry.sroulette && entry.sroulette[slot];
+function hasSrouletteIntentForTarget(entry, target) {
+  if (!entry || !isSrouletteTarget(target)) return false;
+  const intent = entry.sroulette && entry.sroulette[target];
   return !!(intent && isSroulettePool(intent.pool));
 }
 
@@ -2626,7 +2626,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][position] = payload;
-        clearSrouletteIntentForSlot(applyMap[origin], position);
+        clearSrouletteIntentForTarget(applyMap[origin], position);
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
         await removeTrackedSrouletteCss(tabId, [position]);
@@ -2664,7 +2664,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (!applyMap[origin]) applyMap[origin] = {};
 
-        if (!setSrouletteIntentForSlot(applyMap[origin], position, pool)) {
+        if (!setSrouletteIntentForTarget(applyMap[origin], position, pool)) {
           return { success: false, error: 'Invalid Sroulette target' };
         }
 
@@ -2744,7 +2744,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
         const activeFontTypes = new Set();
         for (const fontType of ['serif', 'sans', 'mono']) {
-          if (domainData[fontType] || hasSrouletteIntentForSlot(domainData, fontType)) {
+          if (domainData[fontType] || hasSrouletteIntentForTarget(domainData, fontType)) {
             activeFontTypes.add(fontType);
           }
         }

@@ -160,22 +160,22 @@
     Object.keys(entry).forEach(function (key) {
       if (key !== 'sroulette' && key !== '__affoSrouletteResolved') materialized[key] = entry[key];
     });
-    var resolvedSlots = {};
+    var resolvedTargets = {};
     ['body', 'serif', 'sans'].forEach(function (fontType) {
       var intent = getSrouletteIntent(entry, fontType);
       if (!intent) return;
       var config = pickSrouletteFontConfig(data, intent.pool);
       if (hasMeaningfulFontConfig(config)) {
         materialized[fontType] = config;
-        resolvedSlots[fontType] = true;
+        resolvedTargets[fontType] = true;
         debugLog('[AFFO Content] Sroulette materialized ' + fontType + ' from ' + intent.pool + ' pool:', config.fontName);
       } else {
         delete materialized[fontType];
         debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + fontType);
       }
     });
-    if (resolvedSlots.serif || resolvedSlots.sans) {
-      materialized.__affoSrouletteResolved = resolvedSlots;
+    if (resolvedTargets.serif || resolvedTargets.sans) {
+      materialized.__affoSrouletteResolved = resolvedTargets;
     }
     return materialized;
   }

@@ -264,7 +264,7 @@ async function loadModeSettings(options = {}) {
                                     })()
                                 );
                             }
-                        } else if (SROULETTE_POSITIONS.has(type)) {
+                        } else if (SROULETTE_TARGETS.has(type)) {
                             clearSroulettePanelState(type);
                         }
                     }
@@ -2002,7 +2002,7 @@ async function loadFont(position, fontName, options = {}) {
 
     try {
         await ensureCustomFontsLoaded();
-        const wasSroulettePanel = SROULETTE_POSITIONS.has(position) && isPanelShowingSroulette(position);
+        const wasSroulettePanel = SROULETTE_TARGETS.has(position) && isPanelShowingSroulette(position);
         if (wasSroulettePanel) {
             clearSroulettePanelState(position);
         }
@@ -2997,15 +2997,14 @@ const PANEL_HEADINGS = {
 // TMI positions get "Apply All" / "Reset All" button text
 const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
 const SROULETTE_POOLS = new Set(['serif', 'sans']);
-const SROULETTE_POSITIONS = new Set(['body', 'serif', 'sans']);
-const SROULETTE_BATCH_MARKER = '__affoSroulettePool';
+const SROULETTE_TARGETS = new Set(['body', 'serif', 'sans']);
 
 function isSroulettePool(value) {
     return SROULETTE_POOLS.has(value);
 }
 
 function isSrouletteTarget(value) {
-    return SROULETTE_POSITIONS.has(value);
+    return SROULETTE_TARGETS.has(value);
 }
 
 function getSrouletteIntent(domainData, fontType) {
@@ -3031,22 +3030,38 @@ function getSrouletteLabel(pool) {
     return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
 }
 
-function clearSrouletteIntentFromEntry(entry, fontType) {
-    if (!entry || !isSrouletteTarget(fontType)) return;
+function createSrouletteBatchIntent(pool) {
+    return { kind: 'sroulette', pool };
+}
+
+function isSrouletteBatchIntent(config) {
+    return !!(config && config.kind === 'sroulette' && isSroulettePool(config.pool));
+}
+
+function createFontBatchPayloadRequest(target, config) {
+    return { kind: 'fontPayloadRequest', target, config };
+}
+
+function isFontBatchPayloadRequest(config) {
+    return !!(config && config.kind === 'fontPayloadRequest' && config.target && config.config);
+}
+
+function clearSrouletteIntentFromEntry(entry, target) {
+    if (!entry || !isSrouletteTarget(target)) return;
     if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
-    delete entry.sroulette[fontType];
+    delete entry.sroulette[target];
     if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
         delete entry.sroulette;
     }
 }
 
-function setSrouletteIntentOnEntry(entry, fontType, pool) {
-    if (!entry || !isSrouletteTarget(fontType) || !isSroulettePool(pool)) return false;
+function setSrouletteIntentOnEntry(entry, target, pool) {
+    if (!entry || !isSrouletteTarget(target) || !isSroulettePool(pool)) return false;
     if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
         entry.sroulette = {};
     }
-    entry.sroulette[fontType] = { pool };
-    delete entry[fontType];
+    entry.sroulette[target] = { pool };
+    delete entry[target];
     return true;
 }
 
@@ -3124,7 +3139,7 @@ function setSroulettePanelControlsDisabled(position, disabled) {
 }
 
 function markPanelAsSroulette(position, pool) {
-    if (!SROULETTE_POSITIONS.has(position) || !isSroulettePool(pool)) return;
+    if (!SROULETTE_TARGETS.has(position) || !isSroulettePool(pool)) return;
     const label = getSrouletteLabel(pool);
     const panel = document.getElementById(`${position}-font-controls`);
     const display = document.getElementById(`${position}-font-display`);
@@ -3151,7 +3166,7 @@ function markPanelAsSroulette(position, pool) {
 }
 
 function clearSroulettePanelState(position) {
-    if (!SROULETTE_POSITIONS.has(position)) return;
+    if (!SROULETTE_TARGETS.has(position)) return;
     const panel = document.getElementById(`${position}-font-controls`);
     const display = document.getElementById(`${position}-font-display`);
     if (panel) panel.classList.remove('sroulette-applied');
@@ -4401,10 +4416,10 @@ function saveSrouletteApplyMapForOrigin(origin, fontType, pool) {
     });
 }
 
-// Batch version: save multiple font types in a single storage write (for Apply All)
-function saveBatchApplyMapForOrigin(origin, fontConfigs) {
-    console.log(`🟢 saveBatchApplyMapForOrigin: Batch saving to domain storage - origin: ${origin}, fontConfigs:`, fontConfigs);
-    if (!origin || !fontConfigs || Object.keys(fontConfigs).length === 0) return Promise.resolve();
+// Batch version: save multiple font targets in a single storage write (for Apply All)
+function saveBatchApplyMapForOrigin(origin, batchConfigs) {
+    console.log(`🟢 saveBatchApplyMapForOrigin: Batch saving to domain storage - origin: ${origin}, batchConfigs:`, batchConfigs);
+    if (!origin || !batchConfigs || Object.keys(batchConfigs).length === 0) return Promise.resolve();
 
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
@@ -4413,18 +4428,18 @@ function saveBatchApplyMapForOrigin(origin, fontConfigs) {
 
         if (!applyMap[origin]) applyMap[origin] = {};
 
-        // Apply all font type configs at once
-        Object.entries(fontConfigs).forEach(([fontType, config]) => {
-            if (config && config[SROULETTE_BATCH_MARKER]) {
-                setSrouletteIntentOnEntry(applyMap[origin], fontType, config[SROULETTE_BATCH_MARKER]);
-                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${fontType} Sroulette intent:`, config[SROULETTE_BATCH_MARKER]);
+        // Apply all target configs at once
+        Object.entries(batchConfigs).forEach(([target, config]) => {
+            if (isSrouletteBatchIntent(config)) {
+                setSrouletteIntentOnEntry(applyMap[origin], target, config.pool);
+                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${target} Sroulette intent:`, config.pool);
             } else if (config) {
-                applyMap[origin][fontType] = config;
-                clearSrouletteIntentFromEntry(applyMap[origin], fontType);
-                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${fontType} config:`, config);
+                applyMap[origin][target] = config;
+                clearSrouletteIntentFromEntry(applyMap[origin], target);
+                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${target} config:`, config);
             } else {
-                delete applyMap[origin][fontType];
-                clearSrouletteIntentFromEntry(applyMap[origin], fontType);
+                delete applyMap[origin][target];
+                clearSrouletteIntentFromEntry(applyMap[origin], target);
             }
         });
 
@@ -5381,7 +5396,7 @@ function applyAllThirdManInFonts() {
         }
 
         // Step 1: Collect all font configs that need to be applied
-        const fontConfigs = {};
+        const batchConfigs = {};
         const cssJobs = [];
         let appliedAny = false;
 
@@ -5405,7 +5420,7 @@ function applyAllThirdManInFonts() {
                     const isDifferent = !!appliedConfig || !appliedSrouletteIntent || appliedSrouletteIntent.pool !== sroulettePool;
                     if (isDifferent) {
                         console.log(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
-                        fontConfigs[type] = { [SROULETTE_BATCH_MARKER]: sroulettePool };
+                        batchConfigs[type] = createSrouletteBatchIntent(sroulettePool);
                         appliedAny = true;
                     } else {
                         console.log(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
@@ -5440,7 +5455,7 @@ function applyAllThirdManInFonts() {
                         console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
                         console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
                         // Use buildPayload to strip fontFaceRule/css2Url before saving
-                        fontConfigs[type] = { _needsPayload: true, type, config };
+                        batchConfigs[type] = createFontBatchPayloadRequest(type, config);
                         appliedAny = true;
 
                         // Prepare CSS/font loading jobs (but don't execute yet)
@@ -5451,13 +5466,13 @@ function applyAllThirdManInFonts() {
                         });
                     } else {
                         console.log(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
-                        // Don't include unchanged types in fontConfigs - they should remain as-is
+                        // Don't include unchanged types in batchConfigs - they should remain as-is
                     }
                 } else {
                     // No valid config - clear/unset this type in the batch write
                     if (appliedConfig || appliedSrouletteIntent) {
                         console.log(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
-                        fontConfigs[type] = null; // Explicitly clear
+                        batchConfigs[type] = null; // Explicitly clear
                         appliedAny = true;
                     } else {
                         console.log(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
@@ -5473,11 +5488,11 @@ function applyAllThirdManInFonts() {
             return Promise.resolve().then(async () => {
                 // Step 2a: Build payloads for all configs (strips fontFaceRule/css2Url)
                 const payloadConfigs = {};
-                for (const [type, tempConfig] of Object.entries(fontConfigs)) {
-                    if (tempConfig._needsPayload) {
-                        payloadConfigs[type] = await buildPayload(tempConfig.type, tempConfig.config);
+                for (const [type, batchConfig] of Object.entries(batchConfigs)) {
+                    if (isFontBatchPayloadRequest(batchConfig)) {
+                        payloadConfigs[type] = await buildPayload(batchConfig.target, batchConfig.config);
                     } else {
-                        payloadConfigs[type] = tempConfig;
+                        payloadConfigs[type] = batchConfig;
                     }
                 }
 
@@ -5586,7 +5601,7 @@ function applyAllThirdManInFonts() {
         }).then(() => {
                 // Step 5: Update UI state
                 saveExtensionState();
-                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', Object.keys(fontConfigs).length);
+                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', Object.keys(batchConfigs).length);
             });
         });
     });

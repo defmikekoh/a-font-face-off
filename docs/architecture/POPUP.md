@@ -6,7 +6,7 @@
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
 - `saveSrouletteApplyMapForOrigin(origin, fontType, pool)`: Save a non-Substack Sroulette intent for `body`, `serif`, or `sans` without resolving the sampled font
-- `saveBatchApplyMapForOrigin(origin, fontConfigs)`: Batch save multiple font types in single storage write (used by Apply All)
+- `saveBatchApplyMapForOrigin(origin, batchConfigs)`: Batch save multiple font targets or Sroulette intents in single storage write (used by Apply All)
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 ### Storage Access Patterns
