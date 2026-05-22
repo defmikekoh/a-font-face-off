@@ -222,33 +222,18 @@ function favoriteMatchesSearch(name, config, query) {
     return searchable.includes(q);
 }
 
-const FAVORITES_SROULETTE_POOLS = ['serif', 'sans'];
-const FAVORITES_SROULETTE_POOL_STORAGE_KEYS = {
-    serif: 'affoSubstackRouletteSerif',
-    sans: 'affoSubstackRouletteSans'
-};
+const FAVORITES_SROULETTE_POOLS = AFFOSroulette.POOL_LIST;
 
 function getSroulettePoolStorageKey(pool) {
-    return FAVORITES_SROULETTE_POOL_STORAGE_KEYS[pool] || null;
+    return AFFOSroulette.getPoolStorageKey(pool);
 }
 
 function getFavoriteSrouletteLabel(pool) {
-    return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+    return AFFOSroulette.getPoolLabel(pool);
 }
 
 function getValidSroulettePoolInfoFromData(data, pool) {
-    const key = getSroulettePoolStorageKey(pool);
-    if (!key) return { available: false, count: 0 };
-    const names = Array.isArray(data && data[key]) ? data[key] : [];
-    const favorites = (data && data.affoFavorites) || {};
-    const validNames = names.filter(name => {
-        const cfg = favorites[name];
-        return !!(cfg && cfg.fontName);
-    });
-    return {
-        available: !!(data && data.affoSubstackRoulette !== false && validNames.length > 0),
-        count: validNames.length
-    };
+    return AFFOSroulette.getValidPoolInfoFromData(data, pool);
 }
 
 function getAvailableSrouletteFavoriteEntriesFromData(data) {

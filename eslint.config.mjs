@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -97,6 +97,8 @@ export default [
                 affoBuildPlainCss2Url: "readonly",
                 affoBuildCss2AxisRangesFromMetadata: "readonly",
                 affoBuildCss2UrlFromMetadata: "readonly",
+                // From sroulette-utils.js
+                AFFOSroulette: "readonly",
 
                 // From favorites.js (loaded before popup.js)
                 loadFavoritesFromStorage: "readonly",
@@ -231,6 +233,23 @@ export default [
         },
     },
 
+    // sroulette-utils.js — pure browser/Node helpers for Substack Roulette state
+    {
+        files: ["src/sroulette-utils.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
+                module: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+        },
+    },
+
     // favorites.js — depends on config-utils.js, css-generators.js, popup.js globals
     // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
     {
@@ -248,6 +267,8 @@ export default [
                 setInterval: "readonly",
                 // WebExtension
                 browser: "readonly",
+                // From sroulette-utils.js
+                AFFOSroulette: "readonly",
                 // From config-utils.js
                 normalizeConfig: "readonly",
                 // From css-generators.js

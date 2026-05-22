@@ -73,9 +73,8 @@
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
-  var SROULETTE_POOLS = ['serif', 'sans'];
-  var SROULETTE_TARGETS = ['body', 'serif', 'sans'];
-  var SROULETTE_CSS_TARGETS = ['serif', 'sans'];
+  var SROULETTE_TARGETS = AFFOSroulette.TARGET_LIST;
+  var SROULETTE_CSS_TARGETS = AFFOSroulette.CSS_TARGET_LIST;
   var SROULETTE_RESOLVED_TARGETS_KEY = '__affoSrouletteResolved';
 
   // Inline observer thresholds: only reapply on meaningful content additions
@@ -104,28 +103,19 @@
   }
 
   function isSroulettePool(value) {
-    return SROULETTE_POOLS.indexOf(value) !== -1;
-  }
-
-  function isSrouletteTarget(value) {
-    return SROULETTE_TARGETS.indexOf(value) !== -1;
+    return AFFOSroulette.isPool(value);
   }
 
   function isSrouletteCssTarget(value) {
-    return SROULETTE_CSS_TARGETS.indexOf(value) !== -1;
+    return AFFOSroulette.isCssTarget(value);
   }
 
   function getSrouletteIntent(entry, target) {
-    if (!entry || !isSrouletteTarget(target)) return null;
-    var intent = entry.sroulette && entry.sroulette[target];
-    if (!intent || !isSroulettePool(intent.pool)) return null;
-    return intent;
+    return AFFOSroulette.getIntent(entry, target);
   }
 
   function hasSrouletteIntent(entry) {
-    return SROULETTE_TARGETS.some(function (target) {
-      return !!getSrouletteIntent(entry, target);
-    });
+    return AFFOSroulette.hasIntent(entry);
   }
 
   function hasConcreteFontEntry(entry) {
@@ -153,7 +143,7 @@
 
   function pickSrouletteFontConfig(data, pool) {
     if (!data || data.affoSubstackRoulette === false || !isSroulettePool(pool)) return null;
-    var key = pool === 'serif' ? 'affoSubstackRouletteSerif' : 'affoSubstackRouletteSans';
+    var key = AFFOSroulette.getPoolStorageKey(pool);
     var names = Array.isArray(data[key]) ? data[key] : [];
     var favorites = data.affoFavorites || {};
     var validNames = names.filter(function (name) {

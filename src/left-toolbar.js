@@ -32,10 +32,10 @@
     const QUICK_PICK_ERROR_COLOR = '#dc3545';
     const QUICK_PICK_SUCCESS_CLOSE_DELAY_MS = 800;
     const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
-    const SROULETTE_POOLS = ['serif', 'sans'];
-    const SROULETTE_BODY_TARGETS = ['body'];
-    const SROULETTE_TARGETS = ['body', 'serif', 'sans'];
-    const SROULETTE_TMI_TARGETS = ['serif', 'sans'];
+    const SROULETTE_POOLS = AFFOSroulette.POOL_LIST;
+    const SROULETTE_BODY_TARGETS = AFFOSroulette.BODY_TARGET_LIST;
+    const SROULETTE_TARGETS = AFFOSroulette.TARGET_LIST;
+    const SROULETTE_TMI_TARGETS = AFFOSroulette.TMI_TARGET_LIST;
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -74,23 +74,11 @@
     }
 
     function getSrouletteLabel(pool) {
-        return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
-    }
-
-    function isSroulettePool(pool) {
-        return SROULETTE_POOLS.includes(pool);
+        return AFFOSroulette.getPoolLabel(pool);
     }
 
     function hasSrouletteIntentForTargets(srouletteData, targets) {
-        return !!(
-            srouletteData &&
-            typeof srouletteData === 'object' &&
-            !Array.isArray(srouletteData) &&
-            targets.some(target => {
-                const intent = srouletteData[target];
-                return !!(intent && isSroulettePool(intent.pool));
-            })
-        );
+        return AFFOSroulette.hasIntentInMap(srouletteData, targets);
     }
 
     function getQuickPickSrouletteButton(pool) {
@@ -98,17 +86,7 @@
     }
 
     function getValidSroulettePoolInfo(data, pool) {
-        const key = pool === 'serif' ? 'affoSubstackRouletteSerif' : 'affoSubstackRouletteSans';
-        const names = Array.isArray(data && data[key]) ? data[key] : [];
-        const favorites = (data && data.affoFavorites) || {};
-        const validNames = names.filter(name => {
-            const cfg = favorites[name];
-            return !!(cfg && cfg.fontName);
-        });
-        return {
-            available: data && data.affoSubstackRoulette !== false && validNames.length > 0,
-            count: validNames.length
-        };
+        return AFFOSroulette.getValidPoolInfoFromData(data, pool);
     }
 
     async function sendWaitForItStateToIframe() {

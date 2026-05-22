@@ -266,7 +266,7 @@ async function loadModeSettings(options = {}) {
                                     })()
                                 );
                             }
-                        } else if (SROULETTE_TARGETS.has(type)) {
+                        } else if (isSrouletteTarget(type)) {
                             clearSroulettePanelState(type);
                         }
                     }
@@ -2004,7 +2004,7 @@ async function loadFont(position, fontName, options = {}) {
 
     try {
         await ensureCustomFontsLoaded();
-        const wasSroulettePanel = SROULETTE_TARGETS.has(position) && isPanelShowingSroulette(position);
+        const wasSroulettePanel = isSrouletteTarget(position) && isPanelShowingSroulette(position);
         if (wasSroulettePanel) {
             clearSroulettePanelState(position);
         }
@@ -2998,29 +2998,23 @@ const PANEL_HEADINGS = {
 };
 // TMI positions get "Apply All" / "Reset All" button text
 const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
-const SROULETTE_POOL_LIST = ['serif', 'sans'];
-const SROULETTE_TARGET_LIST = ['body', 'serif', 'sans'];
-const SROULETTE_TMI_TARGET_LIST = ['serif', 'sans'];
-const SROULETTE_POOLS = new Set(SROULETTE_POOL_LIST);
-const SROULETTE_TARGETS = new Set(SROULETTE_TARGET_LIST);
+const SROULETTE_TARGET_LIST = AFFOSroulette.TARGET_LIST;
+const SROULETTE_TMI_TARGET_LIST = AFFOSroulette.TMI_TARGET_LIST;
 
 function isSroulettePool(value) {
-    return SROULETTE_POOLS.has(value);
+    return AFFOSroulette.isPool(value);
 }
 
 function isSrouletteTarget(value) {
-    return SROULETTE_TARGETS.has(value);
+    return AFFOSroulette.isTarget(value);
 }
 
 function getSrouletteIntent(domainData, target) {
-    if (!domainData || !isSrouletteTarget(target)) return null;
-    const intent = domainData.sroulette && domainData.sroulette[target];
-    if (!intent || !isSroulettePool(intent.pool)) return null;
-    return intent;
+    return AFFOSroulette.getIntent(domainData, target);
 }
 
 function hasSrouletteIntent(domainData, positions = SROULETTE_TARGET_LIST) {
-    return positions.some(position => !!getSrouletteIntent(domainData, position));
+    return AFFOSroulette.hasIntent(domainData, positions);
 }
 
 function hasTmiSrouletteIntent(domainData) {
@@ -3032,15 +3026,15 @@ function hasBodySrouletteIntent(domainData) {
 }
 
 function getSrouletteLabel(pool) {
-    return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+    return AFFOSroulette.getPoolLabel(pool);
 }
 
 function createSrouletteBatchIntent(pool) {
-    return { kind: 'sroulette', pool };
+    return AFFOSroulette.createBatchIntent(pool);
 }
 
 function isSrouletteBatchIntent(config) {
-    return !!(config && config.kind === 'sroulette' && isSroulettePool(config.pool));
+    return AFFOSroulette.isBatchIntent(config);
 }
 
 function createFontBatchPayloadRequest(target, config) {
@@ -3137,22 +3131,11 @@ function buildThirdManInBatchChanges(types, domainData) {
 }
 
 function clearSrouletteIntentFromEntry(entry, target) {
-    if (!entry || !isSrouletteTarget(target)) return;
-    if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
-    delete entry.sroulette[target];
-    if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
-        delete entry.sroulette;
-    }
+    AFFOSroulette.clearIntent(entry, target);
 }
 
 function setSrouletteIntentOnEntry(entry, target, pool) {
-    if (!entry || !isSrouletteTarget(target) || !isSroulettePool(pool)) return false;
-    if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
-        entry.sroulette = {};
-    }
-    entry.sroulette[target] = { pool };
-    delete entry[target];
-    return true;
+    return AFFOSroulette.setIntent(entry, target, pool);
 }
 
 function setSrouletteSaveButtonsDisabled(position, disabled) {
@@ -3249,7 +3232,7 @@ function getPanelPositionFromElement(element) {
 }
 
 function unsetSroulettePanelFromMarker(position) {
-    if (!SROULETTE_TARGETS.has(position) || !isPanelShowingSroulette(position)) return;
+    if (!isSrouletteTarget(position) || !isPanelShowingSroulette(position)) return;
 
     unsetAllPanelControls(position);
 
@@ -3271,7 +3254,7 @@ function activateSroulettePanelMarker(marker, event) {
 }
 
 function markPanelAsSroulette(position, pool) {
-    if (!SROULETTE_TARGETS.has(position) || !isSroulettePool(pool)) return;
+    if (!isSrouletteTarget(position) || !isSroulettePool(pool)) return;
     const label = getSrouletteLabel(pool);
     const panel = document.getElementById(`${position}-font-controls`);
     const display = document.getElementById(`${position}-font-display`);
@@ -3298,7 +3281,7 @@ function markPanelAsSroulette(position, pool) {
 }
 
 function clearSroulettePanelState(position) {
-    if (!SROULETTE_TARGETS.has(position)) return;
+    if (!isSrouletteTarget(position)) return;
     const panel = document.getElementById(`${position}-font-controls`);
     const display = document.getElementById(`${position}-font-display`);
     if (panel) panel.classList.remove('sroulette-applied');

@@ -250,45 +250,28 @@ function jsonEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-const SROULETTE_POOLS = new Set(['serif', 'sans']);
-const SROULETTE_TARGETS = new Set(['body', 'serif', 'sans']);
-const SROULETTE_CSS_TARGETS = new Set(['serif', 'sans']);
-
 function isSroulettePool(value) {
-  return SROULETTE_POOLS.has(value);
+  return AFFOSroulette.isPool(value);
 }
 
 function isSrouletteTarget(value) {
-  return SROULETTE_TARGETS.has(value);
+  return AFFOSroulette.isTarget(value);
 }
 
 function isSrouletteCssTarget(value) {
-  return SROULETTE_CSS_TARGETS.has(value);
+  return AFFOSroulette.isCssTarget(value);
 }
 
 function clearSrouletteIntentForTarget(entry, target) {
-  if (!entry || !isSrouletteTarget(target)) return;
-  if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
-  delete entry.sroulette[target];
-  if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
-    delete entry.sroulette;
-  }
+  AFFOSroulette.clearIntent(entry, target);
 }
 
 function setSrouletteIntentForTarget(entry, target, pool) {
-  if (!entry || !isSrouletteTarget(target) || !isSroulettePool(pool)) return false;
-  if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
-    entry.sroulette = {};
-  }
-  entry.sroulette[target] = { pool };
-  delete entry[target];
-  return true;
+  return AFFOSroulette.setIntent(entry, target, pool);
 }
 
 function hasSrouletteIntentForTarget(entry, target) {
-  if (!entry || !isSrouletteTarget(target)) return false;
-  const intent = entry.sroulette && entry.sroulette[target];
-  return !!(intent && isSroulettePool(intent.pool));
+  return AFFOSroulette.hasIntentForTarget(entry, target);
 }
 
 async function removeTrackedSrouletteCss(tabId, targets) {

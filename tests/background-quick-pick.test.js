@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const AFFOSroulette = require('../src/sroulette-utils.js');
 
 function clone(value) {
     if (value === undefined) return undefined;
@@ -97,6 +98,7 @@ function loadBackground(seed = {}) {
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
         affoParseGfMetadataText: () => ({}),
         affoGetMetadataFamilies: () => [],
         buildCss2UrlForFamily: () => '',

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const AFFOSroulette = require('../src/sroulette-utils.js');
 
 function createStorageStub(seed = {}) {
     const data = { ...seed };
@@ -183,6 +184,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
@@ -290,6 +292,7 @@ function createQueueHarness() {
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
@@ -352,6 +355,7 @@ function createSyncMetaHarness() {
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
@@ -410,6 +414,7 @@ function createDriveOpsHarness() {
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
@@ -491,6 +496,7 @@ function createGDriveAuthHarness({ localSeed, fetchImpl }) {
         clearTimeout,
         Promise,
         Date,
+        AFFOSroulette,
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
@@ -1085,6 +1091,7 @@ describe('Google Drive alarms API fallback', () => {
             clearTimeout,
             Promise,
             Date,
+            AFFOSroulette,
         });
 
         const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
