@@ -42,7 +42,7 @@
     },
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["messaging-utils.js", "sroulette-utils.js", "font-face-utils.js", "content.js"],
+      "js": ["messaging-utils.js", "sroulette-utils.js", "content-sroulette-runtime.js", "font-face-utils.js", "content.js"],
       "run_at": "document_end"
     },
     {

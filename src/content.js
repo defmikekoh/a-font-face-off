@@ -73,9 +73,7 @@
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
-  var SROULETTE_TARGETS = AFFOSroulette.TARGET_LIST;
   var SROULETTE_CSS_TARGETS = AFFOSroulette.CSS_TARGET_LIST;
-  var SROULETTE_RESOLVED_TARGETS_KEY = '__affoSrouletteResolved';
 
   // Inline observer thresholds: only reapply on meaningful content additions
   var INLINE_REAPPLY_DEBOUNCE_MS = 250;
@@ -91,143 +89,44 @@
   };
 
   function hasMeaningfulFontConfig(fontConfig) {
-    return !!(fontConfig && (
-      fontConfig.fontName ||
-      fontConfig.fontSize ||
-      fontConfig.fontWeight ||
-      fontConfig.fontStyle ||
-      fontConfig.lineHeight ||
-      fontConfig.letterSpacing != null ||
-      fontConfig.fontColor
-    ));
-  }
-
-  function isSroulettePool(value) {
-    return AFFOSroulette.isPool(value);
-  }
-
-  function isSrouletteCssTarget(value) {
-    return AFFOSroulette.isCssTarget(value);
-  }
-
-  function getSrouletteIntent(entry, target) {
-    return AFFOSroulette.getIntent(entry, target);
+    return AFFOContentSroulette.hasMeaningfulFontConfig(fontConfig);
   }
 
   function hasSrouletteIntent(entry) {
     return AFFOSroulette.hasIntent(entry);
   }
 
-  function hasConcreteFontEntry(entry) {
-    return !!(entry && ['body', 'serif', 'sans', 'mono'].some(function (fontType) {
-      return hasMeaningfulFontConfig(entry[fontType]);
-    }));
-  }
-
   function shouldTreatSrouletteEntryAsEmptyOnSubstack(entry) {
-    return !!(entry && getIsSubstack() && hasSrouletteIntent(entry) && !hasConcreteFontEntry(entry));
-  }
-
-  function cloneFontConfig(config) {
-    if (!config || typeof config !== 'object') return null;
-    var cloned = {};
-    Object.keys(config).forEach(function (key) {
-      if (key === 'variableAxes' && config.variableAxes && typeof config.variableAxes === 'object') {
-        cloned.variableAxes = Object.assign({}, config.variableAxes);
-      } else {
-        cloned[key] = config[key];
-      }
-    });
-    return cloned;
-  }
-
-  function pickSrouletteFontConfig(data, pool) {
-    if (!data || data.affoSubstackRoulette === false || !isSroulettePool(pool)) return null;
-    var key = AFFOSroulette.getPoolStorageKey(pool);
-    var names = Array.isArray(data[key]) ? data[key] : [];
-    var favorites = data.affoFavorites || {};
-    var validNames = names.filter(function (name) {
-      var cfg = favorites[name];
-      return !!(cfg && cfg.fontName);
-    });
-    if (!validNames.length) return null;
-    var pickedName = validNames[Math.floor(Math.random() * validNames.length)];
-    return cloneFontConfig(favorites[pickedName]);
+    return AFFOContentSroulette.shouldTreatEntryAsEmptyOnSubstack(entry, getIsSubstack());
   }
 
   function materializeSrouletteEntry(entry, data) {
-    if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return entry;
-    var materialized = {};
-    Object.keys(entry).forEach(function (key) {
-      if (key !== 'sroulette' && key !== SROULETTE_RESOLVED_TARGETS_KEY) materialized[key] = entry[key];
+    return AFFOContentSroulette.materializeEntry(entry, data, {
+      isSubstack: getIsSubstack(),
+      log: debugLog
     });
-    var resolvedTargets = {};
-    SROULETTE_TARGETS.forEach(function (target) {
-      var intent = getSrouletteIntent(entry, target);
-      if (!intent) return;
-      var config = pickSrouletteFontConfig(data, intent.pool);
-      if (hasMeaningfulFontConfig(config)) {
-        materialized[target] = config;
-        resolvedTargets[target] = true;
-        debugLog('[AFFO Content] Sroulette materialized ' + target + ' from ' + intent.pool + ' pool:', config.fontName);
-      } else {
-        delete materialized[target];
-        debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + target);
-      }
-    });
-    if (resolvedTargets.serif || resolvedTargets.sans) {
-      materialized[SROULETTE_RESOLVED_TARGETS_KEY] = resolvedTargets;
-    }
-    return materialized;
   }
 
   function isResolvedSrouletteCssTarget(entry, target) {
-    return !!(isSrouletteCssTarget(target) && entry && entry[SROULETTE_RESOLVED_TARGETS_KEY] && entry[SROULETTE_RESOLVED_TARGETS_KEY][target]);
+    return AFFOContentSroulette.isResolvedCssTarget(entry, target);
   }
 
   function requestSrouletteCssRemoval(targets) {
-    try {
-      var requestedTargets = Array.isArray(targets) ? targets.filter(isSrouletteCssTarget) : SROULETTE_CSS_TARGETS.slice();
-      if (!requestedTargets.length) return;
-      browser.runtime.sendMessage({
-        type: 'affoRemoveSrouletteCss',
-        fontTypes: requestedTargets
-      }).catch(function () {});
-    } catch (_) {}
+    AFFOContentSroulette.requestCssRemoval(targets);
   }
 
   function requestSrouletteCssInsert(target, css) {
-    if (!isSrouletteCssTarget(target) || typeof css !== 'string' || !css.trim()) return;
-    try {
-      browser.runtime.sendMessage({
-        type: 'affoInsertSrouletteCss',
-        fontType: target,
-        css: css
-      }).catch(function (e) {
-        debugLog('[AFFO Content] Sroulette user-origin CSS injection failed:', e);
-      });
-    } catch (_) {}
+    AFFOContentSroulette.requestCssInsert(target, css, { log: debugLog });
   }
 
   function syncSrouletteCssTrackingForEntry(entry) {
-    var staleTargets = SROULETTE_CSS_TARGETS.filter(function (target) {
-      return !isResolvedSrouletteCssTarget(entry, target);
-    });
-    if (staleTargets.length) requestSrouletteCssRemoval(staleTargets);
+    AFFOContentSroulette.syncCssTrackingForEntry(entry);
   }
 
   function resolveSrouletteEntry(entry, data) {
-    if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return Promise.resolve(entry);
-    if (data) return Promise.resolve(materializeSrouletteEntry(entry, data));
-    return browser.storage.local.get([
-      'affoSubstackRoulette',
-      'affoSubstackRouletteSerif',
-      'affoSubstackRouletteSans',
-      'affoFavorites'
-    ]).then(function (stored) {
-      return materializeSrouletteEntry(entry, stored || {});
-    }).catch(function () {
-      return materializeSrouletteEntry(entry, {});
+    return AFFOContentSroulette.resolveEntry(entry, data, {
+      isSubstack: getIsSubstack(),
+      log: debugLog
     });
   }
 

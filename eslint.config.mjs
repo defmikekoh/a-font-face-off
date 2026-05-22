@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -99,6 +99,8 @@ export default [
                 affoBuildCss2UrlFromMetadata: "readonly",
                 // From sroulette-utils.js
                 AFFOSroulette: "readonly",
+                // From content-sroulette-runtime.js
+                AFFOContentSroulette: "readonly",
                 // From background-font-runtime.js
                 AFFOBackgroundFontRuntime: "readonly",
 
@@ -249,6 +251,32 @@ export default [
         },
         rules: {
             "no-undef": "error",
+        },
+    },
+
+    // content-sroulette-runtime.js — content-script Sroulette materialization and CSS tracking helpers
+    {
+        files: ["src/content-sroulette-runtime.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
+                module: "readonly",
+                browser: "readonly",
+                console: "readonly",
+                AFFOSroulette: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+            "no-unused-vars": ["warn", {
+                argsIgnorePattern: "^_",
+                varsIgnorePattern: "^_",
+                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
+            }],
+            "no-console": "off",
         },
     },
 

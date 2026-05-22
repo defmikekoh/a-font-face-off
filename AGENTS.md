@@ -30,6 +30,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `src/popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `src/popup.html` / `src/popup.css` | Extension popup markup and styles |
 | `src/content.js` | Injected into pages; font application, element walker, SPA resilience |
+| `src/content-sroulette-runtime.js` | Content-script Sroulette materialization and tracked CSS messaging helpers |
 | `src/css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) |
 | `src/background.js` | Non-persistent background script; cloud sync, runtime message routing, Quick Pick handlers |
 | `src/background-font-runtime.js` | Background font fetch/cache service and Google Fonts CSS2 URL resolution |
