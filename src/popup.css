@@ -1749,12 +1749,22 @@ body.mode-switching #panel-grips {
 }
 
 .sroulette-wheel-marker {
-    cursor: default !important;
-    pointer-events: none;
+    cursor: pointer !important;
+    pointer-events: auto !important;
     background: #e7f3ef !important;
     color: #1f4f46 !important;
     border-color: #9ac8bb !important;
+    opacity: 1 !important;
+    width: 30px !important;
+    font-size: 11px !important;
+    letter-spacing: 0 !important;
     transform: none !important;
+}
+
+.sroulette-wheel-marker:hover {
+    background: #d5ebe4 !important;
+    border-color: #69aa98 !important;
+    transform: scale(1.05) !important;
 }
 
 /* Excluder Controls */

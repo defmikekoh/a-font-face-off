@@ -155,6 +155,53 @@ describe('Integration tests', () => {
         assert.equal(hasVisible, true, 'body font controls should be visible in body-contact mode');
     });
 
+    it('sroulette marker clears the body panel back to unset defaults', async () => {
+        await popupExec(driver, 'document.querySelector(\'[data-mode="body-contact"]\').click()');
+        await driver.sleep(300);
+
+        const result = await popupExec(driver, `
+            const sizeGroup = document.querySelector('#body-font-controls .control-group[data-control="font-size"]');
+            const sizeSlider = document.getElementById('body-font-size');
+            const sizeText = document.getElementById('body-font-size-text');
+            if (sizeGroup) sizeGroup.classList.remove('unset');
+            if (sizeSlider) sizeSlider.value = '24';
+            if (sizeText) sizeText.value = '24';
+
+            markPanelAsSroulette('body', 'serif');
+            const marker = document.querySelector('#body-font-controls .sroulette-wheel-marker');
+            if (marker) marker.click();
+
+            const panel = document.getElementById('body-font-controls');
+            const display = document.getElementById('body-font-display');
+            const preview = document.getElementById('body-font-text');
+            const groups = Array.from(panel.querySelectorAll('.control-group'));
+
+            return {
+                markerExisted: !!marker,
+                displayText: display ? display.textContent.trim() : null,
+                showingSroulette: display ? display.classList.contains('sroulette-display') : null,
+                markerCount: panel.querySelectorAll('.sroulette-wheel-marker').length,
+                sizeDisabled: sizeSlider ? sizeSlider.disabled : null,
+                sizeValue: sizeSlider ? sizeSlider.value : null,
+                sizeTextValue: sizeText ? sizeText.value : null,
+                allGroupsUnset: groups.every(group => group.classList.contains('unset')),
+                panelState: getCurrentPanelState('body').kind,
+                previewStyle: preview ? preview.getAttribute('style') || '' : ''
+            };
+        `);
+
+        assert.equal(result.markerExisted, true, 'Sroulette marker should render');
+        assert.equal(result.displayText, 'Default');
+        assert.equal(result.showingSroulette, false);
+        assert.equal(result.markerCount, 0);
+        assert.equal(result.sizeDisabled, false);
+        assert.equal(result.sizeValue, '17');
+        assert.equal(result.sizeTextValue, '17');
+        assert.equal(result.allGroupsUnset, true);
+        assert.equal(result.panelState, 'empty');
+        assert.equal(result.previewStyle.includes('24px'), false, 'preview should not keep stale font size');
+    });
+
     it('font display shows a font name', async () => {
         const fontName = await popupExec(driver, `
             const display = document.getElementById('body-font-display');

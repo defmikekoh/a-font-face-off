@@ -3208,20 +3208,64 @@ function setSroulettePanelControlsDisabled(position, disabled) {
             if (btn.dataset.affoOriginalText == null) btn.dataset.affoOriginalText = btn.textContent || '';
             if (btn.dataset.affoOriginalTitle == null) btn.dataset.affoOriginalTitle = btn.getAttribute('title') || '';
             if (btn.dataset.affoOriginalDisabled == null) btn.dataset.affoOriginalDisabled = btn.disabled ? 'true' : 'false';
-            btn.textContent = '☸';
-            btn.setAttribute('title', 'Sroulette applied');
-            btn.disabled = true;
+            if (btn.dataset.affoOriginalMarkerTabindex == null) btn.dataset.affoOriginalMarkerTabindex = btn.getAttribute('tabindex') || '';
+            if (btn.dataset.affoOriginalMarkerRole == null) btn.dataset.affoOriginalMarkerRole = btn.getAttribute('role') || '';
+            if (btn.dataset.affoOriginalMarkerAriaLabel == null) btn.dataset.affoOriginalMarkerAriaLabel = btn.getAttribute('aria-label') || '';
+            btn.textContent = '↻☸';
+            btn.setAttribute('title', 'Clear Sroulette and unset this panel');
+            btn.setAttribute('aria-label', 'Clear Sroulette and unset this panel');
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
+            btn.disabled = false;
             btn.classList.add('sroulette-wheel-marker');
         } else {
             if (btn.dataset.affoOriginalText != null) btn.textContent = btn.dataset.affoOriginalText;
             if (btn.dataset.affoOriginalTitle != null) btn.setAttribute('title', btn.dataset.affoOriginalTitle);
             if (btn.dataset.affoOriginalDisabled != null) btn.disabled = btn.dataset.affoOriginalDisabled === 'true';
+            if (btn.dataset.affoOriginalMarkerTabindex === '') btn.removeAttribute('tabindex');
+            else if (btn.dataset.affoOriginalMarkerTabindex != null) btn.setAttribute('tabindex', btn.dataset.affoOriginalMarkerTabindex);
+            if (btn.dataset.affoOriginalMarkerRole === '') btn.removeAttribute('role');
+            else if (btn.dataset.affoOriginalMarkerRole != null) btn.setAttribute('role', btn.dataset.affoOriginalMarkerRole);
+            if (btn.dataset.affoOriginalMarkerAriaLabel === '') btn.removeAttribute('aria-label');
+            else if (btn.dataset.affoOriginalMarkerAriaLabel != null) btn.setAttribute('aria-label', btn.dataset.affoOriginalMarkerAriaLabel);
             delete btn.dataset.affoOriginalText;
             delete btn.dataset.affoOriginalTitle;
             delete btn.dataset.affoOriginalDisabled;
+            delete btn.dataset.affoOriginalMarkerTabindex;
+            delete btn.dataset.affoOriginalMarkerRole;
+            delete btn.dataset.affoOriginalMarkerAriaLabel;
             btn.classList.remove('sroulette-wheel-marker');
         }
     });
+}
+
+function getPanelPositionFromElement(element) {
+    const panel = element && element.closest('.controls-panel');
+    if (!panel) return null;
+    const match = panel.id.match(/^(top|bottom|body|serif|sans|mono)-font-controls$/);
+    return match ? match[1] : null;
+}
+
+function unsetSroulettePanelFromMarker(position) {
+    if (!SROULETTE_TARGETS.has(position) || !isPanelShowingSroulette(position)) return;
+
+    unsetAllPanelControls(position);
+
+    if (position === 'body') {
+        updateBodyButtons();
+    } else if (TMI_POSITIONS.has(position)) {
+        updateAllThirdManInButtons(position);
+    }
+}
+
+function activateSroulettePanelMarker(marker, event) {
+    const position = getPanelPositionFromElement(marker);
+    if (!position) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+    unsetSroulettePanelFromMarker(position);
+    return true;
 }
 
 function markPanelAsSroulette(position, pool) {
@@ -3704,6 +3748,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             try { await resetPanelSettings(pos); } catch (_) {}
         });
     });
+
+    document.addEventListener('click', function(e) {
+        const marker = e.target && e.target.closest('.sroulette-wheel-marker');
+        if (!marker) return;
+        activateSroulettePanelMarker(marker, e);
+    }, true);
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const marker = e.target && e.target.closest('.sroulette-wheel-marker');
+        if (!marker) return;
+        activateSroulettePanelMarker(marker, e);
+    }, true);
 
     // Custom alert OK button
     document.getElementById('custom-alert-ok').addEventListener('click', function() {
@@ -4351,11 +4408,13 @@ function resetFontForPosition(position) {
     const lsSlider = document.getElementById(`${position}-letter-spacing`);
     const weightSlider = document.getElementById(`${position}-font-weight`);
     const styleSelect = document.getElementById(`${position}-font-style`);
+    const colorSelect = document.getElementById(`${position}-font-color`);
     if (sizeSlider) sizeSlider.value = 17;
     if (lhSlider) lhSlider.value = 1.5;
     if (lsSlider) lsSlider.value = 0;
     if (weightSlider) weightSlider.value = 400;
     if (styleSelect) styleSelect.value = 'normal';
+    if (colorSelect) colorSelect.value = 'default';
 
     // Reset text inputs
     const sizeText = document.getElementById(`${position}-font-size-text`);
@@ -4375,7 +4434,9 @@ function resetFontForPosition(position) {
     if (lsValue) lsValue.textContent = '0em';
     if (weightValue) weightValue.textContent = '400';
 
-    // Mark weight, line-height, and letter-spacing controls as unset/dimmed
+    // Mark basic controls as unset/dimmed before preview recalculation.
+    const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
+    if (sizeControl) sizeControl.classList.add('unset');
     const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
     if (weightControl) weightControl.classList.add('unset');
     const styleControl = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
@@ -4384,6 +4445,8 @@ function resetFontForPosition(position) {
     if (lineHeightControl) lineHeightControl.classList.add('unset');
     const letterSpacingControl = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
     if (letterSpacingControl) letterSpacingControl.classList.add('unset');
+    const colorControl = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
+    if (colorControl) colorControl.classList.add('unset');
 
     // Reset variable axes and make them unset/dimmed
     if (fontDef && fontDef.axes.length > 0) {
