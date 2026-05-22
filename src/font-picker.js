@@ -13,6 +13,14 @@
  * In Node (test runner) we export pure helpers via module.exports.
  */
 
+function affoDebugLog() {
+    if (globalThis.AFFO_DEBUG === true) console.log.apply(console, arguments);
+}
+
+function affoDebugWarn() {
+    if (globalThis.AFFO_DEBUG === true) console.warn.apply(console, arguments);
+}
+
 // Initialize Google Fonts selects dynamically
 function getFamiliesFromMetadata(md) {
     if (!md) return [];
@@ -45,7 +53,7 @@ async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
 
         // If we failed to get a non-empty list, keep existing options intact
         if (!families || families.length === 0) {
-            console.warn('Google Fonts metadata returned no families; keeping existing dropdown options');
+            affoDebugWarn('Google Fonts metadata returned no families; keeping existing dropdown options');
             return;
         }
 
@@ -83,7 +91,7 @@ async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
         });
         return true;
     } catch (e) {
-        console.warn('Failed to populate Google Fonts list:', e);
+        affoDebugWarn('Failed to populate Google Fonts list:', e);
         return false;
     }
 }
@@ -135,7 +143,7 @@ function setupFontPicker() {
         await ensureCustomFontsLoaded();
         // Build family list (custom pinned + google)
         if (!gfMetadata) {
-            try { await ensureGfMetadata(); } catch (e) { console.warn('GF metadata load failed:', e); }
+            try { await ensureGfMetadata(); } catch (e) { affoDebugWarn('GF metadata load failed:', e); }
         }
         // Ensure favorites are up-to-date
         try { loadFavoritesFromStorage(); } catch (e) {}
@@ -265,7 +273,7 @@ function setupFontPicker() {
     }
 
 async function selectFont(name) {
-    console.log(`selectFont: Selecting "${name}" for position "${currentPosition}"`);
+    affoDebugLog(`selectFont: Selecting "${name}" for position "${currentPosition}"`);
 
     try {
         // Display element is now the source of truth - no need to manage select options
@@ -273,13 +281,13 @@ async function selectFont(name) {
         if (displayEl) {
             // Check selector before updating display
             const selectElBefore = document.getElementById(`${currentPosition}-font-select`);
-            console.log(`selectFont: Before updating display, ${currentPosition}-font-select.value = "${selectElBefore ? selectElBefore.value : 'null'}"`);
+            affoDebugLog(`selectFont: Before updating display, ${currentPosition}-font-select.value = "${selectElBefore ? selectElBefore.value : 'null'}"`);
 
             displayEl.textContent = name;
 
             // Check selector immediately after setting display text
             const selectElAfter = document.getElementById(`${currentPosition}-font-select`);
-            console.log(`selectFont: After setting display text, ${currentPosition}-font-select.value = "${selectElAfter ? selectElAfter.value : 'null'}"`);
+            affoDebugLog(`selectFont: After setting display text, ${currentPosition}-font-select.value = "${selectElAfter ? selectElAfter.value : 'null'}"`);
 
             // Handle Default vs specific font styling
             if (name === 'Default') {
@@ -291,18 +299,18 @@ async function selectFont(name) {
                 const group = displayEl.closest('.control-group');
                 if (group) group.classList.remove('unset');
             }
-            console.log(`selectFont: Updated ${currentPosition}-font-display to "${name}"`);
+            affoDebugLog(`selectFont: Updated ${currentPosition}-font-display to "${name}"`);
         }
 
         // For body mode, update preview and buttons after font selection
         if (currentPosition === 'body') {
             // Check selector value right before updateBodyButtons
             const checkEl = document.getElementById('body-font-select');
-            console.log(`selectFont: Right before updateBodyButtons, body-font-select.value = "${checkEl ? checkEl.value : 'null'}"`);
+            affoDebugLog(`selectFont: Right before updateBodyButtons, body-font-select.value = "${checkEl ? checkEl.value : 'null'}"`);
 
             // Also check what getCurrentUIConfig returns
             const config = getCurrentUIConfig('body');
-            console.log(`selectFont: getCurrentUIConfig('body') returns:`, config);
+            affoDebugLog(`selectFont: getCurrentUIConfig('body') returns:`, config);
 
             // Load font CSS for preview and await completion
             if (name) {
@@ -327,14 +335,14 @@ async function selectFont(name) {
             // Ensure font name heading is updated for Third Man In mode BEFORE loadFont
             const fontNameDisplayElement = document.getElementById(`${currentPosition}-font-name`);
             if (fontNameDisplayElement) {
-                console.log(`selectFont: Updating ${currentPosition}-font-name from "${fontNameDisplayElement.textContent}" to "${name}"`);
+                affoDebugLog(`selectFont: Updating ${currentPosition}-font-name from "${fontNameDisplayElement.textContent}" to "${name}"`);
                 // For Default, show the position name (Serif, Sans, Mono) instead of "Default"
                 if (name === 'Default') {
                     fontNameDisplayElement.textContent = currentPosition.charAt(0).toUpperCase() + currentPosition.slice(1);
                 } else {
                     fontNameDisplayElement.textContent = name;
                 }
-                console.log(`selectFont: After update, ${currentPosition}-font-name.textContent = "${fontNameDisplayElement.textContent}"`);
+                affoDebugLog(`selectFont: After update, ${currentPosition}-font-name.textContent = "${fontNameDisplayElement.textContent}"`);
             } else {
                 console.error(`selectFont: Could not find ${currentPosition}-font-name element!`);
             }
@@ -346,9 +354,9 @@ async function selectFont(name) {
 
             // Update buttons after operations complete
             try {
-                console.log(`selectFont: About to call updateAllThirdManInButtons for ${currentPosition}`);
+                affoDebugLog(`selectFont: About to call updateAllThirdManInButtons for ${currentPosition}`);
                 await updateAllThirdManInButtons(currentPosition);
-                console.log(`selectFont: updateAllThirdManInButtons completed for ${currentPosition}`);
+                affoDebugLog(`selectFont: updateAllThirdManInButtons completed for ${currentPosition}`);
             } catch (error) {
                 console.error('Error updating Third Man In buttons after font selection:', error);
             }

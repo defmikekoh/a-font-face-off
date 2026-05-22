@@ -35,6 +35,10 @@ function getArticleDeckExclude() {
 
 // ── Utility ──────────────────────────────────────────────────────────────────
 
+function affoDebugLog() {
+    if (globalThis.AFFO_DEBUG === true) console.log.apply(console, arguments);
+}
+
 function formatAxisValue(axis, value) {
     switch (axis) {
         case 'wdth':
@@ -375,7 +379,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
     }
 
     const css = lines.join('\n');
-    console.log(`🎯 Generated CSS for ${fontType}:`, css);
+    affoDebugLog(`🎯 Generated CSS for ${fontType}:`, css);
     return css;
 }
 

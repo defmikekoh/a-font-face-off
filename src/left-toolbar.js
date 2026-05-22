@@ -5,9 +5,11 @@
 
     // Dev-mode logging: build step sets AFFO_DEBUG = false for production
     var AFFO_DEBUG = true;
-    if (!AFFO_DEBUG) {
-      console.log = function() {};
-      console.warn = function() {};
+    function affoDebugLog() {
+        if (AFFO_DEBUG) console.log.apply(console, arguments);
+    }
+    function affoDebugWarn() {
+        if (AFFO_DEBUG) console.warn.apply(console, arguments);
     }
 
     // Prevent multiple injections
@@ -275,7 +277,7 @@
                                 link.rel = 'stylesheet';
                                 link.href = css2Url;
                                 document.head.appendChild(link);
-                                if (AFFO_DEBUG) console.log(`[AFFO Toolbar] Early preload for ${fontName}: ${css2Url}`);
+                                affoDebugLog(`[AFFO Toolbar] Early preload for ${fontName}: ${css2Url}`);
                             });
                         }
                     });
@@ -283,7 +285,7 @@
 
                 injectWhenReady();
             }).catch(e => {
-                console.warn('[AFFO Toolbar] Early font preload failed:', e);
+                affoDebugWarn('[AFFO Toolbar] Early font preload failed:', e);
             });
         } catch (e) {}
     })();
@@ -521,7 +523,7 @@
                         console.error('[Left Toolbar] Error creating/initializing WhatFont:', e);
                     }
                 } else {
-                    console.warn('[Left Toolbar] _whatFont function not found after loading script');
+                    affoDebugWarn('[Left Toolbar] _whatFont function not found after loading script');
                 }
             };
             whatfontScript.onerror = function(e) {
@@ -1483,7 +1485,7 @@
             position: position  // 'serif' or 'sans'
         }).then(response => {
             if (response && response.success) {
-                console.log('[Left Toolbar] Font applied successfully to', position);
+                affoDebugLog('[Left Toolbar] Font applied successfully to', position);
             } else {
                 console.error('[Left Toolbar] Font application failed:', response?.error);
             }
@@ -1731,7 +1733,7 @@
                 });
             }
         } catch (e) {
-            console.warn('[Left Toolbar] Could not set up runtime message listener:', e);
+            affoDebugWarn('[Left Toolbar] Could not set up runtime message listener:', e);
         }
     }
     

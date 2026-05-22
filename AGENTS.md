@@ -63,6 +63,14 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 
 `AFFO_DEBUG` constant at top of `popup.js`, `content.js`, `background.js`, `left-toolbar.js` controls logging. Toggled by `scripts/set-debug.js` (automatically set to false during build, true otherwise).
 
+Logging rules:
+
+- Local/dev runs should keep `AFFO_DEBUG = true`; packaged builds must have `AFFO_DEBUG = false` via `npm run build` / `scripts/set-debug.js`.
+- Do not patch or override `console.log` / `console.warn`. Use local debug helpers (`affoDebugLog`, `affoDebugWarn`, or `debugLog` / `debugWarn` in `content.js`) for diagnostic output.
+- Helper files loaded before `popup.js` and Node-tested files should gate debug output with `globalThis.AFFO_DEBUG === true` so tests and non-debug contexts stay quiet.
+- `console.error` is acceptable for real failures. Routine status, cache hits, generated CSS dumps, verification traces, and expected fallback notes should be debug-gated.
+- Code injected into page context cannot call popup/background helper functions; either skip those scripts when `AFFO_DEBUG` is false or embed a literal `if (${AFFO_DEBUG}) console.log(...)` guard.
+
 ## Architecture Deep Dives
 
 For detailed documentation on specific subsystems, see `docs/architecture/`:

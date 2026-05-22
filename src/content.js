@@ -45,14 +45,15 @@
 
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production
   var AFFO_DEBUG = true;
-  if (!AFFO_DEBUG) {
-    console.log = function () { };
-    console.warn = function () { };
-  }
   var CONTENT_MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. Reload the page and try again.';
 
-  function debugLog() { console.log.apply(console, arguments); }
-  function elementLog() { console.log.apply(console, arguments); }
+  function debugLog() {
+    if (AFFO_DEBUG) console.log.apply(console, arguments);
+  }
+  function debugWarn() {
+    if (AFFO_DEBUG) console.warn.apply(console, arguments);
+  }
+  function elementLog() { debugLog.apply(null, arguments); }
   function sendBackgroundMessage(message, options) {
     return AFFOMessaging.sendRuntimeMessage(browser, message, Object.assign({
       retryMs: 1500,
@@ -2640,7 +2641,7 @@
 
               if (FONTFACE_MAX_SUBSET_DOWNLOADS && uniqueWoff2Urls.length > filteredUrls.length &&
                 filteredUrls.length === FONTFACE_MAX_SUBSET_DOWNLOADS) {
-                console.warn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
+                debugWarn(`[AFFO Content] Using ${filteredUrls.length}/${uniqueWoff2Urls.length} subsets for ${fontName} (cap ${FONTFACE_MAX_SUBSET_DOWNLOADS})`);
               }
             }
 
@@ -2996,7 +2997,7 @@
         var typeSet = {};
         typesToWalk.forEach(function (ft) { typeSet[ft] = true; });
 
-        console.log('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
+        debugLog('[AFFO Content] Starting unified element walker for: ' + typesToWalk.join(', '));
         var startTime = performance.now();
 
         // Don't clear markers upfront — update them incrementally during the walk.
@@ -3077,7 +3078,7 @@
           var endTime = performance.now();
           var duration = (endTime - startTime).toFixed(2);
           var summary = typesToWalk.map(function (ft) { return ft + ':' + markedCounts[ft]; }).join(', ');
-          console.log('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
+          debugLog('[AFFO Content] Unified walker completed in ' + duration + 'ms: ' + totalElements + ' elements, marked ' + summary);
 
           // Mark all walked types as completed and clear in-flight cache
           typesToWalk.forEach(function (ft) {
@@ -3177,7 +3178,7 @@
 
           // Load font file (handles custom fonts, FontFace-only domains, etc.)
           loadFont(fontConfig, fontType).catch(function (e) {
-            console.warn(`[AFFO Content] Error loading font after storage change:`, e);
+            debugWarn(`[AFFO Content] Error loading font after storage change:`, e);
           });
         }
       });
@@ -3412,7 +3413,7 @@
 
               // Load font file (handles custom fonts, FontFace-only domains, etc.)
               loadFont(fontConfig, fontType).catch(function (e) {
-                console.warn(`[AFFO Content] Error loading font on page init:`, e);
+                debugWarn(`[AFFO Content] Error loading font on page init:`, e);
               });
             }
           });

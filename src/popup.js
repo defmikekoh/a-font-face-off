@@ -1,9 +1,11 @@
 /* global AFFOMessaging */
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
-if (!AFFO_DEBUG) {
-  console.log = function() {};
-  console.warn = function() {};
+function affoDebugLog() {
+  if (AFFO_DEBUG) console.log.apply(console, arguments);
+}
+function affoDebugWarn() {
+  if (AFFO_DEBUG) console.warn.apply(console, arguments);
 }
 
 // View mode: 'body-contact', 'faceoff', or 'third-man-in' (facade mode removed)
@@ -19,7 +21,7 @@ const panelStates = {
     'third-man-in': { serif: false, sans: false, mono: false }
 };
 
-console.log('🔧 Initial panelStates:', panelStates);
+affoDebugLog('🔧 Initial panelStates:', panelStates);
 
 const MODE_CONFIG = {
     'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
@@ -42,21 +44,21 @@ function getPanelLabel(position) {
 function applyViewMode(forceView) {
     if (forceView) currentViewMode = forceView;
 
-    console.log(`🔄 applyViewMode: Setting view mode to ${currentViewMode}`);
+    affoDebugLog(`🔄 applyViewMode: Setting view mode to ${currentViewMode}`);
 
     // Save view mode and update UI using .then() pattern
     return browser.storage.local.set({ affoCurrentView: currentViewMode }).then(() => {
         // Toggle body classes so CSS can react
         try {
-            console.log(`🔄 applyViewMode: Toggling body classes for ${currentViewMode}`);
+            affoDebugLog(`🔄 applyViewMode: Toggling body classes for ${currentViewMode}`);
             document.body.classList.toggle('view-faceoff', currentViewMode === 'faceoff');
             document.body.classList.toggle('view-body-contact', currentViewMode === 'body-contact');
             document.body.classList.toggle('view-third-man-in', currentViewMode === 'third-man-in');
-            console.log(`🔄 applyViewMode: Body classes after toggle:`, document.body.className);
+            affoDebugLog(`🔄 applyViewMode: Body classes after toggle:`, document.body.className);
 
             // DEBUG: Check mode content visibility after body classes are set
             document.querySelectorAll('.mode-content').forEach(content => {
-                console.log(`🔄 applyViewMode DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
+                affoDebugLog(`🔄 applyViewMode DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
             });
         } catch (_) {}
         // Update control panel headings
@@ -101,7 +103,7 @@ function applyViewMode(forceView) {
         }
     } catch (_) {}
     }).catch(error => {
-        console.warn('Error in applyViewMode:', error);
+        affoDebugWarn('Error in applyViewMode:', error);
         // Continue with UI updates even if storage fails
     });
 }
@@ -110,14 +112,14 @@ function applyViewMode(forceView) {
 async function loadModeSettings(options = {}) {
     const skipPageReapply = !!options.skipPageReapply;
     const callTime = Date.now();
-    console.log('loadModeSettings called at', callTime, ', currentViewMode:', currentViewMode);
-    console.log('extensionState:', extensionState);
+    affoDebugLog('loadModeSettings called at', callTime, ', currentViewMode:', currentViewMode);
+    affoDebugLog('extensionState:', extensionState);
     const modeState = extensionState ? extensionState[currentViewMode] : null;
-    console.log('modeState:', modeState);
+    affoDebugLog('modeState:', modeState);
 
     // Debug: Check if we're actually in Third Man In mode based on UI
     const isThirdManInUI = document.body.classList.contains('view-third-man-in');
-    console.log('loadModeSettings: UI shows third-man-in mode:', isThirdManInUI);
+    affoDebugLog('loadModeSettings: UI shows third-man-in mode:', isThirdManInUI);
     if (isThirdManInUI && currentViewMode !== 'third-man-in') {
         console.error('loadModeSettings: MODE MISMATCH! UI is third-man-in but currentViewMode is', currentViewMode);
     }
@@ -125,12 +127,12 @@ async function loadModeSettings(options = {}) {
     // Safety check - ensure modeState exists
     if (!modeState) {
         console.error('modeState is undefined for currentViewMode:', currentViewMode);
-        console.log('Available modes in extensionState:', extensionState ? Object.keys(extensionState) : 'extensionState is null');
+        affoDebugLog('Available modes in extensionState:', extensionState ? Object.keys(extensionState) : 'extensionState is null');
         return;
     }
 
     if (currentViewMode === 'body-contact') {
-        console.log('In body-contact mode, modeState.bodyFont:', modeState?.bodyFont);
+        affoDebugLog('In body-contact mode, modeState.bodyFont:', modeState?.bodyFont);
         // Body Contact mode - CHECK DOMAIN FIRST, then UI state fallback
         try {
             const origin = await getActiveOrigin();
@@ -141,35 +143,35 @@ async function loadModeSettings(options = {}) {
                 const srouletteIntent = getSrouletteIntent(domainData, 'body');
                 const config = domainData && domainData.body;
                 if (srouletteIntent) {
-                    console.log('DOMAIN-FIRST: Found applied body Sroulette state for origin:', origin, srouletteIntent);
+                    affoDebugLog('DOMAIN-FIRST: Found applied body Sroulette state for origin:', origin, srouletteIntent);
                     markPanelAsSroulette('body', srouletteIntent.pool);
                     await updateBodyButtons();
                     domainDataFound = true;
                 } else if (config) {
                     // Domain has applied settings - use those (ignore UI state)
-                    console.log('DOMAIN-FIRST: Found applied body state for origin:', origin, config);
+                    affoDebugLog('DOMAIN-FIRST: Found applied body state for origin:', origin, config);
                     clearSroulettePanelState('body');
                     const builtConfig = normalizeConfig(config);
-                    console.log('Built config:', builtConfig);
+                    affoDebugLog('Built config:', builtConfig);
 
                     await applyFontConfig('body', builtConfig);
                     // Update button state to reflect that font matches applied state
-                    console.log('About to update button after loading applied body state');
+                    affoDebugLog('About to update button after loading applied body state');
                     await updateBodyButtons();
                     domainDataFound = true;
                 } else {
-                    console.log('DOMAIN-FIRST: No applied body state found for origin:', origin);
+                    affoDebugLog('DOMAIN-FIRST: No applied body state found for origin:', origin);
                 }
             }
 
             // Only reset if no domain data was found
             if (domainDataFound) {
-                console.log('DOMAIN ISOLATION: Domain data found - keeping restored state');
+                affoDebugLog('DOMAIN ISOLATION: Domain data found - keeping restored state');
                 return; // Skip reset
             }
 
             // No domain-specific settings found - start with clean state (no UI state fallback)
-            console.log('DOMAIN ISOLATION: No applied settings for this domain - starting fresh');
+            affoDebugLog('DOMAIN ISOLATION: No applied settings for this domain - starting fresh');
 
             // Reset to completely unset state for this domain
             clearSroulettePanelState('body');
@@ -200,7 +202,7 @@ async function loadModeSettings(options = {}) {
             if (lineSlider) lineSlider.value = '1.5';
 
         } catch (error) {
-            console.warn('Error loading applied body state:', error);
+            affoDebugWarn('Error loading applied body state:', error);
 
             // Default unset state - no font loaded, all controls inactive
             clearSroulettePanelState('body');
@@ -224,7 +226,7 @@ async function loadModeSettings(options = {}) {
             await updateBodyButtons();
         }
     } else if (currentViewMode === 'third-man-in') {
-        console.log('In third-man-in mode');
+        affoDebugLog('In third-man-in mode');
         // Third Man In mode - CHECK DOMAIN FIRST, then clean default state
         try {
             const origin = await getActiveOrigin();
@@ -232,11 +234,11 @@ async function loadModeSettings(options = {}) {
 
             if (origin) {
                 const domainData = await getApplyMapForOrigin(origin);
-                console.log('DOMAIN-FIRST: domainData for origin:', origin, domainData);
+                affoDebugLog('DOMAIN-FIRST: domainData for origin:', origin, domainData);
 
                 if (domainData && (domainData.serif || domainData.sans || domainData.mono || hasTmiSrouletteIntent(domainData))) {
                     // Domain has applied settings - use those (ignore UI state)
-                    console.log('DOMAIN-FIRST: Found applied third man in state for origin:', origin);
+                    affoDebugLog('DOMAIN-FIRST: Found applied third man in state for origin:', origin);
 
                     const types = ['serif', 'sans', 'mono'];
                     let applyPromises = [];
@@ -249,9 +251,9 @@ async function loadModeSettings(options = {}) {
                             if (!lastChangedThirdManInPanel) lastChangedThirdManInPanel = type;
                         } else if (domainData[type]) {
                             clearSroulettePanelState(type);
-                            console.log(`DOMAIN-FIRST: Loading ${type} font:`, domainData[type]);
+                            affoDebugLog(`DOMAIN-FIRST: Loading ${type} font:`, domainData[type]);
                             const config = normalizeConfig(domainData[type]);
-                            console.log(`Built ${type} config:`, config);
+                            affoDebugLog(`Built ${type} config:`, config);
                             applyPromises.push(applyFontConfig(type, config));
 
                             // Re-apply CSS to page - coordinate with font loading
@@ -271,22 +273,22 @@ async function loadModeSettings(options = {}) {
 
                     await Promise.all(applyPromises);
                     if (skipPageReapply) {
-                        console.log('DOMAIN-FIRST: Skipping page-side Third Man In reapply during popup initialization');
+                        affoDebugLog('DOMAIN-FIRST: Skipping page-side Third Man In reapply during popup initialization');
                     } else {
                         await Promise.all(cssPromises);
                     }
                     // Update button states to reflect that fonts match applied state
-                    console.log('About to update buttons after loading applied third man in state');
+                    affoDebugLog('About to update buttons after loading applied third man in state');
                     await updateAllThirdManInButtons();
                     domainSettingsFound = true;
                 } else {
-                    console.log('DOMAIN-FIRST: No applied third man in state found for origin:', origin);
+                    affoDebugLog('DOMAIN-FIRST: No applied third man in state found for origin:', origin);
                 }
             }
 
             if (!domainSettingsFound) {
                 // Set default placeholders for fresh state, but don't overwrite domain restoration
-                console.log('DOMAIN ISOLATION: Setting up default placeholders for fresh state');
+                affoDebugLog('DOMAIN ISOLATION: Setting up default placeholders for fresh state');
 
                 const types = ['serif', 'sans', 'mono'];
                 const defaultLabels = { serif: 'Serif', sans: 'Sans', mono: 'Mono' };
@@ -300,13 +302,13 @@ async function loadModeSettings(options = {}) {
                     // Only set defaults if elements are empty/uninitialized (don't overwrite domain restoration)
                     if (fontNameElement && (!fontNameElement.textContent || fontNameElement.textContent.trim() === '')) {
                         fontNameElement.textContent = defaultLabels[type];
-                        console.log(`Setting default ${type} heading to "${defaultLabels[type]}"`);
+                        affoDebugLog(`Setting default ${type} heading to "${defaultLabels[type]}"`);
                     }
 
                     if (fontDisplay && (!fontDisplay.textContent || fontDisplay.textContent.trim() === '')) {
                         fontDisplay.textContent = 'Default';
                         fontDisplay.classList.add('placeholder');
-                        console.log(`Setting default ${type} display to "Default"`);
+                        affoDebugLog(`Setting default ${type} display to "Default"`);
                     }
                 });
 
@@ -426,7 +428,7 @@ async function getHostnameByScript(tab) {
             return normalizeHostname(result[0]);
         }
     } catch (error) {
-        console.warn('[AFFO Popup] Could not read hostname via script:', error);
+        affoDebugWarn('[AFFO Popup] Could not read hostname via script:', error);
     }
     return null;
 }
@@ -439,7 +441,7 @@ async function getHostnameByContentMessage(tab) {
         });
         return normalizeHostname(response && (response.hostname || response.origin));
     } catch (error) {
-        console.warn('[AFFO Popup] Could not read hostname via content message:', error);
+        affoDebugWarn('[AFFO Popup] Could not read hostname via content message:', error);
         return null;
     }
 }
@@ -497,10 +499,10 @@ async function updateDomainDisplay() {
 // Helper: execute script in the correct tab (source tab if available, otherwise active tab)
 function executeScriptInTargetTab(options) {
     if (window.sourceTabId) {
-        console.log('[AFFO Popup] Executing script in source tab:', window.sourceTabId);
+        affoDebugLog('[AFFO Popup] Executing script in source tab:', window.sourceTabId);
         return browser.tabs.executeScript(window.sourceTabId, options);
     } else {
-        console.log('[AFFO Popup] Executing script in active tab');
+        affoDebugLog('[AFFO Popup] Executing script in active tab');
         return browser.tabs.executeScript(options);
     }
 }
@@ -523,7 +525,7 @@ function runElementWalkerInTargetTab(fontType) {
                     if (val && val.done) {
                         resolve(val);
                     } else if (++attempts > 100) {
-                        console.warn(`runElementWalkerInTargetTab: Timeout waiting for ${fontType} walker`);
+                        affoDebugWarn(`runElementWalkerInTargetTab: Timeout waiting for ${fontType} walker`);
                         resolve({ done: true, count: 0 });
                     } else {
                         setTimeout(poll, 100);
@@ -540,10 +542,10 @@ function runElementWalkerInTargetTab(fontType) {
 // Helper: insert CSS in the correct tab (source tab if available, otherwise active tab)
 function insertCSSInTargetTab(options) {
     if (window.sourceTabId) {
-        console.log('[AFFO Popup] Inserting CSS in source tab:', window.sourceTabId);
+        affoDebugLog('[AFFO Popup] Inserting CSS in source tab:', window.sourceTabId);
         return browser.tabs.insertCSS(window.sourceTabId, options);
     } else {
-        console.log('[AFFO Popup] Inserting CSS in active tab');
+        affoDebugLog('[AFFO Popup] Inserting CSS in active tab');
         return browser.tabs.insertCSS(options);
     }
 }
@@ -551,12 +553,12 @@ function insertCSSInTargetTab(options) {
 // Helper: send message to the correct tab (source tab if available, otherwise active tab)
 function sendMessageToTargetTab(message) {
     if (window.sourceTabId) {
-        console.log('[AFFO Popup] Sending message to source tab:', window.sourceTabId);
+        affoDebugLog('[AFFO Popup] Sending message to source tab:', window.sourceTabId);
         return AFFOMessaging.sendTabMessage(browser, window.sourceTabId, message, {
             ignoreNoReceiver: true
         });
     } else {
-        console.log('[AFFO Popup] Sending message to active tab');
+        affoDebugLog('[AFFO Popup] Sending message to active tab');
         return queryActivePageTab().then(tab => {
             if (tab && tab.id != null) {
                 return AFFOMessaging.sendTabMessage(browser, tab.id, message, {
@@ -572,7 +574,7 @@ function getContextFromUrlParams() {
     const urlParams = new URLSearchParams(window.location.search);
     const domain = urlParams.get('domain');
     const sourceTabId = urlParams.get('sourceTabId');
-    console.log('[AFFO Popup] Context parameters from URL:', { domain, sourceTabId });
+    affoDebugLog('[AFFO Popup] Context parameters from URL:', { domain, sourceTabId });
     return {
         domain: domain,
         sourceTabId: sourceTabId ? parseInt(sourceTabId) : null
@@ -591,7 +593,7 @@ async function openOptionsFromPopup() {
             closePopup();
             return;
         } catch (e) {
-            console.warn('[AFFO Popup] runtime.openOptionsPage failed, trying tab fallback:', e);
+            affoDebugWarn('[AFFO Popup] runtime.openOptionsPage failed, trying tab fallback:', e);
         }
     }
 
@@ -601,7 +603,7 @@ async function openOptionsFromPopup() {
             closePopup();
             return;
         } catch (e) {
-            console.warn('[AFFO Popup] tabs.create options fallback failed, navigating popup:', e);
+            affoDebugWarn('[AFFO Popup] tabs.create options fallback failed, navigating popup:', e);
         }
     }
 
@@ -616,12 +618,12 @@ const dynamicFontDefinitions = {};
 // Re-apply Third Man In CSS when popup reopens (since context is reset)
 async function reapplyThirdManInCSS(fontType, fontConfig) {
     try {
-        console.log(`reapplyThirdManInCSS: Re-applying ${fontType} font`, fontConfig);
+        affoDebugLog(`reapplyThirdManInCSS: Re-applying ${fontType} font`, fontConfig);
         console.trace(`reapplyThirdManInCSS: Call stack for ${fontType}`);
 
         // Wait for font to be loaded if it's a Google Font
         if (fontConfig.fontName && fontConfig.fontName !== 'Default') {
-            console.log(`reapplyThirdManInCSS: Waiting for font ${fontConfig.fontName} to load`);
+            affoDebugLog(`reapplyThirdManInCSS: Waiting for font ${fontConfig.fontName} to load`);
             // Check if font is loaded by testing if it renders differently than fallback
             const fontCheckScript = `
                 (function() {
@@ -641,10 +643,10 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                         const targetWidth = context.measureText(testText).width;
 
                         const loaded = Math.abs(targetWidth - fallbackWidth) > 1;
-                        console.log('Font check:', targetFont, 'loaded:', loaded, 'fallback:', fallbackWidth, 'target:', targetWidth);
+                        affoDebugLog('Font check:', targetFont, 'loaded:', loaded, 'fallback:', fallbackWidth, 'target:', targetWidth);
                         return loaded;
                     } catch(e) {
-                        console.warn('Font check failed:', e);
+                        affoDebugWarn('Font check failed:', e);
                         return true; // Assume loaded on error
                     }
                 })();
@@ -657,11 +659,11 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                     const result = await executeScriptInTargetTab({ code: fontCheckScript });
                     fontLoaded = result && result[0];
                     if (!fontLoaded) {
-                        console.log(`reapplyThirdManInCSS: Font not ready, waiting... (attempt ${i+1}/5)`);
+                        affoDebugLog(`reapplyThirdManInCSS: Font not ready, waiting... (attempt ${i+1}/5)`);
                         await new Promise(resolve => setTimeout(resolve, 200));
                     }
                 } catch (e) {
-                    console.warn(`reapplyThirdManInCSS: Font check failed:`, e);
+                    affoDebugWarn(`reapplyThirdManInCSS: Font check failed:`, e);
                     fontLoaded = true; // Proceed anyway
                     break;
                 }
@@ -670,21 +672,21 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
 
         // First, run DOM walker to re-mark elements
         try {
-            console.log(`reapplyThirdManInCSS: Running walker for ${fontType}`);
+            affoDebugLog(`reapplyThirdManInCSS: Running walker for ${fontType}`);
             await runElementWalkerInTargetTab(fontType);
         } catch (e) {
-            console.warn(`reapplyThirdManInCSS: Walker failed for ${fontType}:`, e);
+            affoDebugWarn(`reapplyThirdManInCSS: Walker failed for ${fontType}:`, e);
         }
 
         // Then generate and apply CSS
         const cssCode = generateThirdManInCSS(fontType, fontConfig, shouldUseAggressive(window.currentTabHostname));
         if (cssCode) {
-            console.log(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
+            affoDebugLog(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
             await insertCSSInTargetTab({ code: cssCode });
             appliedCssActive[fontType] = cssCode;
 
             // Verify the CSS was applied with comprehensive debugging
-            try {
+            if (AFFO_DEBUG) try {
                 // Small delay to allow CSS injection to complete
                 await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -732,11 +734,11 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                     `
                 });
             } catch (e) {
-                console.warn('CSS verification failed:', e);
+                affoDebugWarn('CSS verification failed:', e);
             }
         }
     } catch (e) {
-        console.warn(`reapplyThirdManInCSS: Failed to re-apply CSS for ${fontType}:`, e);
+        affoDebugWarn(`reapplyThirdManInCSS: Failed to re-apply CSS for ${fontType}:`, e);
     }
 }
 
@@ -854,7 +856,7 @@ async function ensureCustomFontsLoaded() {
 
                 customFontsLoaded = true;
             } catch (e) {
-                console.warn('Failed to load custom fonts CSS:', e);
+                affoDebugWarn('Failed to load custom fonts CSS:', e);
                 CUSTOM_FONTS = [];
                 fontDefinitions = {};
                 customFontsCssText = '';
@@ -898,7 +900,7 @@ async function getOrCreateFontDefinition(fontName) {
     if (fontDefinitions[fontName]) return fontDefinitions[fontName];
 
     // Ensure metadata is loaded
-    try { await ensureGfMetadata(); } catch (e) { console.warn('GF metadata load failed:', e); }
+    try { await ensureGfMetadata(); } catch (e) { affoDebugWarn('GF metadata load failed:', e); }
 
     const axesFromMetadata = getAxesForFamilyFromMetadata(fontName);
     // Build from runtime metadata map (no remote CSS/fvar probing)
@@ -1008,7 +1010,7 @@ function ensureGfMetadata() {
             browser.storage.local.set({
                 gfMetadataCache: gfMetadata,
                 gfMetadataTimestamp: now
-            }).catch(e => console.warn('Failed to cache GF metadata:', e));
+            }).catch(e => affoDebugWarn('Failed to cache GF metadata:', e));
             return gfMetadata;
         };
 
@@ -1033,15 +1035,15 @@ function ensureGfMetadata() {
 
         // Cache expired or missing, fetch fresh data (remote first, then local fallback)
         return fetchRemoteMetadata().catch(err => {
-            console.warn('Remote metadata load failed; falling back to local metadata', err);
+            affoDebugWarn('Remote metadata load failed; falling back to local metadata', err);
             return fetchLocalMetadata();
         }).catch(e2 => {
-            console.warn('Local metadata load failed; proceeding with empty metadata', e2);
+            affoDebugWarn('Local metadata load failed; proceeding with empty metadata', e2);
             gfMetadata = { familyMetadataList: [] };
             return gfMetadata;
         });
     }).catch(e => {
-        console.warn('Storage access failed, loading fresh metadata:', e);
+        affoDebugWarn('Storage access failed, loading fresh metadata:', e);
         // Fallback to original behavior if storage fails
         const remoteUrl = 'https://fonts.google.com/metadata/fonts';
         const parseMetadataText = text => {
@@ -1064,13 +1066,13 @@ function ensureGfMetadata() {
             gfMetadata = metadata;
             return gfMetadata;
         }).catch(err => {
-            console.warn('Remote metadata load failed; falling back to local metadata', err);
+            affoDebugWarn('Remote metadata load failed; falling back to local metadata', err);
             return fetchLocalMetadata().then(metadata => {
                 gfMetadata = metadata;
                 return gfMetadata;
             });
         }).catch(e2 => {
-            console.warn('Local metadata load failed; proceeding with empty metadata', e2);
+            affoDebugWarn('Local metadata load failed; proceeding with empty metadata', e2);
             gfMetadata = { familyMetadataList: [] };
             return gfMetadata;
         });
@@ -1189,7 +1191,7 @@ async function updateBodyButtons() {
 // determineButtonState() is now in config-utils.js
 
 async function updateBodyButtonsImmediate() {
-    console.log('updateBodyButtons called');
+    affoDebugLog('updateBodyButtons called');
     const applyBtn = document.getElementById('apply-body');
     const resetBtn = document.getElementById('reset-body');
 
@@ -1206,13 +1208,13 @@ async function updateBodyButtonsImmediate() {
         const currentPanelState = getCurrentPanelState('body');
         const currentConfig = currentPanelState.kind === 'font' ? currentPanelState.config : null;
         const currentSroulettePool = currentPanelState.kind === 'sroulette' ? currentPanelState.pool : null;
-        console.log('Current config:', currentConfig);
+        affoDebugLog('Current config:', currentConfig);
 
         // Get applied state from domain storage
         const domainData = await getApplyMapForOrigin(origin);
         const appliedConfig = domainData && domainData.body;
         const appliedSrouletteIntent = getSrouletteIntent(domainData, 'body');
-        console.log('Applied config:', appliedConfig);
+        affoDebugLog('Applied config:', appliedConfig);
 
         // Compare current vs applied state
         let changeCount;
@@ -1223,7 +1225,7 @@ async function updateBodyButtonsImmediate() {
         }
         const domainHasAppliedState = !!(appliedConfig || appliedSrouletteIntent);
 
-        console.log('DEBUG updateBodyButtons:', {
+        affoDebugLog('DEBUG updateBodyButtons:', {
             changeCount,
             domainHasAppliedState,
             currentConfig,
@@ -1376,11 +1378,11 @@ let extensionState = {
 // Load extension state from browser.storage.local
 function loadExtensionState() {
     return browser.storage.local.get('affoUIState').then(result => {
-        console.log('Loading extension state from browser.storage.local:', result.affoUIState);
+        affoDebugLog('Loading extension state from browser.storage.local:', result.affoUIState);
 
         if (result.affoUIState) {
             const parsed = result.affoUIState;
-            console.log('Parsed state:', parsed);
+            affoDebugLog('Parsed state:', parsed);
             {
                 extensionState = parsed;
                 // Ensure new modes exist in loaded state
@@ -1405,7 +1407,7 @@ function loadExtensionState() {
             faceoff: {},
             'third-man-in': {}
         };
-        console.log('Initialized fresh extension state:', extensionState);
+        affoDebugLog('Initialized fresh extension state:', extensionState);
     });
 }
 
@@ -1422,7 +1424,7 @@ async function saveExtensionState() {
 async function saveExtensionStateImmediate() {
     // Don't save if currentViewMode is not set yet
     if (!currentViewMode) {
-        console.warn('saveExtensionStateImmediate: currentViewMode is not set, skipping save');
+        affoDebugWarn('saveExtensionStateImmediate: currentViewMode is not set, skipping save');
         return;
     }
 
@@ -1554,7 +1556,7 @@ function getCurrentUIConfig(position) {
     const displayText = fontDisplay.textContent || '';
     const rawFontName = (displayText === 'Default' || displayText === 'Serif' || displayText === 'Sans' || displayText === 'Mono') ? '' : displayText;
 
-    console.log(`getCurrentUIConfig(${position}): displayText="${displayText}", rawFontName="${rawFontName}"`);
+    affoDebugLog(`getCurrentUIConfig(${position}): displayText="${displayText}", rawFontName="${rawFontName}"`);
 
     // Use raw font name as-is, only filter out empty values
     let fontName = null;
@@ -1562,12 +1564,12 @@ function getCurrentUIConfig(position) {
         fontName = rawFontName.trim();
     }
 
-    console.log(`getCurrentUIConfig(${position}): Final fontName="${fontName}"`);
+    affoDebugLog(`getCurrentUIConfig(${position}): Final fontName="${fontName}"`);
 
     // If no specific font is selected, we can still have control settings applied to default font
     // Only return undefined if there are absolutely no active controls
     if (!fontName) {
-        console.log(`getCurrentUIConfig(${position}): No specific font selected, checking for active controls`);
+        affoDebugLog(`getCurrentUIConfig(${position}): No specific font selected, checking for active controls`);
 
         // Check if any controls are active even without a specific font
         const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
@@ -1585,14 +1587,14 @@ function getCurrentUIConfig(position) {
                                  (colorGroup && !colorGroup.classList.contains('unset'));
 
         if (!hasActiveControls) {
-            console.log(`getCurrentUIConfig(${position}): No font and no active controls, returning undefined`);
+            affoDebugLog(`getCurrentUIConfig(${position}): No font and no active controls, returning undefined`);
             return undefined;
         }
 
         // Allow fontName to remain null - we'll apply controls without changing font family
         fontName = null;
 
-        console.log(`getCurrentUIConfig(${position}): Using default font "${fontName}" with active controls`);
+        affoDebugLog(`getCurrentUIConfig(${position}): Using default font "${fontName}" with active controls`);
     }
 
     const fontSize = fontSizeControl.value;
@@ -1602,23 +1604,23 @@ function getCurrentUIConfig(position) {
     const fontStyle = fontStyleControl ? fontStyleControl.value : null;
     const fontColor = hasColorControl ? fontColorControl.value : null;
 
-    console.log(`getCurrentUIConfig(${position}): lineHeight control value:`, lineHeight, 'control element:', lineHeightControl);
+    affoDebugLog(`getCurrentUIConfig(${position}): lineHeight control value:`, lineHeight, 'control element:', lineHeightControl);
     const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
-    console.log(`getCurrentUIConfig(${position}): lineHeight text input:`, lineHeightTextInput ? lineHeightTextInput.value : 'not found', 'element:', lineHeightTextInput);
+    affoDebugLog(`getCurrentUIConfig(${position}): lineHeight text input:`, lineHeightTextInput ? lineHeightTextInput.value : 'not found', 'element:', lineHeightTextInput);
 
     // Debug: Check DOM attributes vs JavaScript values
-    console.log(`getCurrentUIConfig(${position}): lineHeight range slider DOM value attribute:`, lineHeightControl.getAttribute('value'));
-    console.log(`getCurrentUIConfig(${position}): lineHeight range slider JavaScript value:`, lineHeightControl.value);
+    affoDebugLog(`getCurrentUIConfig(${position}): lineHeight range slider DOM value attribute:`, lineHeightControl.getAttribute('value'));
+    affoDebugLog(`getCurrentUIConfig(${position}): lineHeight range slider JavaScript value:`, lineHeightControl.value);
     if (lineHeightTextInput) {
-        console.log(`getCurrentUIConfig(${position}): lineHeight text input DOM value attribute:`, lineHeightTextInput.getAttribute('value'));
-        console.log(`getCurrentUIConfig(${position}): lineHeight text input JavaScript value:`, lineHeightTextInput.value);
+        affoDebugLog(`getCurrentUIConfig(${position}): lineHeight text input DOM value attribute:`, lineHeightTextInput.getAttribute('value'));
+        affoDebugLog(`getCurrentUIConfig(${position}): lineHeight text input JavaScript value:`, lineHeightTextInput.value);
     }
 
     // Debug: Test floating point precision issues
     const rawLineHeight = lineHeightControl.value;
     const parseFloatResult = parseFloat(rawLineHeight);
     const numberResult = Number(rawLineHeight);
-    console.log(`getCurrentUIConfig(${position}): Floating point test - raw:`, rawLineHeight, 'parseFloat:', parseFloatResult, 'Number:', numberResult, 'equal:', parseFloatResult === numberResult);
+    affoDebugLog(`getCurrentUIConfig(${position}): Floating point test - raw:`, rawLineHeight, 'parseFloat:', parseFloatResult, 'Number:', numberResult, 'equal:', parseFloatResult === numberResult);
 
     // Get control groups to determine what's currently active (not unset)
     const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
@@ -1637,9 +1639,9 @@ function getCurrentUIConfig(position) {
     const activeColor = colorGroup && !colorGroup.classList.contains('unset');
 
     // Debug active controls
-    console.log(`getCurrentUIConfig(${position}): Active controls - fontSize:`, activeFontSize, 'lineHeight:', activeLineHeight, 'weight:', activeWeight);
+    affoDebugLog(`getCurrentUIConfig(${position}): Active controls - fontSize:`, activeFontSize, 'lineHeight:', activeLineHeight, 'weight:', activeWeight);
     if (lineHeightGroup) {
-        console.log(`getCurrentUIConfig(${position}): lineHeightGroup classes:`, lineHeightGroup.className, 'has unset:', lineHeightGroup.classList.contains('unset'));
+        affoDebugLog(`getCurrentUIConfig(${position}): lineHeightGroup classes:`, lineHeightGroup.className, 'has unset:', lineHeightGroup.classList.contains('unset'));
     }
 
 
@@ -1739,7 +1741,7 @@ async function applyFontConfig(position, config) {
     if (!config) return;
 
     if (position === 'body' || position === 'serif' || position === 'sans' || position === 'mono') {
-        console.log(`applyFontConfig called for ${position}:`, config);
+        affoDebugLog(`applyFontConfig called for ${position}:`, config);
         console.trace('applyFontConfig call stack');
         clearSroulettePanelState(position);
     }
@@ -1770,7 +1772,7 @@ async function applyFontConfig(position, config) {
 
     try {
         // Set basic controls
-        console.log(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.5);
+        affoDebugLog(`applyFontConfig(${position}): Setting lineHeight to:`, config.lineHeight || 1.5);
         const fontSizeControl = document.getElementById(`${position}-font-size`);
         const lineHeightControl = document.getElementById(`${position}-line-height`);
         const letterSpacingCtrl = document.getElementById(`${position}-letter-spacing`);
@@ -1800,7 +1802,7 @@ async function applyFontConfig(position, config) {
         if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
         if (lineHeightTextInput) {
             const lineHeightValue = config.lineHeight || 1.5;
-            console.log(`applyFontConfig(${position}): Setting lineHeight text input to:`, lineHeightValue);
+            affoDebugLog(`applyFontConfig(${position}): Setting lineHeight text input to:`, lineHeightValue);
             lineHeightTextInput.value = lineHeightValue;
             // Force sync by setting attribute as well
             lineHeightTextInput.setAttribute('value', lineHeightValue);
@@ -1808,9 +1810,9 @@ async function applyFontConfig(position, config) {
         if (letterSpacingTextInput) letterSpacingTextInput.value = config.letterSpacing != null ? config.letterSpacing : 0;
 
         // Debug: Verify values are set correctly after assignment
-        console.log(`applyFontConfig(${position}): After setting - range slider value:`, lineHeightControl ? lineHeightControl.value : 'not found');
+        affoDebugLog(`applyFontConfig(${position}): After setting - range slider value:`, lineHeightControl ? lineHeightControl.value : 'not found');
         if (lineHeightTextInput) {
-            console.log(`applyFontConfig(${position}): After setting - text input value:`, lineHeightTextInput.value);
+            affoDebugLog(`applyFontConfig(${position}): After setting - text input value:`, lineHeightTextInput.value);
         }
 
         // Update display values (font size span may be absent if using only text input)
@@ -1825,7 +1827,7 @@ async function applyFontConfig(position, config) {
 
         // Restore active controls state from flattened config
         const activeControlsFromConfig = getActiveControlsFromConfig(config);
-        console.log(`applyFontConfig: Restoring active controls for ${position}:`, Array.from(activeControlsFromConfig));
+        affoDebugLog(`applyFontConfig: Restoring active controls for ${position}:`, Array.from(activeControlsFromConfig));
 
         // Update UI state based on active controls
         activeControlsFromConfig.forEach(control => {
@@ -1840,10 +1842,10 @@ async function applyFontConfig(position, config) {
 
                 if (controlName) {
                     const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="${controlName}"]`);
-                    console.log(`applyFontConfig: Control group for ${controlName}:`, controlGroup, 'had unset:', controlGroup?.classList.contains('unset'));
+                    affoDebugLog(`applyFontConfig: Control group for ${controlName}:`, controlGroup, 'had unset:', controlGroup?.classList.contains('unset'));
                     if (controlGroup) {
                         controlGroup.classList.remove('unset');
-                        console.log(`applyFontConfig: Removed unset from ${controlName}, now has unset:`, controlGroup.classList.contains('unset'));
+                        affoDebugLog(`applyFontConfig: Removed unset from ${controlName}, now has unset:`, controlGroup.classList.contains('unset'));
                     }
                 }
         });
@@ -1888,7 +1890,7 @@ async function applyFontConfig(position, config) {
             await updateAllThirdManInButtons(position);
         }
 
-        console.log(`applyFontConfig(${position}): Successfully completed`);
+        affoDebugLog(`applyFontConfig(${position}): Successfully completed`);
     } catch (error) {
         console.error(`applyFontConfig(${position}): Error applying config:`, error);
         throw error;
@@ -2030,7 +2032,7 @@ async function loadFont(position, fontName, options = {}) {
                     applyFont(position);
                 }
             } catch (err) {
-                console.warn('Dynamic axis discovery failed', err);
+                affoDebugWarn('Dynamic axis discovery failed', err);
             }
         } else {
             // Ensure custom font CSS is injected for popup preview
@@ -2123,7 +2125,7 @@ function loadGoogleFont(fontName) {
         if (existingByUrl) return;
 
         try {
-            console.log(`[Fonts] Loading css2 for ${fontName}: ${fontUrl}`);
+            affoDebugLog(`[Fonts] Loading css2 for ${fontName}: ${fontUrl}`);
         } catch (_) {}
 
         // Use print-then-all pattern to prevent render blocking
@@ -2135,9 +2137,9 @@ function loadGoogleFont(fontName) {
         link.setAttribute('data-font', fontName);
         link.onload = () => {
             link.media = 'all'; // Switch to active
-            try { console.log(`[Fonts] css2 loaded for ${fontName}`); } catch (_) {}
+            try { affoDebugLog(`[Fonts] css2 loaded for ${fontName}`); } catch (_) {}
         };
-        link.onerror = () => { try { console.warn(`[Fonts] css2 failed for ${fontName}: ${fontUrl}`); } catch (_) {} };
+        link.onerror = () => { try { affoDebugWarn(`[Fonts] css2 failed for ${fontName}: ${fontUrl}`); } catch (_) {} };
         document.head.appendChild(link);
     });
 }
@@ -2160,11 +2162,11 @@ function buildCss2Url(fontName, _fontConfig) {
             fallbackWhenMissing: true,
             fallbackWhenMetadataEmpty: true
         });
-        try { console.log(`[Fonts] Resolved css2 for ${fontName}: ${url}`); } catch (_) {}
+        try { affoDebugLog(`[Fonts] Resolved css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     }).catch(() => {
         const url = affoBuildPlainCss2Url(fontName);
-        try { console.log(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
+        try { affoDebugLog(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     });
 }
@@ -2176,7 +2178,7 @@ function ensureCss2AxisRanges() {
         css2AxisRanges = affoBuildCss2AxisRangesFromMetadata(gfMetadata);
         return css2AxisRanges;
     }).catch(e => {
-        console.warn('Failed to build css2 axis ranges from GF metadata', e);
+        affoDebugWarn('Failed to build css2 axis ranges from GF metadata', e);
         css2AxisRanges = {};
         return css2AxisRanges;
     });
@@ -2289,7 +2291,7 @@ function generateFontControls(position, fontName) {
 
         // Add event listeners for both slider and text input
         function activateAxis() {
-            console.log(`activateAxis called for ${position}-${axis}`, controlGroup);
+            affoDebugLog(`activateAxis called for ${position}-${axis}`, controlGroup);
             // Remove 'unset' class to mark axis as active
             controlGroup.classList.remove('unset');
 
@@ -2322,9 +2324,9 @@ function generateFontControls(position, fontName) {
         });
 
         textInput.addEventListener('keydown', function(e) {
-            console.log(`keydown event on ${position}-${axis}-text, key:`, e.key);
+            affoDebugLog(`keydown event on ${position}-${axis}-text, key:`, e.key);
             if (e.key === 'Enter') {
-                console.log(`Enter pressed on ${position}-${axis}-text, calling activateAxis`);
+                affoDebugLog(`Enter pressed on ${position}-${axis}-text, calling activateAxis`);
                 activateAxis();
                 const value = Math.min(Math.max(parseFloat(this.value) || defaultValue, range[0]), range[1]);
                 updateValues(value);
@@ -2364,7 +2366,7 @@ try {
     browser.storage.local.get('affoInlineApplyDomains').then(function(data) {
         if (Array.isArray(data.affoInlineApplyDomains)) {
             inlineApplyDomains = data.affoInlineApplyDomains;
-            console.log('[AFFO Popup] Loaded inline apply domains:', inlineApplyDomains);
+            affoDebugLog('[AFFO Popup] Loaded inline apply domains:', inlineApplyDomains);
         }
     }).catch(function() {});
 } catch (e) {}
@@ -2381,7 +2383,7 @@ try {
     browser.storage.local.get('affoAggressiveDomains').then(function(data) {
         if (Array.isArray(data.affoAggressiveDomains)) {
             aggressiveDomains = data.affoAggressiveDomains;
-            console.log('[AFFO Popup] Loaded aggressive domains:', aggressiveDomains);
+            affoDebugLog('[AFFO Popup] Loaded aggressive domains:', aggressiveDomains);
         }
     }).catch(function() {});
 } catch (e) {}
@@ -2396,7 +2398,7 @@ try {
     browser.storage.local.get('affoIgnoreCommentsDomains').then(function(data) {
         if (Array.isArray(data.affoIgnoreCommentsDomains)) {
             ignoreCommentsDomains = data.affoIgnoreCommentsDomains;
-            console.log('[AFFO Popup] Loaded ignore comments domains:', ignoreCommentsDomains);
+            affoDebugLog('[AFFO Popup] Loaded ignore comments domains:', ignoreCommentsDomains);
         }
     }).catch(function() {});
 } catch (e) {}
@@ -2410,14 +2412,14 @@ function shouldIgnoreComments(origin) {
 
 // Separate apply/unapply functions for body mode and face-off mode
 async function applyFontToPage(position, config) {
-    console.log(`🟢 applyFontToPage: Applying ${position} with config:`, config);
+    affoDebugLog(`🟢 applyFontToPage: Applying ${position} with config:`, config);
     const genericKey = (position === 'top') ? 'serif' :
                       (position === 'body') ? 'body' : 'sans';
 
     try {
         const origin = await getActiveOrigin();
         if (!origin || !config) {
-            console.log('applyFontToPage: Missing origin or config, returning false');
+            affoDebugLog('applyFontToPage: Missing origin or config, returning false');
             return false;
         }
 
@@ -2425,10 +2427,10 @@ async function applyFontToPage(position, config) {
         if (!config.fontName) {
             const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
-                console.log('applyFontToPage: No valid config found (needs fontName or other properties)');
+                affoDebugLog('applyFontToPage: No valid config found (needs fontName or other properties)');
                 return false;
             }
-            console.log(`applyFontToPage: Allowing ${position} with properties but no fontName:`, config);
+            affoDebugLog(`applyFontToPage: Allowing ${position} with properties but no fontName:`, config);
         }
 
         // Build clean payload for domain storage.
@@ -2439,7 +2441,7 @@ async function applyFontToPage(position, config) {
 
         // Check if this is an inline apply domain
         if (shouldUseInlineApply(origin)) {
-            console.log(`applyFontToPage: Using inline apply for ${origin} - content script will handle font loading and styling`);
+            affoDebugLog(`applyFontToPage: Using inline apply for ${origin} - content script will handle font loading and styling`);
             // For inline apply domains, storage update is enough - content script handles everything
             return true;
         } else {
@@ -2462,7 +2464,7 @@ async function applyFontToPage(position, config) {
                         cssOrigin: 'user'
                     });
                     appliedCssActive[genericKey] = css;
-                    console.log(`applyFontToPage: Successfully applied ${position} font using insertCSS`);
+                    affoDebugLog(`applyFontToPage: Successfully applied ${position} font using insertCSS`);
                     return true;
                 } catch (error) {
                     console.error(`applyFontToPage: CSS injection failed:`, error);
@@ -2472,13 +2474,13 @@ async function applyFontToPage(position, config) {
             return false;
         }
     } catch (e) {
-        console.warn('applyFontToPage failed', e);
+        affoDebugWarn('applyFontToPage failed', e);
         return false;
     }
 }
 
 async function unapplyFontFromPage(position) {
-    console.log(`🔴 unapplyFontFromPage: Unapplying ${position}`);
+    affoDebugLog(`🔴 unapplyFontFromPage: Unapplying ${position}`);
     const genericKey = (position === 'top') ? 'serif' :
                       (position === 'body') ? 'body' : 'sans';
 
@@ -2491,7 +2493,7 @@ async function unapplyFontFromPage(position) {
             try {
                 await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] });
             } catch (error) {
-                console.warn('Error removing CSS:', error);
+                affoDebugWarn('Error removing CSS:', error);
             }
             appliedCssActive[genericKey] = null;
         }
@@ -2509,23 +2511,23 @@ async function unapplyFontFromPage(position) {
                 })();
             `});
         } catch (error) {
-            console.warn('Error removing style elements:', error);
+            affoDebugWarn('Error removing style elements:', error);
         }
 
-        console.log(`unapplyFontFromPage: Successfully unapplied ${position} font`);
+        affoDebugLog(`unapplyFontFromPage: Successfully unapplied ${position} font`);
         return true;
     } catch (e) {
-        console.warn('unapplyFontFromPage failed', e);
+        affoDebugWarn('unapplyFontFromPage failed', e);
         return false;
     }
 }
 
 // Separate apply/unapply functions for Third Man In mode
 async function applyThirdManInFont(fontType, config) {
-    console.log(`🟢 applyThirdManInFont: Applying ${fontType} with config:`, config);
+    affoDebugLog(`🟢 applyThirdManInFont: Applying ${fontType} with config:`, config);
     return getActiveOrigin().then(async origin => {
         if (!origin || !config) {
-            console.log('applyThirdManInFont: Missing origin or config, returning false');
+            affoDebugLog('applyThirdManInFont: Missing origin or config, returning false');
             return false;
         }
 
@@ -2533,10 +2535,10 @@ async function applyThirdManInFont(fontType, config) {
         if (!config.fontName) {
             const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
-                console.log('applyThirdManInFont: No valid config found (needs fontName or other properties)');
+                affoDebugLog('applyThirdManInFont: No valid config found (needs fontName or other properties)');
                 return false;
             }
-            console.log(`applyThirdManInFont: Allowing ${fontType} with properties but no fontName:`, config);
+            affoDebugLog(`applyThirdManInFont: Allowing ${fontType} with properties but no fontName:`, config);
         }
 
         // Build clean payload for domain storage.
@@ -2550,7 +2552,7 @@ async function applyThirdManInFont(fontType, config) {
         return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
             // For inline apply domains, return early - content script handles font loading
             if (shouldUseInlineApply(origin)) {
-                console.log(`applyThirdManInFont: Storage written - content script will load fonts progressively`);
+                affoDebugLog(`applyThirdManInFont: Storage written - content script will load fonts progressively`);
                 return true;
             }
 
@@ -2584,31 +2586,31 @@ async function applyThirdManInFont(fontType, config) {
                             link.rel = 'stylesheet';
                             link.href = '${css2Url}';
                             document.head.appendChild(link);
-                            console.log('Third Man In: Added Google Fonts link for ${fontName}:', '${css2Url}');
+                            if (${AFFO_DEBUG}) console.log('Third Man In: Added Google Fonts link for ${fontName}:', '${css2Url}');
                         }
                     })();
                 `;
                 fontLinkPromise = executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                    console.warn(`applyThirdManInFont: Font link injection failed:`, error);
+                    affoDebugWarn(`applyThirdManInFont: Font link injection failed:`, error);
                 });
             }
 
             return fontLinkPromise.then(() => {
                 // Run element walker in content.js to mark elements with data-affo-font-type
-                console.log(`applyThirdManInFont: Running element walker for ${fontType}`);
+                affoDebugLog(`applyThirdManInFont: Running element walker for ${fontType}`);
 
                 return runElementWalkerInTargetTab(fontType).then(() => {
                     // Apply CSS using the already-built payload
                     if (payload) {
                         const css = generateThirdManInCSS(fontType, payload, shouldUseAggressive(origin));
                         if (css) {
-                            console.log(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
+                            affoDebugLog(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
                             return insertCSSInTargetTab({
                                 code: css,
                                 cssOrigin: 'user'
                             }).then(() => {
                                 appliedCssActive[fontType] = css;
-                                console.log(`applyThirdManInFont: Successfully applied ${fontType} font`);
+                                affoDebugLog(`applyThirdManInFont: Successfully applied ${fontType} font`);
                                 return true;
                             }).catch(error => {
                                 console.error(`applyThirdManInFont: CSS injection failed:`, error);
@@ -2624,13 +2626,13 @@ async function applyThirdManInFont(fontType, config) {
             });
         });
     }).catch(e => {
-        console.warn('applyThirdManInFont failed', e);
+        affoDebugWarn('applyThirdManInFont failed', e);
         return false;
     });
 }
 
 function unapplyThirdManInFont(fontType) {
-    console.log(`🔴 unapplyThirdManInFont: Unapplying ${fontType}`);
+    affoDebugLog(`🔴 unapplyThirdManInFont: Unapplying ${fontType}`);
     console.trace('🔴 unapplyThirdManInFont: Stack trace to identify caller');
 
     return getActiveOrigin().then(origin => {
@@ -2664,11 +2666,11 @@ function unapplyThirdManInFont(fontType) {
                 })();
             `}).catch(() => {});
         }).then(() => {
-            console.log(`unapplyThirdManInFont: Successfully unapplied ${fontType} font`);
+            affoDebugLog(`unapplyThirdManInFont: Successfully unapplied ${fontType} font`);
             return true;
         });
     }).catch(e => {
-        console.warn('unapplyThirdManInFont failed', e);
+        affoDebugWarn('unapplyThirdManInFont failed', e);
         return false;
     });
 }
@@ -2897,7 +2899,7 @@ async function injectCustomFonts() {
         document.head.appendChild(styleElement);
     }
     styleElement.textContent = customFontsCssText;
-    console.log('Injected custom font @font-face rules for:', CUSTOM_FONTS);
+    affoDebugLog('Injected custom font @font-face rules for:', CUSTOM_FONTS);
 }
 
 // Lazily inject a custom font's @font-face CSS into the popup for preview.
@@ -2929,7 +2931,7 @@ function ensureCustomFontInjected(fontName) {
     style.id = `affo-custom-font-${fontName.replace(/\s+/g, '-')}`;
     document.head.appendChild(style);
     style.textContent = css;
-    if (AFFO_DEBUG) console.log(`Injected custom font @font-face rules for: ${fontName}`);
+    affoDebugLog(`Injected custom font @font-face rules for: ${fontName}`);
 }
 
 // Returns mode-appropriate preview/button callbacks for a panel position
@@ -2978,7 +2980,7 @@ async function migrateRemoveDuplicatedFields() {
 
         if (modified) {
             await browser.storage.local.set({ affoApplyMap: applyMap });
-            console.log('✅ Migration: Removed duplicated fields from domain storage');
+            affoDebugLog('✅ Migration: Removed duplicated fields from domain storage');
 
             // Give storage.onChanged listeners time to fire, then wait a bit for auto-sync
             // If auto-sync doesn't happen naturally, the next manual change will trigger it
@@ -3090,16 +3092,16 @@ function buildThirdManInBatchChanges(types, domainData) {
         const appliedConfig = domainData[type];
         const appliedSrouletteIntent = getSrouletteIntent(domainData, type);
 
-        console.log(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
-        console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
+        affoDebugLog(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
+        affoDebugLog(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
 
         if (sroulettePool) {
             const isDifferent = !!appliedConfig || !appliedSrouletteIntent || appliedSrouletteIntent.pool !== sroulettePool;
             if (isDifferent) {
-                console.log(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
+                affoDebugLog(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
                 batchConfigs[type] = createSrouletteBatchIntent(sroulettePool);
             } else {
-                console.log(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
+                affoDebugLog(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
             }
             return;
         }
@@ -3109,8 +3111,8 @@ function buildThirdManInBatchChanges(types, domainData) {
             const isDifferent = !configsEqual(config, appliedForComparison);
 
             if (isDifferent) {
-                console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
-                console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
+                affoDebugLog(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
+                affoDebugLog(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
                 batchConfigs[type] = createFontBatchPayloadRequest(type, config);
                 cssJobs.push({
                     type: type,
@@ -3118,16 +3120,16 @@ function buildThirdManInBatchChanges(types, domainData) {
                     config: config
                 });
             } else {
-                console.log(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
+                affoDebugLog(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
             }
             return;
         }
 
         if (appliedConfig || appliedSrouletteIntent) {
-            console.log(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
+            affoDebugLog(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
             batchConfigs[type] = null;
         } else {
-            console.log(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
+            affoDebugLog(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
         }
     });
 
@@ -3367,7 +3369,7 @@ function cloneControlPanel(position) {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('DOMContentLoaded fired, starting popup initialization');
+    affoDebugLog('DOMContentLoaded fired, starting popup initialization');
 
     const openOptionsButton = document.getElementById('open-options-button');
     if (openOptionsButton) {
@@ -3394,7 +3396,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (urlContext.domain) {
             window.currentTabHostname = urlContext.domain;
             window.sourceTabId = urlContext.sourceTabId;
-            console.log('🌐 Using context from URL parameters:', {
+            affoDebugLog('🌐 Using context from URL parameters:', {
                 domain: window.currentTabHostname,
                 sourceTabId: window.sourceTabId
             });
@@ -3402,10 +3404,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Fall back to getting domain from active tab
             window.currentTabHostname = await getActiveOrigin();
             window.sourceTabId = null; // Will use current active tab
-            console.log('🌐 Current tab hostname from active tab:', window.currentTabHostname);
+            affoDebugLog('🌐 Current tab hostname from active tab:', window.currentTabHostname);
         }
     } catch (error) {
-        console.warn('Could not get current tab hostname:', error);
+        affoDebugWarn('Could not get current tab hostname:', error);
         window.currentTabHostname = null;
         window.sourceTabId = null;
     }
@@ -3413,7 +3415,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Hide all settings until domain initialization is complete
 
     document.body.style.visibility = 'hidden';
-    console.log('🔒 Hiding UI until domain initialization completes');
+    affoDebugLog('🔒 Hiding UI until domain initialization completes');
 
     // Initialize preconnect links for faster font loading
     initializeFontPreconnects();
@@ -3422,7 +3424,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // The simple sync function handles selector synchronization properly
     /*
     setTimeout(() => {
-        console.log('URGENT FIX: Syncing font selectors with headings');
+        affoDebugLog('URGENT FIX: Syncing font selectors with headings');
         ['serif', 'sans', 'mono'].forEach(type => {
             const heading = document.getElementById(`${type}-font-name`);
             const display = document.getElementById(`${type}-font-display`);
@@ -3434,18 +3436,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                     : (display && display.textContent !== 'Default') ? display.textContent : null;
 
                 if (fontName && selector && !selector.value) {
-                    console.log(`URGENT FIX: ${type} heading="${fontName}" but selector empty, fixing`);
+                    affoDebugLog(`URGENT FIX: ${type} heading="${fontName}" but selector empty, fixing`);
                     selector.value = fontName;
                 } else if (fontName && selector) {
-                    console.log(`URGENT FIX: ${type} heading="${fontName}" selector="${selector.value}" - ${selector.value ? 'OK' : 'NEEDS FIX'}`);
+                    affoDebugLog(`URGENT FIX: ${type} heading="${fontName}" selector="${selector.value}" - ${selector.value ? 'OK' : 'NEEDS FIX'}`);
                 }
             }
         });
     }, 500);
     */
-    console.log('DEBUG TEST: This should appear if our code is running');
-    console.log('Initial currentViewMode:', currentViewMode);
-    console.log('Initial body classes:', document.body.className);
+    affoDebugLog('DEBUG TEST: This should appear if our code is running');
+    affoDebugLog('Initial currentViewMode:', currentViewMode);
+    affoDebugLog('Initial body classes:', document.body.className);
     // Get font selectors
     // Font selection now handled by font picker interface, no dropdowns needed
 
@@ -3457,26 +3459,26 @@ document.addEventListener('DOMContentLoaded', async function() {
     const bottomFontGrip = document.getElementById('bottom-font-grip');
 
     // Load saved state first, then continue initialization INSIDE the callback
-    console.log('Loading extension state before initialization');
+    affoDebugLog('Loading extension state before initialization');
     loadExtensionState().then(() => {
-        console.log('Extension state loaded, now determining correct mode');
+        affoDebugLog('Extension state loaded, now determining correct mode');
 
         return determineInitialMode();
     }).then(() => {
-        console.log('Initial mode determined, now initializing mode interface');
+        affoDebugLog('Initial mode determined, now initializing mode interface');
 
         return initializeModeInterface();
     }).then(() => {
-        console.log('Mode interface initialized, now restoring from domain storage');
+        affoDebugLog('Mode interface initialized, now restoring from domain storage');
 
         return restoreUIFromDomainStorage();
     }).then(() => {
-        console.log('Domain storage restoration completed');
+        affoDebugLog('Domain storage restoration completed');
 
         // ONLY NOW show UI and allow interactions - everything is ready
 
         document.body.style.visibility = 'visible';
-        console.log('✅ UI is now visible and ready for user interaction');
+        affoDebugLog('✅ UI is now visible and ready for user interaction');
 
     }).catch((error) => {
         console.error('Initialization failed:', error);
@@ -4029,9 +4031,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Family reset button handler
         if (e.target.classList.contains('family-reset-btn')) {
-            console.log('Family reset button clicked', e.target);
+            affoDebugLog('Family reset button clicked', e.target);
             const panelId = e.target.closest('.controls-panel').id;
-            console.log('Panel ID:', panelId);
+            affoDebugLog('Panel ID:', panelId);
             let position;
 
             // Clean direct mapping from panel IDs to positions
@@ -4043,16 +4045,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             else if (panelId === 'mono-font-controls') position = 'mono';
 
             if (position) {
-                console.log('Position determined:', position);
+                affoDebugLog('Position determined:', position);
                 const fontDisplay = document.getElementById(`${position}-font-display`);
                 const fontSelect = document.getElementById(`${position}-font-select`);
-                console.log('Font elements found:', { fontDisplay, fontSelect });
+                affoDebugLog('Font elements found:', { fontDisplay, fontSelect });
 
                 if (fontDisplay) {
                     // Handle Third Man In mode and Face-off mode differently
                     if (['serif', 'sans', 'mono'].includes(position)) {
                         // Third Man In mode: Reset like body mode
-                        console.log('Third Man In reset for position:', position);
+                        affoDebugLog('Third Man In reset for position:', position);
                         const fontGroup = fontDisplay.closest('.control-group');
                         fontDisplay.textContent = 'Default';
                         fontDisplay.classList.add('placeholder');
@@ -4066,7 +4068,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                         updateAllThirdManInButtons();
                     } else if (['top', 'bottom'].includes(position)) {
                         // Face-off mode: Reset display and preview
-                        console.log('Face-off reset for position:', position);
+                        affoDebugLog('Face-off reset for position:', position);
                         const fontGroup = fontDisplay.closest('.control-group');
                         fontDisplay.textContent = 'Default';
                         fontDisplay.classList.add('placeholder');
@@ -4095,7 +4097,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     (async () => {
         // Don't restore fonts if currentViewMode is not set yet
         if (!currentViewMode) {
-            console.warn('Font restoration skipped: currentViewMode not set yet');
+            affoDebugWarn('Font restoration skipped: currentViewMode not set yet');
             return;
         }
 
@@ -4302,7 +4304,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         const config = getCurrentUIConfig(position);
-        console.log('Saving favorite - config from getCurrentUIConfig:', JSON.stringify(config, null, 2));
+        affoDebugLog('Saving favorite - config from getCurrentUIConfig:', JSON.stringify(config, null, 2));
         savedFavorites[name] = config;
         if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
         if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
@@ -4527,12 +4529,12 @@ function getApplyMapForOrigin(origin, fontType = null) {
 }
 
 function saveApplyMapForOrigin(origin, fontType, config) {
-    console.log(`🟢 saveApplyMapForOrigin: Saving to domain storage - origin: ${origin}, fontType: ${fontType}, config:`, config);
+    affoDebugLog(`🟢 saveApplyMapForOrigin: Saving to domain storage - origin: ${origin}, fontType: ${fontType}, config:`, config);
     if (!origin || !fontType) return Promise.resolve();
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        console.log(`🟢 saveApplyMapForOrigin: Current applyMap before save:`, applyMap);
+        affoDebugLog(`🟢 saveApplyMapForOrigin: Current applyMap before save:`, applyMap);
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][fontType] = config;
         if (fontType === 'body') {
@@ -4540,17 +4542,17 @@ function saveApplyMapForOrigin(origin, fontType, config) {
         } else {
             clearSrouletteIntentFromEntry(applyMap[origin], fontType);
         }
-        console.log(`🟢 saveApplyMapForOrigin: New applyMap after save:`, applyMap);
+        affoDebugLog(`🟢 saveApplyMapForOrigin: New applyMap after save:`, applyMap);
         return browser.storage.local.set({ affoApplyMap: applyMap });
     }).then(() => {
-        console.log(`🟢 saveApplyMapForOrigin: Successfully saved to domain storage`);
+        affoDebugLog(`🟢 saveApplyMapForOrigin: Successfully saved to domain storage`);
     }).catch(e => {
         console.error(`❌ saveApplyMapForOrigin: Error saving to domain storage:`, e);
     });
 }
 
 function saveSrouletteApplyMapForOrigin(origin, target, pool) {
-    console.log(`🟢 saveSrouletteApplyMapForOrigin: Saving Sroulette intent - origin: ${origin}, target: ${target}, pool: ${pool}`);
+    affoDebugLog(`🟢 saveSrouletteApplyMapForOrigin: Saving Sroulette intent - origin: ${origin}, target: ${target}, pool: ${pool}`);
     if (!origin || !isSrouletteTarget(target) || !isSroulettePool(pool)) return Promise.resolve(false);
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
@@ -4567,13 +4569,13 @@ function saveSrouletteApplyMapForOrigin(origin, target, pool) {
 
 // Batch version: save multiple font targets or Sroulette intents in a single storage write (for Apply All)
 function saveBatchApplyStateForOrigin(origin, batchConfigs) {
-    console.log(`🟢 saveBatchApplyStateForOrigin: Batch saving to domain storage - origin: ${origin}, batchConfigs:`, batchConfigs);
+    affoDebugLog(`🟢 saveBatchApplyStateForOrigin: Batch saving to domain storage - origin: ${origin}, batchConfigs:`, batchConfigs);
     if (!origin || !batchConfigs || Object.keys(batchConfigs).length === 0) return Promise.resolve();
 
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        console.log(`🟢 saveBatchApplyStateForOrigin: Current applyMap before batch save:`, applyMap);
+        affoDebugLog(`🟢 saveBatchApplyStateForOrigin: Current applyMap before batch save:`, applyMap);
 
         if (!applyMap[origin]) applyMap[origin] = {};
 
@@ -4581,55 +4583,55 @@ function saveBatchApplyStateForOrigin(origin, batchConfigs) {
         Object.entries(batchConfigs).forEach(([target, config]) => {
             if (isSrouletteBatchIntent(config)) {
                 setSrouletteIntentOnEntry(applyMap[origin], target, config.pool);
-                console.log(`🟢 saveBatchApplyStateForOrigin: Added ${target} Sroulette intent:`, config.pool);
+                affoDebugLog(`🟢 saveBatchApplyStateForOrigin: Added ${target} Sroulette intent:`, config.pool);
             } else if (config) {
                 applyMap[origin][target] = config;
                 clearSrouletteIntentFromEntry(applyMap[origin], target);
-                console.log(`🟢 saveBatchApplyStateForOrigin: Added ${target} config:`, config);
+                affoDebugLog(`🟢 saveBatchApplyStateForOrigin: Added ${target} config:`, config);
             } else {
                 delete applyMap[origin][target];
                 clearSrouletteIntentFromEntry(applyMap[origin], target);
             }
         });
 
-        console.log(`🟢 saveBatchApplyStateForOrigin: New applyMap after batch save:`, applyMap);
+        affoDebugLog(`🟢 saveBatchApplyStateForOrigin: New applyMap after batch save:`, applyMap);
         return browser.storage.local.set({ affoApplyMap: applyMap });
     }).then(() => {
-        console.log(`🟢 saveBatchApplyStateForOrigin: Successfully batch saved to domain storage`);
+        affoDebugLog(`🟢 saveBatchApplyStateForOrigin: Successfully batch saved to domain storage`);
     }).catch(e => {
         console.error(`❌ saveBatchApplyStateForOrigin: Error batch saving to domain storage:`, e);
     });
 }
 
 function clearApplyMapForOrigin(origin, fontType = null) {
-    console.log(`🔴 clearApplyMapForOrigin: Clearing domain storage - origin: ${origin}, fontType: ${fontType}`);
+    affoDebugLog(`🔴 clearApplyMapForOrigin: Clearing domain storage - origin: ${origin}, fontType: ${fontType}`);
     console.trace('🔴 clearApplyMapForOrigin: Stack trace to identify caller');
     if (!origin) return Promise.resolve();
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        console.log(`🔴 clearApplyMapForOrigin: Current applyMap before clear:`, applyMap);
+        affoDebugLog(`🔴 clearApplyMapForOrigin: Current applyMap before clear:`, applyMap);
         if (applyMap[origin]) {
             if (fontType) {
                 // Clear specific font type (e.g., just 'sans')
-                console.log(`🔴 clearApplyMapForOrigin: Clearing specific fontType "${fontType}" from ${origin}`);
+                affoDebugLog(`🔴 clearApplyMapForOrigin: Clearing specific fontType "${fontType}" from ${origin}`);
                 delete applyMap[origin][fontType];
                 clearSrouletteIntentFromEntry(applyMap[origin], fontType);
             } else {
                 // Clear entire domain
-                console.log(`🔴 clearApplyMapForOrigin: Clearing entire domain "${origin}"`);
+                affoDebugLog(`🔴 clearApplyMapForOrigin: Clearing entire domain "${origin}"`);
                 delete applyMap[origin];
             }
             if (applyMap[origin] && Object.keys(applyMap[origin]).length === 0) {
                 delete applyMap[origin];
             }
         }
-        console.log(`🔴 clearApplyMapForOrigin: New applyMap after clear:`, applyMap);
+        affoDebugLog(`🔴 clearApplyMapForOrigin: New applyMap after clear:`, applyMap);
         return browser.storage.local.set({ affoApplyMap: applyMap }).then(() => {
-            console.log(`🔴 clearApplyMapForOrigin: Storage change event should have been fired`);
+            affoDebugLog(`🔴 clearApplyMapForOrigin: Storage change event should have been fired`);
         });
     }).then(() => {
-        console.log(`🔴 clearApplyMapForOrigin: Successfully cleared from domain storage`);
+        affoDebugLog(`🔴 clearApplyMapForOrigin: Successfully cleared from domain storage`);
     }).catch(e => {
         console.error(`❌ clearApplyMapForOrigin: Error clearing from domain storage:`, e);
     });
@@ -4639,7 +4641,7 @@ function clearApplyMapForOrigin(origin, fontType = null) {
 
 // Update active tab to match current mode
 function updateActiveTab(mode) {
-    console.log('updateActiveTab: Setting active tab for mode:', mode);
+    affoDebugLog('updateActiveTab: Setting active tab for mode:', mode);
 
     // Remove active class from all tabs
     document.querySelectorAll('.mode-tab').forEach(tab => {
@@ -4650,9 +4652,9 @@ function updateActiveTab(mode) {
     const activeTab = document.querySelector(`.mode-tab[data-mode="${mode}"]`);
     if (activeTab) {
         activeTab.classList.add('active');
-        console.log('updateActiveTab: Activated tab for mode:', mode);
+        affoDebugLog('updateActiveTab: Activated tab for mode:', mode);
     } else {
-        console.warn('updateActiveTab: Could not find tab for mode:', mode);
+        affoDebugWarn('updateActiveTab: Could not find tab for mode:', mode);
     }
 }
 
@@ -4670,7 +4672,7 @@ function determineInitialMode() {
                 // No domain data - check saved mode preference or default to body
                 return browser.storage.local.get(['affoCurrentMode']).then(result => {
                     currentViewMode = result.affoCurrentMode || 'body-contact';
-                    console.log('determineInitialMode: No domain data, using saved mode:', currentViewMode);
+                    affoDebugLog('determineInitialMode: No domain data, using saved mode:', currentViewMode);
                 });
             }
 
@@ -4681,22 +4683,22 @@ function determineInitialMode() {
             if (hasThirdManFonts && !hasBodyFont) {
                 // Only Third Man In fonts applied
                 currentViewMode = 'third-man-in';
-                console.log('determineInitialMode: Domain has Third Man In fonts, starting in third-man-in mode');
+                affoDebugLog('determineInitialMode: Domain has Third Man In fonts, starting in third-man-in mode');
             } else if (hasBodyFont && !hasThirdManFonts) {
                 // Only body font applied
                 currentViewMode = 'body-contact';
-                console.log('determineInitialMode: Domain has body font, starting in body-contact mode');
+                affoDebugLog('determineInitialMode: Domain has body font, starting in body-contact mode');
             } else if (hasBodyFont && hasThirdManFonts) {
                 // Both applied - prefer user's last saved mode or default to body
                 return browser.storage.local.get(['affoCurrentMode']).then(result => {
                     currentViewMode = result.affoCurrentMode || 'body-contact';
-                    console.log('determineInitialMode: Domain has both font types, using saved mode:', currentViewMode);
+                    affoDebugLog('determineInitialMode: Domain has both font types, using saved mode:', currentViewMode);
                 });
             } else {
                 // No fonts applied - use saved mode preference or default
                 return browser.storage.local.get(['affoCurrentMode']).then(result => {
                     currentViewMode = result.affoCurrentMode || 'body-contact';
-                    console.log('determineInitialMode: No fonts applied, using saved mode:', currentViewMode);
+                    affoDebugLog('determineInitialMode: No fonts applied, using saved mode:', currentViewMode);
                 });
             }
         });
@@ -4705,7 +4707,7 @@ function determineInitialMode() {
 
 // Reset Third Man In UI to defaults before restoration
 function resetThirdManInUI() {
-    console.log('🔄 resetThirdManInUI: Resetting Third Man In UI to defaults');
+    affoDebugLog('🔄 resetThirdManInUI: Resetting Third Man In UI to defaults');
 
     for (const fontType of ['serif', 'sans', 'mono']) {
         clearSroulettePanelState(fontType);
@@ -4751,25 +4753,25 @@ function resetThirdManInUI() {
 
 // Restore UI state from domain storage on popup initialization
 function restoreUIFromDomainStorage() {
-    console.log('🔄 restoreUIFromDomainStorage: Starting UI restoration from domain storage');
+    affoDebugLog('🔄 restoreUIFromDomainStorage: Starting UI restoration from domain storage');
 
     return getActiveOrigin().then(origin => {
         if (!origin) {
-            console.log('🔄 restoreUIFromDomainStorage: No origin found, skipping restoration');
+            affoDebugLog('🔄 restoreUIFromDomainStorage: No origin found, skipping restoration');
             return;
         }
 
-        console.log('🔄 restoreUIFromDomainStorage: Origin:', origin);
+        affoDebugLog('🔄 restoreUIFromDomainStorage: Origin:', origin);
 
         // Reset UI to defaults before loading domain-specific settings
         resetThirdManInUI();
 
         // Load domain storage for Third Man In mode
         return getApplyMapForOrigin(origin).then(domainData => {
-            console.log('🔄 restoreUIFromDomainStorage: Domain data:', domainData);
+            affoDebugLog('🔄 restoreUIFromDomainStorage: Domain data:', domainData);
 
             if (!domainData) {
-                console.log('🔄 restoreUIFromDomainStorage: No domain data found, UI will use defaults');
+                affoDebugLog('🔄 restoreUIFromDomainStorage: No domain data found, UI will use defaults');
                 return;
             }
 
@@ -4788,27 +4790,27 @@ function restoreUIFromDomainStorage() {
                 const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.fontStyle || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
 
                 if (hasValidSavedFont) {
-                    console.log(`🔄 restoreUIFromDomainStorage: Restoring ${fontType} font: ${savedFont.fontName}`);
+                    affoDebugLog(`🔄 restoreUIFromDomainStorage: Restoring ${fontType} font: ${savedFont.fontName}`);
 
                     // Update font name heading
                     const nameElement = document.getElementById(`${fontType}-font-name`);
                     if (nameElement) {
                         nameElement.textContent = savedFont.fontName;
-                        console.log(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-name to "${savedFont.fontName}"`);
+                        affoDebugLog(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-name to "${savedFont.fontName}"`);
                     }
 
                     // Update font display
                     const displayElement = document.getElementById(`${fontType}-font-display`);
                     if (displayElement) {
                         displayElement.textContent = savedFont.fontName;
-                        console.log(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-display to "${savedFont.fontName}"`);
+                        affoDebugLog(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-display to "${savedFont.fontName}"`);
                     }
 
                     // Update font selector
                     const selectElement = document.getElementById(`${fontType}-font-select`);
                     if (selectElement) {
                         selectElement.value = savedFont.fontName;
-                        console.log(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-select to "${savedFont.fontName}"`);
+                        affoDebugLog(`🔄 restoreUIFromDomainStorage: Updated ${fontType}-font-select to "${savedFont.fontName}"`);
                     }
 
                     // Update other controls if they exist in saved data
@@ -4854,14 +4856,14 @@ function restoreUIFromDomainStorage() {
                         if (colorSelect) colorSelect.value = savedFont.fontColor;
                     }
                 } else {
-                    console.log(`🔄 restoreUIFromDomainStorage: No saved font for ${fontType}, ensuring defaults are set`);
+                    affoDebugLog(`🔄 restoreUIFromDomainStorage: No saved font for ${fontType}, ensuring defaults are set`);
 
                     // Ensure default heading is set
                     const nameElement = document.getElementById(`${fontType}-font-name`);
                     if (nameElement) {
                         const defaultLabel = fontType.charAt(0).toUpperCase() + fontType.slice(1);
                         nameElement.textContent = defaultLabel;
-                        console.log(`🔄 restoreUIFromDomainStorage: Set default ${fontType}-font-name to "${defaultLabel}"`);
+                        affoDebugLog(`🔄 restoreUIFromDomainStorage: Set default ${fontType}-font-name to "${defaultLabel}"`);
                     }
 
                     // Ensure default display is set
@@ -4869,12 +4871,12 @@ function restoreUIFromDomainStorage() {
                     if (displayElement) {
                         displayElement.textContent = 'Default';
                         displayElement.classList.add('placeholder');
-                        console.log(`🔄 restoreUIFromDomainStorage: Set default ${fontType}-font-display to "Default"`);
+                        affoDebugLog(`🔄 restoreUIFromDomainStorage: Set default ${fontType}-font-display to "Default"`);
                     }
                 }
             }
 
-            console.log('🔄 restoreUIFromDomainStorage: UI restoration completed');
+            affoDebugLog('🔄 restoreUIFromDomainStorage: UI restoration completed');
         });
     }).catch(error => {
         console.error('🔄 restoreUIFromDomainStorage: Error during UI restoration:', error);
@@ -4962,7 +4964,7 @@ function getModeDisplayName(mode) {
 
 // Reset font previews to default state
 function resetFontPreviews() {
-    console.log('🔄 resetFontPreviews: Resetting all font previews to default state');
+    affoDebugLog('🔄 resetFontPreviews: Resetting all font previews to default state');
 
     // Reset Face-off mode previews
     const faceoffPositions = ['top', 'bottom'];
@@ -5036,9 +5038,9 @@ function clearAllDomainSettings() {
 }
 
 async function switchMode(newMode, forceInit = false, options = {}) {
-    console.log(`switchMode called: currentViewMode=${currentViewMode}, newMode=${newMode}, forceInit=${forceInit}`);
+    affoDebugLog(`switchMode called: currentViewMode=${currentViewMode}, newMode=${newMode}, forceInit=${forceInit}`);
     if (currentViewMode === newMode && !forceInit) {
-        console.log('switchMode: Already in target mode, skipping switch');
+        affoDebugLog('switchMode: Already in target mode, skipping switch');
         return;
     }
 
@@ -5107,7 +5109,7 @@ async function switchMode(newMode, forceInit = false, options = {}) {
 }
 
 async function performModeSwitch(newMode, options = {}) {
-    console.log(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
+    affoDebugLog(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
 
     document.body.classList.add('mode-switching');
     try {
@@ -5123,34 +5125,34 @@ async function performModeSwitch(newMode, options = {}) {
         }
 
         // Hide current mode content
-        console.log(`🔄 performModeSwitch: Removing active class from all .mode-content elements`);
+        affoDebugLog(`🔄 performModeSwitch: Removing active class from all .mode-content elements`);
         document.querySelectorAll('.mode-content').forEach(content => {
-            console.log(`🔄 performModeSwitch: Removing active from`, content.className);
+            affoDebugLog(`🔄 performModeSwitch: Removing active from`, content.className);
             content.classList.remove('active');
         });
 
-        console.log(`🔄 performModeSwitch: Removing active class from all .mode-tab elements`);
+        affoDebugLog(`🔄 performModeSwitch: Removing active class from all .mode-tab elements`);
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.classList.remove('active');
         });
 
         // Hide all panels
-        console.log(`🔄 performModeSwitch: Removing visible class from all .controls-panel elements`);
+        affoDebugLog(`🔄 performModeSwitch: Removing visible class from all .controls-panel elements`);
         document.querySelectorAll('.controls-panel').forEach(panel => {
             panel.classList.remove('visible');
         });
 
         // Show new mode content
         const newModeContent = document.querySelector(`.${newMode}-content`);
-        console.log(`🔄 performModeSwitch: Looking for mode content with selector: .${newMode}-content`);
-        console.log(`🔄 performModeSwitch: Found mode content element:`, newModeContent);
+        affoDebugLog(`🔄 performModeSwitch: Looking for mode content with selector: .${newMode}-content`);
+        affoDebugLog(`🔄 performModeSwitch: Found mode content element:`, newModeContent);
         if (newModeContent) {
             newModeContent.classList.add('active');
-            console.log(`🔄 performModeSwitch: Added active class to ${newMode} content, final classes:`, newModeContent.className);
+            affoDebugLog(`🔄 performModeSwitch: Added active class to ${newMode} content, final classes:`, newModeContent.className);
 
             // DEBUG: Check all mode contents after switch
             document.querySelectorAll('.mode-content').forEach(content => {
-                console.log(`🔄 DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
+                affoDebugLog(`🔄 DEBUG: Mode content ${content.className} visibility:`, getComputedStyle(content).display);
             });
         } else {
             console.error(`🔄 performModeSwitch: Could not find mode content for ${newMode}!`);
@@ -5194,7 +5196,7 @@ async function performModeSwitch(newMode, options = {}) {
                 document.getElementById('panel-overlay').classList.add('visible');
                 updateFontComparisonLayoutForBody();
             } else {
-                console.log('❌ Body panel state is false, not showing panel');
+                affoDebugLog('❌ Body panel state is false, not showing panel');
             }
             // Update domain display when switching to body mode
             updateDomainDisplay();
@@ -5237,29 +5239,29 @@ async function performModeSwitch(newMode, options = {}) {
 }
 
 function initializeModeInterface() {
-    console.log('initializeModeInterface starting, current currentViewMode:', currentViewMode);
-    console.log('initializeModeInterface: Body classes at start:', document.body.className);
+    affoDebugLog('initializeModeInterface starting, current currentViewMode:', currentViewMode);
+    affoDebugLog('initializeModeInterface: Body classes at start:', document.body.className);
     // Allow mode persistence for Third Man In, but default others to body-contact
     return browser.storage.local.get('affoCurrentMode').then(result => {
         const savedMode = result.affoCurrentMode;
-        console.log('Saved mode from browser.storage.local:', savedMode);
+        affoDebugLog('Saved mode from browser.storage.local:', savedMode);
         if (savedMode === 'third-man-in') {
-            console.log('Restoring third-man-in mode from browser.storage.local');
+            affoDebugLog('Restoring third-man-in mode from browser.storage.local');
             // Don't set currentViewMode here - let switchMode handle the full transition
             return Promise.resolve();
         } else if (savedMode) {
-            console.log('Clearing non-third-man-in saved mode, defaulting to body-contact mode');
+            affoDebugLog('Clearing non-third-man-in saved mode, defaulting to body-contact mode');
             return browser.storage.local.remove('affoCurrentMode');
         }
         return Promise.resolve();
     }).then(() => {
-        console.log('Final currentViewMode after loading:', currentViewMode);
+        affoDebugLog('Final currentViewMode after loading:', currentViewMode);
 
         // Set up mode tab event listeners
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const mode = tab.getAttribute('data-mode');
-                console.log(`Tab clicked: switching to ${mode} mode`);
+                affoDebugLog(`Tab clicked: switching to ${mode} mode`);
                 switchMode(mode);
             });
         });
@@ -5269,7 +5271,7 @@ function initializeModeInterface() {
     }).then(async (_result) => {
         // Mode was already determined by determineInitialMode(), just use it
         const targetMode = currentViewMode || 'body-contact';
-        console.log('About to call switchMode with:', targetMode);
+        affoDebugLog('About to call switchMode with:', targetMode);
         await switchMode(targetMode, true, { skipPageReapply: true }); // Force initialization to set up panel visibility
 
         // Update active tab after mode is switched
@@ -5278,7 +5280,7 @@ function initializeModeInterface() {
         // Ensure initial mode content is activated (in case switchMode skipped because already in target mode)
         const initialModeContent = document.querySelector(`.${targetMode}-content`);
         if (initialModeContent && !initialModeContent.classList.contains('active')) {
-            console.log('🔄 Initialization: Activating initial mode content for:', targetMode);
+            affoDebugLog('🔄 Initialization: Activating initial mode content for:', targetMode);
             initialModeContent.classList.add('active');
         }
 
@@ -5290,20 +5292,20 @@ function initializeModeInterface() {
             await new Promise(resolve => setTimeout(resolve, 200));
 
             if (document.body.classList.contains('view-third-man-in')) {
-                console.log('Backup: Detected Third Man In UI mode, checking if fonts need restoration');
+                affoDebugLog('Backup: Detected Third Man In UI mode, checking if fonts need restoration');
                 try {
                     const origin = await getActiveOrigin();
                     if (origin) {
                         const domainData = await getApplyMapForOrigin(origin);
                         if (domainData) {
-                            console.log('Backup: Found Third Man In data, checking if UI needs update');
+                            affoDebugLog('Backup: Found Third Man In data, checking if UI needs update');
                             // Check if sans UI needs fixing (most common case)
                             if (domainData.sans && domainData.sans.fontName) {
                                 const fontDisplay = document.getElementById('sans-font-display');
 
                                 // Restore font display if it's empty or default
                                 if (fontDisplay && (!fontDisplay.textContent || fontDisplay.textContent === 'Default' || fontDisplay.textContent === 'Sans')) {
-                                    console.log('Backup: Fixing sans font display');
+                                    affoDebugLog('Backup: Fixing sans font display');
                                     fontDisplay.textContent = domainData.sans.fontName;
                                     fontDisplay.classList.remove('placeholder');
                                 }
@@ -5314,7 +5316,7 @@ function initializeModeInterface() {
 
                                 // Restore font display if it's empty or default
                                 if (fontDisplay && (!fontDisplay.textContent || fontDisplay.textContent === 'Default' || fontDisplay.textContent === 'Serif')) {
-                                    console.log('Backup: Fixing serif font display');
+                                    affoDebugLog('Backup: Fixing serif font display');
                                     fontDisplay.textContent = domainData.serif.fontName;
                                     fontDisplay.classList.remove('placeholder');
                                 }
@@ -5325,7 +5327,7 @@ function initializeModeInterface() {
 
                                 // Restore font display if it's empty or default
                                 if (fontDisplay && (!fontDisplay.textContent || fontDisplay.textContent === 'Default' || fontDisplay.textContent === 'Mono')) {
-                                    console.log('Backup: Fixing mono font display');
+                                    affoDebugLog('Backup: Fixing mono font display');
                                     fontDisplay.textContent = domainData.mono.fontName;
                                     fontDisplay.classList.remove('placeholder');
                                 }
@@ -5343,17 +5345,17 @@ function initializeModeInterface() {
         // this sync logic would override correctly restored domain data
         /*
         setTimeout(() => {
-            console.log('Simple sync: Updating display elements from font selectors');
+            affoDebugLog('Simple sync: Updating display elements from font selectors');
             ['serif', 'sans', 'mono'].forEach(type => {
                 const display = document.getElementById(`${type}-font-display`);
                 const selector = document.getElementById(`${type}-font-select`);
 
                 if (display && selector) {
                     if (selector.value) {
-                        console.log(`Simple sync: ${type} selector has "${selector.value}", updating display`);
+                        affoDebugLog(`Simple sync: ${type} selector has "${selector.value}", updating display`);
                         display.textContent = selector.value;
                     } else {
-                        console.log(`Simple sync: ${type} selector is empty, setting display to default`);
+                        affoDebugLog(`Simple sync: ${type} selector is empty, setting display to default`);
                         display.textContent = type.charAt(0).toUpperCase() + type.slice(1); // "Serif", "Sans", "Mono"
                     }
                 }
@@ -5364,10 +5366,10 @@ function initializeModeInterface() {
             const bodySelector = document.getElementById('body-font-select');
             if (bodyDisplay && bodySelector) {
                 if (bodySelector.value) {
-                    console.log(`Simple sync: body selector has "${bodySelector.value}", updating display`);
+                    affoDebugLog(`Simple sync: body selector has "${bodySelector.value}", updating display`);
                     bodyDisplay.textContent = bodySelector.value;
                 } else {
-                    console.log(`Simple sync: body selector is empty, setting display to Default`);
+                    affoDebugLog(`Simple sync: body selector is empty, setting display to Default`);
                     bodyDisplay.textContent = 'Default';
                 }
             }
@@ -5393,7 +5395,7 @@ function initializeModeInterface() {
         }
         // Face-off mode doesn't need these listeners
     }).catch(() => {
-        console.log('Error in initializeModeInterface, continuing with defaults');
+        affoDebugLog('Error in initializeModeInterface, continuing with defaults');
     });
 }
 
@@ -5510,9 +5512,9 @@ function handleApply(panelId) {
         applyPromise = applyPanelConfiguration(panelId).then(() => {
             // Handle body mode specially - update buttons after successful apply
             if (panelId === 'body') {
-                console.log('Body apply completed - updating buttons');
+                affoDebugLog('Body apply completed - updating buttons');
                 return updateBodyButtons().then(() => {
-                    console.log('updateBodyButtons completed after apply');
+                    affoDebugLog('updateBodyButtons completed after apply');
                 });
             } else if (['serif', 'sans', 'mono'].includes(panelId)) {
                 return updateAllThirdManInButtons(panelId);
@@ -5535,16 +5537,16 @@ function handleApply(panelId) {
 function applyAllThirdManInFonts() {
     const types = ['serif', 'sans', 'mono'];
 
-    console.log('applyAllThirdManInFonts: Starting OPTIMIZED Apply All process');
-    console.log('applyAllThirdManInFonts: Current view mode:', currentViewMode);
+    affoDebugLog('applyAllThirdManInFonts: Starting OPTIMIZED Apply All process');
+    affoDebugLog('applyAllThirdManInFonts: Current view mode:', currentViewMode);
 
     return getActiveOrigin().then(origin => {
         if (!origin) {
-            console.log('applyAllThirdManInFonts: No active origin, aborting');
+            affoDebugLog('applyAllThirdManInFonts: No active origin, aborting');
             return Promise.resolve();
         }
 
-        console.log('applyAllThirdManInFonts: Collecting font configurations');
+        affoDebugLog('applyAllThirdManInFonts: Collecting font configurations');
 
         // Get current applied state for comparison
         return getApplyMapForOrigin(origin).then(rawDomainData => {
@@ -5553,7 +5555,7 @@ function applyAllThirdManInFonts() {
             const changeCount = Object.keys(batchConfigs).length;
 
             if (changeCount === 0) {
-                console.log('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
+                affoDebugLog('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
                 return Promise.resolve();
             }
 
@@ -5569,19 +5571,19 @@ function applyAllThirdManInFonts() {
                 }
 
                 // Step 2b: SINGLE batch storage write for all fonts (now with clean payloads)
-                console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
+                affoDebugLog('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
                 return saveBatchApplyStateForOrigin(origin, payloadConfigs);
             }).then(() => {
 
             // Step 3: Clean up any existing CSS for all types before applying new CSS
-            console.log('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
+            affoDebugLog('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
             const cleanupPromises = ['serif', 'sans', 'mono'].map(type => {
                 if (appliedCssActive[type]) {
-                    console.log(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
+                    affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
                     return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
                         appliedCssActive[type] = null;
                     }).catch(error => {
-                        console.warn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
+                        affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
                     });
                 } else {
                     return Promise.resolve();
@@ -5590,14 +5592,14 @@ function applyAllThirdManInFonts() {
 
             return Promise.all(cleanupPromises).then(() => {
                 // Step 4: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
-                console.log('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
+                affoDebugLog('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
             const cssPromises = cssJobs.map(job => {
                 return Promise.resolve().then(async () => {
                     // Build the payload for CSS generation.
                     const payload = await buildPayload(job.type, job.config);
                     if (!payload) {
-                        console.log(`applyAllThirdManInFonts: No payload for ${job.type}, skipping`);
+                        affoDebugLog(`applyAllThirdManInFonts: No payload for ${job.type}, skipping`);
                         return false;
                     }
 
@@ -5615,17 +5617,17 @@ function applyAllThirdManInFonts() {
                                     link.rel = 'stylesheet';
                                     link.href = '${css2Url}';
                                     document.head.appendChild(link);
-                                    console.log('Third Man In: Added Google Fonts link for ${payload.fontName}:', '${css2Url}');
+                                    if (${AFFO_DEBUG}) console.log('Third Man In: Added Google Fonts link for ${payload.fontName}:', '${css2Url}');
                                 }
                             })();
                         `;
                         await executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                            console.warn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
+                            affoDebugWarn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
                         });
                     }
 
                     // Element walker - RUN AFTER font loading
-                    console.log(`applyAllThirdManInFonts: Running element walker for ${job.type}`);
+                    affoDebugLog(`applyAllThirdManInFonts: Running element walker for ${job.type}`);
 
                     return runElementWalkerInTargetTab(job.type).then(async () => {
                         // Verify what elements were marked
@@ -5633,25 +5635,25 @@ function applyAllThirdManInFonts() {
                             code: `
                                 (function() {
                                     const markedElements = document.querySelectorAll('[data-affo-font-type="${job.type}"]');
-                                    console.log('VERIFICATION: ${job.type} elements marked:', markedElements.length);
+                                    if (${AFFO_DEBUG}) console.log('VERIFICATION: ${job.type} elements marked:', markedElements.length);
                                     for (let i = 0; i < Math.min(10, markedElements.length); i++) {
                                         const el = markedElements[i];
                                         const computed = window.getComputedStyle(el);
-                                        console.log('VERIFICATION: Marked ${job.type} element', i+1, ':', el.tagName, el.className, 'computedFont:', computed.fontFamily, 'text:', el.textContent.substring(0, 30));
+                                        if (${AFFO_DEBUG}) console.log('VERIFICATION: Marked ${job.type} element', i+1, ':', el.tagName, el.className, 'computedFont:', computed.fontFamily, 'text:', el.textContent.substring(0, 30));
                                     }
                                     return markedElements.length;
                                 })();
                             `
                         }).then(async (result) => {
-                            console.log(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
+                            affoDebugLog(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
 
                             // Use the payload that was already built earlier
                             const css = generateThirdManInCSS(job.type, payload, shouldUseAggressive(origin));
                             if (css) {
-                                console.log(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
-                                console.log(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
+                                affoDebugLog(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
+                                affoDebugLog(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
                                 return insertCSSInTargetTab({ code: css }).then(() => {
-                                    console.log(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
+                                    affoDebugLog(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
                                     appliedCssActive[job.type] = css;
                                     return true;
                                 }).catch(error => {
@@ -5673,7 +5675,7 @@ function applyAllThirdManInFonts() {
         }).then(() => {
                 // Step 5: Update UI state
                 saveExtensionState();
-                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', changeCount);
+                affoDebugLog('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', changeCount);
             });
         });
     });
@@ -5681,12 +5683,12 @@ function applyAllThirdManInFonts() {
 
 // Count differences between current Third Man In settings and applied state
 function countThirdManInDifferences() {
-    console.log('countThirdManInDifferences: Starting count');
+    affoDebugLog('countThirdManInDifferences: Starting count');
     const types = ['serif', 'sans', 'mono'];
     let changeCount = 0;
 
     return getActiveOrigin().then(origin => {
-        console.log('countThirdManInDifferences: Origin:', origin);
+        affoDebugLog('countThirdManInDifferences: Origin:', origin);
 
         // Check each type individually in Third Man In mode
         // Use the consolidated storage system
@@ -5696,7 +5698,7 @@ function countThirdManInDifferences() {
             const appliedMono = domainData ? domainData.mono : null;
             const appliedSroulette = hasTmiSrouletteIntent(domainData);
 
-            console.log('countThirdManInDifferences: Applied configs:', {
+            affoDebugLog('countThirdManInDifferences: Applied configs:', {
                 serif: appliedSerif,
                 sans: appliedSans,
                 mono: appliedMono
@@ -5704,11 +5706,11 @@ function countThirdManInDifferences() {
 
             // Also check if Body mode has applied fonts (which affects all types)
             const appliedBody = domainData ? domainData.body : null;
-            console.log('countThirdManInDifferences: Applied body:', appliedBody);
+            affoDebugLog('countThirdManInDifferences: Applied body:', appliedBody);
 
             // Check if domain has any applied fonts (from either mode)
             const domainHasAppliedFonts = appliedSerif || appliedSans || appliedMono || appliedBody || appliedSroulette;
-            console.log('countThirdManInDifferences: domainHasAppliedFonts:', domainHasAppliedFonts);
+            affoDebugLog('countThirdManInDifferences: domainHasAppliedFonts:', domainHasAppliedFonts);
 
             // Check if current settings have any non-defaults
             let currentHasNonDefaults = false;
@@ -5723,9 +5725,9 @@ function countThirdManInDifferences() {
                 // Font is considered default/unset if config is missing or has no meaningful properties
                 const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
 
-                console.log(`countThirdManInDifferences: ${type} current:`, current);
-                console.log(`countThirdManInDifferences: ${type} applied:`, applied);
-                console.log(`countThirdManInDifferences: ${type} isDefaultFont:`, isDefaultFont);
+                affoDebugLog(`countThirdManInDifferences: ${type} current:`, current);
+                affoDebugLog(`countThirdManInDifferences: ${type} applied:`, applied);
+                affoDebugLog(`countThirdManInDifferences: ${type} isDefaultFont:`, isDefaultFont);
 
                 // Check if current state differs from applied state
                 let isDifferent = false;
@@ -5768,23 +5770,23 @@ function countThirdManInDifferences() {
 
                 if (isDifferent) {
                     changeCount++;
-                    console.log(`countThirdManInDifferences: ${type} differs - current: ${current?.fontName}, applied: ${applied?.fontName}, changeCount now:`, changeCount);
+                    affoDebugLog(`countThirdManInDifferences: ${type} differs - current: ${current?.fontName}, applied: ${applied?.fontName}, changeCount now:`, changeCount);
                 } else {
-                    console.log(`countThirdManInDifferences: ${type} matches - no change needed`);
+                    affoDebugLog(`countThirdManInDifferences: ${type} matches - no change needed`);
                 }
             }
 
-            console.log('countThirdManInDifferences: currentHasNonDefaults:', currentHasNonDefaults);
-            console.log('countThirdManInDifferences: changeCount before special case:', changeCount);
+            affoDebugLog('countThirdManInDifferences: currentHasNonDefaults:', currentHasNonDefaults);
+            affoDebugLog('countThirdManInDifferences: changeCount before special case:', changeCount);
 
             // Special case: if domain has applied fonts but current is all defaults,
             // that's one change (clearing all fonts)
             if (domainHasAppliedFonts && !currentHasNonDefaults) {
-                console.log('countThirdManInDifferences: Special case - domain has fonts but current is all defaults');
+                affoDebugLog('countThirdManInDifferences: Special case - domain has fonts but current is all defaults');
                 changeCount = 1;
             }
 
-            console.log('countThirdManInDifferences: Final changeCount:', changeCount);
+            affoDebugLog('countThirdManInDifferences: Final changeCount:', changeCount);
             return changeCount;
         });
     }).catch(error => {
@@ -5828,17 +5830,17 @@ const PANEL_ROUTE = {
 };
 
 function applyPanelConfiguration(panelId) {
-    console.log(`applyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
+    affoDebugLog(`applyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
     const panelState = getCurrentPanelState(panelId);
     if (panelState.kind === 'sroulette') {
-        console.log(`applyPanelConfiguration: Applying Sroulette ${panelState.pool} to ${panelId}`);
+        affoDebugLog(`applyPanelConfiguration: Applying Sroulette ${panelState.pool} to ${panelId}`);
         return applySroulettePanelConfiguration(panelId, panelState.pool);
     }
 
     const config = panelState.kind === 'font' ? panelState.config : null;
 
     if (!config) {
-        console.log('applyPanelConfiguration: No config found');
+        affoDebugLog('applyPanelConfiguration: No config found');
         return Promise.resolve(false);
     }
 
@@ -5846,15 +5848,15 @@ function applyPanelConfiguration(panelId) {
     if (!config.fontName) {
         const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
         if (!hasOtherProperties) {
-            console.log('applyPanelConfiguration: No valid config found (needs fontName or other properties)');
+            affoDebugLog('applyPanelConfiguration: No valid config found (needs fontName or other properties)');
             return Promise.resolve(false);
         }
-        console.log(`applyPanelConfiguration: Allowing ${panelId} with properties but no fontName:`, config);
+        affoDebugLog(`applyPanelConfiguration: Allowing ${panelId} with properties but no fontName:`, config);
     }
 
     const route = PANEL_ROUTE[currentViewMode]?.[panelId];
     if (route) {
-        console.log(`applyPanelConfiguration: Applying ${panelId} with config:`, config);
+        affoDebugLog(`applyPanelConfiguration: Applying ${panelId} with config:`, config);
         return route.apply(config);
     }
 
@@ -5870,7 +5872,7 @@ async function applySroulettePanelConfiguration(panelId, pool) {
         try {
             await browser.tabs.removeCSS({ code: appliedCssActive[panelId] });
         } catch (error) {
-            console.warn(`applySroulettePanelConfiguration: Failed to remove existing ${panelId} CSS:`, error);
+            affoDebugWarn(`applySroulettePanelConfiguration: Failed to remove existing ${panelId} CSS:`, error);
         }
         appliedCssActive[panelId] = null;
     }
@@ -5879,11 +5881,11 @@ async function applySroulettePanelConfiguration(panelId, pool) {
 }
 
 function unapplyPanelConfiguration(panelId) {
-    console.log(`unapplyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
+    affoDebugLog(`unapplyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
 
     const route = PANEL_ROUTE[currentViewMode]?.[panelId];
     if (route) {
-        console.log(`unapplyPanelConfiguration: Unapplying ${panelId}`);
+        affoDebugLog(`unapplyPanelConfiguration: Unapplying ${panelId}`);
         return route.unapply();
     }
 
@@ -6130,14 +6132,14 @@ function hideApplyLoading(panelId) {
 
 // Reset functionality for Body Contact and Third Man In modes
 function resetPanelSettings(panelId) {
-    console.log('resetPanelSettings called for panelId:', panelId);
+    affoDebugLog('resetPanelSettings called for panelId:', panelId);
 
     if (currentViewMode === 'third-man-in') {
         // Third Man In mode: Reset All strategy
         return resetAllThirdManInFonts().then(() => {
             // Clear cached extension state to ensure UI shows defaults
             if (extensionState && extensionState[currentViewMode]) {
-                console.log('🔄 resetPanelSettings: Clearing cached extension state after reset');
+                affoDebugLog('🔄 resetPanelSettings: Clearing cached extension state after reset');
                 delete extensionState[currentViewMode].serif;
                 delete extensionState[currentViewMode].sans;
                 delete extensionState[currentViewMode].mono;
@@ -6154,18 +6156,18 @@ function resetPanelSettings(panelId) {
         }
 
         // Unset all panel settings
-        console.log('Calling unsetAllPanelControls');
+        affoDebugLog('Calling unsetAllPanelControls');
         unsetAllPanelControls(panelId);
 
         // Remove font from domain using new unapply function
-        console.log('Calling unapplyPanelConfiguration');
+        affoDebugLog('Calling unapplyPanelConfiguration');
         return unapplyPanelConfiguration(panelId).then(() => {
             // Update button state
             if (panelId === 'body') {
-                console.log('Calling updateBodyButtons');
+                affoDebugLog('Calling updateBodyButtons');
                 return updateBodyButtons();
             } else if (['serif', 'sans', 'mono'].includes(panelId)) {
-                console.log('Calling updateAllThirdManInButtons');
+                affoDebugLog('Calling updateAllThirdManInButtons');
                 return updateAllThirdManInButtons(panelId);
             }
             return Promise.resolve();
@@ -6204,7 +6206,7 @@ function resetAllThirdManInFonts() {
 
 // Helper to unset all controls for a panel
 function unsetAllPanelControls(panelId) {
-    console.log('unsetAllPanelControls called for:', panelId);
+    affoDebugLog('unsetAllPanelControls called for:', panelId);
     clearSroulettePanelState(panelId);
 
     // Unset font family (set to default)
@@ -6247,7 +6249,7 @@ function unsetAllPanelControls(panelId) {
         group.classList.add('unset');
     });
 
-    console.log('Extension state after reset:', extensionState[currentViewMode]);
+    affoDebugLog('Extension state after reset:', extensionState[currentViewMode]);
 }
 
 // Debounce helper
@@ -6277,7 +6279,7 @@ function initializeNumericModal() {
             // Debug: Check control state before opening modal
             const controlGroup = e.target.closest('.control-group');
             const wasUnsetBeforeClick = controlGroup ? controlGroup.classList.contains('unset') : false;
-            console.log('🖱️ Numeric input clicked, control was unset:', wasUnsetBeforeClick);
+            affoDebugLog('🖱️ Numeric input clicked, control was unset:', wasUnsetBeforeClick);
 
             showNumericModal(e.target);
         }
@@ -6294,7 +6296,7 @@ function initializeNumericModal() {
                 display.value = current.slice(0, -1);
             } else if (action === 'apply') {
                 // Handle enter key - same as apply button
-                console.log('✅ Enter key pressed - applying value');
+                affoDebugLog('✅ Enter key pressed - applying value');
                 if (currentNumericInput && display.value !== '') {
                     const newValue = parseFloat(display.value);
                     if (!isNaN(newValue)) {
@@ -6330,7 +6332,7 @@ function initializeNumericModal() {
 
     // Handle apply button
     applyBtn.addEventListener('click', function() {
-        console.log('✅ Apply button clicked - applying value');
+        affoDebugLog('✅ Apply button clicked - applying value');
         if (currentNumericInput && display.value !== '') {
             const newValue = parseFloat(display.value);
             if (!isNaN(newValue)) {
@@ -6345,14 +6347,14 @@ function initializeNumericModal() {
     closeBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🚫 Close button clicked - canceling without applying');
+        affoDebugLog('🚫 Close button clicked - canceling without applying');
         cancelNumericModal();
     });
 
     // Handle modal backdrop click
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
-            console.log('🚫 Backdrop clicked - canceling without applying');
+            affoDebugLog('🚫 Backdrop clicked - canceling without applying');
             cancelNumericModal();
         }
     });
@@ -6360,7 +6362,7 @@ function initializeNumericModal() {
     // Handle escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && modal.classList.contains('visible')) {
-            console.log('🚫 Escape pressed - canceling without applying');
+            affoDebugLog('🚫 Escape pressed - canceling without applying');
             cancelNumericModal();
         }
     });
@@ -6382,7 +6384,7 @@ function showNumericModal(input) {
         wasUnset: controlGroup ? controlGroup.classList.contains('unset') : false,
         controlGroup: controlGroup
     };
-    console.log('💾 Stored original state:', { originalValue, originalControlState });
+    affoDebugLog('💾 Stored original state:', { originalValue, originalControlState });
 
     // Set modal title based on input type
     const type = input.getAttribute('data-type');
@@ -6425,20 +6427,20 @@ function hideNumericModal() {
 }
 
 function cancelNumericModal() {
-    console.log('🚫 cancelNumericModal: Canceling without applying changes');
+    affoDebugLog('🚫 cancelNumericModal: Canceling without applying changes');
 
     // On cancel: Don't change ANY values - just restore the original control state
     if (originalControlState && originalControlState.controlGroup) {
-        console.log('🚫 Cancel: Only restoring control state, not changing any values');
+        affoDebugLog('🚫 Cancel: Only restoring control state, not changing any values');
 
         if (originalControlState.wasUnset) {
-            console.log('🔄 Restoring control to unset state');
+            affoDebugLog('🔄 Restoring control to unset state');
             originalControlState.controlGroup.classList.add('unset');
-            console.log('🔍 Control classes after adding unset:', originalControlState.controlGroup.className);
+            affoDebugLog('🔍 Control classes after adding unset:', originalControlState.controlGroup.className);
         } else {
-            console.log('🔄 Restoring control to active state');
+            affoDebugLog('🔄 Restoring control to active state');
             originalControlState.controlGroup.classList.remove('unset');
-            console.log('🔍 Control classes after removing unset:', originalControlState.controlGroup.className);
+            affoDebugLog('🔍 Control classes after removing unset:', originalControlState.controlGroup.className);
         }
     }
 
@@ -6447,15 +6449,15 @@ function cancelNumericModal() {
 }
 
 function applyNumericValue(input, value) {
-    console.log('🔧 applyNumericValue called with isApplying:', isApplying, 'value:', value);
+    affoDebugLog('🔧 applyNumericValue called with isApplying:', isApplying, 'value:', value);
 
     // Only apply if we're actually applying (not canceling)
     if (!isApplying) {
-        console.log('🚫 applyNumericValue: Skipping apply because isApplying is false');
+        affoDebugLog('🚫 applyNumericValue: Skipping apply because isApplying is false');
         return;
     }
 
-    console.log('✅ applyNumericValue: Proceeding with apply');
+    affoDebugLog('✅ applyNumericValue: Proceeding with apply');
 
     const type = input.getAttribute('data-type');
     const position = input.getAttribute('data-position');

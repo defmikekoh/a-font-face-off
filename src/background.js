@@ -1,8 +1,10 @@
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
-if (!AFFO_DEBUG) {
-  console.log = function () { };
-  console.warn = function () { };
+function affoDebugLog() {
+  if (AFFO_DEBUG) console.log.apply(console, arguments);
+}
+function affoDebugWarn() {
+  if (AFFO_DEBUG) console.warn.apply(console, arguments);
 }
 // Background fetcher for cross-origin CSS/WOFF2 with host permissions and caching
 const FONT_CACHE_KEY = 'affoFontCache';
@@ -121,19 +123,19 @@ async function ensureRuntimeGfMetadata() {
       await browser.storage.local.set({
         gfMetadataCache: metadata,
         gfMetadataTimestamp: Date.now()
-      }).catch(e => console.warn('[AFFO Background] Failed to store local GF metadata:', e));
+      }).catch(e => affoDebugWarn('[AFFO Background] Failed to store local GF metadata:', e));
       return metadata;
     } catch (localError) {
-      console.warn('[AFFO Background] Local GF metadata load failed; trying remote metadata', localError);
+      affoDebugWarn('[AFFO Background] Local GF metadata load failed; trying remote metadata', localError);
       const metadata = await fetchGfMetadataForRuntime('https://fonts.google.com/metadata/fonts');
       await browser.storage.local.set({
         gfMetadataCache: metadata,
         gfMetadataTimestamp: Date.now()
-      }).catch(e => console.warn('[AFFO Background] Failed to store remote GF metadata:', e));
+      }).catch(e => affoDebugWarn('[AFFO Background] Failed to store remote GF metadata:', e));
       return metadata;
     }
   }).catch(e => {
-    console.warn('[AFFO Background] GF metadata unavailable for css2 URL resolution:', e);
+    affoDebugWarn('[AFFO Background] GF metadata unavailable for css2 URL resolution:', e);
     return { familyMetadataList: [] };
   }).then(metadata => {
     runtimeGfMetadata = metadata || { familyMetadataList: [] };
@@ -305,7 +307,7 @@ async function removeTrackedSrouletteCss(tabId, targets) {
       try {
         await browser.tabs.removeCSS(tabId, { code: css, cssOrigin });
       } catch (e) {
-        console.log('[AFFO Background] Sroulette removeCSS note:', e.message);
+        affoDebugLog('[AFFO Background] Sroulette removeCSS note:', e.message);
       }
     }
     delete tracked[target];
@@ -880,7 +882,7 @@ async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
   await browser.storage.local.set({ [SYNC_BACKEND_KEY]: 'gdrive' });
   cachedAppFolderId = null;
   await startSyncAlarm();
-  console.log('[AFFO Background] Google Drive connected');
+  affoDebugLog('[AFFO Background] Google Drive connected');
   return { ok: true };
 }
 
@@ -981,7 +983,7 @@ function startGDriveAuthViaTab(redirectUri, forceConsent) {
       canCancelOAuthRedirect = true;
       webRequestListenerRegistered = true;
     } catch (e) {
-      console.warn('[AFFO Background] Blocking OAuth redirect listener unavailable; observing redirect without cancellation:', e);
+      affoDebugWarn('[AFFO Background] Blocking OAuth redirect listener unavailable; observing redirect without cancellation:', e);
       browser.webRequest.onBeforeRequest.addListener(listener, webRequestFilter);
       webRequestListenerRegistered = true;
     }
@@ -1037,7 +1039,7 @@ async function disconnectGDrive() {
   await browser.storage.local.remove([GDRIVE_TOKENS_KEY, GDRIVE_AUTH_STATUS_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
   cachedAppFolderId = null;
   await stopSyncAlarm();
-  console.log('[AFFO Background] Google Drive disconnected');
+  affoDebugLog('[AFFO Background] Google Drive disconnected');
   return { ok: true };
 }
 
@@ -1110,7 +1112,7 @@ async function ensureAppFolder() {
   let appFolderId = await findFolder(folderName, null);
   if (!appFolderId) {
     appFolderId = await createFolder(folderName, null);
-    console.log(`[AFFO Background] Created Google Drive folder: ${folderName}`);
+    affoDebugLog(`[AFFO Background] Created Google Drive folder: ${folderName}`);
   }
 
   cachedAppFolderId = appFolderId;
@@ -1132,7 +1134,7 @@ async function findFilesByName(name, folderId) {
 async function findFile(name, folderId) {
   const files = await findFilesByName(name, folderId);
   if (files.length > 1) {
-    console.warn(`[AFFO Background] Duplicate Google Drive files found for ${name}; using latest modified file`);
+    affoDebugWarn(`[AFFO Background] Duplicate Google Drive files found for ${name}; using latest modified file`);
   }
   return files.length > 0 ? files[0] : null;
 }
@@ -1185,7 +1187,7 @@ async function gdrivePutFile(name, folderId, content, contentType) {
     try {
       await gdriveFetch(`${GDRIVE_API}/files/${dupId}`, { method: 'DELETE' });
     } catch (e) {
-      console.warn(`[AFFO Background] Failed deleting duplicate file ${name} (${dupId}):`, e);
+      affoDebugWarn(`[AFFO Background] Failed deleting duplicate file ${name} (${dupId}):`, e);
     }
   }
 
@@ -1227,14 +1229,14 @@ async function connectWebDav(config) {
     [SYNC_BACKEND_KEY]: 'webdav'
   });
   await startSyncAlarm();
-  console.log('[AFFO Background] WebDAV connected');
+  affoDebugLog('[AFFO Background] WebDAV connected');
   return { ok: true };
 }
 
 async function disconnectWebDav() {
   await browser.storage.local.remove([WEBDAV_CONFIG_KEY, SYNC_META_KEY, SYNC_BACKEND_KEY]);
   await stopSyncAlarm();
-  console.log('[AFFO Background] WebDAV disconnected');
+  affoDebugLog('[AFFO Background] WebDAV disconnected');
   return { ok: true };
 }
 
@@ -1397,7 +1399,7 @@ async function hasSyncDataCollectionConsent() {
       const data = await browser.storage.local.get(SYNC_LEGACY_DATA_CONSENT_KEY);
       return data[SYNC_LEGACY_DATA_CONSENT_KEY] === true;
     } catch (e) {
-      console.warn('[AFFO Background] Failed checking legacy sync consent:', e);
+      affoDebugWarn('[AFFO Background] Failed checking legacy sync consent:', e);
       return false;
     }
   }
@@ -1412,7 +1414,7 @@ async function hasSyncDataCollectionConsent() {
       data_collection: SYNC_OPTIONAL_DATA_COLLECTION
     });
   } catch (e) {
-    console.warn('[AFFO Background] Failed checking sync data consent:', e);
+    affoDebugWarn('[AFFO Background] Failed checking sync data consent:', e);
     return false;
   }
 }
@@ -1502,13 +1504,13 @@ async function syncPush(backend, localState, filename, content, contentType) {
 
 async function runSync() {
   if (!(await hasSyncDataCollectionConsent())) {
-    console.warn('[AFFO Background] Sync skipped — optional data collection consent not granted');
+    affoDebugWarn('[AFFO Background] Sync skipped — optional data collection consent not granted');
     return { ok: true, skipped: true, reason: 'data_consent_not_granted' };
   }
 
   const backend = await getActiveBackend();
   if (!backend || !(await backend.isConfigured())) {
-    console.log('[AFFO Background] Sync not configured — skipping sync');
+    affoDebugLog('[AFFO Background] Sync not configured — skipping sync');
     return { ok: true, skipped: true, reason: 'not_configured' };
   }
 
@@ -1528,7 +1530,7 @@ async function runSync() {
         items: sanitizeSyncContainer(parsed && parsed.items)
       };
     } catch (e) {
-      console.warn('[AFFO Background] Invalid sync manifest, starting fresh');
+      affoDebugWarn('[AFFO Background] Invalid sync manifest, starting fresh');
     }
   }
 
@@ -1666,7 +1668,7 @@ async function runSync() {
       }
     }
   } catch (e) {
-    console.warn('[AFFO Background] Domain settings sync error:', e);
+    affoDebugWarn('[AFFO Background] Domain settings sync error:', e);
     errors.push(e);
   }
 
@@ -1715,7 +1717,7 @@ async function runSync() {
       manifestChanged = true;
     }
   } catch (e) {
-    console.warn('[AFFO Background] Favorites sync error:', e);
+    affoDebugWarn('[AFFO Background] Favorites sync error:', e);
     errors.push(e);
   }
 
@@ -1775,7 +1777,7 @@ async function runSync() {
       }
     }
   } catch (e) {
-    console.warn('[AFFO Background] Custom fonts sync error:', e);
+    affoDebugWarn('[AFFO Background] Custom fonts sync error:', e);
     errors.push(e);
   }
 
@@ -1896,7 +1898,7 @@ async function runSync() {
         }
       }
     } catch (e) {
-      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      affoDebugWarn(`[AFFO Background] ${item.label} sync error:`, e);
       errors.push(e);
     }
   }
@@ -1954,7 +1956,7 @@ async function runSync() {
         }
       }
     } catch (e) {
-      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      affoDebugWarn(`[AFFO Background] ${item.label} sync error:`, e);
       errors.push(e);
     }
   }
@@ -2008,7 +2010,7 @@ async function runSync() {
         }
       }
     } catch (e) {
-      console.warn(`[AFFO Background] ${item.label} sync error:`, e);
+      affoDebugWarn(`[AFFO Background] ${item.label} sync error:`, e);
       errors.push(e);
     }
   }
@@ -2072,7 +2074,7 @@ async function runSync() {
       manifestChanged = true;
     }
   } catch (e) {
-    console.warn('[AFFO Background] Substack roulette sync error:', e);
+    affoDebugWarn('[AFFO Background] Substack roulette sync error:', e);
     errors.push(e);
   }
 
@@ -2089,12 +2091,12 @@ async function runSync() {
 
   if (errors.length > 0) {
     const msg = errors.map(e => e && e.message ? e.message : String(e)).join('; ');
-    console.warn(`[AFFO Background] Sync completed with ${errors.length} error(s): ${msg}`);
+    affoDebugWarn(`[AFFO Background] Sync completed with ${errors.length} error(s): ${msg}`);
     notifySyncFailure(msg);
     return { ok: false, error: msg, partialErrors: errors.length };
   }
 
-  console.log('[AFFO Background] Sync completed successfully');
+  affoDebugLog('[AFFO Background] Sync completed successfully');
   return { ok: true };
 }
 
@@ -2117,7 +2119,7 @@ function enqueueSync(options = {}) {
     () => undefined,
     (e) => {
       if (notifyOnError) {
-        console.warn('[AFFO Background] Auto-sync queue error:', e);
+        affoDebugWarn('[AFFO Background] Auto-sync queue error:', e);
         notifySyncFailure(e && e.message ? e.message : String(e));
       }
       return undefined;
@@ -2150,11 +2152,11 @@ function hasAlarmsApi() {
 
 async function startSyncAlarm() {
   if (!hasAlarmsApi()) {
-    console.warn('[AFFO Background] browser.alarms API unavailable; periodic sync disabled');
+    affoDebugWarn('[AFFO Background] browser.alarms API unavailable; periodic sync disabled');
     return { ok: true, skipped: true, reason: 'alarms_unavailable' };
   }
   await browser.alarms.create(SYNC_ALARM_NAME, { periodInMinutes: SYNC_ALARM_PERIOD_MINUTES });
-  console.log(`[AFFO Background] Periodic sync alarm started (every ${SYNC_ALARM_PERIOD_MINUTES}m)`);
+  affoDebugLog(`[AFFO Background] Periodic sync alarm started (every ${SYNC_ALARM_PERIOD_MINUTES}m)`);
   return { ok: true };
 }
 
@@ -2163,14 +2165,14 @@ async function stopSyncAlarm() {
     return { ok: true, skipped: true, reason: 'alarms_unavailable' };
   }
   await browser.alarms.clear(SYNC_ALARM_NAME);
-  console.log('[AFFO Background] Periodic sync alarm stopped');
+  affoDebugLog('[AFFO Background] Periodic sync alarm stopped');
   return { ok: true };
 }
 
 if (hasAlarmsApi()) {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === SYNC_ALARM_NAME) {
-      console.log('[AFFO Background] Periodic sync alarm fired');
+      affoDebugLog('[AFFO Background] Periodic sync alarm fired');
       scheduleAutoSync();
     }
   });
@@ -2179,7 +2181,7 @@ if (hasAlarmsApi()) {
 // Sync when device comes back online (covers wake-from-sleep scenarios)
 if (typeof self !== 'undefined' && self.addEventListener) {
   self.addEventListener('online', () => {
-    console.log('[AFFO Background] Network restored — triggering sync');
+    affoDebugLog('[AFFO Background] Network restored — triggering sync');
     isSyncConfigured().then(configured => {
       if (configured) scheduleAutoSync();
     });
@@ -2199,7 +2201,7 @@ async function getCachedFont(url) {
       const entry = cachedFontData.cache[url];
       if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
         const duration = (performance.now() - startTime).toFixed(2);
-        console.log(`[AFFO Background] Font cache HIT from memory (${duration}ms) for ${url}`);
+        affoDebugLog(`[AFFO Background] Font cache HIT from memory (${duration}ms) for ${url}`);
         return entry.data;
       }
     }
@@ -2222,10 +2224,10 @@ async function getCachedFont(url) {
 
     if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
       const duration = (performance.now() - startTime).toFixed(2);
-      console.log(`[AFFO Background] Font cache HIT (${duration}ms) for ${url}`);
+      affoDebugLog(`[AFFO Background] Font cache HIT (${duration}ms) for ${url}`);
       return entry.data;
     }
-    console.log(`[AFFO Background] Font cache MISS for ${url}`);
+    affoDebugLog(`[AFFO Background] Font cache MISS for ${url}`);
     return null;
   } catch (e) {
     console.error(`[AFFO Background] Error reading font cache:`, e);
@@ -2247,7 +2249,7 @@ async function setCachedFont(url, arrayBufferData) {
       size: arrayBufferData.byteLength
     });
 
-    console.log(`[AFFO Background] Queued font for batch cache write: ${url} (${arrayBufferData.byteLength} bytes), ${pendingCacheWrites.size} pending`);
+    affoDebugLog(`[AFFO Background] Queued font for batch cache write: ${url} (${arrayBufferData.byteLength} bytes), ${pendingCacheWrites.size} pending`);
 
     // Debounce: wait for more writes to come in
     if (cacheWriteTimer) {
@@ -2267,7 +2269,7 @@ async function flushCacheWrites() {
   if (pendingCacheWrites.size === 0) return;
 
   try {
-    console.log(`[AFFO Background] Flushing ${pendingCacheWrites.size} cached fonts to storage (batch write)...`);
+    affoDebugLog(`[AFFO Background] Flushing ${pendingCacheWrites.size} cached fonts to storage (batch write)...`);
     const startTime = performance.now();
 
     // Read cache once
@@ -2287,7 +2289,7 @@ async function flushCacheWrites() {
 
     // Clean up if cache is too large
     if (currentSize > MAX_CACHE_SIZE_BYTES) {
-      console.log(`[AFFO Background] Cache too large (${(currentSize / (1024 * 1024)).toFixed(2)}MB), cleaning...`);
+      affoDebugLog(`[AFFO Background] Cache too large (${(currentSize / (1024 * 1024)).toFixed(2)}MB), cleaning...`);
       const sortedEntries = entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
 
       let newSize = 0;
@@ -2301,7 +2303,7 @@ async function flushCacheWrites() {
       }
 
       fontCache = Object.fromEntries(keptEntries);
-      console.log(`[AFFO Background] Cleaned font cache: kept ${keptEntries.length} entries, ${(newSize / (1024 * 1024)).toFixed(2)}MB`);
+      affoDebugLog(`[AFFO Background] Cleaned font cache: kept ${keptEntries.length} entries, ${(newSize / (1024 * 1024)).toFixed(2)}MB`);
     }
 
     // Write cache once
@@ -2311,7 +2313,7 @@ async function flushCacheWrites() {
     cachedFontData = null;
 
     const duration = (performance.now() - startTime).toFixed(2);
-    console.log(`[AFFO Background] Batch cached ${pendingCacheWrites.size} fonts (${(totalSize / (1024 * 1024)).toFixed(2)}MB) in ${duration}ms`);
+    affoDebugLog(`[AFFO Background] Batch cached ${pendingCacheWrites.size} fonts (${(totalSize / (1024 * 1024)).toFixed(2)}MB) in ${duration}ms`);
 
     // Clear pending writes
     pendingCacheWrites.clear();
@@ -2338,7 +2340,7 @@ async function clearExpiredCache() {
 
     if (cleaned > 0) {
       await browser.storage.local.set({ [FONT_CACHE_KEY]: fontCache });
-      console.log(`[AFFO Background] Cleaned ${cleaned} expired font cache entries`);
+      affoDebugLog(`[AFFO Background] Cleaned ${cleaned} expired font cache entries`);
     }
   } catch (e) {
     console.error(`[AFFO Background] Error cleaning font cache:`, e);
@@ -2351,7 +2353,7 @@ clearExpiredCache().then(() => {
     const fontCache = cache[FONT_CACHE_KEY] || {};
     const count = Object.keys(fontCache).length;
     const totalSize = Object.values(fontCache).reduce((sum, entry) => sum + (entry.size || 0), 0);
-    console.log(`[AFFO Background] Startup cache status: ${count} fonts cached, ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
+    affoDebugLog(`[AFFO Background] Startup cache status: ${count} fonts cached, ${(totalSize / (1024 * 1024)).toFixed(2)}MB`);
   });
 });
 
@@ -2445,10 +2447,10 @@ async function handleAffoRuntimeMessage(msg, sender) {
           'affoToolbarTransparency',
           'affoToolbarGap'
         ]);
-        console.log('[AFFO Background] Returning toolbar options:', result);
+        affoDebugLog('[AFFO Background] Returning toolbar options:', result);
         return result;
       } catch (e) {
-        console.warn('[AFFO Background] Error getting toolbar options:', e);
+        affoDebugWarn('[AFFO Background] Error getting toolbar options:', e);
         return {};
       }
     }
@@ -2460,27 +2462,27 @@ async function handleAffoRuntimeMessage(msg, sender) {
         });
         return { ok: true, css2Url };
       } catch (e) {
-        console.warn('[AFFO Background] css2 URL resolution failed:', e);
+        affoDebugWarn('[AFFO Background] css2 URL resolution failed:', e);
         return { ok: false, css2Url: '', error: e && e.message ? e.message : String(e) };
       }
     }
 
     // Handle toolbar popup opening requests
     if (msg.type === 'openPopup') {
-      console.log('[AFFO Background] Received openPopup request');
-      console.log('[AFFO Background] User agent:', navigator.userAgent);
-      console.log('[AFFO Background] Available APIs:', Object.keys(browser.browserAction || {}));
+      affoDebugLog('[AFFO Background] Received openPopup request');
+      affoDebugLog('[AFFO Background] User agent:', navigator.userAgent);
+      affoDebugLog('[AFFO Background] Available APIs:', Object.keys(browser.browserAction || {}));
 
       try {
-        console.log('[AFFO Background] Attempting browserAction.openPopup()...');
+        affoDebugLog('[AFFO Background] Attempting browserAction.openPopup()...');
 
         // For Firefox Android, try the standard API
         if (browser.browserAction && browser.browserAction.openPopup) {
           await browser.browserAction.openPopup();
-          console.log('[AFFO Background] browserAction.openPopup() call completed');
+          affoDebugLog('[AFFO Background] browserAction.openPopup() call completed');
           return { success: true, method: 'browserAction.openPopup' };
         } else {
-          console.warn('[AFFO Background] browserAction.openPopup not available');
+          affoDebugWarn('[AFFO Background] browserAction.openPopup not available');
           return { success: false, error: 'browserAction.openPopup not available' };
         }
       } catch (e) {
@@ -2493,14 +2495,14 @@ async function handleAffoRuntimeMessage(msg, sender) {
     // Handle close current tab requests
     if (msg.type === 'closeCurrentTab') {
       try {
-        console.log('[AFFO Background] Closing current tab');
+        affoDebugLog('[AFFO Background] Closing current tab');
         const tabId = sender.tab ? sender.tab.id : null;
         if (tabId) {
           await browser.tabs.remove(tabId);
-          console.log('[AFFO Background] Tab closed successfully');
+          affoDebugLog('[AFFO Background] Tab closed successfully');
           return { success: true };
         } else {
-          console.warn('[AFFO Background] No sender tab found');
+          affoDebugWarn('[AFFO Background] No sender tab found');
           return { success: false, error: 'No sender tab found' };
         }
       } catch (e) {
@@ -2540,7 +2542,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
     // Handle fallback popup opening (open in new tab/window)
     if (msg.type === 'openPopupFallback') {
       try {
-        console.log('[AFFO Background] Attempting fallback: open popup in new tab');
+        affoDebugLog('[AFFO Background] Attempting fallback: open popup in new tab');
 
         // For Firefox Android, open the popup HTML in a new tab since popups don't exist
         let popup = browser.runtime.getURL('popup.html');
@@ -2549,24 +2551,24 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const params = new URLSearchParams();
         if (msg.domain) {
           params.set('domain', msg.domain);
-          console.log('[AFFO Background] Added domain parameter:', msg.domain);
+          affoDebugLog('[AFFO Background] Added domain parameter:', msg.domain);
         }
         if (msg.sourceTabId) {
           params.set('sourceTabId', msg.sourceTabId.toString());
-          console.log('[AFFO Background] Added sourceTabId parameter:', msg.sourceTabId);
+          affoDebugLog('[AFFO Background] Added sourceTabId parameter:', msg.sourceTabId);
         }
 
         if (params.toString()) {
           popup += '?' + params.toString();
         }
 
-        console.log('[AFFO Background] Popup URL:', popup);
+        affoDebugLog('[AFFO Background] Popup URL:', popup);
 
         const tab = await browser.tabs.create({
           url: popup,
           active: true // Make sure the tab is focused
         });
-        console.log('[AFFO Background] Tab created:', tab);
+        affoDebugLog('[AFFO Background] Tab created:', tab);
         return { success: true, tabId: tab.id, url: popup };
       } catch (e) {
         console.error('[AFFO Background] Could not open popup fallback:', e);
@@ -2649,7 +2651,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const css = generateThirdManInCSS(position, payload, aggressive);
         await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
 
-        console.log('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
+        affoDebugLog('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Quick-apply failed:', e);
@@ -2678,7 +2680,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
 
-        console.log('[AFFO Background] Quick-apply Sroulette set', pool, 'pool for', position, 'on', origin);
+        affoDebugLog('[AFFO Background] Quick-apply Sroulette set', pool, 'pool for', position, 'on', origin);
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Quick-apply Sroulette failed:', e);
@@ -2710,7 +2712,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
           await browser.tabs.removeCSS(tabId, { code: '' });
         } catch (e) {
           // removeCSS might fail, but we still cleared storage
-          console.log('[AFFO Background] RemoveCSS note:', e.message);
+          affoDebugLog('[AFFO Background] RemoveCSS note:', e.message);
         }
 
         // Reload page content script to clean up
@@ -2718,10 +2720,10 @@ async function handleAffoRuntimeMessage(msg, sender) {
           code: 'if (window.affoRemoveAllStyles) { window.affoRemoveAllStyles(); }'
         }).catch(e => {
           // Script execution might fail, but storage is cleared
-          console.log('[AFFO Background] Reload script note:', e.message);
+          affoDebugLog('[AFFO Background] Reload script note:', e.message);
         });
 
-        console.log('[AFFO Background] Fonts removed for', origin);
+        affoDebugLog('[AFFO Background] Fonts removed for', origin);
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Unapply failed:', e);
@@ -2772,7 +2774,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
           }
         }
 
-        console.log('[AFFO Background] Rewalk completed for', origin);
+        affoDebugLog('[AFFO Background] Rewalk completed for', origin);
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Rewalk failed:', e);
@@ -2853,7 +2855,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     markApplyMapOriginsModified(changes[APPLY_MAP_KEY]).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update per-domain sync metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update per-domain sync metadata:', e);
       markLocalItemModified(SYNC_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2878,7 +2880,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update FontFace-only domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update FontFace-only domains metadata:', e);
       markLocalItemModified(SYNC_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2890,7 +2892,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update inline-apply domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update inline-apply domains metadata:', e);
       markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2905,7 +2907,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update aggressive domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update aggressive domains metadata:', e);
       markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2917,7 +2919,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update Wait For It domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update Wait For It domains metadata:', e);
       markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2929,7 +2931,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
       markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2941,7 +2943,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
-      console.warn('[AFFO Background] Failed to update Substack Roulette beige disabled domains metadata:', e);
+      affoDebugWarn('[AFFO Background] Failed to update Substack Roulette beige disabled domains metadata:', e);
       markLocalItemModified(SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
@@ -2990,7 +2992,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   }
 
   if (hasToolbarChanges) {
-    console.log('[AFFO Background] Toolbar options changed, notifying content scripts:', toolbarOptionsChanged);
+    affoDebugLog('[AFFO Background] Toolbar options changed, notifying content scripts:', toolbarOptionsChanged);
 
     try {
       // Get all tabs and send message to content scripts
@@ -3006,7 +3008,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
         }
       }
     } catch (e) {
-      console.warn('[AFFO Background] Error notifying content scripts of toolbar changes:', e);
+      affoDebugWarn('[AFFO Background] Error notifying content scripts of toolbar changes:', e);
     }
   }
 });

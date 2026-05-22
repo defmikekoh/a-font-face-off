@@ -13,6 +13,14 @@
  * In Node (test runner) we export pure helpers via module.exports.
  */
 
+function affoDebugLog() {
+    if (globalThis.AFFO_DEBUG === true) console.log.apply(console, arguments);
+}
+
+function affoDebugWarn() {
+    if (globalThis.AFFO_DEBUG === true) console.warn.apply(console, arguments);
+}
+
 // ── Storage ─────────────────────────────────────────────────────────────────
 
 function loadFavoritesFromStorage() {
@@ -447,12 +455,12 @@ async function loadSrouletteFavoritesForPopup(position) {
 }
 
 async function showFavoritesPopup(position) {
-    console.log('showFavoritesPopup called for position:', position);
+    affoDebugLog('showFavoritesPopup called for position:', position);
     const popup = document.getElementById('favorites-popup');
     const listContainer = document.getElementById('favorites-popup-list');
     const noFavorites = document.getElementById('no-favorites');
     const searchInput = document.getElementById('favorites-search');
-    console.log('Favorites popup elements:', {popup, listContainer, noFavorites, searchInput});
+    affoDebugLog('Favorites popup elements:', {popup, listContainer, noFavorites, searchInput});
 
     if (searchInput) {
         searchInput.value = '';
@@ -463,7 +471,7 @@ async function showFavoritesPopup(position) {
     try {
         srouletteFavoritesPopupEntries = await loadSrouletteFavoritesForPopup(position);
     } catch (error) {
-        console.warn('Could not load Sroulette favorites:', error);
+        affoDebugWarn('Could not load Sroulette favorites:', error);
         srouletteFavoritesPopupEntries = [];
     }
 
@@ -481,9 +489,9 @@ function renderFavoritesPopupList(position, query) {
     const names = getOrderedFavoriteNames();
     const filteredSrouletteEntries = srouletteFavoritesPopupEntries.filter(entry => srouletteFavoriteMatchesSearch(entry, query));
     const filteredNames = names.filter(name => favoriteMatchesSearch(name, savedFavorites[name], query));
-    console.log('savedFavorites:', savedFavorites);
-    console.log('savedFavoritesOrder:', savedFavoritesOrder);
-    console.log('Favorite names to show:', filteredNames);
+    affoDebugLog('savedFavorites:', savedFavorites);
+    affoDebugLog('savedFavoritesOrder:', savedFavoritesOrder);
+    affoDebugLog('Favorite names to show:', filteredNames);
 
     listContainer.innerHTML = '';
 
@@ -573,15 +581,15 @@ function renderFavoritesPopupList(position, query) {
                 const position = this.getAttribute('data-position');
                 const favoriteName = this.getAttribute('data-favorite-name');
                 const rawConfig = savedFavorites[favoriteName];
-                console.log('Loading favorite - raw config:', JSON.stringify(rawConfig, null, 2));
+                affoDebugLog('Loading favorite - raw config:', JSON.stringify(rawConfig, null, 2));
                 const config = normalizeConfig(rawConfig);
-                console.log('Loading favorite - processed config:', JSON.stringify(config, null, 2));
+                affoDebugLog('Loading favorite - processed config:', JSON.stringify(config, null, 2));
 
                 if (config) {
                     try {
                         // Apply font config and wait for completion
                         await applyFontConfig(position, config);
-                        console.log(`Favorite loaded and applied for ${position}`);
+                        affoDebugLog(`Favorite loaded and applied for ${position}`);
 
                         // Update Apply button visibility after loading favorite (now that control groups are updated)
                         if (position === 'body') {
