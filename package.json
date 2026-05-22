@@ -15,7 +15,7 @@
     "pack:edge-smoke-crx": "node scripts/pack-edge-crx.js --source-dir ztemp/edge-smoke-mv3-src --key ztemp/edge-smoke-key.pem --zip ztemp/edge-smoke-mv3.zip --out web-ext-artifacts/affo-edge-mv3-smoke.crx",
     "build:edge-smoke-crx": "npm run build:edge-smoke-mv3 && npm run pack:edge-smoke-crx",
     "gf:update": "node scripts/update-gf-metadata.js",
-    "lint": "eslint --no-warn-ignored src/*.js scripts/",
+    "lint": "eslint --no-warn-ignored src/*.js scripts/ tests/**/*.js",
     "inspect:android-firefox": "node scripts/android-firefox-inspect.js",
     "test": "node --test 'tests/**/*.test.js'",
     "test:integration": "npm run build:latest && node --test 'tests/**/*.itest.js'"

@@ -380,4 +380,46 @@ export default [
             "no-console": "off",
         },
     },
+
+    // Tests (Node context)
+    {
+        files: ["tests/**/*.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "commonjs",
+            globals: {
+                require: "readonly",
+                module: "readonly",
+                exports: "readonly",
+                __dirname: "readonly",
+                __filename: "readonly",
+                process: "readonly",
+                console: "readonly",
+                Buffer: "readonly",
+                setTimeout: "readonly",
+                clearTimeout: "readonly",
+                setInterval: "readonly",
+                clearInterval: "readonly",
+                URL: "readonly",
+                URLSearchParams: "readonly",
+                TextEncoder: "readonly",
+                TextDecoder: "readonly",
+                crypto: "readonly",
+                performance: "readonly",
+                btoa: "readonly",
+                atob: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+            "no-unused-vars": ["warn", {
+                argsIgnorePattern: "^_",
+                varsIgnorePattern: "^_",
+                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
+            }],
+            "no-console": "off",
+            "no-prototype-builtins": "off",
+        },
+    },
 ];
