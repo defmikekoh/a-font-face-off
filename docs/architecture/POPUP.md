@@ -11,7 +11,7 @@
 
 ### Storage Access Patterns
 - **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
-- **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and supported TMI panels when the corresponding Substack Roulette pool has at least one valid favorite. Clicking one marks the panel; Apply writes only Sroulette intent.
+- **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and supported TMI panels when the corresponding Substack Roulette pool has at least one valid favorite. Clicking one marks the panel; Apply writes only Sroulette intent. Save is disabled while a panel is showing Sroulette because the synced state is the Sroulette intent, not the sampled font.
 - **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
 - **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
 - **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). Storage change listener diffs `oldValue[origin]` vs `newValue[origin]` before acting. No write operations.
@@ -36,6 +36,9 @@ Unified async function that builds a complete payload for domain storage / conte
 
 ### `getCurrentUIConfig(position)`
 Reads current font configuration directly from UI controls. Respects active/unset state — only includes properties for controls the user has activated. For custom fonts, includes `fontFaceRule` from `fontDefinitions` for immediate popup behavior/preview; favorites persistence strips `fontFaceRule` before storage/sync to avoid duplication. This is the canonical "read from UI" function.
+
+### `getCurrentPanelState(position)`
+Wraps the UI read with Sroulette awareness and returns one of `{ kind: 'font', config }`, `{ kind: 'sroulette', pool }`, or `{ kind: 'empty' }`. Apply, button-state, and save-disable logic use this helper when a panel may be showing Sroulette, so pseudo-favorites are not mistaken for normal font configs.
 
 ## State Management
 

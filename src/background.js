@@ -248,7 +248,7 @@ function jsonEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function isSrouletteSlot(value) {
+function isSroulettePool(value) {
   return value === 'serif' || value === 'sans';
 }
 
@@ -266,7 +266,7 @@ function clearSrouletteIntentForSlot(entry, slot) {
 }
 
 function setSrouletteIntentForSlot(entry, slot, pool) {
-  if (!entry || !isSrouletteTarget(slot) || !isSrouletteSlot(pool)) return false;
+  if (!entry || !isSrouletteTarget(slot) || !isSroulettePool(pool)) return false;
   if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
     entry.sroulette = {};
   }
@@ -278,7 +278,7 @@ function setSrouletteIntentForSlot(entry, slot, pool) {
 function hasSrouletteIntentForSlot(entry, slot) {
   if (!entry || !isSrouletteTarget(slot)) return false;
   const intent = entry.sroulette && entry.sroulette[slot];
-  return !!(intent && isSrouletteSlot(intent.pool));
+  return !!(intent && isSroulettePool(intent.pool));
 }
 
 async function removeTrackedSrouletteCss(tabId, fontTypes) {
@@ -287,8 +287,8 @@ async function removeTrackedSrouletteCss(tabId, fontTypes) {
   if (!tracked) return;
 
   const types = Array.isArray(fontTypes) && fontTypes.length
-    ? fontTypes.filter(isSrouletteSlot)
-    : Object.keys(tracked).filter(isSrouletteSlot);
+    ? fontTypes.filter(isSroulettePool)
+    : Object.keys(tracked).filter(isSroulettePool);
 
   for (const fontType of types) {
     const css = tracked[fontType];
@@ -309,7 +309,7 @@ async function removeTrackedSrouletteCss(tabId, fontTypes) {
 }
 
 async function insertTrackedSrouletteCss(tabId, fontType, css) {
-  if (tabId == null || !isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) {
+  if (tabId == null || !isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) {
     return false;
   }
 
@@ -2574,7 +2574,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const tabId = sender.tab ? sender.tab.id : null;
         const { fontType, css } = msg;
 
-        if (tabId == null || !isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) {
+        if (tabId == null || !isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) {
           return { success: false, error: 'Missing required parameters' };
         }
 
@@ -2590,7 +2590,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
       try {
         const tabId = sender.tab ? sender.tab.id : null;
         if (tabId == null) return { success: false, error: 'Missing tab' };
-        const fontTypes = Array.isArray(msg.fontTypes) ? msg.fontTypes.filter(isSrouletteSlot) : null;
+        const fontTypes = Array.isArray(msg.fontTypes) ? msg.fontTypes.filter(isSroulettePool) : null;
         await removeTrackedSrouletteCss(tabId, fontTypes);
         return { success: true };
       } catch (e) {
@@ -2656,7 +2656,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const { origin, position, pool } = msg;
         const tabId = sender.tab ? sender.tab.id : null;
 
-        if (!origin || !isSrouletteTarget(position) || !isSrouletteSlot(pool) || !tabId) {
+        if (!origin || !isSrouletteTarget(position) || !isSroulettePool(pool) || !tabId) {
           return { success: false, error: 'Missing required parameters' };
         }
 

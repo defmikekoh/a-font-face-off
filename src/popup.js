@@ -1203,8 +1203,9 @@ async function updateBodyButtonsImmediate() {
         }
 
         // Get current control values
-        const currentConfig = getCurrentUIConfig('body');
-        const currentSroulettePool = getPanelSroulettePool('body');
+        const currentPanelState = getCurrentPanelState('body');
+        const currentConfig = currentPanelState.kind === 'font' ? currentPanelState.config : null;
+        const currentSroulettePool = currentPanelState.kind === 'sroulette' ? currentPanelState.pool : null;
         console.log('Current config:', currentConfig);
 
         // Get applied state from domain storage
@@ -1234,7 +1235,7 @@ async function updateBodyButtonsImmediate() {
             appliedConfigType: typeof appliedConfig
         });
 
-        const allDefaults = !currentConfig && !currentSroulettePool; // currentConfig is undefined when UI shows "Default"
+        const allDefaults = currentPanelState.kind === 'empty'; // currentConfig is undefined when UI shows "Default"
         const state = determineButtonState(changeCount, allDefaults, domainHasAppliedState);
 
         if (state.action === 'apply') {
@@ -1681,6 +1682,24 @@ function getCurrentUIConfig(position) {
     return config;
 }
 
+function getCurrentPanelState(position) {
+    const sroulettePool = getPanelSroulettePool(position);
+    if (sroulettePool) {
+        return { kind: 'sroulette', pool: sroulettePool };
+    }
+
+    const config = getCurrentUIConfig(position);
+    if (config) {
+        return { kind: 'font', config };
+    }
+
+    return { kind: 'empty' };
+}
+
+function isCurrentPanelStateEmpty(position) {
+    return getCurrentPanelState(position).kind === 'empty';
+}
+
 // normalizeConfig() is now in config-utils.js
 
 // Helper function to wait for controls to exist
@@ -1983,10 +2002,15 @@ async function loadFont(position, fontName, options = {}) {
 
     try {
         await ensureCustomFontsLoaded();
+        const wasSroulettePanel = SROULETTE_POSITIONS.has(position) && isPanelShowingSroulette(position);
+        if (wasSroulettePanel) {
+            clearSroulettePanelState(position);
+        }
+
         // Save current font settings before switching
         const fontNameElement = document.getElementById(`${position}-font-name`) || document.getElementById(`${position}-font-display`);
         const currentFontName = fontNameElement ? fontNameElement.textContent : null;
-        if (currentFontName && currentFontName !== fontName) {
+        if (!wasSroulettePanel && currentFontName && currentFontName !== fontName) {
             saveFontSettings(position, currentFontName);
         }
 
@@ -2976,7 +3000,7 @@ const SROULETTE_POOLS = new Set(['serif', 'sans']);
 const SROULETTE_POSITIONS = new Set(['body', 'serif', 'sans']);
 const SROULETTE_BATCH_MARKER = '__affoSroulettePool';
 
-function isSrouletteSlot(value) {
+function isSroulettePool(value) {
     return SROULETTE_POOLS.has(value);
 }
 
@@ -2987,7 +3011,7 @@ function isSrouletteTarget(value) {
 function getSrouletteIntent(domainData, fontType) {
     if (!domainData || !isSrouletteTarget(fontType)) return null;
     const intent = domainData.sroulette && domainData.sroulette[fontType];
-    if (!intent || !isSrouletteSlot(intent.pool)) return null;
+    if (!intent || !isSroulettePool(intent.pool)) return null;
     return intent;
 }
 
@@ -3017,13 +3041,38 @@ function clearSrouletteIntentFromEntry(entry, fontType) {
 }
 
 function setSrouletteIntentOnEntry(entry, fontType, pool) {
-    if (!entry || !isSrouletteTarget(fontType) || !isSrouletteSlot(pool)) return false;
+    if (!entry || !isSrouletteTarget(fontType) || !isSroulettePool(pool)) return false;
     if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
         entry.sroulette = {};
     }
     entry.sroulette[fontType] = { pool };
     delete entry[fontType];
     return true;
+}
+
+function setSrouletteSaveButtonsDisabled(position, disabled) {
+    [`${position}-save-favorite`, `${position}-save-favorite-bar`].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+
+        if (disabled) {
+            if (btn.dataset.affoOriginalDisabled == null) btn.dataset.affoOriginalDisabled = btn.disabled ? 'true' : 'false';
+            if (btn.dataset.affoOriginalTitle == null) btn.dataset.affoOriginalTitle = btn.getAttribute('title') || '';
+            btn.disabled = true;
+            btn.setAttribute('title', 'Save disabled while Sroulette is selected');
+            btn.classList.add('sroulette-save-disabled');
+        } else {
+            if (btn.dataset.affoOriginalDisabled != null) {
+                btn.disabled = btn.dataset.affoOriginalDisabled === 'true';
+            }
+            if (btn.dataset.affoOriginalTitle != null) {
+                btn.setAttribute('title', btn.dataset.affoOriginalTitle);
+            }
+            delete btn.dataset.affoOriginalDisabled;
+            delete btn.dataset.affoOriginalTitle;
+            btn.classList.remove('sroulette-save-disabled');
+        }
+    });
 }
 
 function setSroulettePanelControlsDisabled(position, disabled) {
@@ -3033,6 +3082,8 @@ function setSroulettePanelControlsDisabled(position, disabled) {
     panel.querySelectorAll('.panel-body input, .panel-body select').forEach(el => {
         el.disabled = disabled;
     });
+
+    setSrouletteSaveButtonsDisabled(position, disabled);
 
     const display = document.getElementById(`${position}-font-display`);
     if (display) {
@@ -3073,7 +3124,7 @@ function setSroulettePanelControlsDisabled(position, disabled) {
 }
 
 function markPanelAsSroulette(position, pool) {
-    if (!SROULETTE_POSITIONS.has(position) || !isSrouletteSlot(pool)) return;
+    if (!SROULETTE_POSITIONS.has(position) || !isSroulettePool(pool)) return;
     const label = getSrouletteLabel(pool);
     const panel = document.getElementById(`${position}-font-controls`);
     const display = document.getElementById(`${position}-font-display`);
@@ -3119,7 +3170,7 @@ function isPanelShowingSroulette(position) {
 function getPanelSroulettePool(position) {
     const display = document.getElementById(`${position}-font-display`);
     const pool = display && display.dataset.affoSroulettePool;
-    return isSrouletteSlot(pool) ? pool : null;
+    return isSroulettePool(pool) ? pool : null;
 }
 
 // Clone body-font-controls to create other panels before any other init code
@@ -4082,6 +4133,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         const name = saveModalName.value.trim();
         const position = saveModal.getAttribute('data-position');
 
+        if (typeof getCurrentPanelState === 'function' && getCurrentPanelState(position).kind === 'sroulette') {
+            hideSaveModal();
+            return;
+        }
+
         if (!name) {
             showCustomAlert('Please enter a name for this favorite');
             return;
@@ -4331,7 +4387,7 @@ function saveApplyMapForOrigin(origin, fontType, config) {
 
 function saveSrouletteApplyMapForOrigin(origin, fontType, pool) {
     console.log(`🟢 saveSrouletteApplyMapForOrigin: Saving Sroulette intent - origin: ${origin}, fontType: ${fontType}, pool: ${pool}`);
-    if (!origin || !isSrouletteTarget(fontType) || !isSrouletteSlot(pool)) return Promise.resolve(false);
+    if (!origin || !isSrouletteTarget(fontType) || !isSroulettePool(pool)) return Promise.resolve(false);
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
         if (!applyMap[origin]) applyMap[origin] = {};
@@ -5287,8 +5343,7 @@ function handleApply(panelId) {
         })();
     } else {
         // Body Contact and Face-off modes: single panel apply
-        const config = getCurrentUIConfig(panelId);
-        applyPromise = applyPanelConfiguration(panelId, config).then(() => {
+        applyPromise = applyPanelConfiguration(panelId).then(() => {
             // Handle body mode specially - update buttons after successful apply
             if (panelId === 'body') {
                 console.log('Body apply completed - updating buttons');
@@ -5337,8 +5392,9 @@ function applyAllThirdManInFonts() {
             const domainData = rawDomainData || {};
 
             types.forEach(type => {
-                const sroulettePool = getPanelSroulettePool(type);
-                const config = getCurrentUIConfig(type);
+                const panelState = getCurrentPanelState(type);
+                const sroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
+                const config = panelState.kind === 'font' ? panelState.config : null;
                 const appliedConfig = domainData[type];
                 const appliedSrouletteIntent = getSrouletteIntent(domainData, type);
 
@@ -5571,8 +5627,9 @@ function countThirdManInDifferences() {
             let currentHasNonDefaults = false;
 
             for (const type of types) {
-                const currentSroulettePool = getPanelSroulettePool(type);
-                const current = getCurrentUIConfig(type);
+                const panelState = getCurrentPanelState(type);
+                const currentSroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
+                const current = panelState.kind === 'font' ? panelState.config : null;
                 const applied = domainData ? domainData[type] : null;
                 const srouletteApplied = getSrouletteIntent(domainData, type);
 
@@ -5647,7 +5704,13 @@ function countThirdManInDifferences() {
         console.error('Error counting differences:', error);
         // Fallback to simple logic
         for (const type of types) {
-            const current = getCurrentUIConfig(type);
+            const panelState = getCurrentPanelState(type);
+            if (panelState.kind === 'sroulette') {
+                changeCount++;
+                continue;
+            }
+
+            const current = panelState.kind === 'font' ? panelState.config : null;
 
             // Font is considered default/unset if config is missing or has no meaningful properties
             const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
@@ -5679,13 +5742,13 @@ const PANEL_ROUTE = {
 
 function applyPanelConfiguration(panelId) {
     console.log(`applyPanelConfiguration: Starting for panelId: ${panelId}, mode: ${currentViewMode}`);
-    const sroulettePool = getPanelSroulettePool(panelId);
-    if (sroulettePool) {
-        console.log(`applyPanelConfiguration: Applying Sroulette ${sroulettePool} to ${panelId}`);
-        return applySroulettePanelConfiguration(panelId, sroulettePool);
+    const panelState = getCurrentPanelState(panelId);
+    if (panelState.kind === 'sroulette') {
+        console.log(`applyPanelConfiguration: Applying Sroulette ${panelState.pool} to ${panelId}`);
+        return applySroulettePanelConfiguration(panelId, panelState.pool);
     }
 
-    const config = getCurrentUIConfig(panelId);
+    const config = panelState.kind === 'font' ? panelState.config : null;
 
     if (!config) {
         console.log('applyPanelConfiguration: No config found');
@@ -5712,7 +5775,7 @@ function applyPanelConfiguration(panelId) {
 }
 
 async function applySroulettePanelConfiguration(panelId, pool) {
-    if (!isSrouletteTarget(panelId) || !isSrouletteSlot(pool)) return false;
+    if (!isSrouletteTarget(panelId) || !isSroulettePool(pool)) return false;
     const origin = await getActiveOrigin();
     if (!origin) return false;
 
@@ -5926,9 +5989,9 @@ async function updateAllThirdManInButtons(triggeringPanel = null) {
 
         // Show buttons in the last changed panel based on state
         const changeCount = await countThirdManInDifferences();
-        const allDefaults = !getCurrentUIConfig('serif') && !getPanelSroulettePool('serif') &&
-            !getCurrentUIConfig('sans') && !getPanelSroulettePool('sans') &&
-            !getCurrentUIConfig('mono');
+        const allDefaults = isCurrentPanelStateEmpty('serif') &&
+            isCurrentPanelStateEmpty('sans') &&
+            isCurrentPanelStateEmpty('mono');
 
         let domainHasFonts = false;
         if (changeCount === 0) {

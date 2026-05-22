@@ -98,7 +98,7 @@
     ));
   }
 
-  function isSrouletteSlot(value) {
+  function isSroulettePool(value) {
     return value === 'serif' || value === 'sans';
   }
 
@@ -109,7 +109,7 @@
   function getSrouletteIntent(entry, fontType) {
     if (!entry || !isSrouletteTarget(fontType)) return null;
     var intent = entry.sroulette && entry.sroulette[fontType];
-    if (!intent || !isSrouletteSlot(intent.pool)) return null;
+    if (!intent || !isSroulettePool(intent.pool)) return null;
     return intent;
   }
 
@@ -141,7 +141,7 @@
   }
 
   function pickSrouletteFontConfig(data, pool) {
-    if (!data || data.affoSubstackRoulette === false || !isSrouletteSlot(pool)) return null;
+    if (!data || data.affoSubstackRoulette === false || !isSroulettePool(pool)) return null;
     var key = pool === 'serif' ? 'affoSubstackRouletteSerif' : 'affoSubstackRouletteSans';
     var names = Array.isArray(data[key]) ? data[key] : [];
     var favorites = data.affoFavorites || {};
@@ -181,12 +181,12 @@
   }
 
   function isResolvedSrouletteFont(entry, fontType) {
-    return !!(isSrouletteSlot(fontType) && entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
+    return !!(isSroulettePool(fontType) && entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
   }
 
   function requestSrouletteCssRemoval(fontTypes) {
     try {
-      var requestedTypes = Array.isArray(fontTypes) ? fontTypes.filter(isSrouletteSlot) : ['serif', 'sans'];
+      var requestedTypes = Array.isArray(fontTypes) ? fontTypes.filter(isSroulettePool) : ['serif', 'sans'];
       if (!requestedTypes.length) return;
       browser.runtime.sendMessage({
         type: 'affoRemoveSrouletteCss',
@@ -196,7 +196,7 @@
   }
 
   function requestSrouletteCssInsert(fontType, css) {
-    if (!isSrouletteSlot(fontType) || typeof css !== 'string' || !css.trim()) return;
+    if (!isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) return;
     try {
       browser.runtime.sendMessage({
         type: 'affoInsertSrouletteCss',

@@ -372,6 +372,10 @@ function generateConfigPreview(position) {
 // ── Save Modal ──────────────────────────────────────────────────────────────
 
 function showSaveModal(position) {
+    if (typeof getCurrentPanelState === 'function' && getCurrentPanelState(position).kind === 'sroulette') {
+        return;
+    }
+
     const modal = document.getElementById('save-modal');
     const nameInput = document.getElementById('save-modal-name');
     const configPreview = document.getElementById('save-modal-config');

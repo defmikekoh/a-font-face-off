@@ -258,6 +258,7 @@ export default [
                 AFFOMessaging: "readonly",
                 currentViewMode: "readonly",
                 getCurrentUIConfig: "readonly",
+                getCurrentPanelState: "readonly",
                 getActiveOrigin: "readonly",
                 getTargetTabForPopup: "readonly",
                 getEffectiveFontDefinition: "readonly",
