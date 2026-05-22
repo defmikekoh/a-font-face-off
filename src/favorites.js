@@ -1023,5 +1023,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getValidSroulettePoolInfoFromData,
         getAvailableSrouletteFavoriteEntriesFromData,
         srouletteFavoriteMatchesSearch,
+        showSaveModal,
     };
 }

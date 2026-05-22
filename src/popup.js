@@ -3046,6 +3046,91 @@ function isFontBatchPayloadRequest(config) {
     return !!(config && config.kind === 'fontPayloadRequest' && config.target && config.config);
 }
 
+function hasMeaningfulPanelConfig(config) {
+    return !!(config && (
+        config.fontName ||
+        config.fontSize ||
+        config.fontWeight ||
+        config.fontStyle ||
+        config.lineHeight ||
+        config.letterSpacing != null ||
+        config.fontColor
+    ));
+}
+
+function buildAppliedComparisonConfig(appliedConfig) {
+    if (!appliedConfig) return null;
+    const comparisonConfig = {
+        fontName: appliedConfig.fontName || null,
+        variableAxes: appliedConfig.variableAxes || {}  // Keep fallback for old storage
+    };
+
+    if (appliedConfig.fontSize) comparisonConfig.fontSize = appliedConfig.fontSize;
+    if (appliedConfig.lineHeight) comparisonConfig.lineHeight = appliedConfig.lineHeight;
+    if (appliedConfig.letterSpacing != null) comparisonConfig.letterSpacing = appliedConfig.letterSpacing;
+    if (appliedConfig.fontWeight) comparisonConfig.fontWeight = appliedConfig.fontWeight;
+    if (appliedConfig.fontStyle) comparisonConfig.fontStyle = appliedConfig.fontStyle;
+    if (appliedConfig.fontColor) comparisonConfig.fontColor = appliedConfig.fontColor;
+    if (appliedConfig.fontFaceRule) comparisonConfig.fontFaceRule = appliedConfig.fontFaceRule;
+
+    return comparisonConfig;
+}
+
+function buildThirdManInBatchChanges(types, domainData) {
+    const batchConfigs = {};
+    const cssJobs = [];
+
+    types.forEach(type => {
+        const panelState = getCurrentPanelState(type);
+        const sroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
+        const config = panelState.kind === 'font' ? panelState.config : null;
+        const appliedConfig = domainData[type];
+        const appliedSrouletteIntent = getSrouletteIntent(domainData, type);
+
+        console.log(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
+        console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
+
+        if (sroulettePool) {
+            const isDifferent = !!appliedConfig || !appliedSrouletteIntent || appliedSrouletteIntent.pool !== sroulettePool;
+            if (isDifferent) {
+                console.log(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
+                batchConfigs[type] = createSrouletteBatchIntent(sroulettePool);
+            } else {
+                console.log(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
+            }
+            return;
+        }
+
+        if (hasMeaningfulPanelConfig(config)) {
+            const appliedForComparison = buildAppliedComparisonConfig(appliedConfig);
+            const isDifferent = !configsEqual(config, appliedForComparison);
+
+            if (isDifferent) {
+                console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
+                console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
+                batchConfigs[type] = createFontBatchPayloadRequest(type, config);
+                cssJobs.push({
+                    type: type,
+                    fontName: config.fontName,
+                    config: config
+                });
+            } else {
+                console.log(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
+            }
+            return;
+        }
+
+        if (appliedConfig || appliedSrouletteIntent) {
+            console.log(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
+            batchConfigs[type] = null;
+        } else {
+            console.log(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
+        }
+    });
+
+    return { batchConfigs, cssJobs };
+}
+
 function clearSrouletteIntentFromEntry(entry, target) {
     if (!entry || !isSrouletteTarget(target)) return;
     if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
@@ -3075,7 +3160,6 @@ function setSrouletteSaveButtonsDisabled(position, disabled) {
             if (btn.dataset.affoOriginalTitle == null) btn.dataset.affoOriginalTitle = btn.getAttribute('title') || '';
             btn.disabled = true;
             btn.setAttribute('title', 'Save disabled while Sroulette is selected');
-            btn.classList.add('sroulette-save-disabled');
         } else {
             if (btn.dataset.affoOriginalDisabled != null) {
                 btn.disabled = btn.dataset.affoOriginalDisabled === 'true';
@@ -3085,7 +3169,6 @@ function setSrouletteSaveButtonsDisabled(position, disabled) {
             }
             delete btn.dataset.affoOriginalDisabled;
             delete btn.dataset.affoOriginalTitle;
-            btn.classList.remove('sroulette-save-disabled');
         }
     });
 }
@@ -5395,92 +5478,15 @@ function applyAllThirdManInFonts() {
             return Promise.resolve();
         }
 
-        // Step 1: Collect all font configs that need to be applied
-        const batchConfigs = {};
-        const cssJobs = [];
-        let appliedAny = false;
-
         console.log('applyAllThirdManInFonts: Collecting font configurations');
 
         // Get current applied state for comparison
         return getApplyMapForOrigin(origin).then(rawDomainData => {
             const domainData = rawDomainData || {};
+            const { batchConfigs, cssJobs } = buildThirdManInBatchChanges(types, domainData);
+            const changeCount = Object.keys(batchConfigs).length;
 
-            types.forEach(type => {
-                const panelState = getCurrentPanelState(type);
-                const sroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
-                const config = panelState.kind === 'font' ? panelState.config : null;
-                const appliedConfig = domainData[type];
-                const appliedSrouletteIntent = getSrouletteIntent(domainData, type);
-
-                console.log(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
-                console.log(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
-
-                if (sroulettePool) {
-                    const isDifferent = !!appliedConfig || !appliedSrouletteIntent || appliedSrouletteIntent.pool !== sroulettePool;
-                    if (isDifferent) {
-                        console.log(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
-                        batchConfigs[type] = createSrouletteBatchIntent(sroulettePool);
-                        appliedAny = true;
-                    } else {
-                        console.log(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
-                    }
-                    return;
-                }
-
-                // Check if config has any meaningful properties
-                const hasValidConfig = config && (config.fontName || config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor);
-
-                if (hasValidConfig) {
-                    // Convert applied config to same format for comparison
-                    const appliedForComparison = appliedConfig ? {
-                        fontName: appliedConfig.fontName || null,
-                        variableAxes: appliedConfig.variableAxes || {}  // Keep fallback for old storage
-                    } : null;
-
-                    if (appliedConfig && appliedForComparison) {
-                        if (appliedConfig.fontSize) appliedForComparison.fontSize = appliedConfig.fontSize;
-                        if (appliedConfig.lineHeight) appliedForComparison.lineHeight = appliedConfig.lineHeight;
-                        if (appliedConfig.letterSpacing != null) appliedForComparison.letterSpacing = appliedConfig.letterSpacing;
-                        if (appliedConfig.fontWeight) appliedForComparison.fontWeight = appliedConfig.fontWeight;
-                        if (appliedConfig.fontStyle) appliedForComparison.fontStyle = appliedConfig.fontStyle;
-                        if (appliedConfig.fontColor) appliedForComparison.fontColor = appliedConfig.fontColor;
-                        if (appliedConfig.fontFaceRule) appliedForComparison.fontFaceRule = appliedConfig.fontFaceRule;
-                    }
-
-                    // Only apply if config is different from what's already applied
-                    const isDifferent = !configsEqual(config, appliedForComparison);
-
-                    if (isDifferent) {
-                        console.log(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
-                        console.log(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
-                        // Use buildPayload to strip fontFaceRule/css2Url before saving
-                        batchConfigs[type] = createFontBatchPayloadRequest(type, config);
-                        appliedAny = true;
-
-                        // Prepare CSS/font loading jobs (but don't execute yet)
-                        cssJobs.push({
-                            type: type,
-                            fontName: config.fontName,
-                            config: config
-                        });
-                    } else {
-                        console.log(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
-                        // Don't include unchanged types in batchConfigs - they should remain as-is
-                    }
-                } else {
-                    // No valid config - clear/unset this type in the batch write
-                    if (appliedConfig || appliedSrouletteIntent) {
-                        console.log(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
-                        batchConfigs[type] = null; // Explicitly clear
-                        appliedAny = true;
-                    } else {
-                        console.log(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
-                    }
-                }
-            });
-
-            if (!appliedAny) {
+            if (changeCount === 0) {
                 console.log('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
                 return Promise.resolve();
             }
@@ -5601,7 +5607,7 @@ function applyAllThirdManInFonts() {
         }).then(() => {
                 // Step 5: Update UI state
                 saveExtensionState();
-                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', Object.keys(batchConfigs).length);
+                console.log('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', changeCount);
             });
         });
     });

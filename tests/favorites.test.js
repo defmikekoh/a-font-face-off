@@ -6,6 +6,7 @@ const {
     getAvailableSrouletteFavoriteEntriesFromData,
     getValidSroulettePoolInfoFromData,
     normalizeFavoriteSearch,
+    showSaveModal,
     srouletteFavoriteMatchesSearch,
 } = require('../src/favorites.js');
 
@@ -85,4 +86,29 @@ test('srouletteFavoriteMatchesSearch matches labels and roulette terms', () => {
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'sroulette'), true);
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'substack'), true);
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'sans'), false);
+});
+
+test('showSaveModal is blocked while Sroulette is selected', () => {
+    const previousGetCurrentPanelState = global.getCurrentPanelState;
+    const previousDocument = global.document;
+    let documentTouched = false;
+
+    global.getCurrentPanelState = () => ({ kind: 'sroulette', pool: 'serif' });
+    global.document = {
+        getElementById() {
+            documentTouched = true;
+            throw new Error('Sroulette save guard should return before modal DOM access');
+        }
+    };
+
+    try {
+        showSaveModal('serif');
+        assert.equal(documentTouched, false);
+    } finally {
+        if (previousGetCurrentPanelState === undefined) delete global.getCurrentPanelState;
+        else global.getCurrentPanelState = previousGetCurrentPanelState;
+
+        if (previousDocument === undefined) delete global.document;
+        else global.document = previousDocument;
+    }
 });
