@@ -18,7 +18,7 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/popup-panel-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
@@ -99,6 +99,8 @@ export default [
                 affoBuildCss2UrlFromMetadata: "readonly",
                 // From sroulette-utils.js
                 AFFOSroulette: "readonly",
+                // From popup-panel-utils.js
+                AFFOPopupPanelUtils: "readonly",
                 // From content-sroulette-runtime.js
                 AFFOContentSroulette: "readonly",
                 // From background-font-runtime.js
@@ -277,6 +279,34 @@ export default [
                 caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
             }],
             "no-console": "off",
+        },
+    },
+
+    // popup-panel-utils.js — popup panel state, Sroulette, and Apply All planning helpers
+    {
+        files: ["src/popup-panel-utils.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
+                module: "readonly",
+                Set: "readonly",
+                Object: "readonly",
+                Array: "readonly",
+                Number: "readonly",
+                AFFOSroulette: "readonly",
+                normalizeConfig: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+            "no-unused-vars": ["warn", {
+                argsIgnorePattern: "^_",
+                varsIgnorePattern: "^_",
+                caughtErrorsIgnorePattern: "^_|^e$|^err$|^error$",
+            }],
         },
     },
 

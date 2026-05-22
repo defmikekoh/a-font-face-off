@@ -23,20 +23,10 @@ const panelStates = {
 
 affoDebugLog('🔧 Initial panelStates:', panelStates);
 
-const MODE_CONFIG = {
-    'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
-    'faceoff': { positions: ['top', 'bottom'], stateKeys: { top: 'topFont', bottom: 'bottomFont' }, useDomain: false },
-    'third-man-in': { positions: ['serif', 'sans', 'mono'], stateKeys: { serif: 'serifFont', sans: 'sansFont', mono: 'monoFont' }, useDomain: true }
-};
+const MODE_CONFIG = AFFOPopupPanelUtils.MODE_CONFIG;
 
 function getPanelLabel(position) {
-    if (position === 'body') return 'Body';
-    if (position === 'top') return 'Top';
-    if (position === 'bottom') return 'Bottom';
-    if (position === 'serif') return 'Serif';
-    if (position === 'sans') return 'Sans';
-    if (position === 'mono') return 'Mono';
-    return position; // fallback
+    return AFFOPopupPanelUtils.getPanelLabel(position);
 }
 
 // getSiteSpecificRules is now in css-generators.js
@@ -1259,93 +1249,7 @@ async function updateBodyButtonsImmediate() {
 
 // Helper function to compare font configurations
 function configsEqual(config1, config2) {
-    config1 = normalizeConfig(config1);
-    config2 = normalizeConfig(config2);
-
-    // Handle null/undefined cases - both null means both are "empty/unset"
-    if (!config1 && !config2) return true;
-    // One is null/undefined and the other isn't - they're different
-    if (!config1 || !config2) return false;
-
-    // Compare font name (null and undefined are treated as equal)
-    const font1 = config1.fontName || null;
-    const font2 = config2.fontName || null;
-    if (font1 !== font2) return false;
-
-    // Handle different config formats:
-    // - config1: current flattened format
-    // - config2: applied format with direct properties (fontWeight, fontSizePx, lineHeight)
-
-    // Compare active controls first - if they differ, configs are different
-    const activeControls1 = getActiveControlsFromConfig(config1);
-    const activeControls2 = getActiveControlsFromConfig(config2);
-
-    // Check if active control sets are equal
-    if (activeControls1.size !== activeControls2.size) return false;
-    for (const control of activeControls1) {
-        if (!activeControls2.has(control)) return false;
-    }
-
-    // Only compare values for active controls
-    if (activeControls1.has('font-size')) {
-        const fontSize1 = Number(config1.fontSize);
-        const fontSize2 = Number(config2.fontSize);
-        if (fontSize1 !== fontSize2) return false;
-    }
-
-    if (activeControls1.has('line-height')) {
-        const lineHeight1 = Number(config1.lineHeight);
-        const lineHeight2 = Number(config2.lineHeight);
-        if (lineHeight1 !== lineHeight2) return false;
-    }
-
-    if (activeControls1.has('letter-spacing')) {
-        const ls1 = Number(config1.letterSpacing);
-        const ls2 = Number(config2.letterSpacing);
-        if (ls1 !== ls2) return false;
-    }
-
-    if (activeControls1.has('weight')) {
-        const fontWeight1 = Number(config1.fontWeight);
-        const fontWeight2 = Number(config2.fontWeight);
-        if (fontWeight1 !== fontWeight2) return false;
-    }
-
-    if (activeControls1.has('style')) {
-        if (config1.fontStyle !== config2.fontStyle) return false;
-    }
-
-    if (activeControls1.has('color')) {
-        const fontColor1 = config1.fontColor;
-        const fontColor2 = config2.fontColor;
-        if (fontColor1 !== fontColor2) return false;
-    }
-
-    // Compare variable axes
-    const currentAxes = config1.variableAxes;
-    const currentActiveAxes = getActiveAxesFromVariableAxes(currentAxes);
-
-    // Compare variable axes (using variableAxes format only)
-    const appliedAxes = config2.variableAxes;
-    const appliedActiveAxes = getActiveAxesFromVariableAxes(appliedAxes);
-
-
-    // Check if active axes sets are equal
-    if (currentActiveAxes.size !== appliedActiveAxes.size) {
-        return false;
-    }
-    for (const axis of currentActiveAxes) {
-        if (!appliedActiveAxes.has(axis)) return false;
-    }
-
-    // Compare values for active axes
-    for (const axis of currentActiveAxes) {
-        const currentValue = Number(currentAxes[axis]);
-        const appliedValue = Number(appliedAxes[axis]);
-        if (currentValue !== appliedValue) return false;
-    }
-
-    return true;
+    return AFFOPopupPanelUtils.configsEqual(config1, config2);
 }
 
 // Font settings memory - stores settings for each font
@@ -1461,18 +1365,7 @@ async function saveExtensionStateImmediate() {
 
 // Helper functions to derive active controls and axes from data structures
 function getActiveControlsFromConfig(config) {
-    const active = new Set();
-    if (config && config.fontSize !== null && config.fontSize !== undefined) active.add('font-size');
-    if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
-    if (config && config.letterSpacing != null) active.add('letter-spacing');
-    if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
-    if (config && config.fontStyle === 'italic') active.add('style');
-    if (config && config.fontColor && config.fontColor !== 'default') active.add('color');
-    return active;
-}
-
-function getActiveAxesFromVariableAxes(variableAxes) {
-    return new Set(Object.keys(variableAxes));
+    return AFFOPopupPanelUtils.getActiveControlsFromConfig(config);
 }
 
 function getActiveControlsFromUI(position) {
@@ -2992,150 +2885,56 @@ async function migrateRemoveDuplicatedFields() {
 }
 
 // Position display names for panel headings
-const PANEL_HEADINGS = {
-    top: 'Top Font', bottom: 'Bottom Font',
-    serif: 'Serif', sans: 'Sans', mono: 'Mono'
-};
+const PANEL_HEADINGS = AFFOPopupPanelUtils.PANEL_HEADINGS;
 // TMI positions get "Apply All" / "Reset All" button text
-const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
-const SROULETTE_TARGET_LIST = AFFOSroulette.TARGET_LIST;
-const SROULETTE_TMI_TARGET_LIST = AFFOSroulette.TMI_TARGET_LIST;
+const TMI_POSITIONS = new Set(AFFOPopupPanelUtils.TMI_POSITIONS);
 
 function isSroulettePool(value) {
-    return AFFOSroulette.isPool(value);
+    return AFFOPopupPanelUtils.isSroulettePool(value);
 }
 
 function isSrouletteTarget(value) {
-    return AFFOSroulette.isTarget(value);
+    return AFFOPopupPanelUtils.isSrouletteTarget(value);
 }
 
 function getSrouletteIntent(domainData, target) {
-    return AFFOSroulette.getIntent(domainData, target);
-}
-
-function hasSrouletteIntent(domainData, positions = SROULETTE_TARGET_LIST) {
-    return AFFOSroulette.hasIntent(domainData, positions);
+    return AFFOPopupPanelUtils.getSrouletteIntent(domainData, target);
 }
 
 function hasTmiSrouletteIntent(domainData) {
-    return hasSrouletteIntent(domainData, SROULETTE_TMI_TARGET_LIST);
+    return AFFOPopupPanelUtils.hasTmiSrouletteIntent(domainData);
 }
 
 function hasBodySrouletteIntent(domainData) {
-    return !!getSrouletteIntent(domainData, 'body');
+    return AFFOPopupPanelUtils.hasBodySrouletteIntent(domainData);
 }
 
 function getSrouletteLabel(pool) {
-    return AFFOSroulette.getPoolLabel(pool);
-}
-
-function createSrouletteBatchIntent(pool) {
-    return AFFOSroulette.createBatchIntent(pool);
+    return AFFOPopupPanelUtils.getSrouletteLabel(pool);
 }
 
 function isSrouletteBatchIntent(config) {
-    return AFFOSroulette.isBatchIntent(config);
-}
-
-function createFontBatchPayloadRequest(target, config) {
-    return { kind: 'fontPayloadRequest', target, config };
+    return AFFOPopupPanelUtils.isSrouletteBatchIntent(config);
 }
 
 function isFontBatchPayloadRequest(config) {
-    return !!(config && config.kind === 'fontPayloadRequest' && config.target && config.config);
-}
-
-function hasMeaningfulPanelConfig(config) {
-    return !!(config && (
-        config.fontName ||
-        config.fontSize ||
-        config.fontWeight ||
-        config.fontStyle ||
-        config.lineHeight ||
-        config.letterSpacing != null ||
-        config.fontColor
-    ));
-}
-
-function buildAppliedComparisonConfig(appliedConfig) {
-    if (!appliedConfig) return null;
-    const comparisonConfig = {
-        fontName: appliedConfig.fontName || null,
-        variableAxes: appliedConfig.variableAxes || {}  // Keep fallback for old storage
-    };
-
-    if (appliedConfig.fontSize) comparisonConfig.fontSize = appliedConfig.fontSize;
-    if (appliedConfig.lineHeight) comparisonConfig.lineHeight = appliedConfig.lineHeight;
-    if (appliedConfig.letterSpacing != null) comparisonConfig.letterSpacing = appliedConfig.letterSpacing;
-    if (appliedConfig.fontWeight) comparisonConfig.fontWeight = appliedConfig.fontWeight;
-    if (appliedConfig.fontStyle) comparisonConfig.fontStyle = appliedConfig.fontStyle;
-    if (appliedConfig.fontColor) comparisonConfig.fontColor = appliedConfig.fontColor;
-    if (appliedConfig.fontFaceRule) comparisonConfig.fontFaceRule = appliedConfig.fontFaceRule;
-
-    return comparisonConfig;
+    return AFFOPopupPanelUtils.isFontBatchPayloadRequest(config);
 }
 
 function buildThirdManInBatchChanges(types, domainData) {
-    const batchConfigs = {};
-    const cssJobs = [];
-
-    types.forEach(type => {
-        const panelState = getCurrentPanelState(type);
-        const sroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
-        const config = panelState.kind === 'font' ? panelState.config : null;
-        const appliedConfig = domainData[type];
-        const appliedSrouletteIntent = getSrouletteIntent(domainData, type);
-
-        affoDebugLog(`applyAllThirdManInFonts: Processing ${type} - config:`, config);
-        affoDebugLog(`applyAllThirdManInFonts: Processing ${type} - appliedConfig:`, appliedConfig);
-
-        if (sroulettePool) {
-            const isDifferent = !!appliedConfig || !appliedSrouletteIntent || appliedSrouletteIntent.pool !== sroulettePool;
-            if (isDifferent) {
-                affoDebugLog(`applyAllThirdManInFonts: Will set ${type} Sroulette intent:`, sroulettePool);
-                batchConfigs[type] = createSrouletteBatchIntent(sroulettePool);
-            } else {
-                affoDebugLog(`applyAllThirdManInFonts: ${type} Sroulette unchanged - no action needed`);
-            }
-            return;
-        }
-
-        if (hasMeaningfulPanelConfig(config)) {
-            const appliedForComparison = buildAppliedComparisonConfig(appliedConfig);
-            const isDifferent = !configsEqual(config, appliedForComparison);
-
-            if (isDifferent) {
-                affoDebugLog(`applyAllThirdManInFonts: Will set ${type} (has changes):`, config);
-                affoDebugLog(`applyAllThirdManInFonts: ${type} applied state:`, appliedForComparison);
-                batchConfigs[type] = createFontBatchPayloadRequest(type, config);
-                cssJobs.push({
-                    type: type,
-                    fontName: config.fontName,
-                    config: config
-                });
-            } else {
-                affoDebugLog(`applyAllThirdManInFonts: ${type} unchanged - no action needed`);
-            }
-            return;
-        }
-
-        if (appliedConfig || appliedSrouletteIntent) {
-            affoDebugLog(`applyAllThirdManInFonts: Will unset ${type} - no valid config`);
-            batchConfigs[type] = null;
-        } else {
-            affoDebugLog(`applyAllThirdManInFonts: ${type} already unset - no change needed`);
-        }
+    return AFFOPopupPanelUtils.buildThirdManInBatchChanges(types, domainData, {
+        getPanelState: getCurrentPanelState,
+        configsEqual: configsEqual,
+        log: affoDebugLog
     });
-
-    return { batchConfigs, cssJobs };
 }
 
 function clearSrouletteIntentFromEntry(entry, target) {
-    AFFOSroulette.clearIntent(entry, target);
+    AFFOPopupPanelUtils.clearSrouletteIntentFromEntry(entry, target);
 }
 
 function setSrouletteIntentOnEntry(entry, target, pool) {
-    return AFFOSroulette.setIntent(entry, target, pool);
+    return AFFOPopupPanelUtils.setSrouletteIntentOnEntry(entry, target, pool);
 }
 
 function setSrouletteSaveButtonsDisabled(position, disabled) {
@@ -5668,7 +5467,6 @@ function applyAllThirdManInFonts() {
 function countThirdManInDifferences() {
     affoDebugLog('countThirdManInDifferences: Starting count');
     const types = ['serif', 'sans', 'mono'];
-    let changeCount = 0;
 
     return getActiveOrigin().then(origin => {
         affoDebugLog('countThirdManInDifferences: Origin:', origin);
@@ -5676,122 +5474,19 @@ function countThirdManInDifferences() {
         // Check each type individually in Third Man In mode
         // Use the consolidated storage system
         return getApplyMapForOrigin(origin).then(domainData => {
-            const appliedSerif = domainData ? domainData.serif : null;
-            const appliedSans = domainData ? domainData.sans : null;
-            const appliedMono = domainData ? domainData.mono : null;
-            const appliedSroulette = hasTmiSrouletteIntent(domainData);
-
-            affoDebugLog('countThirdManInDifferences: Applied configs:', {
-                serif: appliedSerif,
-                sans: appliedSans,
-                mono: appliedMono
+            const changeCount = AFFOPopupPanelUtils.countThirdManInDifferences(types, domainData || {}, {
+                getPanelState: getCurrentPanelState,
+                configsEqual: configsEqual
             });
-
-            // Also check if Body mode has applied fonts (which affects all types)
-            const appliedBody = domainData ? domainData.body : null;
-            affoDebugLog('countThirdManInDifferences: Applied body:', appliedBody);
-
-            // Check if domain has any applied fonts (from either mode)
-            const domainHasAppliedFonts = appliedSerif || appliedSans || appliedMono || appliedBody || appliedSroulette;
-            affoDebugLog('countThirdManInDifferences: domainHasAppliedFonts:', domainHasAppliedFonts);
-
-            // Check if current settings have any non-defaults
-            let currentHasNonDefaults = false;
-
-            for (const type of types) {
-                const panelState = getCurrentPanelState(type);
-                const currentSroulettePool = panelState.kind === 'sroulette' ? panelState.pool : null;
-                const current = panelState.kind === 'font' ? panelState.config : null;
-                const applied = domainData ? domainData[type] : null;
-                const srouletteApplied = getSrouletteIntent(domainData, type);
-
-                // Font is considered default/unset if config is missing or has no meaningful properties
-                const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
-
-                affoDebugLog(`countThirdManInDifferences: ${type} current:`, current);
-                affoDebugLog(`countThirdManInDifferences: ${type} applied:`, applied);
-                affoDebugLog(`countThirdManInDifferences: ${type} isDefaultFont:`, isDefaultFont);
-
-                // Check if current state differs from applied state
-                let isDifferent = false;
-
-                if (currentSroulettePool) {
-                    isDifferent = !!applied || !srouletteApplied || srouletteApplied.pool !== currentSroulettePool;
-                    currentHasNonDefaults = true;
-                } else if (isDefaultFont) {
-                    // Current is default - difference only if something is applied
-                    isDifferent = !!applied || srouletteApplied;
-                } else {
-                    // Current is non-default - difference if nothing applied or different config applied
-                    if (srouletteApplied) {
-                        isDifferent = true;
-                    } else if (!applied) {
-                        isDifferent = true;
-                    } else {
-                        // Convert applied payload back to flattened config format for comparison
-                        const appliedConfig = applied ? {
-                            fontName: applied.fontName || null,
-                            variableAxes: applied.variableAxes || {}  // Keep fallback for old storage
-                        } : null;
-
-                        // Add flattened basic control properties (only if they exist)
-                        if (applied && appliedConfig) {
-                            if (applied.fontSize) appliedConfig.fontSize = applied.fontSize;
-                            if (applied.lineHeight) appliedConfig.lineHeight = applied.lineHeight;
-                            if (applied.letterSpacing != null) appliedConfig.letterSpacing = applied.letterSpacing;
-                            if (applied.fontWeight) appliedConfig.fontWeight = applied.fontWeight;
-                            if (applied.fontStyle) appliedConfig.fontStyle = applied.fontStyle;
-                            if (applied.fontColor) appliedConfig.fontColor = applied.fontColor;
-                            if (applied.fontFaceRule) appliedConfig.fontFaceRule = applied.fontFaceRule;
-                        }
-
-                        // Use same comparison logic as body mode
-                        isDifferent = !configsEqual(current, appliedConfig);
-                    }
-                    currentHasNonDefaults = true;
-                }
-
-                if (isDifferent) {
-                    changeCount++;
-                    affoDebugLog(`countThirdManInDifferences: ${type} differs - current: ${current?.fontName}, applied: ${applied?.fontName}, changeCount now:`, changeCount);
-                } else {
-                    affoDebugLog(`countThirdManInDifferences: ${type} matches - no change needed`);
-                }
-            }
-
-            affoDebugLog('countThirdManInDifferences: currentHasNonDefaults:', currentHasNonDefaults);
-            affoDebugLog('countThirdManInDifferences: changeCount before special case:', changeCount);
-
-            // Special case: if domain has applied fonts but current is all defaults,
-            // that's one change (clearing all fonts)
-            if (domainHasAppliedFonts && !currentHasNonDefaults) {
-                affoDebugLog('countThirdManInDifferences: Special case - domain has fonts but current is all defaults');
-                changeCount = 1;
-            }
-
             affoDebugLog('countThirdManInDifferences: Final changeCount:', changeCount);
             return changeCount;
         });
     }).catch(error => {
         console.error('Error counting differences:', error);
-        // Fallback to simple logic
-        for (const type of types) {
-            const panelState = getCurrentPanelState(type);
-            if (panelState.kind === 'sroulette') {
-                changeCount++;
-                continue;
-            }
-
-            const current = panelState.kind === 'font' ? panelState.config : null;
-
-            // Font is considered default/unset if config is missing or has no meaningful properties
-            const isDefaultFont = !current || (!current.fontName && !current.fontSize && !current.fontWeight && !current.fontStyle && !current.lineHeight && current.letterSpacing == null && !current.fontColor);
-
-            if (!isDefaultFont) {
-                changeCount++;
-            }
-        }
-        return changeCount;
+        return AFFOPopupPanelUtils.countThirdManInDifferences(types, {}, {
+            getPanelState: getCurrentPanelState,
+            configsEqual: configsEqual
+        });
     });
 }
 

@@ -27,6 +27,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 |---|---|
 | `src/config-utils.js` | Pure logic functions shared between popup.js and Node tests |
 | `src/sroulette-utils.js` | Shared Substack Roulette helpers for pools, targets, intent storage, and pseudo-favorite metadata |
+| `src/popup-panel-utils.js` | Popup panel state, Sroulette comparison, and Apply All planning helpers |
 | `src/popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
 | `src/popup.html` / `src/popup.css` | Extension popup markup and styles |
 | `src/content.js` | Injected into pages; font application, element walker, SPA resilience |

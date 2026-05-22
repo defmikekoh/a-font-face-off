@@ -2,6 +2,9 @@
 
 ## Storage Operations
 
+### Panel Helper Module
+`popup-panel-utils.js` owns the pure popup panel helpers: `MODE_CONFIG`, panel labels/headings, Sroulette intent wrappers, config equality, applied-state comparison, Third Man In difference counting, and Apply All batch-change planning. `popup.js` keeps DOM reads/writes, browser storage, CSS injection, and event binding.
+
 ### Centralized Storage Functions
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
@@ -66,7 +69,7 @@ Per-panel font setting history, not persisted to storage. Remembers axis/control
 ## Mode Architecture
 
 ### `MODE_CONFIG` constant
-Data-driven mode metadata used by `saveExtensionStateImmediate`, `performModeSwitch`, and `modeHasAppliedSettings` instead of per-mode if/else branches.
+Data-driven mode metadata defined in `popup-panel-utils.js` and used by `saveExtensionStateImmediate`, `performModeSwitch`, and `modeHasAppliedSettings` instead of per-mode if/else branches.
 ```javascript
 {
     'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
