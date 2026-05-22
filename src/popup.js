@@ -3007,9 +3007,9 @@ function isSrouletteTarget(value) {
     return SROULETTE_TARGETS.has(value);
 }
 
-function getSrouletteIntent(domainData, fontType) {
-    if (!domainData || !isSrouletteTarget(fontType)) return null;
-    const intent = domainData.sroulette && domainData.sroulette[fontType];
+function getSrouletteIntent(domainData, target) {
+    if (!domainData || !isSrouletteTarget(target)) return null;
+    const intent = domainData.sroulette && domainData.sroulette[target];
     if (!intent || !isSroulettePool(intent.pool)) return null;
     return intent;
 }
@@ -4400,13 +4400,13 @@ function saveApplyMapForOrigin(origin, fontType, config) {
     });
 }
 
-function saveSrouletteApplyMapForOrigin(origin, fontType, pool) {
-    console.log(`🟢 saveSrouletteApplyMapForOrigin: Saving Sroulette intent - origin: ${origin}, fontType: ${fontType}, pool: ${pool}`);
-    if (!origin || !isSrouletteTarget(fontType) || !isSroulettePool(pool)) return Promise.resolve(false);
+function saveSrouletteApplyMapForOrigin(origin, target, pool) {
+    console.log(`🟢 saveSrouletteApplyMapForOrigin: Saving Sroulette intent - origin: ${origin}, target: ${target}, pool: ${pool}`);
+    if (!origin || !isSrouletteTarget(target) || !isSroulettePool(pool)) return Promise.resolve(false);
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
         if (!applyMap[origin]) applyMap[origin] = {};
-        if (!setSrouletteIntentOnEntry(applyMap[origin], fontType, pool)) {
+        if (!setSrouletteIntentOnEntry(applyMap[origin], target, pool)) {
             return false;
         }
         return browser.storage.local.set({ affoApplyMap: applyMap }).then(() => true);
@@ -4416,15 +4416,15 @@ function saveSrouletteApplyMapForOrigin(origin, fontType, pool) {
     });
 }
 
-// Batch version: save multiple font targets in a single storage write (for Apply All)
-function saveBatchApplyMapForOrigin(origin, batchConfigs) {
-    console.log(`🟢 saveBatchApplyMapForOrigin: Batch saving to domain storage - origin: ${origin}, batchConfigs:`, batchConfigs);
+// Batch version: save multiple font targets or Sroulette intents in a single storage write (for Apply All)
+function saveBatchApplyStateForOrigin(origin, batchConfigs) {
+    console.log(`🟢 saveBatchApplyStateForOrigin: Batch saving to domain storage - origin: ${origin}, batchConfigs:`, batchConfigs);
     if (!origin || !batchConfigs || Object.keys(batchConfigs).length === 0) return Promise.resolve();
 
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
         const applyMap = (data && data.affoApplyMap) ? data.affoApplyMap : {};
-        console.log(`🟢 saveBatchApplyMapForOrigin: Current applyMap before batch save:`, applyMap);
+        console.log(`🟢 saveBatchApplyStateForOrigin: Current applyMap before batch save:`, applyMap);
 
         if (!applyMap[origin]) applyMap[origin] = {};
 
@@ -4432,23 +4432,23 @@ function saveBatchApplyMapForOrigin(origin, batchConfigs) {
         Object.entries(batchConfigs).forEach(([target, config]) => {
             if (isSrouletteBatchIntent(config)) {
                 setSrouletteIntentOnEntry(applyMap[origin], target, config.pool);
-                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${target} Sroulette intent:`, config.pool);
+                console.log(`🟢 saveBatchApplyStateForOrigin: Added ${target} Sroulette intent:`, config.pool);
             } else if (config) {
                 applyMap[origin][target] = config;
                 clearSrouletteIntentFromEntry(applyMap[origin], target);
-                console.log(`🟢 saveBatchApplyMapForOrigin: Added ${target} config:`, config);
+                console.log(`🟢 saveBatchApplyStateForOrigin: Added ${target} config:`, config);
             } else {
                 delete applyMap[origin][target];
                 clearSrouletteIntentFromEntry(applyMap[origin], target);
             }
         });
 
-        console.log(`🟢 saveBatchApplyMapForOrigin: New applyMap after batch save:`, applyMap);
+        console.log(`🟢 saveBatchApplyStateForOrigin: New applyMap after batch save:`, applyMap);
         return browser.storage.local.set({ affoApplyMap: applyMap });
     }).then(() => {
-        console.log(`🟢 saveBatchApplyMapForOrigin: Successfully batch saved to domain storage`);
+        console.log(`🟢 saveBatchApplyStateForOrigin: Successfully batch saved to domain storage`);
     }).catch(e => {
-        console.error(`❌ saveBatchApplyMapForOrigin: Error batch saving to domain storage:`, e);
+        console.error(`❌ saveBatchApplyStateForOrigin: Error batch saving to domain storage:`, e);
     });
 }
 
@@ -5498,7 +5498,7 @@ function applyAllThirdManInFonts() {
 
                 // Step 2b: SINGLE batch storage write for all fonts (now with clean payloads)
                 console.log('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
-                return saveBatchApplyMapForOrigin(origin, payloadConfigs);
+                return saveBatchApplyStateForOrigin(origin, payloadConfigs);
             }).then(() => {
 
             // Step 3: Clean up any existing CSS for all types before applying new CSS

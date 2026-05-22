@@ -5,12 +5,12 @@
 ### Centralized Storage Functions
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
-- `saveSrouletteApplyMapForOrigin(origin, fontType, pool)`: Save a non-Substack Sroulette intent for `body`, `serif`, or `sans` without resolving the sampled font
-- `saveBatchApplyMapForOrigin(origin, batchConfigs)`: Batch save multiple font targets or Sroulette intents in single storage write (used by Apply All)
+- `saveSrouletteApplyMapForOrigin(origin, target, pool)`: Save a non-Substack Sroulette intent for `body`, `serif`, or `sans` without resolving the sampled font
+- `saveBatchApplyStateForOrigin(origin, batchConfigs)`: Batch save multiple font targets or Sroulette intents in single storage write (used by Apply All)
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 ### Storage Access Patterns
-- **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
+- **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyStateForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
 - **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and supported TMI panels when the corresponding Substack Roulette pool has at least one valid favorite. Clicking one marks the panel; Apply writes only Sroulette intent. Save is disabled while a panel is showing Sroulette because the synced state is the Sroulette intent, not the sampled font.
 - **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
 - **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
@@ -105,4 +105,4 @@ Unified panel toggle for all modes. For face-off panels (top/bottom): manages gr
 
 ## Font Application
 
-- `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyMapForOrigin()` (1 storage write instead of N) with parallel CSS application
+- `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyStateForOrigin()` (1 storage write instead of N) with parallel CSS application

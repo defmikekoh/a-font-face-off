@@ -248,12 +248,20 @@ function jsonEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+const SROULETTE_POOLS = new Set(['serif', 'sans']);
+const SROULETTE_TARGETS = new Set(['body', 'serif', 'sans']);
+const SROULETTE_CSS_TARGETS = new Set(['serif', 'sans']);
+
 function isSroulettePool(value) {
-  return value === 'serif' || value === 'sans';
+  return SROULETTE_POOLS.has(value);
 }
 
 function isSrouletteTarget(value) {
-  return value === 'body' || value === 'serif' || value === 'sans';
+  return SROULETTE_TARGETS.has(value);
+}
+
+function isSrouletteCssTarget(value) {
+  return SROULETTE_CSS_TARGETS.has(value);
 }
 
 function clearSrouletteIntentForTarget(entry, target) {
@@ -281,17 +289,17 @@ function hasSrouletteIntentForTarget(entry, target) {
   return !!(intent && isSroulettePool(intent.pool));
 }
 
-async function removeTrackedSrouletteCss(tabId, fontTypes) {
+async function removeTrackedSrouletteCss(tabId, targets) {
   if (tabId == null) return;
   const tracked = srouletteInsertedCssByTab.get(tabId);
   if (!tracked) return;
 
-  const types = Array.isArray(fontTypes) && fontTypes.length
-    ? fontTypes.filter(isSroulettePool)
-    : Object.keys(tracked).filter(isSroulettePool);
+  const trackedTargets = Array.isArray(targets) && targets.length
+    ? targets.filter(isSrouletteCssTarget)
+    : Object.keys(tracked).filter(isSrouletteCssTarget);
 
-  for (const fontType of types) {
-    const css = tracked[fontType];
+  for (const target of trackedTargets) {
+    const css = tracked[target];
     if (!css) continue;
     for (const cssOrigin of ['author', 'user']) {
       try {
@@ -300,7 +308,7 @@ async function removeTrackedSrouletteCss(tabId, fontTypes) {
         console.log('[AFFO Background] Sroulette removeCSS note:', e.message);
       }
     }
-    delete tracked[fontType];
+    delete tracked[target];
   }
 
   if (!tracked.serif && !tracked.sans) {
@@ -308,12 +316,12 @@ async function removeTrackedSrouletteCss(tabId, fontTypes) {
   }
 }
 
-async function insertTrackedSrouletteCss(tabId, fontType, css) {
-  if (tabId == null || !isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) {
+async function insertTrackedSrouletteCss(tabId, target, css) {
+  if (tabId == null || !isSrouletteCssTarget(target) || typeof css !== 'string' || !css.trim()) {
     return false;
   }
 
-  await removeTrackedSrouletteCss(tabId, [fontType]);
+  await removeTrackedSrouletteCss(tabId, [target]);
   await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'author' });
   await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
 
@@ -322,7 +330,7 @@ async function insertTrackedSrouletteCss(tabId, fontType, css) {
     tracked = {};
     srouletteInsertedCssByTab.set(tabId, tracked);
   }
-  tracked[fontType] = css;
+  tracked[target] = css;
   return true;
 }
 
@@ -2572,13 +2580,13 @@ async function handleAffoRuntimeMessage(msg, sender) {
     if (msg.type === 'affoInsertSrouletteCss') {
       try {
         const tabId = sender.tab ? sender.tab.id : null;
-        const { fontType, css } = msg;
+        const { fontType: target, css } = msg;
 
-        if (tabId == null || !isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) {
+        if (tabId == null || !isSrouletteCssTarget(target) || typeof css !== 'string' || !css.trim()) {
           return { success: false, error: 'Missing required parameters' };
         }
 
-        const inserted = await insertTrackedSrouletteCss(tabId, fontType, css);
+        const inserted = await insertTrackedSrouletteCss(tabId, target, css);
         return inserted ? { success: true } : { success: false, error: 'Invalid Sroulette CSS request' };
       } catch (e) {
         console.error('[AFFO Background] Sroulette CSS injection failed:', e);
@@ -2590,8 +2598,8 @@ async function handleAffoRuntimeMessage(msg, sender) {
       try {
         const tabId = sender.tab ? sender.tab.id : null;
         if (tabId == null) return { success: false, error: 'Missing tab' };
-        const fontTypes = Array.isArray(msg.fontTypes) ? msg.fontTypes.filter(isSroulettePool) : null;
-        await removeTrackedSrouletteCss(tabId, fontTypes);
+        const targets = Array.isArray(msg.fontTypes) ? msg.fontTypes.filter(isSrouletteCssTarget) : null;
+        await removeTrackedSrouletteCss(tabId, targets);
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Sroulette CSS cleanup failed:', e);

@@ -72,6 +72,10 @@
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
+  var SROULETTE_POOLS = ['serif', 'sans'];
+  var SROULETTE_TARGETS = ['body', 'serif', 'sans'];
+  var SROULETTE_CSS_TARGETS = ['serif', 'sans'];
+  var SROULETTE_RESOLVED_TARGETS_KEY = '__affoSrouletteResolved';
 
   // Inline observer thresholds: only reapply on meaningful content additions
   var INLINE_REAPPLY_DEBOUNCE_MS = 250;
@@ -99,22 +103,28 @@
   }
 
   function isSroulettePool(value) {
-    return value === 'serif' || value === 'sans';
+    return SROULETTE_POOLS.indexOf(value) !== -1;
   }
 
   function isSrouletteTarget(value) {
-    return value === 'body' || value === 'serif' || value === 'sans';
+    return SROULETTE_TARGETS.indexOf(value) !== -1;
   }
 
-  function getSrouletteIntent(entry, fontType) {
-    if (!entry || !isSrouletteTarget(fontType)) return null;
-    var intent = entry.sroulette && entry.sroulette[fontType];
+  function isSrouletteCssTarget(value) {
+    return SROULETTE_CSS_TARGETS.indexOf(value) !== -1;
+  }
+
+  function getSrouletteIntent(entry, target) {
+    if (!entry || !isSrouletteTarget(target)) return null;
+    var intent = entry.sroulette && entry.sroulette[target];
     if (!intent || !isSroulettePool(intent.pool)) return null;
     return intent;
   }
 
   function hasSrouletteIntent(entry) {
-    return !!(getSrouletteIntent(entry, 'body') || getSrouletteIntent(entry, 'serif') || getSrouletteIntent(entry, 'sans'));
+    return SROULETTE_TARGETS.some(function (target) {
+      return !!getSrouletteIntent(entry, target);
+    });
   }
 
   function hasConcreteFontEntry(entry) {
@@ -158,49 +168,49 @@
     if (!entry || !hasSrouletteIntent(entry) || getIsSubstack()) return entry;
     var materialized = {};
     Object.keys(entry).forEach(function (key) {
-      if (key !== 'sroulette' && key !== '__affoSrouletteResolved') materialized[key] = entry[key];
+      if (key !== 'sroulette' && key !== SROULETTE_RESOLVED_TARGETS_KEY) materialized[key] = entry[key];
     });
     var resolvedTargets = {};
-    ['body', 'serif', 'sans'].forEach(function (fontType) {
-      var intent = getSrouletteIntent(entry, fontType);
+    SROULETTE_TARGETS.forEach(function (target) {
+      var intent = getSrouletteIntent(entry, target);
       if (!intent) return;
       var config = pickSrouletteFontConfig(data, intent.pool);
       if (hasMeaningfulFontConfig(config)) {
-        materialized[fontType] = config;
-        resolvedTargets[fontType] = true;
-        debugLog('[AFFO Content] Sroulette materialized ' + fontType + ' from ' + intent.pool + ' pool:', config.fontName);
+        materialized[target] = config;
+        resolvedTargets[target] = true;
+        debugLog('[AFFO Content] Sroulette materialized ' + target + ' from ' + intent.pool + ' pool:', config.fontName);
       } else {
-        delete materialized[fontType];
-        debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + fontType);
+        delete materialized[target];
+        debugLog('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + target);
       }
     });
     if (resolvedTargets.serif || resolvedTargets.sans) {
-      materialized.__affoSrouletteResolved = resolvedTargets;
+      materialized[SROULETTE_RESOLVED_TARGETS_KEY] = resolvedTargets;
     }
     return materialized;
   }
 
-  function isResolvedSrouletteFont(entry, fontType) {
-    return !!(isSroulettePool(fontType) && entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
+  function isResolvedSrouletteCssTarget(entry, target) {
+    return !!(isSrouletteCssTarget(target) && entry && entry[SROULETTE_RESOLVED_TARGETS_KEY] && entry[SROULETTE_RESOLVED_TARGETS_KEY][target]);
   }
 
-  function requestSrouletteCssRemoval(fontTypes) {
+  function requestSrouletteCssRemoval(targets) {
     try {
-      var requestedTypes = Array.isArray(fontTypes) ? fontTypes.filter(isSroulettePool) : ['serif', 'sans'];
-      if (!requestedTypes.length) return;
+      var requestedTargets = Array.isArray(targets) ? targets.filter(isSrouletteCssTarget) : SROULETTE_CSS_TARGETS.slice();
+      if (!requestedTargets.length) return;
       browser.runtime.sendMessage({
         type: 'affoRemoveSrouletteCss',
-        fontTypes: requestedTypes
+        fontTypes: requestedTargets
       }).catch(function () {});
     } catch (_) {}
   }
 
-  function requestSrouletteCssInsert(fontType, css) {
-    if (!isSroulettePool(fontType) || typeof css !== 'string' || !css.trim()) return;
+  function requestSrouletteCssInsert(target, css) {
+    if (!isSrouletteCssTarget(target) || typeof css !== 'string' || !css.trim()) return;
     try {
       browser.runtime.sendMessage({
         type: 'affoInsertSrouletteCss',
-        fontType: fontType,
+        fontType: target,
         css: css
       }).catch(function (e) {
         debugLog('[AFFO Content] Sroulette user-origin CSS injection failed:', e);
@@ -209,10 +219,10 @@
   }
 
   function syncSrouletteCssTrackingForEntry(entry) {
-    var staleTypes = ['serif', 'sans'].filter(function (fontType) {
-      return !isResolvedSrouletteFont(entry, fontType);
+    var staleTargets = SROULETTE_CSS_TARGETS.filter(function (target) {
+      return !isResolvedSrouletteCssTarget(entry, target);
     });
-    if (staleTypes.length) requestSrouletteCssRemoval(staleTypes);
+    if (staleTargets.length) requestSrouletteCssRemoval(staleTargets);
   }
 
   function resolveSrouletteEntry(entry, data) {
@@ -3140,7 +3150,7 @@
               } else {
                 applyInlineStyles(fontConfig, fontType);
               }
-            } else if (isResolvedSrouletteFont(entry, fontType)) {
+            } else if (isResolvedSrouletteCssTarget(entry, fontType)) {
               if (isTmi && walkerPromise) {
                 walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
               } else {
@@ -3253,7 +3263,7 @@
       }
       if (!entry) {
         lastReappliedEntry = null;
-        requestSrouletteCssRemoval(['serif', 'sans']);
+        requestSrouletteCssRemoval();
         clearObservedTmiCssTypes();
         refreshSharedTmiCssObserver();
         // Clean up all stale styles if no entry exists
@@ -3375,7 +3385,7 @@
                   } else {
                     applyInlineStyles(fontConfig, fontType);
                   }
-                } else if (isResolvedSrouletteFont(effectiveEntry, fontType)) {
+                } else if (isResolvedSrouletteCssTarget(effectiveEntry, fontType)) {
                   if (isTmi && walkerPromise) {
                     walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
                   } else {
@@ -3489,7 +3499,7 @@
 
                 if (!entry) {
                   lastReappliedEntry = null;
-                  requestSrouletteCssRemoval(['serif', 'sans']);
+                  requestSrouletteCssRemoval();
                   if (getIsSubstack() && pendingSubstackRoulette) {
                     resetWalkerStateForEntry({ serif: true, sans: true });
                     pendingSubstackRoulette();
@@ -3594,7 +3604,7 @@
           });
         } else {
           lastReappliedEntry = null;
-          requestSrouletteCssRemoval(['serif', 'sans']);
+          requestSrouletteCssRemoval();
           clearObservedTmiCssTypes();
           refreshSharedTmiCssObserver();
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
@@ -3667,7 +3677,7 @@
       } else if (message.action === 'restoreOriginal') {
         try {
           lastReappliedEntry = null;
-          requestSrouletteCssRemoval(['serif', 'sans']);
+          requestSrouletteCssRemoval();
           // Clean up shared inline-apply infrastructure
           inlineConfigs = {};
           cleanupSharedInlineInfra();
