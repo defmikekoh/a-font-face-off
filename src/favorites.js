@@ -214,6 +214,49 @@ function favoriteMatchesSearch(name, config, query) {
     return searchable.includes(q);
 }
 
+function getSroulettePoolStorageKey(pool) {
+    if (pool === 'serif') return 'affoSubstackRouletteSerif';
+    if (pool === 'sans') return 'affoSubstackRouletteSans';
+    return null;
+}
+
+function getValidSroulettePoolInfoFromData(data, pool) {
+    const key = getSroulettePoolStorageKey(pool);
+    if (!key) return { available: false, count: 0 };
+    const names = Array.isArray(data && data[key]) ? data[key] : [];
+    const favorites = (data && data.affoFavorites) || {};
+    const validNames = names.filter(name => {
+        const cfg = favorites[name];
+        return !!(cfg && cfg.fontName);
+    });
+    return {
+        available: !!(data && data.affoSubstackRoulette !== false && validNames.length > 0),
+        count: validNames.length
+    };
+}
+
+function getAvailableSrouletteFavoriteEntriesFromData(data) {
+    return ['serif', 'sans'].map(pool => {
+        const info = getValidSroulettePoolInfoFromData(data, pool);
+        if (!info.available) return null;
+        return {
+            kind: 'sroulette',
+            pool,
+            name: pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans',
+            preview: `${info.count} Substack Roulette font${info.count === 1 ? '' : 's'}`
+        };
+    }).filter(Boolean);
+}
+
+function srouletteFavoriteMatchesSearch(entry, query) {
+    const q = normalizeFavoriteSearch(query);
+    if (!q) return true;
+    return [entry && entry.name, entry && entry.preview, 'sroulette', 'substack roulette']
+        .join(' ')
+        .toLowerCase()
+        .includes(q);
+}
+
 // ── Config Name & Preview (for Save Modal) ──────────────────────────────────
 
 function generateFontConfigName(position) {
@@ -354,7 +397,44 @@ function hideSaveModal() {
 
 // ── Favorites Popup ─────────────────────────────────────────────────────────
 
-function showFavoritesPopup(position) {
+let srouletteFavoritesPopupEntries = [];
+
+function positionSupportsSrouletteFavorite(position) {
+    return position === 'body' || position === 'serif' || position === 'sans';
+}
+
+async function isActivePageSubstackForFavorites(origin) {
+    if (!origin) return false;
+    if (String(origin).endsWith('.substack.com')) return true;
+    try {
+        if (typeof getTargetTabForPopup !== 'function' || typeof AFFOMessaging === 'undefined') return false;
+        const tab = await getTargetTabForPopup();
+        if (!tab || tab.id == null) return false;
+        const response = await AFFOMessaging.sendTabMessage(browser, tab.id, { type: 'affoGetPageInfo' }, {
+            ignoreNoReceiver: true
+        });
+        return !!(response && response.isSubstack);
+    } catch (_) {
+        return false;
+    }
+}
+
+async function loadSrouletteFavoritesForPopup(position) {
+    if (!positionSupportsSrouletteFavorite(position)) return [];
+
+    const origin = typeof getActiveOrigin === 'function' ? await getActiveOrigin() : null;
+    if (!origin || await isActivePageSubstackForFavorites(origin)) return [];
+
+    const data = await browser.storage.local.get([
+        'affoSubstackRoulette',
+        'affoSubstackRouletteSerif',
+        'affoSubstackRouletteSans',
+        'affoFavorites'
+    ]);
+    return getAvailableSrouletteFavoriteEntriesFromData(data);
+}
+
+async function showFavoritesPopup(position) {
     console.log('showFavoritesPopup called for position:', position);
     const popup = document.getElementById('favorites-popup');
     const listContainer = document.getElementById('favorites-popup-list');
@@ -365,6 +445,14 @@ function showFavoritesPopup(position) {
     if (searchInput) {
         searchInput.value = '';
         searchInput.oninput = () => renderFavoritesPopupList(position, searchInput.value);
+    }
+
+    srouletteFavoritesPopupEntries = [];
+    try {
+        srouletteFavoritesPopupEntries = await loadSrouletteFavoritesForPopup(position);
+    } catch (error) {
+        console.warn('Could not load Sroulette favorites:', error);
+        srouletteFavoritesPopupEntries = [];
     }
 
     renderFavoritesPopupList(position, '');
@@ -379,6 +467,7 @@ function renderFavoritesPopupList(position, query) {
 
     // Check if there are any favorites
     const names = getOrderedFavoriteNames();
+    const filteredSrouletteEntries = srouletteFavoritesPopupEntries.filter(entry => srouletteFavoriteMatchesSearch(entry, query));
     const filteredNames = names.filter(name => favoriteMatchesSearch(name, savedFavorites[name], query));
     console.log('savedFavorites:', savedFavorites);
     console.log('savedFavoritesOrder:', savedFavoritesOrder);
@@ -386,20 +475,63 @@ function renderFavoritesPopupList(position, query) {
 
     listContainer.innerHTML = '';
 
-    if (names.length === 0) {
+    if (names.length === 0 && srouletteFavoritesPopupEntries.length === 0) {
         noFavorites.textContent = 'No saved favorites yet.';
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
         return;
     }
 
-    if (filteredNames.length === 0) {
+    if (filteredNames.length === 0 && filteredSrouletteEntries.length === 0) {
         noFavorites.textContent = 'No favorites match your search.';
         noFavorites.style.display = 'block';
         listContainer.style.display = 'none';
     } else {
         noFavorites.style.display = 'none';
         listContainer.style.display = 'flex';
+
+        filteredSrouletteEntries.forEach(entry => {
+            const item = document.createElement('div');
+            item.className = 'favorite-item sroulette-favorite-item';
+            item.setAttribute('data-position', position);
+            item.setAttribute('data-sroulette-pool', entry.pool);
+
+            const info = document.createElement('div');
+            info.className = 'favorite-item-info';
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'favorite-item-name';
+            nameDiv.textContent = entry.name;
+
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'favorite-item-preview';
+            previewDiv.textContent = entry.preview;
+
+            info.appendChild(nameDiv);
+            info.appendChild(previewDiv);
+            item.appendChild(info);
+
+            item.addEventListener('click', async function() {
+                const position = this.getAttribute('data-position');
+                const pool = this.getAttribute('data-sroulette-pool');
+                try {
+                    if (typeof markPanelAsSroulette === 'function') {
+                        markPanelAsSroulette(position, pool);
+                    }
+                    if (position === 'body') {
+                        await updateBodyButtons();
+                    } else if (currentViewMode === 'third-man-in') {
+                        await updateAllThirdManInButtons(position);
+                    }
+                } catch (error) {
+                    console.error('Error loading Sroulette favorite:', error);
+                } finally {
+                    hideFavoritesPopup();
+                }
+            });
+
+            listContainer.appendChild(item);
+        });
 
         // Populate favorites in saved order
         filteredNames.forEach(name => {
@@ -469,6 +601,7 @@ function hideFavoritesPopup() {
     const popup = document.getElementById('favorites-popup');
     const searchInput = document.getElementById('favorites-search');
     if (searchInput) searchInput.value = '';
+    srouletteFavoritesPopupEntries = [];
     popup.classList.remove('visible');
 }
 
@@ -883,5 +1016,8 @@ if (typeof module !== 'undefined' && module.exports) {
         generateFavoritePreview,
         normalizeFavoriteSearch,
         favoriteMatchesSearch,
+        getValidSroulettePoolInfoFromData,
+        getAvailableSrouletteFavoriteEntriesFromData,
+        srouletteFavoriteMatchesSearch,
     };
 }

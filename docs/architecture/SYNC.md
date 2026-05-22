@@ -30,7 +30,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 - A `sync-manifest.json` tracks modification timestamps for all synced items.
 - Compares local vs remote timestamps per item; newer version wins for most items.
-- Domain settings are merged per origin using `domains.json` + `domains-meta.json`. Non-Substack Sroulette stores only the target slot and source pool in `affoApplyMap[origin].sroulette`; the random resolved font is intentionally not synced.
+- Domain settings are merged per origin using `domains.json` + `domains-meta.json`. Non-Substack Sroulette stores only the target slot (`body`, `serif`, or `sans`) and source pool in `affoApplyMap[origin].sroulette`; the random resolved font is intentionally not synced.
 - `domains-meta.json` stores per-origin `modified` timestamps and deletion tombstones (`deletedAt`); newer origin entry wins.
 - Domain-list settings (`fontface-only-domains`, `inline-apply-domains`, `aggressive-domains`, `waitforit-domains`, `ignore-comments-domains`, `substack-beige-disabled-domains`) also use per-origin metadata sidecar files with the same tombstone merge strategy.
 - Tie-breaker for equal per-origin timestamps prefers remote state to ensure deterministic convergence across devices.

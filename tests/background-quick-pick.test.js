@@ -136,6 +136,29 @@ describe('background quick-pick Sroulette', () => {
         assert.deepEqual(storage.data.affoApplyMap['example.com'].mono, { fontName: 'Mono' });
     });
 
+    it('supports body Sroulette intent without storing a resolved font', async () => {
+        const { context, storage } = loadBackground({
+            affoApplyMap: {
+                'example.com': {
+                    body: { fontName: 'Old Body' }
+                }
+            }
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'quickApplySroulette',
+            origin: 'example.com',
+            position: 'body',
+            pool: 'serif'
+        }, { tab: { id: 123 } });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(storage.data.affoApplyMap['example.com'].sroulette, {
+            body: { pool: 'serif' }
+        });
+        assert.equal(storage.data.affoApplyMap['example.com'].body, undefined);
+    });
+
     it('clears Sroulette intent for a slot when a normal favorite is quick-applied', async () => {
         const { context, storage } = loadBackground({
             affoApplyMap: {

@@ -961,7 +961,10 @@
                     ...favorites[id]  // Spread config (fontName, fontSize, etc.)
                 }));
 
-            const hasBodyOnly = domainData && domainData.body && !domainData.serif && !domainData.sans && !domainData.mono;
+            const srouletteData = domainData && domainData.sroulette;
+            const hasBodySroulette = !!(srouletteData && srouletteData.body);
+            const hasTmiSroulette = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
+            const hasBodyOnly = domainData && (domainData.body || hasBodySroulette) && !domainData.serif && !domainData.sans && !domainData.mono && !hasTmiSroulette;
 
             populateQuickPickMenuInPage({
                 favorites: top5,
@@ -1373,7 +1376,8 @@
 
         // Show unapply button if fonts are applied
         const srouletteData = domainData && domainData.sroulette;
-        const hasSrouletteApplied = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
+        const hasSrouletteApplied = !!(srouletteData && (srouletteData.body || srouletteData.serif || srouletteData.sans));
+        const hasTmiSrouletteApplied = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
         const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body || hasSrouletteApplied);
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;
@@ -1406,7 +1410,7 @@
 
         // Show rewalk button if TMI fonts are applied
         const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
-        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono || hasSrouletteApplied);
+        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono || hasTmiSrouletteApplied);
         if (rewalkBtn && hasTmiFonts) {
             rewalkBtn.disabled = false;
             rewalkBtn.style.setProperty('opacity', '1', 'important');

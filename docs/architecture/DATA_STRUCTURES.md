@@ -19,6 +19,7 @@ The extension uses `browser.storage.local` for all persistence.
   },
   "news.example.com": {
     "sroulette": {
+      "body": { "pool": "serif" },
       "serif": { "pool": "serif" },
       "sans": { "pool": "sans" }
     }
@@ -26,7 +27,7 @@ The extension uses `browser.storage.local` for all persistence.
 }
 ```
 
-`sroulette` stores synced intent only. It does not store the random font chosen for a page load; each device resolves `pool: "serif"` or `pool: "sans"` against its current Substack Roulette pools and favorites at render time. The slot key (`serif`/`sans`) is the target TMI slot, and `pool` is the source pool to sample.
+`sroulette` stores synced intent only. It does not store the random font chosen for a page load; each device resolves `pool: "serif"` or `pool: "sans"` against its current Substack Roulette pools and favorites at render time. The slot key (`body`/`serif`/`sans`) is the page target, and `pool` is the Substack Roulette source pool to sample.
 
 ### Domain Merge Metadata (`affoApplyMapMeta`)
 **Purpose**: Tracks per-origin sync timestamps and tombstones for bidirectional per-domain merge

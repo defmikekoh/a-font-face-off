@@ -252,17 +252,21 @@ function isSrouletteSlot(value) {
   return value === 'serif' || value === 'sans';
 }
 
+function isSrouletteTarget(value) {
+  return value === 'body' || value === 'serif' || value === 'sans';
+}
+
 function clearSrouletteIntentForSlot(entry, slot) {
-  if (!entry || !isSrouletteSlot(slot)) return;
+  if (!entry || !isSrouletteTarget(slot)) return;
   if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
   delete entry.sroulette[slot];
-  if (!entry.sroulette.serif && !entry.sroulette.sans) {
+  if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
     delete entry.sroulette;
   }
 }
 
 function setSrouletteIntentForSlot(entry, slot, pool) {
-  if (!entry || !isSrouletteSlot(slot) || !isSrouletteSlot(pool)) return false;
+  if (!entry || !isSrouletteTarget(slot) || !isSrouletteSlot(pool)) return false;
   if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) {
     entry.sroulette = {};
   }
@@ -272,7 +276,7 @@ function setSrouletteIntentForSlot(entry, slot, pool) {
 }
 
 function hasSrouletteIntentForSlot(entry, slot) {
-  if (!entry || !isSrouletteSlot(slot)) return false;
+  if (!entry || !isSrouletteTarget(slot)) return false;
   const intent = entry.sroulette && entry.sroulette[slot];
   return !!(intent && isSrouletteSlot(intent.pool));
 }
@@ -2652,7 +2656,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const { origin, position, pool } = msg;
         const tabId = sender.tab ? sender.tab.id : null;
 
-        if (!origin || !isSrouletteSlot(position) || !isSrouletteSlot(pool) || !tabId) {
+        if (!origin || !isSrouletteTarget(position) || !isSrouletteSlot(pool) || !tabId) {
           return { success: false, error: 'Missing required parameters' };
         }
 

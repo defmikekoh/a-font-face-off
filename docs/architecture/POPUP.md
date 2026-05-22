@@ -5,11 +5,13 @@
 ### Centralized Storage Functions
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
+- `saveSrouletteApplyMapForOrigin(origin, fontType, pool)`: Save a non-Substack Sroulette intent for `body`, `serif`, or `sans` without resolving the sampled font
 - `saveBatchApplyMapForOrigin(origin, fontConfigs)`: Batch save multiple font types in single storage write (used by Apply All)
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 ### Storage Access Patterns
 - **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyMapForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
+- **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and supported TMI panels when the corresponding Substack Roulette pool has at least one valid favorite. Clicking one marks the panel; Apply writes only Sroulette intent.
 - **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
 - **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
 - **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). Storage change listener diffs `oldValue[origin]` vs `newValue[origin]` before acting. No write operations.

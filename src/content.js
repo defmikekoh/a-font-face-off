@@ -102,15 +102,19 @@
     return value === 'serif' || value === 'sans';
   }
 
+  function isSrouletteTarget(value) {
+    return value === 'body' || value === 'serif' || value === 'sans';
+  }
+
   function getSrouletteIntent(entry, fontType) {
-    if (!entry || !isSrouletteSlot(fontType)) return null;
+    if (!entry || !isSrouletteTarget(fontType)) return null;
     var intent = entry.sroulette && entry.sroulette[fontType];
     if (!intent || !isSrouletteSlot(intent.pool)) return null;
     return intent;
   }
 
   function hasSrouletteIntent(entry) {
-    return !!(getSrouletteIntent(entry, 'serif') || getSrouletteIntent(entry, 'sans'));
+    return !!(getSrouletteIntent(entry, 'body') || getSrouletteIntent(entry, 'serif') || getSrouletteIntent(entry, 'sans'));
   }
 
   function hasConcreteFontEntry(entry) {
@@ -157,7 +161,7 @@
       if (key !== 'sroulette' && key !== '__affoSrouletteResolved') materialized[key] = entry[key];
     });
     var resolvedSlots = {};
-    ['serif', 'sans'].forEach(function (fontType) {
+    ['body', 'serif', 'sans'].forEach(function (fontType) {
       var intent = getSrouletteIntent(entry, fontType);
       if (!intent) return;
       var config = pickSrouletteFontConfig(data, intent.pool);
@@ -177,7 +181,7 @@
   }
 
   function isResolvedSrouletteFont(entry, fontType) {
-    return !!(entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
+    return !!(isSrouletteSlot(fontType) && entry && entry.__affoSrouletteResolved && entry.__affoSrouletteResolved[fontType]);
   }
 
   function requestSrouletteCssRemoval(fontTypes) {
@@ -3613,7 +3617,8 @@
           success: true,
           hostname: location.hostname,
           origin: location.hostname,
-          href: location.href
+          href: location.href,
+          isSubstack: getIsSubstack()
         });
       } else if (message.type === 'affoFilterFontSubsets') {
         try {
