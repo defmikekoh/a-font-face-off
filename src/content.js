@@ -3304,11 +3304,11 @@
               if (!shouldUseInlineApply()) {
                 function reapplyRouletteAfterNavigation() {
                   try {
-                    ['serif', 'sans'].forEach(function (ft) {
+                    SROULETTE_CSS_TARGETS.forEach(function (ft) {
                       elementWalkerCompleted[ft] = false;
                       elementWalkerRechecksScheduled[ft] = false;
                     });
-                    runElementWalkerAll(['serif', 'sans']);
+                    runElementWalkerAll(SROULETTE_CSS_TARGETS);
                     scheduleSubstackRouletteDimming();
                   } catch (_) { }
                 }

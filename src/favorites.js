@@ -214,10 +214,18 @@ function favoriteMatchesSearch(name, config, query) {
     return searchable.includes(q);
 }
 
+const FAVORITES_SROULETTE_POOLS = ['serif', 'sans'];
+const FAVORITES_SROULETTE_POOL_STORAGE_KEYS = {
+    serif: 'affoSubstackRouletteSerif',
+    sans: 'affoSubstackRouletteSans'
+};
+
 function getSroulettePoolStorageKey(pool) {
-    if (pool === 'serif') return 'affoSubstackRouletteSerif';
-    if (pool === 'sans') return 'affoSubstackRouletteSans';
-    return null;
+    return FAVORITES_SROULETTE_POOL_STORAGE_KEYS[pool] || null;
+}
+
+function getFavoriteSrouletteLabel(pool) {
+    return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
 }
 
 function getValidSroulettePoolInfoFromData(data, pool) {
@@ -236,13 +244,13 @@ function getValidSroulettePoolInfoFromData(data, pool) {
 }
 
 function getAvailableSrouletteFavoriteEntriesFromData(data) {
-    return ['serif', 'sans'].map(pool => {
+    return FAVORITES_SROULETTE_POOLS.map(pool => {
         const info = getValidSroulettePoolInfoFromData(data, pool);
         if (!info.available) return null;
         return {
             kind: 'sroulette',
             pool,
-            name: pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans',
+            name: getFavoriteSrouletteLabel(pool),
             preview: `${info.count} Substack Roulette font${info.count === 1 ? '' : 's'}`
         };
     }).filter(Boolean);

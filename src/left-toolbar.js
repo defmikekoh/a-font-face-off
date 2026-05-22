@@ -30,6 +30,10 @@
     const QUICK_PICK_ERROR_COLOR = '#dc3545';
     const QUICK_PICK_SUCCESS_CLOSE_DELAY_MS = 800;
     const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
+    const SROULETTE_POOLS = ['serif', 'sans'];
+    const SROULETTE_BODY_TARGETS = ['body'];
+    const SROULETTE_TARGETS = ['body', 'serif', 'sans'];
+    const SROULETTE_TMI_TARGETS = ['serif', 'sans'];
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -65,6 +69,30 @@
         const host = location.hostname;
         const waitForItDomains = data && data.affoWaitForItDomains ? data.affoWaitForItDomains : [];
         return waitForItDomains.includes(host);
+    }
+
+    function getSrouletteLabel(pool) {
+        return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+    }
+
+    function isSroulettePool(pool) {
+        return SROULETTE_POOLS.includes(pool);
+    }
+
+    function hasSrouletteIntentForTargets(srouletteData, targets) {
+        return !!(
+            srouletteData &&
+            typeof srouletteData === 'object' &&
+            !Array.isArray(srouletteData) &&
+            targets.some(target => {
+                const intent = srouletteData[target];
+                return !!(intent && isSroulettePool(intent.pool));
+            })
+        );
+    }
+
+    function getQuickPickSrouletteButton(pool) {
+        return document.getElementById(`affo-quick-pick-sroulette-${pool}`);
     }
 
     function getValidSroulettePoolInfo(data, pool) {
@@ -754,7 +782,7 @@
             btn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#e9ecef', 'important'); };
         };
 
-        ['serif', 'sans'].forEach(pool => {
+        SROULETTE_POOLS.forEach(pool => {
             const btn = document.createElement('button');
             btn.id = `affo-quick-pick-sroulette-${pool}`;
             buttonStyleFn(btn);
@@ -962,9 +990,13 @@
                 }));
 
             const srouletteData = domainData && domainData.sroulette;
-            const hasBodySroulette = !!(srouletteData && srouletteData.body);
-            const hasTmiSroulette = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
+            const hasBodySroulette = hasSrouletteIntentForTargets(srouletteData, SROULETTE_BODY_TARGETS);
+            const hasTmiSroulette = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TMI_TARGETS);
             const hasBodyOnly = domainData && (domainData.body || hasBodySroulette) && !domainData.serif && !domainData.sans && !domainData.mono && !hasTmiSroulette;
+            const sroulettePools = {};
+            SROULETTE_POOLS.forEach(pool => {
+                sroulettePools[pool] = getValidSroulettePoolInfo(data, pool);
+            });
 
             populateQuickPickMenuInPage({
                 favorites: top5,
@@ -973,10 +1005,7 @@
                 domainData,
                 origin,
                 domainLists,
-                sroulettePools: {
-                    serif: getValidSroulettePoolInfo(data, 'serif'),
-                    sans: getValidSroulettePoolInfo(data, 'sans')
-                },
+                sroulettePools,
                 syncBackend: data.affoSyncBackend || null,
             });
 
@@ -1206,8 +1235,8 @@
         }
 
         // Hide all Sroulette and favorite buttons first
-        ['serif', 'sans'].forEach(pool => {
-            const btn = document.getElementById(`affo-quick-pick-sroulette-${pool}`);
+        SROULETTE_POOLS.forEach(pool => {
+            const btn = getQuickPickSrouletteButton(pool);
             if (btn) btn.style.setProperty('display', 'none', 'important');
         });
         for (let i = 1; i <= 5; i++) {
@@ -1223,10 +1252,10 @@
 
         let visibleSrouletteCount = 0;
         if (!currentIsSubstack) {
-            ['serif', 'sans'].forEach(pool => {
+            SROULETTE_POOLS.forEach(pool => {
                 const poolInfo = sroulettePools && sroulettePools[pool];
                 if (!poolInfo || !poolInfo.available) return;
-                const btn = document.getElementById(`affo-quick-pick-sroulette-${pool}`);
+                const btn = getQuickPickSrouletteButton(pool);
                 if (!btn) return;
 
                 visibleSrouletteCount += 1;
@@ -1246,7 +1275,7 @@
 
                 const nameEl = document.createElement('div');
                 nameEl.style.cssText = 'font-weight: 600 !important; font-family: inherit !important; color: #495057 !important; font-size: inherit !important; line-height: 1.4 !important; letter-spacing: normal !important; text-transform: none !important;';
-                nameEl.textContent = pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+                nameEl.textContent = getSrouletteLabel(pool);
 
                 const previewEl = document.createElement('div');
                 previewEl.style.cssText = 'font-size: 11px !important; font-family: inherit !important; color: #6c757d !important; line-height: 1.2 !important; letter-spacing: normal !important; text-transform: none !important;';
@@ -1260,7 +1289,7 @@
                     const buttonRect = btn.getBoundingClientRect();
                     const clickX = event.clientX - buttonRect.left;
                     const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
-                    const label = pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+                    const label = getSrouletteLabel(pool);
 
                     setQuickPickButtonsDisabled(true);
                     setQuickPickMessage(message, `Applying ${label} to ${position}...`);
@@ -1376,8 +1405,8 @@
 
         // Show unapply button if fonts are applied
         const srouletteData = domainData && domainData.sroulette;
-        const hasSrouletteApplied = !!(srouletteData && (srouletteData.body || srouletteData.serif || srouletteData.sans));
-        const hasTmiSrouletteApplied = !!(srouletteData && (srouletteData.serif || srouletteData.sans));
+        const hasSrouletteApplied = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TARGETS);
+        const hasTmiSrouletteApplied = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TMI_TARGETS);
         const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body || hasSrouletteApplied);
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;

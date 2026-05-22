@@ -2996,8 +2996,11 @@ const PANEL_HEADINGS = {
 };
 // TMI positions get "Apply All" / "Reset All" button text
 const TMI_POSITIONS = new Set(['serif', 'sans', 'mono']);
-const SROULETTE_POOLS = new Set(['serif', 'sans']);
-const SROULETTE_TARGETS = new Set(['body', 'serif', 'sans']);
+const SROULETTE_POOL_LIST = ['serif', 'sans'];
+const SROULETTE_TARGET_LIST = ['body', 'serif', 'sans'];
+const SROULETTE_TMI_TARGET_LIST = ['serif', 'sans'];
+const SROULETTE_POOLS = new Set(SROULETTE_POOL_LIST);
+const SROULETTE_TARGETS = new Set(SROULETTE_TARGET_LIST);
 
 function isSroulettePool(value) {
     return SROULETTE_POOLS.has(value);
@@ -3014,12 +3017,12 @@ function getSrouletteIntent(domainData, target) {
     return intent;
 }
 
-function hasSrouletteIntent(domainData, positions = ['body', 'serif', 'sans']) {
+function hasSrouletteIntent(domainData, positions = SROULETTE_TARGET_LIST) {
     return positions.some(position => !!getSrouletteIntent(domainData, position));
 }
 
 function hasTmiSrouletteIntent(domainData) {
-    return hasSrouletteIntent(domainData, ['serif', 'sans']);
+    return hasSrouletteIntent(domainData, SROULETTE_TMI_TARGET_LIST);
 }
 
 function hasBodySrouletteIntent(domainData) {
