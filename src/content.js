@@ -638,6 +638,58 @@
     return elementHasOnlySimpleInlineTextDescendants(node);
   }
 
+  function elementHasClass(node, className) {
+    return !!(node && node.classList && node.classList.contains(className));
+  }
+
+  function getDirectSubstackPrimaryButtonLink(wrapper) {
+    if (!wrapper || String(wrapper.tagName || '').toUpperCase() !== 'P') return null;
+    if (!elementHasClass(wrapper, 'button-wrapper')) return null;
+
+    for (var i = 0; i < wrapper.children.length; i++) {
+      var child = wrapper.children[i];
+      if (String(child.tagName || '').toUpperCase() !== 'A') continue;
+      if (elementHasClass(child, 'button') && elementHasClass(child, 'primary')) return child;
+    }
+
+    return null;
+  }
+
+  function linkHasDirectSpanChild(link) {
+    if (!link || !link.children) return false;
+    for (var i = 0; i < link.children.length; i++) {
+      if (String(link.children[i].tagName || '').toUpperCase() === 'SPAN') return true;
+    }
+    return false;
+  }
+
+  function isInsideDirectSpanChild(element, parent) {
+    var current = element;
+    while (current && current !== parent) {
+      if (current.parentElement === parent) {
+        return String(current.tagName || '').toUpperCase() === 'SPAN';
+      }
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  function isSubstackPrimaryButtonWrapperText(element) {
+    if (!getIsSubstack() || !element || !element.closest) return false;
+
+    var tagName = String(element.tagName || '').toUpperCase();
+    if (tagName === 'P') {
+      var directLink = getDirectSubstackPrimaryButtonLink(element);
+      return !!(directLink && linkHasDirectSpanChild(directLink));
+    }
+
+    var wrapper = element.closest('p.button-wrapper');
+    var link = getDirectSubstackPrimaryButtonLink(wrapper);
+    if (!link || !linkHasDirectSpanChild(link) || !link.contains(element)) return false;
+    if (element === link) return true;
+    return isInsideDirectSpanChild(element, link);
+  }
+
   function getLowerClassTokens(className) {
     var raw = typeof className === 'string' ? className : String(className || '');
     return raw.split(/\s+/).map(function (token) {
@@ -3452,6 +3504,8 @@
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
+
+    if (isSubstackPrimaryButtonWrapperText(element)) return null;
 
     if (isInsideArticleDeck(element)) return null;
 
