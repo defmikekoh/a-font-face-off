@@ -408,39 +408,9 @@
     if (_isSubstack !== null) return _isSubstack;
     _isSubstack = false;
     try {
-      // Signal 1: hostname
-      if (location.hostname.endsWith('.substack.com')) {
-        _isSubstack = true; return true;
-      }
-      // Signal 2: global variable
-      if (typeof window.__SUBSTACK_PUB_ID__ === 'string') {
-        _isSubstack = true; return true;
-      }
-      // Signal 3: meta generator
-      var gen = document.querySelector('meta[name="generator"]');
-      if (gen && /substack/i.test(gen.getAttribute('content') || '')) {
-        _isSubstack = true; return true;
-      }
-      // Signal 4: canonical link
-      var canon = document.querySelector('link[rel="canonical"]');
-      if (canon && /\.substack\.com/i.test(canon.getAttribute('href') || '')) {
-        _isSubstack = true; return true;
-      }
-      // Signal 5: CDN links or scripts
-      if (document.querySelector('link[href*="substackcdn"], script[src*="substack"]')) {
-        _isSubstack = true; return true;
-      }
-      // Signal 6: JSON-LD structured data
-      var ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
-      for (var i = 0; i < ldScripts.length; i++) {
-        try {
-          if (/substack/i.test(ldScripts[i].textContent || '')) {
-            _isSubstack = true; return true;
-          }
-        } catch (_) { }
-      }
+      _isSubstack = AFFOSiteDetection.isSubstackDocument(document, location, window);
     } catch (_) { }
-    return false;
+    return _isSubstack;
   }
 
   var SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS = 54.8; // #363737

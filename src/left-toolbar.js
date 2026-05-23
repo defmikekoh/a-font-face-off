@@ -1039,13 +1039,7 @@
 
     function isSubstackSite() {
         try {
-            if (location.hostname.endsWith('.substack.com')) return true;
-            if (typeof window.__SUBSTACK_PUB_ID__ === 'string') return true;
-            const generator = document.querySelector('meta[name="generator"]');
-            if (generator && /substack/i.test(generator.getAttribute('content') || '')) return true;
-            const canonical = document.querySelector('link[rel="canonical"]');
-            if (canonical && /\.substack\.com/i.test(canonical.getAttribute('href') || '')) return true;
-            return !!document.querySelector('link[href*="substackcdn"], script[src*="substack"]');
+            return AFFOSiteDetection.isSubstackDocument(document, location, window);
         } catch (_) {
             return false;
         }

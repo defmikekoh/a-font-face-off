@@ -37,12 +37,12 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["messaging-utils.js", "sroulette-utils.js", "left-toolbar.js"],
+      "js": ["messaging-utils.js", "sroulette-utils.js", "site-detection-utils.js", "left-toolbar.js"],
       "run_at": "document_start"
     },
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["messaging-utils.js", "sroulette-utils.js", "content-sroulette-runtime.js", "font-face-utils.js", "content.js"],
+      "js": ["messaging-utils.js", "sroulette-utils.js", "site-detection-utils.js", "content-sroulette-runtime.js", "font-face-utils.js", "content.js"],
       "run_at": "document_end"
     },
     {
