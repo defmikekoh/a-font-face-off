@@ -1067,7 +1067,10 @@
       const statusEl = document.getElementById('status-cache');
       statusEl.textContent = 'Clearing cache...';
 
-      await browser.storage.local.remove('affoFontCache');
+      const response = await browser.runtime.sendMessage({ type: 'clearFontCache' });
+      if (!response || response.ok !== true) {
+        throw new Error(response && response.error ? response.error : 'Font cache clear failed');
+      }
 
       statusEl.textContent = 'Font cache cleared';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
@@ -1082,24 +1085,23 @@
   async function viewCacheInfo(){
     try {
       const statusEl = document.getElementById('status-cache');
-      const data = await browser.storage.local.get('affoFontCache');
-      const fontCache = data.affoFontCache || {};
-      const entries = Object.entries(fontCache);
+      const info = await browser.runtime.sendMessage({ type: 'getFontCacheInfo' });
+      if (!info || info.ok !== true) {
+        throw new Error(info && info.error ? info.error : 'Font cache info unavailable');
+      }
 
-      if (entries.length === 0) {
+      if (info.count === 0) {
         statusEl.textContent = 'Cache is empty';
         setTimeout(() => { statusEl.textContent = ''; }, 2000);
         return;
       }
 
-      const totalSize = entries.reduce((sum, [_url, entry]) => sum + (entry.size || 0), 0);
+      const totalSize = info.totalSize || 0;
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-      const oldestEntry = Math.min(...entries.map(([_url, entry]) => entry.timestamp));
-      Math.max(...entries.map(([_url, entry]) => entry.timestamp));
-      const ageHours = ((Date.now() - oldestEntry) / (1000 * 60 * 60)).toFixed(1);
+      const oldestEntry = info.oldestTimestamp || 0;
+      const ageHours = oldestEntry ? ((Date.now() - oldestEntry) / (1000 * 60 * 60)).toFixed(1) : '0.0';
 
-      const info = `Cache: ${entries.length} fonts, ${totalSizeMB}MB, oldest: ${ageHours}h ago`;
-      statusEl.textContent = info;
+      statusEl.textContent = `Cache: ${info.count} fonts, ${totalSizeMB}MB, oldest: ${ageHours}h ago (${info.backend || 'cache'})`;
       setTimeout(() => { statusEl.textContent = ''; }, 5000);
 
     } catch (e) {

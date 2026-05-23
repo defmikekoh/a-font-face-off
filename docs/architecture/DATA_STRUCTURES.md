@@ -4,7 +4,7 @@ This document outlines the key data structures used in the A Font Face-off brows
 
 ## Storage Systems
 
-The extension uses `browser.storage.local` for all persistence.
+The extension uses `browser.storage.local` for configuration, sync metadata, favorites, and UI state. WOFF2 font binaries for FontFace-only domains are cached separately in IndexedDB to avoid serializing large byte arrays through extension storage.
 
 ### Domain Storage (`affoApplyMap`)
 **Purpose**: Stores fonts and Sroulette intent applied to specific domains across all modes (Body Contact, Third Man In)
@@ -117,6 +117,21 @@ The extension uses `browser.storage.local` for all persistence.
 | `affoWebDavFolderSuffix` | Optional WebDAV sync folder suffix, independent from Google Drive | `"Chrome"` creates remote folder `A Font Face-off Chrome` |
 | `affoApplyMapMeta` | Per-origin domain merge metadata for sync | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWebDavConfig` | WebDAV connection config | `{ serverUrl: "...", anonymous: false, username: "...", password: "..." }` |
+
+### Font Binary Cache
+
+Google/custom WOFF2 files fetched by `background-font-runtime.js` for FontFace-only domains are stored in IndexedDB database `affo-font-cache`, object store `fonts`, keyed by URL:
+
+```javascript
+{
+  url: "https://fonts.gstatic.com/s/...",
+  data: ArrayBuffer,
+  timestamp: 1700000000000,
+  size: 18364
+}
+```
+
+The cache keeps the existing 1-year TTL and 80MB cap. The legacy `browser.storage.local.affoFontCache` byte-array cache is no longer used and is removed by cache startup/clear paths.
 
 ### Cloud Sync Metadata (`affoSyncMeta`)
 **Purpose**: Tracks per-item change timestamps for bidirectional cloud sync (Google Drive or WebDAV). Each synced item is a single file in the remote folder.

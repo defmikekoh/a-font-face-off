@@ -2113,6 +2113,15 @@ async function handleAffoRuntimeMessage(msg, sender) {
       return { ok: true };
     }
 
+    if (msg.type === 'clearFontCache') {
+      await AFFOBackgroundFontRuntime.clearCache();
+      return { ok: true };
+    }
+
+    if (msg.type === 'getFontCacheInfo') {
+      return AFFOBackgroundFontRuntime.getCacheInfo();
+    }
+
     if (msg.type === 'affoGDriveAuth') {
       try {
         await assertSyncDataCollectionConsent();

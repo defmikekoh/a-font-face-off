@@ -27,6 +27,18 @@ Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts
 - **left-toolbar.js**: Requests css2 URLs from background.js at `document_start` for early font preloading
 - **Domain storage (affoApplyMap)**: Does NOT store css2Url
 
+## WOFF2 Binary Cache
+
+FontFace-only domains such as x.com cannot rely on page-level Google Fonts `<link>` injection. For those domains, `content.js` asks `background-font-runtime.js` to fetch the Google Fonts CSS, select matching WOFF2 subsets, and fetch font binaries via `affoFetch`.
+
+Binary font responses are cached in IndexedDB (`affo-font-cache` / `fonts`) as `ArrayBuffer` records keyed by URL. This avoids the old `browser.storage.local.affoFontCache` format, which stored large `Array.from(Uint8Array)` payloads and created avoidable serialization/deserialization pressure on Android Firefox. Cache management still uses a 1-year TTL and an 80MB size cap; the Options page queries/clears the cache through background runtime messages.
+
+The background runtime also coalesces concurrent `affoFetch` requests for the same URL and keeps a short in-memory cache for text responses such as Google Fonts CSS. This prevents popup/page reload races from issuing duplicate CSS or WOFF2 fetches in the same wake window.
+
+Before requesting Google WOFF2 files, `content.js` samples visible text nodes from the current document, converts them to Unicode code points, and selects only `@font-face` entries whose `unicode-range` overlaps the page text. Parsed Google Fonts CSS is memoized in the content script so repeated popup/page applies do not re-parse the same CSS response. The initial FontFace pass is capped by a byte budget, so a complex variable family can render with the first needed subset while selected secondary subsets are deferred to idle time and loaded serially. Subsets whose scripts are not present in the initial visible text stay unloaded; a short-lived mutation observer only queues them later if newly added text overlaps those unicode ranges.
+
+Custom font `@font-face` blocks use the same initial byte-budget and idle serial-defer model on FontFace-only domains. This prevents multi-variant custom families from decoding every selected variant in parallel during first apply.
+
 ## Custom Font Architecture
 
 - **popup.js**: Parses `custom-fonts.css` + `ap-fonts.css` at startup → `fontDefinitions` map with `fontFaceRule`
