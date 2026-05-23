@@ -24,6 +24,7 @@
 ### `normalizeConfig(raw)` (config-utils.js)
 Single entry point for converting any external config (favorites, domain storage, legacy formats) into canonical format. Handles:
 - `fontSizePx` → `fontSize` legacy rename
+- `fontSizeScale` → percent-based size scaling, mutually exclusive with `fontSize`
 - Coercion to `Number` for all numeric properties (including `letterSpacing` where `0` is a valid value)
 - `fontStyle: "italic"` static style preservation; `fontStyle: "normal"` is omitted
 - `fontFaceRule` passthrough for backward compatibility (from old stored data; not used in new saves)

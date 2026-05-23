@@ -1284,6 +1284,43 @@ body.body-contact #font-comparison {
     margin-left: 4px;
 }
 
+.font-size-unit-toggle {
+    display: inline-flex;
+    overflow: hidden;
+    margin-left: 8px;
+    border: 1px solid #46b;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.font-size-unit-btn {
+    border: 0;
+    border-right: 1px solid #46b;
+    padding: 4px 7px;
+    background: transparent;
+    color: #2c3e50;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.font-size-unit-btn:last-child {
+    border-right: 0;
+}
+
+.font-size-unit-btn.active {
+    background: rgba(0, 51, 160, 0.15);
+    color: #46b;
+    font-weight: 700;
+}
+
+.font-size-unit-btn:focus,
+.font-size-unit-btn:focus-visible {
+    outline: 2px solid rgba(68, 102, 187, 0.35);
+    outline-offset: -2px;
+}
+
 .input-row {
     justify-content: flex-start;
     gap: 10px;

@@ -112,6 +112,9 @@
   var observedTmiCssTypes = {}; // fontType → true for non-inline TMI types needing re-walk on DOM mutations
   var sharedTmiCssObserver = null; // single MutationObserver for non-inline TMI types
   var sharedTmiCssDebounceTimer = null; // debounced re-walk timer for non-inline TMI observer
+  var fontSizeScaleConfigs = {}; // fontType → font config with fontSizeScale
+  var sharedFontSizeScaleObserver = null;
+  var sharedFontSizeScaleDebounceTimer = null;
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
@@ -910,7 +913,13 @@
   }
 
   // --- Module-level selector & inline-apply helpers ---
-  var isXCom = currentOrigin.includes('x.com') || currentOrigin.includes('twitter.com');
+  function isHostOrSubdomain(host, root) {
+    var normalizedHost = String(host || '').toLowerCase();
+    var normalizedRoot = String(root || '').toLowerCase();
+    return normalizedHost === normalizedRoot || normalizedHost.endsWith('.' + normalizedRoot);
+  }
+
+  var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
   function getBodyExcludeSelector() {
     return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector();
   }
@@ -920,6 +929,18 @@
       return 'body ' + getBodyExcludeSelector();
     }
     return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]';
+  }
+
+  function getBodyFontSizeScaleExtraSelector() {
+    var guard = ':not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector();
+    var nonChrome = ':not(nav *):not(footer *):not(aside *):not(button *):not(form *):not([role="navigation"] *):not([role="contentinfo"] *):not([role="complementary"] *):not([role="dialog"] *):not(.site-header *):not(.sidebar *):not(.toc *):not([class*="widget"]):not([class*="widget"] *)';
+    var contentScope = ':is(main, article, [role="main"], .post, .post-content, .entry-content, .article, .story, .content, .markup, .available-content)';
+    var headings = 'body ' + contentScope + ' :is(h1, h2, h3, h4, h5, h6)' + guard + nonChrome;
+    var articleDeck = getArticleDeckSelector() + guard;
+    var xAuthor = isXCom
+      ? ', article [data-testid="User-Name"]' + guard + ', article [data-testid="User-Name"] :is(div, span, a, time)' + guard
+      : '';
+    return headings + ', ' + articleDeck + xAuthor;
   }
 
   function getThirdManInTextSelector(fontType) {
@@ -950,6 +971,219 @@
       'html body div[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body blockquote[data-affo-font-type="' + fontType + '"] :where(em, i)'
     ].join(', ');
+  }
+
+  function hasFontSizeScale(fontConfig) {
+    return !!(fontConfig && fontConfig.fontSizeScale != null && isFinite(Number(fontConfig.fontSizeScale)));
+  }
+
+  function getFontSizeScaleAttr(fontType, suffix) {
+    return 'data-affo-' + suffix + '-font-size-' + fontType;
+  }
+
+  function getFontSizeScaleTargets(fontType) {
+    if (fontType === 'body') {
+      return document.querySelectorAll('body, ' + getAffoSelector('body') + ', ' + getBodyFontSizeScaleExtraSelector());
+    }
+    if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
+      return document.querySelectorAll(isXCom ? getAffoSelector(fontType) : getThirdManInTextSelector(fontType));
+    }
+    return [];
+  }
+
+  function restoreScaledFontSizeElement(el, fontType) {
+    if (!el || !el.style) return;
+    var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
+    if (!el.hasAttribute(scaledAttr)) return;
+
+    restoreScaledFontSizeElementStyle(el, fontType);
+    el.removeAttribute(scaledAttr);
+    el.removeAttribute(getFontSizeScaleAttr(fontType, 'original-computed'));
+    el.removeAttribute(getFontSizeScaleAttr(fontType, 'original-inline'));
+    el.removeAttribute(getFontSizeScaleAttr(fontType, 'original-inline-priority'));
+  }
+
+  function restoreScaledFontSizeElementStyle(el, fontType) {
+    if (!el || !el.style) return;
+    var inlineAttr = getFontSizeScaleAttr(fontType, 'original-inline');
+    var priorityAttr = getFontSizeScaleAttr(fontType, 'original-inline-priority');
+    var originalInline = el.getAttribute(inlineAttr);
+    var originalPriority = el.getAttribute(priorityAttr) || '';
+
+    if (originalInline && originalInline !== '__AFFO_EMPTY__') {
+      el.style.setProperty('font-size', originalInline, originalPriority);
+    } else {
+      el.style.removeProperty('font-size');
+    }
+  }
+
+  function clearFontSizeScale(fontType) {
+    delete fontSizeScaleConfigs[fontType];
+    try {
+      document.querySelectorAll('[' + getFontSizeScaleAttr(fontType, 'scaled') + ']').forEach(function (el) {
+        restoreScaledFontSizeElement(el, fontType);
+      });
+    } catch (_) { }
+    refreshFontSizeScaleObserver();
+  }
+
+  function clearAllFontSizeScales() {
+    ['body', 'serif', 'sans', 'mono'].forEach(clearFontSizeScale);
+  }
+
+  function applyFontSizeScale(fontConfig, fontType) {
+    if (!hasFontSizeScale(fontConfig)) {
+      clearFontSizeScale(fontType);
+      return;
+    }
+
+    var scale = Number(fontConfig.fontSizeScale);
+    fontSizeScaleConfigs[fontType] = fontConfig;
+
+    var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
+    var computedAttr = getFontSizeScaleAttr(fontType, 'original-computed');
+    var inlineAttr = getFontSizeScaleAttr(fontType, 'original-inline');
+    var priorityAttr = getFontSizeScaleAttr(fontType, 'original-inline-priority');
+    var priority = shouldUseAggressive() ? 'important' : '';
+    var count = 0;
+
+    try {
+      var targets = Array.prototype.slice.call(getFontSizeScaleTargets(fontType));
+      targets.forEach(function (el) {
+        if (el && el.hasAttribute && el.hasAttribute(scaledAttr)) {
+          restoreScaledFontSizeElementStyle(el, fontType);
+        }
+      });
+
+      targets.forEach(function (el) {
+        if (!el || !el.style) return;
+
+        var originalSize = Number(el.getAttribute(computedAttr));
+        if (!el.hasAttribute(scaledAttr) || !isFinite(originalSize) || originalSize <= 0) {
+          var computed = window.getComputedStyle(el);
+          originalSize = parseFloat(computed.getPropertyValue('font-size'));
+          if (!isFinite(originalSize) || originalSize <= 0) return;
+
+          var originalInline = el.style.getPropertyValue('font-size');
+          var originalPriority = el.style.getPropertyPriority('font-size');
+          el.setAttribute(computedAttr, String(originalSize));
+          el.setAttribute(inlineAttr, originalInline || '__AFFO_EMPTY__');
+          el.setAttribute(priorityAttr, originalPriority || '');
+          el.setAttribute(scaledAttr, 'true');
+        }
+      });
+
+      targets.forEach(function (el) {
+        if (!el || !el.style || !el.hasAttribute(scaledAttr)) return;
+
+        var originalSize = Number(el.getAttribute(computedAttr));
+        if (!isFinite(originalSize) || originalSize <= 0) return;
+
+        var scaledSize = +(originalSize * scale / 100).toFixed(3);
+        el.style.setProperty('font-size', scaledSize + 'px', priority);
+        count++;
+      });
+    } catch (e) {
+      debugLog('[AFFO Content] Error applying font size scale for ' + fontType + ':', e);
+    }
+
+    refreshFontSizeScaleObserver();
+    elementLog('[AFFO Content] Applied font size scale ' + scale + '% to ' + count + ' ' + fontType + ' elements');
+  }
+
+  function clearFontSizeScalesNotInEntry(entry) {
+    ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
+      if (!hasFontSizeScale(entry && entry[fontType])) clearFontSizeScale(fontType);
+    });
+  }
+
+  function getActiveFontSizeScaleTypes() {
+    return ['body', 'serif', 'sans', 'mono'].filter(function (fontType) {
+      return hasFontSizeScale(fontSizeScaleConfigs[fontType]);
+    });
+  }
+
+  function reapplyActiveFontSizeScales(fontTypes) {
+    var types = fontTypes && fontTypes.length ? fontTypes : getActiveFontSizeScaleTypes();
+    types.forEach(function (fontType) {
+      if (hasFontSizeScale(fontSizeScaleConfigs[fontType])) {
+        applyFontSizeScale(fontSizeScaleConfigs[fontType], fontType);
+      }
+    });
+  }
+
+  function refreshFontSizeScaleObserver() {
+    if (getActiveFontSizeScaleTypes().length > 0) {
+      ensureFontSizeScaleObserver();
+    } else {
+      cleanupFontSizeScaleObserver();
+    }
+  }
+
+  function reapplyFontSizeScalesAfterNavigation() {
+    var activeTypes = getActiveFontSizeScaleTypes();
+    if (activeTypes.length === 0) return;
+    var tmiTypes = activeTypes.filter(function (ft) { return ft !== 'body'; });
+    if (tmiTypes.length > 0) {
+      rewalkTmiTypes(tmiTypes, function () { reapplyActiveFontSizeScales(activeTypes); });
+    } else {
+      reapplyActiveFontSizeScales(activeTypes);
+    }
+  }
+
+  function reapplyFontSizeScalesOnFocus() {
+    reapplyActiveFontSizeScales();
+  }
+
+  function ensureFontSizeScaleObserver() {
+    if (sharedFontSizeScaleObserver) return;
+    sharedFontSizeScaleObserver = new MutationObserver(function (muts) {
+      var activeTypes = getActiveFontSizeScaleTypes();
+      if (activeTypes.length === 0) return;
+
+      var hasMeaningfulAddition = false;
+      muts.some(function (m) {
+        return Array.prototype.some.call(m.addedNodes || [], function (n) {
+          try {
+            if (!isMeaningfulInlineAddedNode(n)) return false;
+            hasMeaningfulAddition = true;
+            return true;
+          } catch (_) {
+            return false;
+          }
+        });
+      });
+      if (!hasMeaningfulAddition) return;
+
+      if (sharedFontSizeScaleDebounceTimer) clearTimeout(sharedFontSizeScaleDebounceTimer);
+      sharedFontSizeScaleDebounceTimer = setTimeout(function () {
+        sharedFontSizeScaleDebounceTimer = null;
+        var latestTypes = getActiveFontSizeScaleTypes();
+        if (latestTypes.length === 0) return;
+        var tmiTypes = latestTypes.filter(function (ft) { return ft !== 'body'; });
+        if (tmiTypes.length > 0) {
+          rewalkTmiTypes(tmiTypes, function () { reapplyActiveFontSizeScales(latestTypes); });
+        } else {
+          reapplyActiveFontSizeScales(latestTypes);
+        }
+      }, INLINE_REAPPLY_DEBOUNCE_MS);
+    });
+    sharedFontSizeScaleObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    registerSpaHandler(reapplyFontSizeScalesAfterNavigation);
+    registerFocusHandler(reapplyFontSizeScalesOnFocus);
+    debugLog('[AFFO Content] Created shared font-size scale observer');
+  }
+
+  function cleanupFontSizeScaleObserver() {
+    if (sharedFontSizeScaleObserver) {
+      try { sharedFontSizeScaleObserver.disconnect(); } catch (_) { }
+      sharedFontSizeScaleObserver = null;
+      debugLog('[AFFO Content] Disconnected shared font-size scale observer');
+    }
+    if (sharedFontSizeScaleDebounceTimer) {
+      try { clearTimeout(sharedFontSizeScaleDebounceTimer); } catch (_) { }
+      sharedFontSizeScaleDebounceTimer = null;
+    }
   }
 
   function applyAffoProtection(el, propsObj) {
@@ -1140,8 +1374,8 @@
       cssPropsObject['font-family'] = `"${fontConfig.fontName}", ${fallbackChain}`;
     }
 
-    // Include fontSize if present
-    if (fontConfig.fontSize) {
+    // Include absolute fontSize if present. Scaled sizes are computed per element below.
+    if (!hasFontSizeScale(fontConfig) && fontConfig.fontSize) {
       cssPropsObject['font-size'] = `${fontConfig.fontSize}px`;
     }
 
@@ -1212,12 +1446,14 @@
     } catch (e) {
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
     }
+    applyFontSizeScale(fontConfig, fontType);
     inlineTimer.mark('style-set', Object.keys(cssPropsObject).length + ' props');
 
     // Register this type into the shared inline config registry
     inlineConfigs[fontType] = {
       cssPropsObject: cssPropsObject,
       inlineEffectiveWeight: inlineEffectiveWeight,
+      fontConfig: fontConfig,
       expiresAt: Date.now() + 180000 // 3 minutes
     };
 
@@ -1270,6 +1506,7 @@
             resetHeadingTypographyInMarkedSubtree(el);
           }
         });
+        applyFontSizeScale(cfg.fontConfig || {}, ft);
         elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
       } catch (e) {
         debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
@@ -1292,6 +1529,7 @@
               applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
               resetHeadingTypographyInMarkedSubtree(el);
             });
+            applyFontSizeScale(cfg.fontConfig || {}, ft);
             elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
           } catch (_) { }
         });
@@ -1606,7 +1844,7 @@
       if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
         cssProps.push('font-family: "' + fontConfig.fontName + '", serif' + imp);
       }
-      if (fontConfig.fontSize) cssProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
+      if (!hasFontSizeScale(fontConfig) && fontConfig.fontSize) cssProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) cssProps.push('line-height: ' + fontConfig.lineHeight + imp);
       if (fontConfig.letterSpacing != null) cssProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       if (fontConfig.fontColor) cssProps.push('color: ' + fontConfig.fontColor + imp);
@@ -1621,7 +1859,9 @@
       if (customAxes.length > 0) {
         cssProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
-      lines.push(generalSelector + ' { ' + cssProps.join('; ') + '; }');
+      if (cssProps.length > 0) {
+        lines.push(generalSelector + ' { ' + cssProps.join('; ') + '; }');
+      }
 
       if (effectiveWeight) {
         var weightRule = 'font-weight: ' + effectiveWeight + imp;
@@ -1679,7 +1919,7 @@
 
       // Other properties apply to body text elements
       var otherProps = [];
-      if (fontConfig.fontSize) otherProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
+      if (!hasFontSizeScale(fontConfig) && fontConfig.fontSize) otherProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) otherProps.push('line-height: ' + fontConfig.lineHeight + imp);
       if (fontConfig.letterSpacing != null) otherProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       if (fontConfig.fontColor) otherProps.push('color: ' + fontConfig.fontColor + imp);
@@ -3491,6 +3731,7 @@
 
           // Schedule delayed rechecks for lazy-loaded content
           scheduleElementWalkerRechecks(typesToWalk);
+          reapplyActiveFontSizeScales(typesToWalk);
           resolve(markedCounts);
         }
 
@@ -3530,6 +3771,7 @@
       lastReappliedEntry = entry || null;
       syncSrouletteCssTrackingForEntry(entry);
       syncObservedTmiCssTypesFromEntry(entry);
+      clearFontSizeScalesNotInEntry(entry);
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
         if (hasMeaningfulFontConfig(fontConfig)) {
@@ -3557,9 +3799,13 @@
               }
             } else if (isResolvedSrouletteCssTarget(entry, fontType)) {
               if (isTmi && walkerPromise) {
-                walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
+                walkerPromise.then(function () {
+                  requestSrouletteCssInsert(fontType, css);
+                  applyFontSizeScale(fontConfig, fontType);
+                });
               } else {
                 requestSrouletteCssInsert(fontType, css);
+                applyFontSizeScale(fontConfig, fontType);
               }
             } else {
               var styleId = 'a-font-face-off-style-' + fontType;
@@ -3571,7 +3817,18 @@
               styleEl.textContent = css;
               document.head.appendChild(styleEl);
               ensureNonAggressiveStyleOrderChaser();
+              if (isTmi && walkerPromise) {
+                walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
+              } else {
+                applyFontSizeScale(fontConfig, fontType);
+              }
               debugLog(`[AFFO Content] Applied CSS for ${fontType} from storage change:`, css);
+            }
+          } else {
+            if (isTmi && walkerPromise) {
+              walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
+            } else {
+              applyFontSizeScale(fontConfig, fontType);
             }
           }
 
@@ -3671,6 +3928,7 @@
         requestSrouletteCssRemoval();
         clearObservedTmiCssTypes();
         refreshSharedTmiCssObserver();
+        clearAllFontSizeScales();
         // Clean up all stale styles if no entry exists
         ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
         removeSubstackRouletteEnhancements();
@@ -3765,6 +4023,7 @@
           lastReappliedEntry = effectiveEntry || null;
           syncSrouletteCssTrackingForEntry(effectiveEntry);
           syncObservedTmiCssTypesFromEntry(effectiveEntry);
+          clearFontSizeScalesNotInEntry(effectiveEntry);
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = effectiveEntry[fontType];
             if (hasMeaningfulFontConfig(fontConfig)) {
@@ -3793,9 +4052,13 @@
                   }
                 } else if (isResolvedSrouletteCssTarget(effectiveEntry, fontType)) {
                   if (isTmi && walkerPromise) {
-                    walkerPromise.then(function () { requestSrouletteCssInsert(fontType, css); });
+                    walkerPromise.then(function () {
+                      requestSrouletteCssInsert(fontType, css);
+                      applyFontSizeScale(fontConfig, fontType);
+                    });
                   } else {
                     requestSrouletteCssInsert(fontType, css);
+                    applyFontSizeScale(fontConfig, fontType);
                   }
                 } else {
                   var styleId = 'a-font-face-off-style-' + fontType;
@@ -3807,7 +4070,18 @@
                   styleEl.textContent = css;
                   document.head.appendChild(styleEl);
                   ensureNonAggressiveStyleOrderChaser();
+                  if (isTmi && walkerPromise) {
+                    walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
+                  } else {
+                    applyFontSizeScale(fontConfig, fontType);
+                  }
                   elementLog(`Applied CSS for ${fontType}:`, css);
+                }
+              } else {
+                if (isTmi && walkerPromise) {
+                  walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
+                } else {
+                  applyFontSizeScale(fontConfig, fontType);
                 }
               }
 
@@ -3906,6 +4180,7 @@
                 if (!entry) {
                   lastReappliedEntry = null;
                   requestSrouletteCssRemoval();
+                  clearAllFontSizeScales();
                   if (getIsSubstack() && pendingSubstackRoulette) {
                     resetWalkerStateForEntry({ serif: true, sans: true });
                     pendingSubstackRoulette();
@@ -4019,6 +4294,7 @@
           requestSrouletteCssRemoval();
           clearObservedTmiCssTypes();
           refreshSharedTmiCssObserver();
+          clearAllFontSizeScales();
           debugLog(`[AFFO Content] No entry found - all fonts should be removed`);
           maybeStopNonAggressiveStyleOrderChaser();
         }
@@ -4095,6 +4371,7 @@
           cleanupSharedInlineInfra();
           clearObservedTmiCssTypes();
           cleanupSharedTmiCssObserver();
+          clearAllFontSizeScales();
 
           // Remove all A Font Face-off CSS style elements
           ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {

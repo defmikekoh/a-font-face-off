@@ -26,7 +26,11 @@ function normalizeConfig(raw) {
     // Coerce numeric properties (handles both string and number inputs)
     // Legacy compat: fontSizePx was the old property name
     const rawFontSize = raw.fontSizePx != null ? raw.fontSizePx : raw.fontSize;
-    if (rawFontSize != null) config.fontSize = Number(rawFontSize);
+    if (raw.fontSizeScale != null) {
+        config.fontSizeScale = Number(raw.fontSizeScale);
+    } else if (rawFontSize != null) {
+        config.fontSize = Number(rawFontSize);
+    }
     if (raw.lineHeight != null) config.lineHeight = Number(raw.lineHeight);
     if (raw.letterSpacing != null) config.letterSpacing = Number(raw.letterSpacing);
     if (raw.fontWeight != null) config.fontWeight = Number(raw.fontWeight);

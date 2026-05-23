@@ -16,6 +16,8 @@ Direct DOM element styles with `!important`.
 
 Routed via `getAffoSelector()` which checks the `isXCom` flag. The element walker still runs on x.com (marks elements as usual) but the marks are supplementary — the hybrid selectors provide the primary targeting.
 
+Body Contact percent font-size scaling also explicitly includes tweet author clusters (`article [data-testid="User-Name"]`) and their text-bearing descendants so display names, handles, and timestamps scale with tweet body text.
+
 ## SPA Resilience
 
 Single shared MutationObserver + shared polling interval for all active font types (via `inlineConfigs` registry), History API hooks, computed style restoration. Per-type expiry tracked via `expiresAt` timestamps; shared observer disconnects when all types expire or are removed.

@@ -283,7 +283,13 @@
         <div class="control-section">
             <h3>Basic Properties</h3>
             <div class="control-group unset" data-control="font-size">
-                <label for="body-font-size">Font Size:</label>
+                <div class="control-row label-row">
+                    <label for="body-font-size">Font Size:</label>
+                    <div class="font-size-unit-toggle" role="group" aria-label="Font size unit">
+                        <button type="button" id="body-font-size-unit-px" class="font-size-unit-btn active" data-position="body" data-font-size-unit="px" aria-pressed="true" title="Set matched text to an absolute pixel size">px</button>
+                        <button type="button" id="body-font-size-unit-scale" class="font-size-unit-btn" data-position="body" data-font-size-unit="scale" aria-pressed="false" title="Scale each matched element from its original computed size">%</button>
+                    </div>
+                </div>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="font-size" title="Reset font size">↻</span>
                     <input type="text" id="body-font-size-text" class="text-input numeric-trigger" readonly value="17" step="0.01" min="6" max="200" data-type="fontSize" data-position="body">

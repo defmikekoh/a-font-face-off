@@ -201,7 +201,8 @@ See `docs/architecture/SYNC.md` for backend interface details and sync algorithm
 ### Font Configuration Structure ("No Key" Architecture)
 Only store properties with actual values — no null, undefined, or string placeholders like 'default'.
 
-- **Primitive properties** (fontSize, fontColor, etc.): Only stored when set (omitted when unset)
+- **Primitive properties** (fontSize, fontSizeScale, fontColor, etc.): Only stored when set (omitted when unset)
+- **Font size properties**: `fontSize` stores absolute px sizing; `fontSizeScale` stores percent-based scaling from each matched element's original computed size. They are mutually exclusive.
 - **Nested objects** (variableAxes): Always present as empty `{}` even when no axes are active
 - **Rationale**: Eliminates defensive `|| {}` checks while keeping storage minimal for primitives
 
@@ -214,7 +215,8 @@ undefined  // No font configured (not null or empty object)
 ```javascript
 {
   "fontName": "Comic Neue",           // Font family name (always present)
-  "fontSize": 16,                     // Font size in px (only if set)
+  "fontSize": 16,                     // Absolute font size in px (only if set)
+  "fontSizeScale": 112,               // Percent-based size scaling (only if set; mutually exclusive with fontSize)
   "lineHeight": 1.5,                  // Line height (only if set)
   "letterSpacing": 0.05,             // Letter spacing in em (only if set; 0 is valid)
   "fontWeight": 400,                  // Font weight (only if set)

@@ -24,9 +24,77 @@ const panelStates = {
 affoDebugLog('🔧 Initial panelStates:', panelStates);
 
 const MODE_CONFIG = AFFOPopupPanelUtils.MODE_CONFIG;
+const FONT_SIZE_UNIT_CONFIG = {
+    px: { min: 10, max: 72, step: 0.01, defaultValue: 17, suffix: 'px' },
+    scale: { min: 50, max: 200, step: 1, defaultValue: 100, suffix: '%' }
+};
 
 function getPanelLabel(position) {
     return AFFOPopupPanelUtils.getPanelLabel(position);
+}
+
+function normalizeFontSizeUnit(unit) {
+    return unit === 'scale' ? 'scale' : 'px';
+}
+
+function getFontSizeUnit(position) {
+    const activeButton = document.querySelector(`#${position}-font-controls .font-size-unit-btn.active`);
+    return normalizeFontSizeUnit(activeButton && activeButton.getAttribute('data-font-size-unit'));
+}
+
+function formatFontSizeControlValue(position, value) {
+    const unit = getFontSizeUnit(position);
+    return unit === 'scale'
+        ? String(Math.round(Number(value)))
+        : Number(value).toFixed(2).replace(/\.00$/, '');
+}
+
+function getFontSizeSuffix(position) {
+    return FONT_SIZE_UNIT_CONFIG[getFontSizeUnit(position)].suffix;
+}
+
+function setFontSizeUnit(position, unit, options = {}) {
+    const normalizedUnit = normalizeFontSizeUnit(unit);
+    const unitConfig = FONT_SIZE_UNIT_CONFIG[normalizedUnit];
+    const panel = document.getElementById(`${position}-font-controls`);
+    const slider = document.getElementById(`${position}-font-size`);
+    const textInput = document.getElementById(`${position}-font-size-text`);
+    const valueDisplay = document.getElementById(`${position}-font-size-value`);
+    const group = panel && panel.querySelector('.control-group[data-control="font-size"]');
+
+    if (panel) {
+        panel.querySelectorAll('.font-size-unit-btn').forEach(button => {
+            const active = button.getAttribute('data-font-size-unit') === normalizedUnit;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    if (slider) {
+        slider.min = unitConfig.min;
+        slider.max = unitConfig.max;
+        slider.step = unitConfig.step;
+    }
+    if (textInput) {
+        textInput.min = unitConfig.min;
+        textInput.max = unitConfig.max;
+        textInput.step = unitConfig.step;
+        textInput.setAttribute('data-font-size-unit', normalizedUnit);
+    }
+
+    let nextValue = options.value;
+    if (nextValue == null || !isFinite(Number(nextValue))) {
+        nextValue = unitConfig.defaultValue;
+    }
+    nextValue = Math.min(unitConfig.max, Math.max(unitConfig.min, Number(nextValue)));
+    const formattedValue = normalizedUnit === 'scale'
+        ? String(Math.round(nextValue))
+        : Number(nextValue).toFixed(2).replace(/\.00$/, '');
+
+    if (slider) slider.value = formattedValue;
+    if (textInput) textInput.value = formattedValue;
+    if (valueDisplay) valueDisplay.textContent = formattedValue + unitConfig.suffix;
+    if (options.activate && group) group.classList.remove('unset');
 }
 
 // getSiteSpecificRules is now in css-generators.js
@@ -316,7 +384,7 @@ async function loadModeSettings(options = {}) {
             // Load top font - face-off mode always needs a font family
             if (modeState.topFont && modeState.topFont.fontName) {
                 await applyFontConfig('top', modeState.topFont);
-            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontStyle || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
+            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.fontSizeScale || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontStyle || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('top', 'ABeeZee');
                 await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
@@ -328,7 +396,7 @@ async function loadModeSettings(options = {}) {
             // Load bottom font - face-off mode always needs a font family
             if (modeState.bottomFont && modeState.bottomFont.fontName) {
                 await applyFontConfig('bottom', modeState.bottomFont);
-            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontStyle || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
+            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.fontSizeScale || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontStyle || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
                 // Has saved settings but no custom font - load default font then apply settings
                 await loadFont('bottom', 'Zilla Slab Highlight');
                 await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
@@ -1554,7 +1622,13 @@ function getCurrentUIConfig(position) {
     }
 
     // Only include active basic controls directly on config (no null values)
-    if (activeFontSize) config.fontSize = parseFloat(fontSize);
+    if (activeFontSize) {
+        if (getFontSizeUnit(position) === 'scale') {
+            config.fontSizeScale = parseFloat(fontSize);
+        } else {
+            config.fontSize = parseFloat(fontSize);
+        }
+    }
     if (activeLineHeight) config.lineHeight = parseFloat(lineHeight);
     if (activeLetterSpacing && letterSpacing != null) config.letterSpacing = parseFloat(letterSpacing);
     if (activeWeight) config.fontWeight = parseInt(fontWeight);
@@ -1673,7 +1747,10 @@ async function applyFontConfig(position, config) {
         const fontStyleControl = document.getElementById(`${position}-font-style`);
         const fontColorControl = document.getElementById(`${position}-font-color`);
 
-        if (fontSizeControl) fontSizeControl.value = config.fontSize || 17;
+        const hasFontSizeScale = config.fontSizeScale != null;
+        const fontSizeValue = hasFontSizeScale ? config.fontSizeScale : (config.fontSize || 17);
+        setFontSizeUnit(position, hasFontSizeScale ? 'scale' : 'px', { value: fontSizeValue });
+        if (fontSizeControl) fontSizeControl.value = fontSizeValue;
         if (lineHeightControl) {
             const lineHeightValue = config.lineHeight || 1.5;
             lineHeightControl.value = lineHeightValue;
@@ -1692,7 +1769,7 @@ async function applyFontConfig(position, config) {
         const fontSizeTextInput = document.getElementById(`${position}-font-size-text`);
         const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
         const letterSpacingTextInput = document.getElementById(`${position}-letter-spacing-text`);
-        if (fontSizeTextInput) fontSizeTextInput.value = config.fontSize || 17;
+        if (fontSizeTextInput) fontSizeTextInput.value = fontSizeValue;
         if (lineHeightTextInput) {
             const lineHeightValue = config.lineHeight || 1.5;
             affoDebugLog(`applyFontConfig(${position}): Setting lineHeight text input to:`, lineHeightValue);
@@ -1710,7 +1787,7 @@ async function applyFontConfig(position, config) {
 
         // Update display values (font size span may be absent if using only text input)
         const fsVal = document.getElementById(`${position}-font-size-value`);
-        if (fsVal) fsVal.textContent = (config.fontSize || 17) + 'px';
+        if (fsVal) fsVal.textContent = fontSizeValue + (hasFontSizeScale ? '%' : 'px');
         const lhVal = document.getElementById(`${position}-line-height-value`);
         if (lhVal) lhVal.textContent = config.lineHeight || 1.5;
         const lsVal = document.getElementById(`${position}-letter-spacing-value`);
@@ -2318,7 +2395,7 @@ async function applyFontToPage(position, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 affoDebugLog('applyFontToPage: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2328,6 +2405,11 @@ async function applyFontToPage(position, config) {
 
         // Build clean payload for domain storage.
         const payload = await buildPayload(position, config);
+
+        if (appliedCssActive[genericKey]) {
+            await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] }).catch(() => {});
+            appliedCssActive[genericKey] = null;
+        }
 
         // Save payload to storage; content.js resolves font resources at runtime.
         await saveApplyMapForOrigin(origin, genericKey, payload);
@@ -2364,7 +2446,7 @@ async function applyFontToPage(position, config) {
                     return false;
                 }
             }
-            return false;
+            return payload.fontSizeScale != null;
         }
     } catch (e) {
         affoDebugWarn('applyFontToPage failed', e);
@@ -2426,7 +2508,7 @@ async function applyThirdManInFont(fontType, config) {
 
         // Allow configurations with font properties even without fontName
         if (!config.fontName) {
-            const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
+            const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
             if (!hasOtherProperties) {
                 affoDebugLog('applyThirdManInFont: No valid config found (needs fontName or other properties)');
                 return false;
@@ -2437,6 +2519,11 @@ async function applyThirdManInFont(fontType, config) {
         // Build clean payload for domain storage.
         const payload = await buildPayload(fontType, config);
         const css2Url = payload && payload.fontName ? await buildCss2Url(payload.fontName, config) : '';
+
+        if (appliedCssActive[fontType]) {
+            await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }).catch(() => {});
+            appliedCssActive[fontType] = null;
+        }
 
         // For inline apply domains (x.com), content script handles font loading
         // No preloading needed - content script already downloads via background script with progressive loading
@@ -2510,8 +2597,11 @@ async function applyThirdManInFont(fontType, config) {
                                 return false;
                             });
                         }
+                        if (payload.fontSizeScale != null) {
+                            return true;
+                        }
                     }
-                    return false;
+                    return payload && payload.fontSizeScale != null;
                 }).catch(error => {
                     console.error(`applyThirdManInFont: Element walker script failed:`, error);
                     return false;
@@ -2579,7 +2669,8 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {
         payload.variableAxes = cfg.variableAxes;
     }
-    if (cfg.fontSize != null) payload.fontSize = Number(cfg.fontSize);
+    if (cfg.fontSizeScale != null) payload.fontSizeScale = Number(cfg.fontSizeScale);
+    else if (cfg.fontSize != null) payload.fontSize = Number(cfg.fontSize);
     if (cfg.lineHeight != null) payload.lineHeight = Number(cfg.lineHeight);
     if (cfg.letterSpacing != null) payload.letterSpacing = Number(cfg.letterSpacing);
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
@@ -2672,8 +2763,14 @@ function restoreFontSettings(position, fontName) {
     if (!saved) return;
 
     // Restore basic controls — only set and activate controls present in saved config
+    const savedFontSizeValue = saved.fontSizeScale != null ? saved.fontSizeScale : saved.fontSize;
+    if (savedFontSizeValue !== undefined) {
+        setFontSizeUnit(position, saved.fontSizeScale != null ? 'scale' : 'px', { value: savedFontSizeValue });
+        const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
+        if (sizeGroup) sizeGroup.classList.remove('unset');
+    }
+
     const basicControls = [
-        { key: 'fontSize', controlId: `${position}-font-size`, textId: `${position}-font-size-text`, dataControl: 'font-size' },
         { key: 'lineHeight', controlId: `${position}-line-height`, textId: `${position}-line-height-text`, dataControl: 'line-height' },
         { key: 'letterSpacing', controlId: `${position}-letter-spacing`, textId: `${position}-letter-spacing-text`, dataControl: 'letter-spacing' },
         { key: 'fontWeight', controlId: `${position}-font-weight`, textId: null, dataControl: 'weight' },
@@ -2745,7 +2842,8 @@ function applyFont(position) {
         : genericFamily;
 
     let style = `font-family: ${fontFamily};`;
-    if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
+    if (cfg.fontSizeScale != null) style += ` font-size: ${cfg.fontSizeScale}%;`;
+    else if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
     if (cfg.letterSpacing != null) style += ` letter-spacing: ${cfg.letterSpacing}em;`;
     if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
@@ -2964,7 +3062,7 @@ function setSroulettePanelControlsDisabled(position, disabled) {
     const panel = document.getElementById(`${position}-font-controls`);
     if (!panel) return;
 
-    panel.querySelectorAll('.panel-body input, .panel-body select').forEach(el => {
+    panel.querySelectorAll('.panel-body input, .panel-body select, .panel-body .font-size-unit-btn').forEach(el => {
         el.disabled = disabled;
     });
 
@@ -3282,7 +3380,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -3308,7 +3406,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Allow configurations with font properties even without fontName
             if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
+                const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
                 if (!hasOtherProperties) return;
             }
 
@@ -3402,7 +3500,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     function clamp(v, min, max){ v = parseSizeVal(v); if (v == null || isNaN(v)) return null; return Math.min(max, Math.max(min, v)); }
 
     // Generic slider control factory — handles slider input, text keydown/blur, value display
-    // options: { format(v), suffix, clampMin, clampMax }
+    // options: { format(v), suffix, getSuffix(), clampMin, clampMax }
     function setupSliderControl(position, controlId, options = {}) {
         const slider = document.getElementById(`${position}-${controlId}`);
         if (!slider) return;
@@ -3412,13 +3510,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         const textInput = document.getElementById(`${position}-${controlId}-text`);
         const valueDisplay = document.getElementById(`${position}-${controlId}-value`);
         const formatVal = options.format || (v => v);
-        const suffix = options.suffix || '';
+        const getSuffix = options.getSuffix || (() => options.suffix || '');
 
         slider.addEventListener('input', function() {
             if (group) group.classList.remove('unset');
             const v = formatVal(this.value);
             if (textInput) textInput.value = v;
-            if (valueDisplay) valueDisplay.textContent = v + suffix;
+            if (valueDisplay) valueDisplay.textContent = v + getSuffix();
             if (callbacks.buttons) callbacks.buttons();
             callbacks.preview();
             if (callbacks.save) saveExtensionState();
@@ -3433,7 +3531,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (group) group.classList.remove('unset');
                     slider.value = String(vv);
                     this.value = String(vv);
-                    if (valueDisplay) valueDisplay.textContent = vv + suffix;
+                    if (valueDisplay) valueDisplay.textContent = vv + getSuffix();
                     if (callbacks.buttons) callbacks.buttons();
                     callbacks.preview();
                     if (callbacks.save) saveExtensionState();
@@ -3450,7 +3548,29 @@ document.addEventListener('DOMContentLoaded', async function() {
     const ALL_POSITIONS = ['top', 'bottom', 'body', 'serif', 'sans', 'mono'];
 
     // Font-size slider + text input handlers
-    ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'font-size', { format: decimalFormat, suffix: 'px', clampMin: 10, clampMax: 72 }));
+    ALL_POSITIONS.forEach(pos => {
+        setFontSizeUnit(pos, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
+        setupSliderControl(pos, 'font-size', {
+            format: v => formatFontSizeControlValue(pos, v),
+            getSuffix: () => getFontSizeSuffix(pos),
+            clampMin: FONT_SIZE_UNIT_CONFIG.scale.min,
+            clampMax: FONT_SIZE_UNIT_CONFIG.scale.max
+        });
+    });
+
+    ALL_POSITIONS.forEach(position => {
+        document.querySelectorAll(`#${position}-font-controls .font-size-unit-btn`).forEach(button => {
+            button.addEventListener('click', function() {
+                const unit = normalizeFontSizeUnit(this.getAttribute('data-font-size-unit'));
+                const value = FONT_SIZE_UNIT_CONFIG[unit].defaultValue;
+                const callbacks = getPositionCallbacks(position);
+                setFontSizeUnit(position, unit, { value, activate: true });
+                if (callbacks && callbacks.buttons) callbacks.buttons();
+                if (callbacks) callbacks.preview();
+                if (callbacks && callbacks.save) saveExtensionState();
+            });
+        });
+    });
 
     // Line-height slider + text input handlers
     ALL_POSITIONS.forEach(pos => setupSliderControl(pos, 'line-height', { format: decimalFormat, clampMin: 0.8, clampMax: 2.5 }));
@@ -3724,12 +3844,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             const activeControls = getActiveControls(position);
             const group = e.target.closest('.control-group');
             const slider = document.getElementById(`${position}-font-size`);
-            const textInput = document.getElementById(`${position}-font-size-text`);
-            const span = document.getElementById(`${position}-font-size-value`);
             if (slider) {
-                slider.value = 17;
-                if (textInput) textInput.value = 17;
-                if (span) span.textContent = '17px';
+                setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
                 activeControls.delete('font-size');
                 if (group) group.classList.add('unset');
 
@@ -4193,6 +4309,7 @@ function resetFontForPosition(position) {
     const weightSlider = document.getElementById(`${position}-font-weight`);
     const styleSelect = document.getElementById(`${position}-font-style`);
     const colorSelect = document.getElementById(`${position}-font-color`);
+    setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
     if (sizeSlider) sizeSlider.value = 17;
     if (lhSlider) lhSlider.value = 1.5;
     if (lsSlider) lsSlider.value = 0;
@@ -4265,6 +4382,8 @@ function payloadEquals(a, b) {
     if (a.fontName !== b.fontName) return false;
     const numEq = (x, y) => (x == null) && (y == null) ? true : Number(x) === Number(y);
     if (!numEq(a.fontWeight, b.fontWeight)) return false;
+    if ((a.fontSizeScale != null) !== (b.fontSizeScale != null)) return false;
+    if (!numEq(a.fontSizeScale, b.fontSizeScale)) return false;
     if (!numEq(a.fontSize, b.fontSize)) return false;
     if (!numEq(a.lineHeight, b.lineHeight)) return false;
     if (!numEq(a.letterSpacing, b.letterSpacing)) return false;
@@ -4507,10 +4626,7 @@ function resetThirdManInUI() {
         if (selectElement) selectElement.value = 'Default';
 
         // Reset controls to defaults
-        const fontSizeSlider = document.getElementById(`${fontType}-font-size`);
-        const fontSizeValue = document.getElementById(`${fontType}-font-size-value`);
-        if (fontSizeSlider) fontSizeSlider.value = 17;
-        if (fontSizeValue) fontSizeValue.textContent = '17px';
+        setFontSizeUnit(fontType, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
 
         const fontWeightSlider = document.getElementById(`${fontType}-font-weight`);
         const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
@@ -4569,7 +4685,7 @@ function restoreUIFromDomainStorage() {
                 const savedFont = domainData[fontType];
 
                 // Check if saved font has any meaningful properties
-                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontWeight || savedFont.fontStyle || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
+                const hasValidSavedFont = savedFont && (savedFont.fontName || savedFont.fontSize || savedFont.fontSizeScale || savedFont.fontWeight || savedFont.fontStyle || savedFont.lineHeight || savedFont.letterSpacing != null || savedFont.fontColor);
 
                 if (hasValidSavedFont) {
                     affoDebugLog(`🔄 restoreUIFromDomainStorage: Restoring ${fontType} font: ${savedFont.fontName}`);
@@ -4596,11 +4712,11 @@ function restoreUIFromDomainStorage() {
                     }
 
                     // Update other controls if they exist in saved data
-                    if (savedFont.fontSize) {
-                        const fontSizeSlider = document.getElementById(`${fontType}-font-size`);
-                        const fontSizeValue = document.getElementById(`${fontType}-font-size-value`);
-                        if (fontSizeSlider) fontSizeSlider.value = savedFont.fontSize;
-                        if (fontSizeValue) fontSizeValue.textContent = savedFont.fontSize + 'px';
+                    if (savedFont.fontSizeScale != null || savedFont.fontSize) {
+                        const hasFontSizeScale = savedFont.fontSizeScale != null;
+                        setFontSizeUnit(fontType, hasFontSizeScale ? 'scale' : 'px', {
+                            value: hasFontSizeScale ? savedFont.fontSizeScale : savedFont.fontSize
+                        });
                     }
 
                     if (savedFont.fontWeight) {
@@ -5341,7 +5457,22 @@ function applyAllThirdManInFonts() {
                 return Promise.resolve();
             }
 
-            return Promise.resolve().then(async () => {
+            // Clean up existing popup-inserted CSS before the storage write so
+            // content-side percent scaling records the page's real computed sizes.
+            affoDebugLog('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
+            const cleanupPromises = ['serif', 'sans', 'mono'].map(type => {
+                if (appliedCssActive[type]) {
+                    affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
+                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
+                        appliedCssActive[type] = null;
+                    }).catch(error => {
+                        affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
+                    });
+                }
+                return Promise.resolve();
+            });
+
+            return Promise.all(cleanupPromises).then(async () => {
                 // Step 2a: Build payloads for all configs (strips fontFaceRule/css2Url)
                 const payloadConfigs = {};
                 for (const [type, batchConfig] of Object.entries(batchConfigs)) {
@@ -5356,23 +5487,6 @@ function applyAllThirdManInFonts() {
                 affoDebugLog('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
                 return saveBatchApplyStateForOrigin(origin, payloadConfigs);
             }).then(() => {
-
-            // Step 3: Clean up any existing CSS for all types before applying new CSS
-            affoDebugLog('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
-            const cleanupPromises = ['serif', 'sans', 'mono'].map(type => {
-                if (appliedCssActive[type]) {
-                    affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
-                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
-                        appliedCssActive[type] = null;
-                    }).catch(error => {
-                        affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
-                    });
-                } else {
-                    return Promise.resolve();
-                }
-            });
-
-            return Promise.all(cleanupPromises).then(() => {
                 // Step 4: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
                 affoDebugLog('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 
@@ -5443,7 +5557,7 @@ function applyAllThirdManInFonts() {
                                     return false;
                                 });
                             }
-                            return false;
+                            return payload.fontSizeScale != null;
                         });
                     }).catch(error => {
                         console.error(`applyAllThirdManInFonts: Element walker failed for ${job.type}:`, error);
@@ -5453,7 +5567,6 @@ function applyAllThirdManInFonts() {
             });
 
                 return Promise.all(cssPromises);
-            });
         }).then(() => {
                 // Step 5: Update UI state
                 saveExtensionState();
@@ -5524,7 +5637,7 @@ function applyPanelConfiguration(panelId) {
 
     // Allow configurations with font properties even without fontName for body and third-man-in modes
     if (!config.fontName) {
-        const hasOtherProperties = config.fontSize || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
+        const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
         if (!hasOtherProperties) {
             affoDebugLog('applyPanelConfiguration: No valid config found (needs fontName or other properties)');
             return Promise.resolve(false);
@@ -6054,7 +6167,7 @@ function showNumericModal(input) {
     currentNumericInput = input;
 
     // Store original value and control state for cancel restoration
-    originalValue = input.value.replace('px', '');
+    originalValue = input.value.replace(/(?:px|%)$/, '');
 
     // Find the control group and store its active state
     const controlGroup = input.closest('.control-group');
@@ -6070,7 +6183,9 @@ function showNumericModal(input) {
     const axis = input.getAttribute('data-axis');
 
     if (type === 'fontSize') {
-        title.textContent = `Font Size (${position})`;
+        title.textContent = getFontSizeUnit(position) === 'scale'
+            ? `Font Size Scale (${position})`
+            : `Font Size (${position})`;
     } else if (type === 'lineHeight') {
         title.textContent = `Line Height (${position})`;
     } else if (type === 'letterSpacing') {
@@ -6082,7 +6197,7 @@ function showNumericModal(input) {
     }
 
     // Set initial value (remove 'px' suffix if present)
-    let initialValue = input.value.replace('px', '');
+    let initialValue = input.value.replace(/(?:px|%)$/, '');
     display.value = initialValue;
 
     // Show modal

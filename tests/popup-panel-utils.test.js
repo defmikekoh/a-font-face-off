@@ -38,6 +38,22 @@ describe('popup-panel-utils config comparison', () => {
 
         assert.equal(popupPanelUtils.configsEqual({
             fontName: 'Inter',
+            fontSizeScale: 110,
+        }, {
+            fontName: 'Inter',
+            fontSize: 110,
+        }), false);
+
+        assert.equal(popupPanelUtils.configsEqual({
+            fontName: 'Inter',
+            fontSizeScale: '110',
+        }, {
+            fontName: 'Inter',
+            fontSizeScale: 110,
+        }), true);
+
+        assert.equal(popupPanelUtils.configsEqual({
+            fontName: 'Inter',
             variableAxes: { wdth: 95 },
         }, {
             fontName: 'Inter',
@@ -48,7 +64,7 @@ describe('popup-panel-utils config comparison', () => {
     it('builds applied comparison configs from stored payloads', () => {
         assert.deepEqual(popupPanelUtils.buildAppliedComparisonConfig({
             fontName: 'Lora',
-            fontSize: 19,
+            fontSizeScale: 112,
             lineHeight: 1.6,
             letterSpacing: 0,
             fontWeight: 600,
@@ -58,7 +74,7 @@ describe('popup-panel-utils config comparison', () => {
             css2Url: 'derived-value',
         }), {
             fontName: 'Lora',
-            fontSize: 19,
+            fontSizeScale: 112,
             lineHeight: 1.6,
             letterSpacing: 0,
             fontWeight: 600,

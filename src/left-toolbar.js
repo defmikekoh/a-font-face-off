@@ -1334,7 +1334,8 @@
             previewEl.style.cssText = 'font-size: 11px !important; font-family: inherit !important; color: #6c757d !important; line-height: 1.2 !important; letter-spacing: normal !important; text-transform: none !important;';
 
             const previewParts = [];
-            if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
+            if (fav.fontSizeScale != null) previewParts.push(`${fav.fontSizeScale}%`);
+            else if (fav.fontSize) previewParts.push(`${fav.fontSize}px`);
             if (fav.fontWeight) previewParts.push(`wt${fav.fontWeight}`);
             if (fav.lineHeight) previewParts.push(`${fav.lineHeight}lh`);
             if (fav.letterSpacing != null) previewParts.push(`${fav.letterSpacing}ls`);

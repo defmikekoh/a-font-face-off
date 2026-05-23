@@ -171,4 +171,25 @@ describe('css-generators third-man-in text sizing', () => {
         assert.match(textRule, /line-height: 1\.7/);
         assert.match(textRule, /letter-spacing: 0\.02em/);
     });
+
+    it('does not emit cascading font-size rules for percent scaling', () => {
+        const css = generateThirdManInCSS('serif', {
+            fontName: 'Spectral',
+            fontSizeScale: 112,
+            lineHeight: 1.7,
+            variableAxes: {}
+        }, false);
+        assert.doesNotMatch(css, /font-size:/);
+        assert.match(css, /line-height: 1\.7/);
+    });
+});
+
+describe('css-generators percent font-size scaling', () => {
+    it('leaves body contact font-size scaling to content-side computed px application', () => {
+        const css = generateBodyContactCSS({
+            fontSizeScale: 112,
+            variableAxes: {}
+        }, false, false);
+        assert.equal(css, '');
+    });
 });

@@ -94,6 +94,7 @@
     return !!(config && (
       config.fontName ||
       config.fontSize ||
+      config.fontSizeScale ||
       config.fontWeight ||
       config.fontStyle ||
       config.lineHeight ||
@@ -109,7 +110,8 @@
       variableAxes: appliedConfig.variableAxes || {}
     };
 
-    if (appliedConfig.fontSize) comparisonConfig.fontSize = appliedConfig.fontSize;
+    if (appliedConfig.fontSizeScale != null) comparisonConfig.fontSizeScale = appliedConfig.fontSizeScale;
+    else if (appliedConfig.fontSize) comparisonConfig.fontSize = appliedConfig.fontSize;
     if (appliedConfig.lineHeight) comparisonConfig.lineHeight = appliedConfig.lineHeight;
     if (appliedConfig.letterSpacing != null) comparisonConfig.letterSpacing = appliedConfig.letterSpacing;
     if (appliedConfig.fontWeight) comparisonConfig.fontWeight = appliedConfig.fontWeight;
@@ -122,7 +124,7 @@
 
   function getActiveControlsFromConfig(config) {
     var active = new Set();
-    if (config && config.fontSize !== null && config.fontSize !== undefined) active.add('font-size');
+    if (config && (config.fontSize !== null && config.fontSize !== undefined || config.fontSizeScale !== null && config.fontSizeScale !== undefined)) active.add('font-size');
     if (config && config.lineHeight !== null && config.lineHeight !== undefined) active.add('line-height');
     if (config && config.letterSpacing != null) active.add('letter-spacing');
     if (config && config.fontWeight !== null && config.fontWeight !== undefined) active.add('weight');
@@ -154,7 +156,16 @@
       if (!activeControls2.has(control)) return false;
     }
 
-    if (activeControls1.has('font-size') && Number(config1.fontSize) !== Number(config2.fontSize)) return false;
+    if (activeControls1.has('font-size')) {
+      var config1UsesScale = config1.fontSizeScale !== null && config1.fontSizeScale !== undefined;
+      var config2UsesScale = config2.fontSizeScale !== null && config2.fontSizeScale !== undefined;
+      if (config1UsesScale !== config2UsesScale) return false;
+      if (config1UsesScale) {
+        if (Number(config1.fontSizeScale) !== Number(config2.fontSizeScale)) return false;
+      } else if (Number(config1.fontSize) !== Number(config2.fontSize)) {
+        return false;
+      }
+    }
     if (activeControls1.has('line-height') && Number(config1.lineHeight) !== Number(config2.lineHeight)) return false;
     if (activeControls1.has('letter-spacing') && Number(config1.letterSpacing) !== Number(config2.letterSpacing)) return false;
     if (activeControls1.has('weight') && Number(config1.fontWeight) !== Number(config2.fontWeight)) return false;

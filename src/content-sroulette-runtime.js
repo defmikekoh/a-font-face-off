@@ -26,6 +26,7 @@
     return !!(fontConfig && (
       fontConfig.fontName ||
       fontConfig.fontSize ||
+      fontConfig.fontSizeScale ||
       fontConfig.fontWeight ||
       fontConfig.fontStyle ||
       fontConfig.lineHeight ||

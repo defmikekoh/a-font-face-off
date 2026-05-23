@@ -228,43 +228,53 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
     const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
     const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + GUARD_EXCLUDE;
     let styleRule = `${selector} {`;
+    let hasStyleRuleProps = false;
 
     if (payload.fontName) {
         styleRule += ` font-family: "${payload.fontName}"${imp};`;
+        hasStyleRuleProps = true;
     }
 
     if (payload.fontSize && isFinite(payload.fontSize)) {
         styleRule += ` font-size: ${payload.fontSize}px${imp};`;
+        hasStyleRuleProps = true;
     }
     if (payload.lineHeight && isFinite(payload.lineHeight)) {
         styleRule += ` line-height: ${payload.lineHeight}${imp};`;
+        hasStyleRuleProps = true;
     }
     if (payload.letterSpacing != null && isFinite(payload.letterSpacing)) {
         styleRule += ` letter-spacing: ${payload.letterSpacing}em${imp};`;
+        hasStyleRuleProps = true;
     }
     if (payload.fontColor) {
         styleRule += ` color: ${payload.fontColor}${imp};`;
+        hasStyleRuleProps = true;
     }
 
     const effectiveWdth = getEffectiveWidth(payload);
     if (effectiveWdth !== null) {
         styleRule += ` font-stretch: ${effectiveWdth}%${imp};`;
+        hasStyleRuleProps = true;
     }
     const effectiveItal = getEffectiveItalic(payload);
     const effectiveSlnt = getEffectiveSlant(payload);
     if (effectiveItal !== null && effectiveItal >= 1) {
         styleRule += ` font-style: italic${imp};`;
+        hasStyleRuleProps = true;
     } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
         styleRule += ` font-style: oblique ${effectiveSlnt}deg${imp};`;
+        hasStyleRuleProps = true;
     }
     const allAxes = buildAllAxisSettings(payload);
     const boldAxes = buildBoldAxisSettings(payload, 700);
     if (allAxes.length > 0) {
         styleRule += ` font-variation-settings: ${allAxes.join(', ')}${imp};`;
+        hasStyleRuleProps = true;
     }
 
     styleRule += ' }';
-    lines.push(styleRule);
+    if (hasStyleRuleProps) lines.push(styleRule);
 
     const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {

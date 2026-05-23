@@ -54,6 +54,12 @@ describe('normalizeConfig', () => {
         assert.equal(result.fontSize, 20);
     });
 
+    it('uses fontSizeScale instead of absolute fontSize when present', () => {
+        const result = normalizeConfig({ fontName: 'Lato', fontSize: 16, fontSizeScale: '112' });
+        assert.equal(result.fontSizeScale, 112);
+        assert.equal(result.fontSize, undefined);
+    });
+
     it('drops fontColor when set to "default"', () => {
         const result = normalizeConfig({ fontName: 'Roboto', fontColor: 'default' });
         assert.equal(result.fontColor, undefined);
@@ -134,6 +140,7 @@ describe('normalizeConfig', () => {
     it('omits properties not present in input (No Key arch)', () => {
         const result = normalizeConfig({ fontName: 'Roboto' });
         assert.equal(result.hasOwnProperty('fontSize'), false);
+        assert.equal(result.hasOwnProperty('fontSizeScale'), false);
         assert.equal(result.hasOwnProperty('lineHeight'), false);
         assert.equal(result.hasOwnProperty('letterSpacing'), false);
         assert.equal(result.hasOwnProperty('fontWeight'), false);

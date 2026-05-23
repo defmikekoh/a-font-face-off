@@ -2380,7 +2380,8 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const payload = {
           fontName: fontConfig.fontName
         };
-        if (fontConfig.fontSize) payload.fontSize = fontConfig.fontSize;
+        if (fontConfig.fontSizeScale != null) payload.fontSizeScale = fontConfig.fontSizeScale;
+        else if (fontConfig.fontSize) payload.fontSize = fontConfig.fontSize;
         if (fontConfig.lineHeight) payload.lineHeight = fontConfig.lineHeight;
         if (fontConfig.letterSpacing != null) payload.letterSpacing = fontConfig.letterSpacing;
         if (fontConfig.fontWeight) payload.fontWeight = fontConfig.fontWeight;

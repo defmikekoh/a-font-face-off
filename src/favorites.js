@@ -136,7 +136,9 @@ function generateFavoritePreview(config) {
     const parts = [];
 
     if (config.fontName) parts.push(config.fontName);
-    if (config.fontSize) {
+    if (config.fontSizeScale != null) {
+        parts.push(`${config.fontSizeScale}%`);
+    } else if (config.fontSize) {
         parts.push(`${config.fontSize}px`);
     }
     if (config.fontWeight) {
@@ -163,7 +165,9 @@ function generateDetailedFavoritePreview(config) {
     if (config.fontName) lines.push(`Font: ${config.fontName}`);
 
     // Always show font size
-    if (config.basicControls?.fontSize) {
+    if (config.fontSizeScale != null) {
+        lines.push(`Size: ${config.fontSizeScale}%`);
+    } else if (config.basicControls?.fontSize) {
         lines.push(`Size: ${config.fontSize}px`);
     }
     if (hasInCollection(config && config.activeControls, 'line-height') &&
@@ -269,7 +273,9 @@ function generateFontConfigName(position) {
     const parts = [];
 
     // Only include font size in name if it's set (not null)
-    if (config.fontSize !== null && config.fontSize !== undefined) {
+    if (config.fontSizeScale !== null && config.fontSizeScale !== undefined) {
+        parts.push(`${config.fontSizeScale}%`);
+    } else if (config.fontSize !== null && config.fontSize !== undefined) {
         parts.push(`${config.fontSize}px`);
     }
     if (config.fontWeight) {
@@ -331,7 +337,9 @@ function generateConfigPreview(position) {
     lines.push(`Font: ${config.fontName}`);
 
     // Only show font size if it's set (not null)
-    if (config.fontSize !== null && config.fontSize !== undefined) {
+    if (config.fontSizeScale !== null && config.fontSizeScale !== undefined) {
+        lines.push(`Size: ${config.fontSizeScale}%`);
+    } else if (config.fontSize !== null && config.fontSize !== undefined) {
         lines.push(`Size: ${config.fontSize}px`);
     }
     if (config.lineHeight) {
