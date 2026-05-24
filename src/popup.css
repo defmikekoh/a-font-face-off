@@ -355,10 +355,10 @@ body {
 }
 
 .popup-options-button {
-    position: fixed;
+    position: absolute;
     top: 8px;
     right: 10px;
-    z-index: 2600;
+    z-index: 20;
     width: 34px;
     height: 34px;
     min-width: 34px;

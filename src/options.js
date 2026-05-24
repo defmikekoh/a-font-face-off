@@ -231,6 +231,8 @@
   const DEFAULT_WAITFORIT = [];
   const DEFAULT_IGNORE_COMMENTS = [];
   const DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED = [];
+  const DEFAULT_TOOLBAR_WIDTH = 36;
+  const DEFAULT_TOOLBAR_HEIGHT = 50;
   const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
   const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
 
@@ -879,8 +881,8 @@
 
       // Load toolbar settings with new defaults
       document.getElementById('toolbar-enabled').value = data.affoToolbarEnabled !== false ? 'true' : 'false'; // Default to true
-      const width = data.affoToolbarWidth || 48;
-      const height = data.affoToolbarHeight || 20;
+      const width = data.affoToolbarWidth || DEFAULT_TOOLBAR_WIDTH;
+      const height = data.affoToolbarHeight || DEFAULT_TOOLBAR_HEIGHT;
       const position = data.affoToolbarPosition !== undefined ? data.affoToolbarPosition : 50;
       const transparency = data.affoToolbarTransparency !== undefined ? data.affoToolbarTransparency : 0.2;
       const gap = data.affoToolbarGap || 0;
@@ -1230,8 +1232,8 @@
 
       // Reset toolbar settings to defaults
       document.getElementById('toolbar-enabled').value = 'true';
-      document.getElementById('toolbar-width').value = 48;
-      document.getElementById('toolbar-height').value = 20;
+      document.getElementById('toolbar-width').value = DEFAULT_TOOLBAR_WIDTH;
+      document.getElementById('toolbar-height').value = DEFAULT_TOOLBAR_HEIGHT;
       document.getElementById('toolbar-position').value = 50;
       document.getElementById('toolbar-transparency').value = 0.2;
       document.getElementById('toolbar-gap').value = 0;

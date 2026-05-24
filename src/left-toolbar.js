@@ -26,16 +26,31 @@
     let quickPickMenu = null;
     let quickPickCloseTimer = null;
     let options = {};
+    let toolbarAllowedForCurrentPage = false;
+    let toolbarVisibilityRequestId = 0;
+    let toolbarPrintMediaQuery = null;
+    let toolbarPrintHandler = null;
     const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.';
     const QUICK_PICK_MESSAGE_COLOR = '#6c757d';
     const QUICK_PICK_SUCCESS_COLOR = '#198754';
     const QUICK_PICK_ERROR_COLOR = '#dc3545';
     const QUICK_PICK_SUCCESS_CLOSE_DELAY_MS = 800;
     const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
+    const DEFAULT_TOOLBAR_WIDTH_PX = 36;
+    const DEFAULT_TOOLBAR_HEIGHT_PERCENT = 50;
+    const TOOLBAR_BUTTON_COUNT = 6;
+    const TOOLBAR_VERTICAL_PADDING_PX = 40;
     const SROULETTE_POOLS = AFFOSroulette.POOL_LIST;
     const SROULETTE_BODY_TARGETS = AFFOSroulette.BODY_TARGET_LIST;
     const SROULETTE_TARGETS = AFFOSroulette.TARGET_LIST;
     const SROULETTE_TMI_TARGETS = AFFOSroulette.TMI_TARGET_LIST;
+    const touchToolbarEligible = /Mobile|Tablet|Android/i.test(navigator.userAgent) ||
+                        'ontouchstart' in window ||
+                        navigator.maxTouchPoints > 0;
+
+    function getBrowserAPI() {
+        return typeof browser !== 'undefined' ? browser : chrome;
+    }
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -89,6 +104,106 @@
         return AFFOSroulette.getValidPoolInfoFromData(data, pool);
     }
 
+    function hasDomainAppliedFontState(domainData) {
+        if (!domainData || typeof domainData !== 'object') return false;
+        const srouletteData = domainData.sroulette;
+        return !!(
+            domainData.body ||
+            domainData.serif ||
+            domainData.sans ||
+            domainData.mono ||
+            hasSrouletteIntentForTargets(srouletteData, SROULETTE_TARGETS)
+        );
+    }
+
+    function hasAutoSubstackRouletteState(data) {
+        if (!data || data.affoSubstackRoulette === false || !isSubstackSite()) return false;
+        if (isWaitForItConfiguredForCurrentDomain(data)) return false;
+
+        const serifInfo = getValidSroulettePoolInfo(data, 'serif');
+        const sansInfo = getValidSroulettePoolInfo(data, 'sans');
+        return !!(serifInfo.available && sansInfo.available);
+    }
+
+    async function shouldShowToolbarForCurrentPage() {
+        if (options.enabled === false) return false;
+        if (touchToolbarEligible) return true;
+
+        try {
+            const browserAPI = getBrowserAPI();
+            const data = await browserAPI.storage.local.get([
+                'affoApplyMap',
+                'affoFavorites',
+                'affoSubstackRoulette',
+                'affoSubstackRouletteSerif',
+                'affoSubstackRouletteSans',
+                'affoWaitForItDomains'
+            ]);
+            const applyMap = data.affoApplyMap || {};
+            const domainData = applyMap[location.hostname];
+            return hasDomainAppliedFontState(domainData) || hasAutoSubstackRouletteState(data);
+        } catch (e) {
+            affoDebugWarn('[Left Toolbar] Error checking toolbar visibility:', e);
+            return false;
+        }
+    }
+
+    function removeToolbarSurfaces() {
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', updateToolbarHeight);
+            window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
+        }
+        window.removeEventListener('load', checkToolbarHeight);
+        if (toolbarPrintMediaQuery && toolbarPrintHandler) {
+            if (typeof toolbarPrintMediaQuery.removeListener === 'function') {
+                toolbarPrintMediaQuery.removeListener(toolbarPrintHandler);
+            } else if (typeof toolbarPrintMediaQuery.removeEventListener === 'function') {
+                toolbarPrintMediaQuery.removeEventListener('change', toolbarPrintHandler);
+            }
+            toolbarPrintMediaQuery = null;
+            toolbarPrintHandler = null;
+        }
+
+        if (leftToolbarIframe) {
+            leftToolbarIframe.remove();
+            leftToolbarIframe = null;
+        }
+        if (unhideIcon) {
+            unhideIcon.remove();
+            unhideIcon = null;
+        }
+        hideQuickPickMenu();
+    }
+
+    async function updateToolbarAvailability() {
+        const requestId = ++toolbarVisibilityRequestId;
+        const shouldShow = await shouldShowToolbarForCurrentPage();
+        if (requestId !== toolbarVisibilityRequestId) return shouldShow;
+
+        toolbarAllowedForCurrentPage = shouldShow;
+        if (!shouldShow) {
+            removeToolbarSurfaces();
+            return false;
+        }
+
+        if (leftToolbarHidden) {
+            removeToolbarSurfaces();
+            if (!unhideIcon) await createUnhideIcon();
+            return true;
+        }
+
+        if (unhideIcon) {
+            unhideIcon.remove();
+            unhideIcon = null;
+        }
+        if (!leftToolbarIframe) {
+            await createLeftToolbar();
+        } else {
+            updateToolbarHeight();
+        }
+        return true;
+    }
+
     async function sendWaitForItStateToIframe() {
         if (!leftToolbarIframe || !leftToolbarIframe.contentWindow) return;
         try {
@@ -123,7 +238,13 @@
 
     function getToolbarThicknessPx(metrics) {
         const parsedWidth = Number(options.width);
-        const widthPx = Math.max(0, Number.isFinite(parsedWidth) ? parsedWidth : 48);
+        let widthPx = Math.max(0, Number.isFinite(parsedWidth) ? parsedWidth : DEFAULT_TOOLBAR_WIDTH_PX);
+        if (options.widthIsDefault && options.heightIsDefault) {
+            const autoFitWidth = Math.floor((metrics.height - TOOLBAR_VERTICAL_PADDING_PX) / TOOLBAR_BUTTON_COUNT);
+            if (Number.isFinite(autoFitWidth) && autoFitWidth > 0) {
+                widthPx = Math.min(widthPx, Math.max(24, autoFitWidth));
+            }
+        }
         return Math.floor(widthPx / metrics.scale);
     }
 
@@ -131,9 +252,13 @@
         const parsedHeightPercent = Number(options.height);
         const heightPercent = Math.max(
             0,
-            Math.min(100, Number.isFinite(parsedHeightPercent) ? parsedHeightPercent : 20)
+            Math.min(100, Number.isFinite(parsedHeightPercent) ? parsedHeightPercent : DEFAULT_TOOLBAR_HEIGHT_PERCENT)
         );
-        return Math.round((heightPercent / 100) * metrics.height);
+        const configuredHeightPx = Math.round((heightPercent / 100) * metrics.height);
+        if (!options.heightIsDefault) return configuredHeightPx;
+
+        const contentHeightPx = (getToolbarThicknessPx(metrics) * TOOLBAR_BUTTON_COUNT) + TOOLBAR_VERTICAL_PADDING_PX;
+        return Math.round(Math.min(metrics.height, Math.max(configuredHeightPx, contentHeightPx)));
     }
 
     function getToolbarPositionPercent() {
@@ -272,6 +397,10 @@
     // Create the left toolbar iframe with robust DOM body checking (like Essential)
     function createLeftToolbar() {
         return new Promise((resolve) => {
+            if (!toolbarAllowedForCurrentPage || options.enabled === false) {
+                resolve(false);
+                return;
+            }
             if (document.body) {
                 createToolbarAndResolve(resolve);
                 return;
@@ -290,6 +419,14 @@
     }
     
     function createToolbarAndResolve(resolve) {
+        if (!toolbarAllowedForCurrentPage || options.enabled === false) {
+            if (resolve) resolve(false);
+            return;
+        }
+        if (leftToolbarIframe) {
+            if (resolve) resolve(true);
+            return;
+        }
         leftToolbarIframe = document.createElement('iframe');
         leftToolbarIframe.id = 'affo-left-toolbar-iframe';
 
@@ -323,8 +460,11 @@
         // Hide during printing
         const mediaQuery = window.matchMedia('print');
         function handlePrint() {
+            if (!leftToolbarIframe) return;
             leftToolbarIframe.style.display = mediaQuery.matches ? 'none' : 'block';
         }
+        toolbarPrintMediaQuery = mediaQuery;
+        toolbarPrintHandler = handlePrint;
         mediaQuery.addListener(handlePrint);
         handlePrint();
         
@@ -363,6 +503,10 @@
     // Check and fix toolbar height after page load like Essential does
     function checkToolbarHeight() {
         setTimeout(function() {
+            if (!toolbarAllowedForCurrentPage || options.enabled === false) {
+                window.removeEventListener('load', checkToolbarHeight);
+                return;
+            }
             const targetElement = document.getElementById('affo-left-toolbar-iframe');
             if (!targetElement || targetElement.parentElement.tagName.toLowerCase() !== 'html') {
                 // Toolbar missing or misplaced, reinitialize
@@ -572,13 +716,9 @@
         // Update options with new values
         Object.assign(options, newOptions);
         
-        // Recreate toolbar with new settings
-        if (leftToolbarIframe) {
-            leftToolbarIframe.remove();
-            leftToolbarIframe = null;
-        }
-        
-        createLeftToolbar();
+        // Recreate toolbar/unhide icon with new settings if this page is eligible.
+        removeToolbarSurfaces();
+        updateToolbarAvailability();
     }
 
     // Create quick-pick menu in page context (not iframe)
@@ -1493,22 +1633,11 @@
     
     // Reinitialize toolbar (handle hide/unhide)
     function reinitializeToolbar() {
-        
-        if (window.visualViewport) {
-            window.visualViewport.removeEventListener('resize', updateToolbarHeight);
-            window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
+        if (!toolbarAllowedForCurrentPage || options.enabled === false) {
+            removeToolbarSurfaces();
+            return;
         }
-        window.removeEventListener('load', checkToolbarHeight);
-
-        // Remove existing iframe or unhide icon
-        if (leftToolbarIframe) {
-            leftToolbarIframe.remove();
-            leftToolbarIframe = null;
-        }
-        if (unhideIcon) {
-            unhideIcon.remove();
-            unhideIcon = null;
-        }
+        removeToolbarSurfaces();
         
         // Create appropriate element based on hidden state
         if (leftToolbarHidden) {
@@ -1520,6 +1649,7 @@
     
     // Create unhide icon (based on essential-buttons-toolbar implementation)
     async function createUnhideIcon() {
+        if (!toolbarAllowedForCurrentPage || options.enabled === false || unhideIcon) return;
         
         unhideIcon = document.createElement('div');
         unhideIcon.setAttribute('id', 'affo-unhide-icon');
@@ -1633,9 +1763,18 @@
     }
     
     // Initialize toolbar like Essential - simple and direct
+    function scheduleNonTouchVisibilityRechecks() {
+        if (touchToolbarEligible) return;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateToolbarAvailability, { once: true });
+        }
+        window.addEventListener('load', updateToolbarAvailability, { once: true });
+    }
+
     function initializeToolbar() {
         getSettingsValues().then(() => {
-            createLeftToolbar();
+            updateToolbarAvailability();
+            scheduleNonTouchVisibilityRechecks();
         });
     }
 
@@ -1654,11 +1793,15 @@
             'affoPageUpScrollType'
         ];
         return (typeof browser !== 'undefined' ? browser : chrome).storage.local.get(keys).then((result) => {
+            const hasStoredWidth = result.affoToolbarWidth !== undefined;
+            const hasStoredHeight = result.affoToolbarHeight !== undefined;
             // Set options from storage like Essential
             options = {
                 enabled: result.affoToolbarEnabled !== false, // Default to enabled
-                width: result.affoToolbarWidth || 48,
-                height: result.affoToolbarHeight || 20,
+                width: hasStoredWidth ? result.affoToolbarWidth : DEFAULT_TOOLBAR_WIDTH_PX,
+                widthIsDefault: !hasStoredWidth,
+                height: hasStoredHeight ? result.affoToolbarHeight : DEFAULT_TOOLBAR_HEIGHT_PERCENT,
+                heightIsDefault: !hasStoredHeight,
                 position: result.affoToolbarPosition !== undefined ? result.affoToolbarPosition : 50,
                 transparency: result.affoToolbarTransparency !== undefined ? result.affoToolbarTransparency : 0.2,
                 gap: result.affoToolbarGap || 0,
@@ -1670,44 +1813,38 @@
             });
     }
 
-    // Show toolbar on mobile devices and touchscreen laptops
-    const showToolbar = /Mobile|Tablet|Android/i.test(navigator.userAgent) ||
-                        'ontouchstart' in window ||
-                        navigator.maxTouchPoints > 0;
-    if (showToolbar) {
-        initializeToolbar();
-    }
+    // Show toolbar on touch devices, or on non-touch pages with applied font state.
+    initializeToolbar();
 
     // Listen for toolbar option changes from background script
-    if (showToolbar) {
-        try {
-            const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-            if (browserAPI && browserAPI.runtime) {
-                browserAPI.runtime.onMessage.addListener(function(message, _sender, _sendResponse) {
+    try {
+        const browserAPI = getBrowserAPI();
+        if (browserAPI && browserAPI.runtime) {
+            browserAPI.runtime.onMessage.addListener(function(message, _sender, _sendResponse) {
 
-                    if (message.type === 'toolbarOptionsChanged') {
+                if (message.type === 'toolbarOptionsChanged') {
 
-                        // Update options
-                        if (message.options.affoToolbarEnabled !== undefined) options.enabled = message.options.affoToolbarEnabled;
-                        if (message.options.affoToolbarWidth !== undefined) options.width = message.options.affoToolbarWidth;
-                        if (message.options.affoToolbarHeight !== undefined) options.height = message.options.affoToolbarHeight;
-                        if (message.options.affoToolbarPosition !== undefined) options.position = message.options.affoToolbarPosition;
-                        if (message.options.affoToolbarTransparency !== undefined) options.transparency = message.options.affoToolbarTransparency;
-                        if (message.options.affoToolbarGap !== undefined) options.gap = message.options.affoToolbarGap;
-
-                        // Recreate toolbar with new settings
-                        if (leftToolbarIframe) {
-                            leftToolbarIframe.remove();
-                            leftToolbarIframe = null;
-                        }
-
-                        createLeftToolbar();
+                    // Update options
+                    if (message.options.affoToolbarEnabled !== undefined) options.enabled = message.options.affoToolbarEnabled;
+                    if (message.options.affoToolbarWidth !== undefined) {
+                        options.width = message.options.affoToolbarWidth;
+                        options.widthIsDefault = false;
                     }
-                });
-            }
-        } catch (e) {
-            affoDebugWarn('[Left Toolbar] Could not set up runtime message listener:', e);
+                    if (message.options.affoToolbarHeight !== undefined) {
+                        options.height = message.options.affoToolbarHeight;
+                        options.heightIsDefault = false;
+                    }
+                    if (message.options.affoToolbarPosition !== undefined) options.position = message.options.affoToolbarPosition;
+                    if (message.options.affoToolbarTransparency !== undefined) options.transparency = message.options.affoToolbarTransparency;
+                    if (message.options.affoToolbarGap !== undefined) options.gap = message.options.affoToolbarGap;
+
+                    removeToolbarSurfaces();
+                    updateToolbarAvailability();
+                }
+            });
         }
+    } catch (e) {
+        affoDebugWarn('[Left Toolbar] Could not set up runtime message listener:', e);
     }
     
     
@@ -1731,12 +1868,22 @@
     
     // Listen for storage changes to update icon theme
     try {
-        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+        const browserAPI = getBrowserAPI();
         if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
             browserAPI.storage.onChanged.addListener((changes, areaName) => {
                 if (areaName !== 'local') return;
                 if (changes.affoIconTheme && leftToolbarIframe) {
                     leftToolbarIframe.contentWindow.postMessage({ type: 'updateIconTheme' }, '*');
+                }
+                if (
+                    changes.affoApplyMap ||
+                    changes.affoFavorites ||
+                    changes.affoSubstackRoulette ||
+                    changes.affoSubstackRouletteSerif ||
+                    changes.affoSubstackRouletteSans ||
+                    changes.affoWaitForItDomains
+                ) {
+                    updateToolbarAvailability();
                 }
                 if ((changes.affoWaitForItDomains || changes.affoApplyMap) && leftToolbarIframe) {
                     sendWaitForItStateToIframe();
