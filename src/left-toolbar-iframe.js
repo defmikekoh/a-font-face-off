@@ -4,6 +4,26 @@
     
     // This script runs in the iframe context
     let waitForItVisualState = false;
+    const touchToolbarEligible = /Mobile|Tablet|Android/i.test(navigator.userAgent) ||
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0;
+    const touchToolbarButtons = [
+        'faceoff-button',
+        'whatfont-button',
+        'hide-toolbar-button',
+        'close-tab-button',
+        'page-up-button',
+        'page-down-button'
+    ];
+    const nonTouchToolbarButtons = [
+        'faceoff-button',
+        'whatfont-button',
+        'hide-toolbar-button'
+    ];
+
+    function getToolbarButtonIds() {
+        return touchToolbarEligible ? touchToolbarButtons : nonTouchToolbarButtons;
+    }
     
     // Initialize WhatFont by sending message to parent
     function initWhatFont() {
@@ -132,15 +152,8 @@
         toolbarDiv.style.left = '0';
         menuDiv.style.right = '0';
         
-        // Show all our buttons in toolbar div like Essential does
-        const buttons = [
-            'faceoff-button',
-            'whatfont-button', 
-            'hide-toolbar-button',
-            'close-tab-button',
-            'page-up-button',
-            'page-down-button'
-        ];
+        // Show touch-only navigation/close controls only on touch devices.
+        const buttons = getToolbarButtonIds();
         
         buttons.forEach(buttonId => {
             const button = document.getElementById(buttonId);

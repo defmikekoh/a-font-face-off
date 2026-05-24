@@ -38,7 +38,8 @@
     const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
     const DEFAULT_TOOLBAR_WIDTH_PX = 36;
     const DEFAULT_TOOLBAR_HEIGHT_PERCENT = 50;
-    const TOOLBAR_BUTTON_COUNT = 6;
+    const TOUCH_TOOLBAR_BUTTON_COUNT = 6;
+    const NON_TOUCH_TOOLBAR_BUTTON_COUNT = 3;
     const TOOLBAR_VERTICAL_PADDING_PX = 40;
     const SROULETTE_POOLS = AFFOSroulette.POOL_LIST;
     const SROULETTE_BODY_TARGETS = AFFOSroulette.BODY_TARGET_LIST;
@@ -50,6 +51,10 @@
 
     function getBrowserAPI() {
         return typeof browser !== 'undefined' ? browser : chrome;
+    }
+
+    function getVisibleToolbarButtonCount() {
+        return touchToolbarEligible ? TOUCH_TOOLBAR_BUTTON_COUNT : NON_TOUCH_TOOLBAR_BUTTON_COUNT;
     }
 
     async function sendRuntimeMessageWithRetry(message, options = {}) {
@@ -240,7 +245,7 @@
         const parsedWidth = Number(options.width);
         let widthPx = Math.max(0, Number.isFinite(parsedWidth) ? parsedWidth : DEFAULT_TOOLBAR_WIDTH_PX);
         if (options.widthIsDefault && options.heightIsDefault) {
-            const autoFitWidth = Math.floor((metrics.height - TOOLBAR_VERTICAL_PADDING_PX) / TOOLBAR_BUTTON_COUNT);
+            const autoFitWidth = Math.floor((metrics.height - TOOLBAR_VERTICAL_PADDING_PX) / getVisibleToolbarButtonCount());
             if (Number.isFinite(autoFitWidth) && autoFitWidth > 0) {
                 widthPx = Math.min(widthPx, Math.max(24, autoFitWidth));
             }
@@ -257,7 +262,10 @@
         const configuredHeightPx = Math.round((heightPercent / 100) * metrics.height);
         if (!options.heightIsDefault) return configuredHeightPx;
 
-        const contentHeightPx = (getToolbarThicknessPx(metrics) * TOOLBAR_BUTTON_COUNT) + TOOLBAR_VERTICAL_PADDING_PX;
+        const contentHeightPx = (getToolbarThicknessPx(metrics) * getVisibleToolbarButtonCount()) + TOOLBAR_VERTICAL_PADDING_PX;
+        if (!touchToolbarEligible) {
+            return Math.round(Math.min(metrics.height, contentHeightPx));
+        }
         return Math.round(Math.min(metrics.height, Math.max(configuredHeightPx, contentHeightPx)));
     }
 

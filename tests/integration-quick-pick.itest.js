@@ -66,9 +66,15 @@ async function getToolbarIframeMetrics() {
         return await driver.executeScript(`
             const toolbar = document.getElementById('toolbar');
             const buttons = Array.from(document.querySelectorAll('.toolbar-button'));
-            const lastButton = buttons[buttons.length - 1];
+            const visibleButtons = buttons.filter((button) => {
+                const styles = window.getComputedStyle(button);
+                const rect = button.getBoundingClientRect();
+                return styles.display !== 'none' && rect.width > 0 && rect.height > 0;
+            });
+            const lastButton = visibleButtons[visibleButtons.length - 1];
             const lastRect = lastButton ? lastButton.getBoundingClientRect() : null;
             const doc = document.documentElement;
+            const touchOnlyButtonIds = ['close-tab-button', 'page-up-button', 'page-down-button'];
             return {
                 frameWidth: ${JSON.stringify(frameRect.width)},
                 frameHeight: ${JSON.stringify(frameRect.height)},
@@ -77,6 +83,18 @@ async function getToolbarIframeMetrics() {
                 toolbarClientHeight: toolbar ? toolbar.clientHeight : null,
                 toolbarScrollHeight: toolbar ? toolbar.scrollHeight : null,
                 buttonCount: buttons.length,
+                visibleButtonCount: visibleButtons.length,
+                visibleButtonIds: visibleButtons.map((button) => button.id),
+                touchOnlyButtons: touchOnlyButtonIds.map((id) => {
+                    const button = document.getElementById(id);
+                    const styles = button ? window.getComputedStyle(button) : null;
+                    return {
+                        id,
+                        exists: !!button,
+                        display: styles ? styles.display : null,
+                        parentId: button && button.parentElement ? button.parentElement.id : null
+                    };
+                }),
                 lastButtonBottom: lastRect ? lastRect.bottom : null
             };
         `);
@@ -220,8 +238,15 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
     it('quick-pick toolbar default size fits all iframe buttons without scrolling', async () => {
         await ensureQuickPickAvailable();
 
+        const state = await getQuickPickState();
         const metrics = await getToolbarIframeMetrics();
-        assert.equal(metrics.buttonCount, 6, 'Toolbar should render all six default buttons');
+        const expectedVisibleButtonCount = state.isTouchEligible ? 6 : 3;
+        assert.equal(metrics.buttonCount, 6, 'Toolbar should keep all six button elements available in the iframe');
+        assert.equal(
+            metrics.visibleButtonCount,
+            expectedVisibleButtonCount,
+            `Toolbar should display the expected buttons for this input mode: ${JSON.stringify(metrics)}`
+        );
         assert.ok(
             metrics.toolbarScrollHeight <= metrics.documentClientHeight + 1,
             `Toolbar should not need vertical scrolling by default: ${JSON.stringify(metrics)}`
@@ -229,6 +254,32 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.ok(
             metrics.lastButtonBottom <= metrics.documentClientHeight + 1,
             `Last toolbar button should fit in the default iframe height: ${JSON.stringify(metrics)}`
+        );
+    });
+
+    it('quick-pick toolbar hides touch-only buttons on non-touch pages', async (t) => {
+        await ensureQuickPickAvailable();
+
+        const state = await getQuickPickState();
+        if (state.isTouchEligible) {
+            t.skip('Touch-eligible profile keeps close and page navigation buttons visible');
+            return;
+        }
+
+        const metrics = await getToolbarIframeMetrics();
+        assert.deepEqual(
+            metrics.visibleButtonIds,
+            ['faceoff-button', 'whatfont-button', 'hide-toolbar-button'],
+            `Non-touch toolbar should show only the desktop controls: ${JSON.stringify(metrics)}`
+        );
+        assert.deepEqual(
+            metrics.touchOnlyButtons.map((button) => [button.id, button.exists, button.display, button.parentId]),
+            [
+                ['close-tab-button', true, 'none', ''],
+                ['page-up-button', true, 'none', ''],
+                ['page-down-button', true, 'none', '']
+            ],
+            `Touch-only toolbar buttons should remain hidden outside the toolbar: ${JSON.stringify(metrics)}`
         );
     });
 
