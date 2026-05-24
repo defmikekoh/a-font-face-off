@@ -3150,6 +3150,58 @@ function activateSroulettePanelMarker(marker, event) {
     return true;
 }
 
+function resetPanelControlsForSroulette(position) {
+    const panel = document.getElementById(`${position}-font-controls`);
+    if (!panel) return;
+
+    const display = document.getElementById(`${position}-font-display`);
+    const currentFontName = display ? String(display.textContent || '').trim() : '';
+    const fontDef = currentFontName ? getEffectiveFontDefinition(currentFontName) : null;
+
+    setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
+
+    const lineHeightControl = document.getElementById(`${position}-line-height`);
+    const lineHeightText = document.getElementById(`${position}-line-height-text`);
+    const lineHeightValue = document.getElementById(`${position}-line-height-value`);
+    if (lineHeightControl) lineHeightControl.value = 1.5;
+    if (lineHeightText) lineHeightText.value = 1.5;
+    if (lineHeightValue) lineHeightValue.textContent = '1.5';
+
+    const letterSpacingControl = document.getElementById(`${position}-letter-spacing`);
+    const letterSpacingText = document.getElementById(`${position}-letter-spacing-text`);
+    const letterSpacingValue = document.getElementById(`${position}-letter-spacing-value`);
+    if (letterSpacingControl) letterSpacingControl.value = 0;
+    if (letterSpacingText) letterSpacingText.value = 0;
+    if (letterSpacingValue) letterSpacingValue.textContent = '0em';
+
+    const weightControl = document.getElementById(`${position}-font-weight`);
+    const weightValue = document.getElementById(`${position}-font-weight-value`);
+    if (weightControl) weightControl.value = 400;
+    if (weightValue) weightValue.textContent = '400';
+
+    const styleControl = document.getElementById(`${position}-font-style`);
+    if (styleControl) styleControl.value = 'normal';
+
+    const colorControl = document.getElementById(`${position}-font-color`);
+    if (colorControl) colorControl.value = 'default';
+
+    panel.querySelectorAll('.control-group[data-control]').forEach(group => {
+        group.classList.add('unset');
+    });
+
+    panel.querySelectorAll('.control-group[data-axis]').forEach(group => {
+        const axis = group.getAttribute('data-axis');
+        const defaultValue = fontDef && fontDef.defaults ? fontDef.defaults[axis] : null;
+        if (defaultValue != null) {
+            const slider = document.getElementById(`${position}-${axis}`);
+            const textInput = document.getElementById(`${position}-${axis}-text`);
+            if (slider) slider.value = defaultValue;
+            if (textInput) textInput.value = defaultValue;
+        }
+        group.classList.add('unset');
+    });
+}
+
 function markPanelAsSroulette(position, pool) {
     if (!isSrouletteTarget(position) || !isSroulettePool(pool)) return;
     const label = getSrouletteLabel(pool);
@@ -3157,6 +3209,8 @@ function markPanelAsSroulette(position, pool) {
     const display = document.getElementById(`${position}-font-display`);
     const heading = document.getElementById(`${position}-font-name`);
     const preview = document.getElementById(`${position}-font-text`);
+
+    resetPanelControlsForSroulette(position);
 
     if (panel) panel.classList.add('sroulette-applied');
     if (display) {

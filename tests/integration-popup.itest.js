@@ -155,19 +155,35 @@ describe('Integration tests', () => {
         assert.equal(hasVisible, true, 'body font controls should be visible in body-contact mode');
     });
 
-    it('sroulette marker clears the body panel back to unset defaults', async () => {
+    it('sroulette selection resets controls and marker clears the body panel', async () => {
         await popupExec(driver, 'document.querySelector(\'[data-mode="body-contact"]\').click()');
         await driver.sleep(300);
 
         const result = await popupExec(driver, `
             const sizeGroup = document.querySelector('#body-font-controls .control-group[data-control="font-size"]');
+            const lineHeightGroup = document.querySelector('#body-font-controls .control-group[data-control="line-height"]');
             const sizeSlider = document.getElementById('body-font-size');
             const sizeText = document.getElementById('body-font-size-text');
+            const lineHeightSlider = document.getElementById('body-line-height');
+            const lineHeightText = document.getElementById('body-line-height-text');
             if (sizeGroup) sizeGroup.classList.remove('unset');
             if (sizeSlider) sizeSlider.value = '24';
             if (sizeText) sizeText.value = '24';
+            if (lineHeightGroup) lineHeightGroup.classList.remove('unset');
+            if (lineHeightSlider) lineHeightSlider.value = '1.9';
+            if (lineHeightText) lineHeightText.value = '1.9';
 
             markPanelAsSroulette('body', 'serif');
+            const selected = {
+                panelState: getCurrentPanelState('body').kind,
+                sizeValue: sizeSlider ? sizeSlider.value : null,
+                sizeTextValue: sizeText ? sizeText.value : null,
+                sizeGroupUnset: sizeGroup ? sizeGroup.classList.contains('unset') : null,
+                lineHeightValue: lineHeightSlider ? lineHeightSlider.value : null,
+                lineHeightTextValue: lineHeightText ? lineHeightText.value : null,
+                lineHeightGroupUnset: lineHeightGroup ? lineHeightGroup.classList.contains('unset') : null
+            };
+
             const marker = document.querySelector('#body-font-controls .sroulette-wheel-marker');
             if (marker) marker.click();
 
@@ -178,6 +194,7 @@ describe('Integration tests', () => {
 
             return {
                 markerExisted: !!marker,
+                selected,
                 displayText: display ? display.textContent.trim() : null,
                 showingSroulette: display ? display.classList.contains('sroulette-display') : null,
                 markerCount: panel.querySelectorAll('.sroulette-wheel-marker').length,
@@ -191,6 +208,13 @@ describe('Integration tests', () => {
         `);
 
         assert.equal(result.markerExisted, true, 'Sroulette marker should render');
+        assert.equal(result.selected.panelState, 'sroulette');
+        assert.equal(result.selected.sizeValue, '17');
+        assert.equal(result.selected.sizeTextValue, '17');
+        assert.equal(result.selected.sizeGroupUnset, true);
+        assert.equal(result.selected.lineHeightValue, '1.5');
+        assert.equal(result.selected.lineHeightTextValue, '1.5');
+        assert.equal(result.selected.lineHeightGroupUnset, true);
         assert.equal(result.displayText, 'Default');
         assert.equal(result.showingSroulette, false);
         assert.equal(result.markerCount, 0);
