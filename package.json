@@ -5,7 +5,7 @@
   "description": "Build scripts for A Font Face-off (web-ext)",
   "scripts": {
     "prebuild": "node scripts/set-debug.js false",
-    "build": "web-ext build",
+    "build": "NO_UPDATE_NOTIFIER=1 web-ext build",
     "postbuild": "node scripts/set-debug.js true",
     "build:latest": "npm run build && cp web-ext-artifacts/*.zip web-ext-artifacts/latest.xpi",
     "build:edge-mv3": "node scripts/build-edge-mv3.js",
