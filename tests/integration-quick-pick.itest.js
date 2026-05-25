@@ -395,13 +395,17 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.equal(buttonCount, 5, 'Menu should have 5 favorite button elements');
     });
 
-    it('quick-pick menu does not expose the removed unapply action', async () => {
+    it('quick-pick menu does not expose removed auxiliary actions', async () => {
         await ensureQuickPickAvailable();
 
-        const unapplyBtn = await driver.executeScript(`
-            return !!document.getElementById('affo-quick-pick-unapply');
+        const retiredActions = await driver.executeScript(`
+            return {
+                unapply: !!document.getElementById('affo-quick-pick-unapply'),
+                rewalk: !!document.getElementById('affo-quick-pick-rewalk')
+            };
         `);
-        assert.equal(unapplyBtn, false, 'Quick-pick menu should not have unapply button');
+        assert.equal(retiredActions.unapply, false, 'Quick-pick menu should not have unapply button');
+        assert.equal(retiredActions.rewalk, false, 'Quick-pick menu should not have rewalk button');
     });
 
     it('favorite buttons are styled correctly', async () => {
