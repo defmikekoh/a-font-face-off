@@ -30,8 +30,9 @@ Options:
   --url <url>              URL to inspect (default: ${DEFAULT_URL})
   --serial <id>            ADB device serial (default: single connected device)
   --package <name>         Android Firefox package to launch (required)
-  --allow-existing-profile Acknowledge that Firefox Android uses the selected app's real profile
-                            and automation may modify or reset its stored data
+  --allow-clear-package-data
+                            Acknowledge that Android geckodriver clears the selected
+                            Firefox package data when creating a session
   --xpi <path>             Extension XPI to install (default: web-ext-artifacts/latest.xpi)
   --skip-addon             Do not install an extension before navigating
   --allow-addon-failure    Continue inspection if addon installation fails
@@ -49,8 +50,8 @@ Options:
 
 Examples:
   npm run build:latest
-  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-existing-profile --url https://example.com --expect-affo
-  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-existing-profile --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector p
+  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-clear-package-data --url https://example.com --expect-affo
+  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector p
 `);
 }
 
@@ -59,7 +60,7 @@ function parseArgs(argv) {
         url: process.env.AFFO_ANDROID_URL || DEFAULT_URL,
         serial: process.env.AFFO_ANDROID_SERIAL || '',
         packageName: process.env.AFFO_ANDROID_PACKAGE || '',
-        allowExistingProfile: process.env.AFFO_ANDROID_ALLOW_EXISTING_PROFILE === '1',
+        allowClearPackageData: process.env.AFFO_ANDROID_ALLOW_CLEAR_PACKAGE_DATA === '1',
         xpiPath: process.env.AFFO_ANDROID_XPI || DEFAULT_XPI,
         skipAddon: process.env.AFFO_ANDROID_SKIP_ADDON === '1',
         allowAddonFailure: process.env.AFFO_ANDROID_ALLOW_ADDON_FAILURE === '1',
@@ -85,8 +86,8 @@ function parseArgs(argv) {
             args.serial = requireValue(argv, ++i, arg);
         } else if (arg === '--package') {
             args.packageName = requireValue(argv, ++i, arg);
-        } else if (arg === '--allow-existing-profile') {
-            args.allowExistingProfile = true;
+        } else if (arg === '--allow-clear-package-data') {
+            args.allowClearPackageData = true;
         } else if (arg === '--xpi') {
             args.xpiPath = path.resolve(requireValue(argv, ++i, arg));
         } else if (arg === '--skip-addon') {
@@ -129,11 +130,11 @@ function parseArgs(argv) {
     if (!args.packageName.trim()) {
         throw new Error('--package is required. Use a dedicated Firefox Android installation/profile reserved for automation.');
     }
-    if (!args.allowExistingProfile) {
+    if (!args.allowClearPackageData) {
         throw new Error([
-            'Refusing to launch Firefox Android without --allow-existing-profile.',
-            'Fenix ignores temporary profile paths and WebDriver uses the selected app package real profile.',
-            'Use only a disposable/testing Firefox installation; automation may modify or reset tabs, settings, add-ons, bookmarks, or other profile data.'
+            'Refusing to launch Firefox Android without --allow-clear-package-data.',
+            'Android geckodriver clears the selected app package data during session creation.',
+            'Use only an approved disposable/testing Firefox installation; tabs, settings, add-ons, bookmarks, and other app data will be erased.'
         ].join(' '));
     }
     if (!args.seedSerif.trim()) {
@@ -461,7 +462,7 @@ async function main() {
             url: args.url,
             serial: args.serial,
             packageName: args.packageName,
-            allowExistingProfile: args.allowExistingProfile,
+            allowClearPackageData: args.allowClearPackageData,
             selectors: args.selectors,
             skipAddon: args.skipAddon,
             expectAffo: args.expectAffo,

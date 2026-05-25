@@ -44,7 +44,7 @@ node --test tests/integration-popup.itest.js
 
 - **In-process extensions**: `extensions.webextensions.remote=false` runs extension code in the parent process so `contentWindow` is accessible for `Cu.Sandbox`
 - **Chrome context**: `driver.setContext(firefox.Context.CHROME)` switches to browser chrome for toolbar/panel interaction; requires `-remote-allow-system-access` flag
-- **Fresh temp profiles**: Each test run creates a new profile via `fs.mkdtempSync`, avoiding conflicts with existing Firefox sessions
+- **Fresh temp profiles (desktop only)**: Each desktop test run creates a new profile via `fs.mkdtempSync`, avoiding conflicts with existing Firefox sessions. This isolation does not apply to Firefox Android/Fenix.
 - **No UUID discovery needed**: We click the real toolbar button, no need to find `moz-extension://` URLs
 
 ### Toolbar button IDs
@@ -130,26 +130,44 @@ const affoBase = await driver.executeScript(
 
 ### Android Firefox Inspection
 
-For real Android Firefox DOM and computed-style inspection, use the project harness only with a dedicated Firefox Android app installation whose profile may be discarded:
+#### Authorized Firefox Android Target
+
+Android Selenium/geckodriver session creation clears the selected Firefox package data. Operations using that path, or any explicit app/profile clearing, are pre-approved only for this exact target:
+
+```text
+Device:  RF8M81WSL1V (Samsung Galaxy Note10)
+Package: org.mozilla.fenix (Firefox Nightly)
+```
+
+The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO debugging. Do not perform such operations against:
+
+- Any other Firefox package on the Note10, including Firefox Release or Beta.
+- `org.mozilla.fenix` or any Firefox package on another phone, tablet, emulator, or Android user/work profile.
+
+Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
+
+`web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
+
+For real Android Firefox DOM and computed-style inspection on the approved target, use:
 
 ```bash
 npm run build:latest
-npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-existing-profile --expect-affo --out ztemp/android-firefox-inspect.json
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --expect-affo --out ztemp/android-firefox-inspect.json
 ```
 
-Important: Fenix ignores the temporary profile path used by `web-ext`/geckodriver and runs on the selected app package's real profile. Android automation or temporary add-on installation may modify or reset tabs, settings, add-ons, bookmarks, or other data. Never target the user's everyday Firefox, Beta, or Nightly profile. The script requires `--allow-existing-profile` as an explicit acknowledgement; use a dedicated testing package/profile.
+Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; this approval applies only to Nightly on the Note10 identified above.
 
-The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Pass `--skip-addon` when the extension is already installed in that dedicated testing profile.
+The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Pass `--skip-addon` when the extension is already installed in the approved testing profile.
 
 Speed/fidelity rule:
 - Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
 - Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, or final computed CSS with AFFO active.
 - If Chrome reveals a selector or page structure, verify in Firefox before treating it as extension behavior; sites and engines can diverge.
 
-Storage-dependent features will not be configured unless the script seeds storage or the dedicated testing profile already has configuration. For Substack Roulette checks, seed deterministic favorites before inspecting:
+Storage-dependent features will not be configured unless the script seeds storage or the approved Nightly testing profile already has configuration. For Substack Roulette checks, seed deterministic favorites before inspecting:
 
 ```bash
-npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-existing-profile --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
 ```
 
 Use a seed font that differs from the site default when proving font application. On Substack, `Lora` is a better serif proof than `Spectral` because many Substack pages already use Spectral.
@@ -255,15 +273,15 @@ This issue can break Selenium launches even when the test code and skill are oth
 
 ### Firefox Android `web-ext run` duplicate RDP sockets
 
-Only perform this cleanup against a disposable/testing Firefox Android package, not a personal browser profile.
+Only perform this cleanup against the pre-approved `RF8M81WSL1V` + `org.mozilla.fenix` target unless the user gives new explicit approval for another device/package pair.
 
 If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
 
 ```bash
 adb -s DEVICE_ID forward --list
 adb -s DEVICE_ID forward --remove tcp:PORT
-adb -s DEVICE_ID shell am force-stop TEST_ONLY_FIREFOX_PACKAGE
-adb -s DEVICE_ID shell grep TEST_ONLY_FIREFOX_PACKAGE /proc/net/unix
+adb -s RF8M81WSL1V shell am force-stop org.mozilla.fenix
+adb -s RF8M81WSL1V shell grep org.mozilla.fenix /proc/net/unix
 ```
 
 The final `grep` should print no duplicate `firefox-debugger-socket` rows before retrying. If sockets remain after force-stop, a device reboot is the blunt recovery.
