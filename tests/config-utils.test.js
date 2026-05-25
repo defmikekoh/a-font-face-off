@@ -44,6 +44,12 @@ describe('normalizeConfig', () => {
         assert.equal(result.fontWeight, 400);
     });
 
+    it('preserves midpoint static font weights', () => {
+        const result = normalizeConfig({ fontName: 'Inter', fontWeight: '450' });
+        assert.equal(result.fontWeight, 450);
+        assert.equal(getEffectiveWeight(result), 450);
+    });
+
     it('handles legacy fontSizePx property', () => {
         const result = normalizeConfig({ fontName: 'Lato', fontSizePx: 20 });
         assert.equal(result.fontSize, 20);

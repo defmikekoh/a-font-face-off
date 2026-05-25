@@ -67,6 +67,7 @@ describe('Integration tests', () => {
                 sizeSlider: !!document.getElementById(pos + '-font-size'),
                 sizeText: !!document.getElementById(pos + '-font-size-text'),
                 weightSlider: !!document.getElementById(pos + '-font-weight'),
+                weightStep: document.getElementById(pos + '-font-weight')?.step,
                 axesContainer: !!document.getElementById(pos + '-axes-container'),
                 applyBtn: !!document.getElementById('apply-' + pos),
                 resetBtn: !!document.getElementById('reset-' + pos)
@@ -78,6 +79,7 @@ describe('Integration tests', () => {
             assert.ok(p.sizeSlider, `${p.pos} font-size slider exists`);
             assert.ok(p.sizeText, `${p.pos} font-size text input exists`);
             assert.ok(p.weightSlider, `${p.pos} font-weight slider exists`);
+            assert.equal(p.weightStep, '50', `${p.pos} font-weight slider allows midpoint weights`);
             assert.ok(p.axesContainer, `${p.pos} axes container exists`);
             assert.ok(p.applyBtn, `${p.pos} apply button exists`);
             assert.ok(p.resetBtn, `${p.pos} reset button exists`);
@@ -112,6 +114,7 @@ describe('Integration tests', () => {
                 display: !!document.getElementById(pos + '-font-display'),
                 sizeSlider: !!document.getElementById(pos + '-font-size'),
                 weightSlider: !!document.getElementById(pos + '-font-weight'),
+                weightStep: document.getElementById(pos + '-font-weight')?.step,
                 axesContainer: !!document.getElementById(pos + '-axes-container'),
                 applyBtn: !!document.getElementById('apply-' + pos),
                 resetBtn: !!document.getElementById('reset-' + pos)
@@ -122,6 +125,7 @@ describe('Integration tests', () => {
             assert.ok(p.display, `${p.pos} font display exists`);
             assert.ok(p.sizeSlider, `${p.pos} font-size slider exists`);
             assert.ok(p.weightSlider, `${p.pos} font-weight slider exists`);
+            assert.equal(p.weightStep, '50', `${p.pos} font-weight slider allows midpoint weights`);
             assert.ok(p.axesContainer, `${p.pos} axes container exists`);
             assert.ok(p.applyBtn, `${p.pos} apply button exists`);
             assert.ok(p.resetBtn, `${p.pos} reset button exists`);
