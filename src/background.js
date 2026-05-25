@@ -197,10 +197,6 @@ function setSrouletteIntentForTarget(entry, target, pool) {
   return AFFOSroulette.setIntent(entry, target, pool);
 }
 
-function hasSrouletteIntentForTarget(entry, target) {
-  return AFFOSroulette.hasIntentForTarget(entry, target);
-}
-
 async function removeTrackedSrouletteCss(tabId, targets) {
   if (tabId == null) return;
   const tracked = srouletteInsertedCssByTab.get(tabId);
@@ -2485,57 +2481,6 @@ async function handleAffoRuntimeMessage(msg, sender) {
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] Unapply failed:', e);
-        return { success: false, error: e.message };
-      }
-    }
-
-    // Handle quick-rewalk from toolbar (re-walk DOM + re-inject CSS for all active TMI types)
-    if (msg.type === 'quickRewalk') {
-      try {
-        const { origin } = msg;
-        const tabId = sender.tab ? sender.tab.id : null;
-
-        if (!origin || !tabId) {
-          return { success: false, error: 'Missing required parameters' };
-        }
-
-        const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
-        const applyMap = result[APPLY_MAP_KEY] || {};
-        const domainData = applyMap[origin];
-
-        if (!domainData) {
-          return { success: false, error: 'No fonts applied for this domain' };
-        }
-
-        const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
-        const aggressive = aggressiveDomains.includes(origin);
-
-        const activeFontTypes = new Set();
-        for (const fontType of ['serif', 'sans', 'mono']) {
-          if (domainData[fontType] || hasSrouletteIntentForTarget(domainData, fontType)) {
-            activeFontTypes.add(fontType);
-          }
-        }
-
-        if (activeFontTypes.size === 0) {
-          return { success: false, error: 'No TMI fonts applied for this domain' };
-        }
-
-        for (const fontType of activeFontTypes) {
-          await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType });
-
-          if (!domainData[fontType]) continue;
-
-          const css = generateThirdManInCSS(fontType, domainData[fontType], aggressive);
-          if (css) {
-            await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
-          }
-        }
-
-        affoDebugLog('[AFFO Background] Rewalk completed for', origin);
-        return { success: true };
-      } catch (e) {
-        console.error('[AFFO Background] Rewalk failed:', e);
         return { success: false, error: e.message };
       }
     }

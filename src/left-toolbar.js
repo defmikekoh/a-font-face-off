@@ -924,38 +924,6 @@
             body.appendChild(btn);
         }
 
-        // Add rewalk button (for TMI mode - re-walks DOM to pick up dynamic content)
-        const rewalkBtn = document.createElement('button');
-        rewalkBtn.id = 'affo-quick-pick-rewalk';
-        rewalkBtn.textContent = 'Rewalk';
-        rewalkBtn.style.cssText = `
-            padding: 10px 12px !important;
-            background: #0d6efd !important;
-            border: 1px solid #0b5ed7 !important;
-            border-radius: 4px !important;
-            color: #ffffff !important;
-            cursor: pointer !important;
-            font-size: 13px !important;
-            font-family: inherit !important;
-            display: none;
-            font-weight: 500 !important;
-            transition: all 150ms ease !important;
-            text-align: center !important;
-            justify-content: center !important;
-            align-items: center !important;
-            margin-top: 4px !important;
-            line-height: 1.4 !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-            min-height: 0 !important;
-            box-sizing: border-box !important;
-        `;
-        rewalkBtn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#0b5ed7', 'important'); this.style.setProperty('border-color', '#0a58ca', 'important'); } };
-        rewalkBtn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', '#0d6efd', 'important'); this.style.setProperty('border-color', '#0b5ed7', 'important'); } };
-        rewalkBtn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#0a58ca', 'important'); };
-        rewalkBtn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#0b5ed7', 'important'); };
-        body.appendChild(rewalkBtn);
-
         // Add unapply button (red danger button matching popup style)
         const unapplyBtn = document.createElement('button');
         unapplyBtn.id = 'affo-quick-pick-unapply';
@@ -1210,11 +1178,6 @@
         if (unapplyBtn) {
             unapplyBtn.disabled = disabled;
             unapplyBtn.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
-        }
-        const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
-        if (rewalkBtn) {
-            rewalkBtn.disabled = disabled;
-            rewalkBtn.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
         }
     }
 
@@ -1529,7 +1492,6 @@
         // Show unapply button if fonts are applied
         const srouletteData = domainData && domainData.sroulette;
         const hasSrouletteApplied = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TARGETS);
-        const hasTmiSrouletteApplied = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TMI_TARGETS);
         const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body || hasSrouletteApplied);
         if (hasFontsApplied) {
             unapplyBtn.disabled = false;
@@ -1558,38 +1520,6 @@
             };
         } else {
             unapplyBtn.style.setProperty('display', 'none', 'important');
-        }
-
-        // Show rewalk button if TMI fonts are applied
-        const rewalkBtn = document.getElementById('affo-quick-pick-rewalk');
-        const hasTmiFonts = domainData && (domainData.serif || domainData.sans || domainData.mono || hasTmiSrouletteApplied);
-        if (rewalkBtn && hasTmiFonts) {
-            rewalkBtn.disabled = false;
-            rewalkBtn.style.setProperty('opacity', '1', 'important');
-            rewalkBtn.style.setProperty('display', 'flex', 'important');
-            rewalkBtn.onclick = () => {
-                setQuickPickButtonsDisabled(true);
-                setQuickPickMessage(message, 'Rewalking...');
-
-                sendRuntimeMessageWithRetry({
-                    type: 'quickRewalk',
-                    origin: currentOrigin
-                }).then(response => {
-                    if (response && response.success) {
-                        showQuickPickSuccessThenClose(message, 'Rewalked.');
-                    } else {
-                        console.error('[Left Toolbar] Rewalk failed:', response?.error);
-                        setQuickPickMessage(message, 'Rewalk failed. Try popup.', { color: QUICK_PICK_ERROR_COLOR });
-                        setQuickPickButtonsDisabled(false);
-                    }
-                }).catch(err => {
-                    console.error('[Left Toolbar] Error rewalking:', err);
-                    setQuickPickMessage(message, 'Error rewalking.', { color: QUICK_PICK_ERROR_COLOR });
-                    setQuickPickButtonsDisabled(false);
-                });
-            };
-        } else if (rewalkBtn) {
-            rewalkBtn.style.setProperty('display', 'none', 'important');
         }
     }
 
