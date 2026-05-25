@@ -2442,49 +2442,6 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
-    // Handle quick-unapply from toolbar
-    if (msg.type === 'quickUnapplyFonts') {
-      try {
-        const { origin } = msg;
-        const tabId = sender.tab ? sender.tab.id : null;
-
-        if (!origin || !tabId) {
-          return { success: false, error: 'Missing required parameters' };
-        }
-
-        // Remove domain fonts from storage
-        const result = await browser.storage.local.get(APPLY_MAP_KEY);
-        const applyMap = result[APPLY_MAP_KEY] || {};
-        if (applyMap[origin]) {
-          delete applyMap[origin];
-          await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
-        }
-        await removeTrackedSrouletteCss(tabId);
-
-        // Clear all applied styles by removing the injected CSS
-        try {
-          await browser.tabs.removeCSS(tabId, { code: '' });
-        } catch (e) {
-          // removeCSS might fail, but we still cleared storage
-          affoDebugLog('[AFFO Background] RemoveCSS note:', e.message);
-        }
-
-        // Reload page content script to clean up
-        await browser.tabs.executeScript(tabId, {
-          code: 'if (window.affoRemoveAllStyles) { window.affoRemoveAllStyles(); }'
-        }).catch(e => {
-          // Script execution might fail, but storage is cleared
-          affoDebugLog('[AFFO Background] Reload script note:', e.message);
-        });
-
-        affoDebugLog('[AFFO Background] Fonts removed for', origin);
-        return { success: true };
-      } catch (e) {
-        console.error('[AFFO Background] Unapply failed:', e);
-        return { success: false, error: e.message };
-      }
-    }
-
     // Handle font fetching requests
     if (!msg || msg.type !== 'affoFetch') return;
     return AFFOBackgroundFontRuntime.handleFetchMessage(msg);

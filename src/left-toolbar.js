@@ -924,38 +924,6 @@
             body.appendChild(btn);
         }
 
-        // Add unapply button (red danger button matching popup style)
-        const unapplyBtn = document.createElement('button');
-        unapplyBtn.id = 'affo-quick-pick-unapply';
-        unapplyBtn.textContent = 'Unapply';
-        unapplyBtn.style.cssText = `
-            padding: 10px 12px !important;
-            background: #dc3545 !important;
-            border: 1px solid #c82333 !important;
-            border-radius: 4px !important;
-            color: #ffffff !important;
-            cursor: pointer !important;
-            font-size: 13px !important;
-            font-family: inherit !important;
-            display: none;
-            font-weight: 500 !important;
-            transition: all 150ms ease !important;
-            text-align: center !important;
-            justify-content: center !important;
-            align-items: center !important;
-            margin-top: 4px !important;
-            line-height: 1.4 !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-            min-height: 0 !important;
-            box-sizing: border-box !important;
-        `;
-        unapplyBtn.onmouseover = function() { if (!this.disabled) { this.style.setProperty('background', '#c82333', 'important'); this.style.setProperty('border-color', '#a71d2a', 'important'); } };
-        unapplyBtn.onmouseout = function() { if (!this.disabled) { this.style.setProperty('background', '#dc3545', 'important'); this.style.setProperty('border-color', '#c82333', 'important'); } };
-        unapplyBtn.onmousedown = function() { if (!this.disabled) this.style.setProperty('background', '#a71d2a', 'important'); };
-        unapplyBtn.onmouseup = function() { if (!this.disabled) this.style.setProperty('background', '#c82333', 'important'); };
-        body.appendChild(unapplyBtn);
-
         // Domain setting checkboxes
         const checkboxSection = document.createElement('div');
         checkboxSection.style.cssText = `
@@ -1098,7 +1066,6 @@
                 favorites: top5,
                 noFavorites: top5.length === 0,
                 showBodyModeMessage: hasBodyOnly,
-                domainData,
                 origin,
                 domainLists,
                 sroulettePools,
@@ -1168,26 +1135,20 @@
             document.getElementById('affo-quick-pick-sroulette-sans'),
             ...Array.from({length: 5}, (_, i) => document.getElementById(`affo-quick-pick-font-${i + 1}`))
         ];
-        const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
         allBtns.forEach(b => {
             if (b && b.style.display !== 'none') {
                 b.disabled = disabled;
                 b.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
             }
         });
-        if (unapplyBtn) {
-            unapplyBtn.disabled = disabled;
-            unapplyBtn.style.setProperty('opacity', disabled ? '0.5' : '1', 'important');
-        }
     }
 
     // Populate menu with favorites (in page context)
-    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, domainData, origin, domainLists, sroulettePools, syncBackend }) {
+    function populateQuickPickMenuInPage({ favorites, noFavorites, showBodyModeMessage, origin, domainLists, sroulettePools, syncBackend }) {
         const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
         createQuickPickMenuIfNeeded();
 
         const message = document.getElementById('affo-quick-pick-message');
-        const unapplyBtn = document.getElementById('affo-quick-pick-unapply');
         const currentOrigin = origin || location.hostname;
         const currentIsSubstack = isSubstackSite();
 
@@ -1331,7 +1292,6 @@
 
         if (showBodyModeMessage) {
             setQuickPickMessage(message, 'Domain has already been set in Body Mode. Use popup.');
-            unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
@@ -1406,7 +1366,6 @@
 
         if (noFavorites && visibleSrouletteCount === 0) {
             setQuickPickMessage(message, 'No favorites saved. Add favorites in the popup.');
-            unapplyBtn.style.setProperty('display', 'none', 'important');
             return;
         }
 
@@ -1487,39 +1446,6 @@
 
             btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
             btn.style.setProperty('cursor', 'pointer', 'important');
-        }
-
-        // Show unapply button if fonts are applied
-        const srouletteData = domainData && domainData.sroulette;
-        const hasSrouletteApplied = hasSrouletteIntentForTargets(srouletteData, SROULETTE_TARGETS);
-        const hasFontsApplied = domainData && (domainData.serif || domainData.sans || domainData.mono || domainData.body || hasSrouletteApplied);
-        if (hasFontsApplied) {
-            unapplyBtn.disabled = false;
-            unapplyBtn.style.setProperty('opacity', '1', 'important');
-            unapplyBtn.style.setProperty('display', 'flex', 'important');
-            unapplyBtn.onclick = () => {
-                setQuickPickButtonsDisabled(true);
-                setQuickPickMessage(message, 'Removing fonts...');
-
-                sendRuntimeMessageWithRetry({
-                    type: 'quickUnapplyFonts',
-                    origin: currentOrigin
-                }).then(response => {
-                    if (response && response.success) {
-                        showQuickPickSuccessThenClose(message, 'Fonts removed.');
-                    } else {
-                        console.error('[Left Toolbar] Unapply failed:', response?.error);
-                        setQuickPickMessage(message, 'Failed to remove fonts. Try popup.', { color: QUICK_PICK_ERROR_COLOR });
-                        setQuickPickButtonsDisabled(false);
-                    }
-                }).catch(err => {
-                    console.error('[Left Toolbar] Error removing fonts:', err);
-                    setQuickPickMessage(message, 'Error removing fonts.', { color: QUICK_PICK_ERROR_COLOR });
-                    setQuickPickButtonsDisabled(false);
-                });
-            };
-        } else {
-            unapplyBtn.style.setProperty('display', 'none', 'important');
         }
     }
 

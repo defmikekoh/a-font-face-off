@@ -395,13 +395,13 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.equal(buttonCount, 5, 'Menu should have 5 favorite button elements');
     });
 
-    it('quick-pick menu has unapply button', async () => {
+    it('quick-pick menu does not expose the removed unapply action', async () => {
         await ensureQuickPickAvailable();
 
         const unapplyBtn = await driver.executeScript(`
             return !!document.getElementById('affo-quick-pick-unapply');
         `);
-        assert.ok(unapplyBtn, 'Quick-pick menu should have unapply button');
+        assert.equal(unapplyBtn, false, 'Quick-pick menu should not have unapply button');
     });
 
     it('favorite buttons are styled correctly', async () => {
@@ -421,22 +421,6 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.ok(buttonStyles, 'Favorite buttons should exist');
         assert.ok(buttonStyles.isButton, 'Favorite elements should be buttons');
         assert.ok(buttonStyles.hasBackground, 'Buttons should have background');
-    });
-
-    it('unapply button is styled with red color', async () => {
-        await ensureQuickPickAvailable();
-
-        const unapplyStyles = await driver.executeScript(`
-            const btn = document.getElementById('affo-quick-pick-unapply');
-            if (!btn) return null;
-            const styles = window.getComputedStyle(btn);
-            return {
-                backgroundColor: styles.backgroundColor,
-                color: styles.color
-            };
-        `);
-        assert.ok(unapplyStyles, 'Unapply button should exist');
-        assert.ok(unapplyStyles.backgroundColor, 'Unapply button should have background color');
     });
 
     it('close button exists and is accessible', async () => {
@@ -485,8 +469,7 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
                 font2: !!document.getElementById('affo-quick-pick-font-2'),
                 font3: !!document.getElementById('affo-quick-pick-font-3'),
                 font4: !!document.getElementById('affo-quick-pick-font-4'),
-                font5: !!document.getElementById('affo-quick-pick-font-5'),
-                unapply: !!document.getElementById('affo-quick-pick-unapply')
+                font5: !!document.getElementById('affo-quick-pick-font-5')
             };
         `);
 
@@ -498,7 +481,6 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.ok(elementIds.font3, 'affo-quick-pick-font-3 should exist');
         assert.ok(elementIds.font4, 'affo-quick-pick-font-4 should exist');
         assert.ok(elementIds.font5, 'affo-quick-pick-font-5 should exist');
-        assert.ok(elementIds.unapply, 'affo-quick-pick-unapply should exist');
     });
 
     it('faceoff button is clickable', async () => {
