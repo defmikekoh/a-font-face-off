@@ -257,6 +257,20 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         );
     });
 
+    it('quick-pick toolbar recovers when a page removes its injected iframe', async () => {
+        await ensureQuickPickAvailable();
+
+        await driver.executeScript(`
+            const iframe = document.getElementById('affo-left-toolbar-iframe');
+            if (iframe) iframe.remove();
+        `);
+        await waitForToolbarPresence(true, 'Toolbar should be recreated after its iframe is detached');
+
+        const state = await getQuickPickState();
+        assert.equal(state.hasToolbarIframe, true, 'Toolbar iframe should be reattached after page removal');
+        assert.equal(state.hasFaceoffButton, true, 'Reattached toolbar iframe should load its controls');
+    });
+
     it('quick-pick toolbar hides touch-only buttons on non-touch pages', async (t) => {
         await ensureQuickPickAvailable();
 

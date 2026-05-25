@@ -18,6 +18,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
+- Do not run Firefox Android WebDriver/geckodriver or `web-ext` automation against a user's everyday Firefox profile. Fenix ignores temporary profile paths and uses the selected app package's real profile; automation can change or reset profile data. Use only a dedicated disposable testing installation/profile after explicit user approval.
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - ESLint config (`eslint.config.mjs`) uses flat config format — all `files` patterns must use `src/` prefix (e.g., `"src/*.js"`). Without it, rules silently don't apply.
 

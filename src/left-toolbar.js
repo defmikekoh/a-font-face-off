@@ -30,6 +30,7 @@
     let toolbarVisibilityRequestId = 0;
     let toolbarPrintMediaQuery = null;
     let toolbarPrintHandler = null;
+    let toolbarPresenceObserver = null;
     const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.';
     const QUICK_PICK_MESSAGE_COLOR = '#6c757d';
     const QUICK_PICK_SUCCESS_COLOR = '#198754';
@@ -153,7 +154,7 @@
         }
     }
 
-    function removeToolbarSurfaces() {
+    function stopToolbarSurfaceTracking() {
         if (window.visualViewport) {
             window.visualViewport.removeEventListener('resize', updateToolbarHeight);
             window.visualViewport.removeEventListener('scroll', updateToolbarHeight);
@@ -168,7 +169,10 @@
             toolbarPrintMediaQuery = null;
             toolbarPrintHandler = null;
         }
+    }
 
+    function removeToolbarSurfaces() {
+        stopToolbarSurfaceTracking();
         if (leftToolbarIframe) {
             leftToolbarIframe.remove();
             leftToolbarIframe = null;
@@ -178,6 +182,36 @@
             unhideIcon = null;
         }
         hideQuickPickMenu();
+    }
+
+    function hasAttachedToolbarIframe() {
+        return !!(
+            leftToolbarIframe &&
+            leftToolbarIframe.isConnected &&
+            leftToolbarIframe.parentElement === document.documentElement
+        );
+    }
+
+    function repairDetachedToolbarIframe() {
+        if (!leftToolbarIframe || hasAttachedToolbarIframe()) return false;
+
+        stopToolbarSurfaceTracking();
+        leftToolbarIframe = null;
+        if (toolbarAllowedForCurrentPage && options.enabled !== false && !leftToolbarHidden) {
+            createLeftToolbar();
+        }
+        return true;
+    }
+
+    function observeToolbarPresence() {
+        if (toolbarPresenceObserver || !document.documentElement) return;
+
+        toolbarPresenceObserver = new MutationObserver(function() {
+            repairDetachedToolbarIframe();
+        });
+        toolbarPresenceObserver.observe(document.documentElement, {
+            childList: true
+        });
     }
 
     async function updateToolbarAvailability() {
@@ -201,7 +235,8 @@
             unhideIcon.remove();
             unhideIcon = null;
         }
-        if (!leftToolbarIframe) {
+        if (!hasAttachedToolbarIframe()) {
+            leftToolbarIframe = null;
             await createLeftToolbar();
         } else {
             updateToolbarHeight();
@@ -431,10 +466,11 @@
             if (resolve) resolve(false);
             return;
         }
-        if (leftToolbarIframe) {
+        if (hasAttachedToolbarIframe()) {
             if (resolve) resolve(true);
             return;
         }
+        leftToolbarIframe = null;
         leftToolbarIframe = document.createElement('iframe');
         leftToolbarIframe.id = 'affo-left-toolbar-iframe';
 
@@ -476,6 +512,8 @@
         mediaQuery.addListener(handlePrint);
         handlePrint();
         
+        observeToolbarPresence();
+
         // Use Essential's exact DOM insertion method
         document.body.insertAdjacentElement('afterend', leftToolbarIframe);
         
@@ -518,6 +556,7 @@
             const targetElement = document.getElementById('affo-left-toolbar-iframe');
             if (!targetElement || targetElement.parentElement.tagName.toLowerCase() !== 'html') {
                 // Toolbar missing or misplaced, reinitialize
+                leftToolbarIframe = null;
                 createLeftToolbar();
                 return;
             }
@@ -1639,6 +1678,10 @@
         getSettingsValues().then(() => {
             updateToolbarAvailability();
             scheduleNonTouchVisibilityRechecks();
+        });
+        window.addEventListener('pageshow', updateToolbarAvailability);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) updateToolbarAvailability();
         });
     }
 
