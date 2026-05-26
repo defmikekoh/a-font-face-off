@@ -373,6 +373,7 @@ async function collectDomAndCss(driver, selectors) {
             }
 
             var style = getComputedStyle(el);
+            var rect = el.getBoundingClientRect();
             return {
                 selector: selector,
                 found: true,
@@ -387,6 +388,13 @@ async function collectDomAndCss(driver, selectors) {
                     dataAffoFontVariationSettings: el.getAttribute('data-affo-font-variation-settings'),
                 },
                 computedStyle: {
+                    display: style.display,
+                    visibility: style.visibility,
+                    opacity: style.opacity,
+                    position: style.position,
+                    zIndex: style.zIndex,
+                    width: style.width,
+                    height: style.height,
                     fontFamily: style.fontFamily,
                     fontSize: style.fontSize,
                     fontWeight: style.fontWeight,
@@ -398,6 +406,12 @@ async function collectDomAndCss(driver, selectors) {
                     color: style.color,
                     backgroundColor: style.backgroundColor,
                     backgroundImage: style.backgroundImage,
+                },
+                rect: {
+                    left: rect.left,
+                    top: rect.top,
+                    width: rect.width,
+                    height: rect.height,
                 },
                 inlineStyle: el.getAttribute('style') || '',
                 outerHTML: el.outerHTML ? el.outerHTML.slice(0, 500) : '',

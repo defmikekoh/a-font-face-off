@@ -198,6 +198,20 @@ Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness c
 
 The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Pass `--skip-addon` when the extension is already installed in the approved testing profile.
 
+For toolbar visibility or page-overlay investigations, explicitly select the toolbar iframe and any suspected blocking overlay. The report includes `display`, `visibility`, `opacity`, positioning, z-index, size, bounding rectangle, and inline style, so it can distinguish a hidden toolbar from a visible toolbar covered by unrelated page UI:
+
+```bash
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data \
+  --url https://www.usatoday.com/story/... \
+  --expect-affo --settle 5000 \
+  --selector '#affo-left-toolbar-iframe' \
+  --selector 'iframe[src*="overlay"]' \
+  --selector '.gnt_mol_xb' \
+  --out ztemp/android-firefox-toolbar-inspect.json
+```
+
+On USA Today, an acquisition/modal overlay may be present at the same time as a functioning AFFO toolbar. Its observed mobile close-control selector is `.gnt_mol_xb`; do not treat the overlay itself as proof that the toolbar failed to inject or display.
+
 Speed/fidelity rule:
 - Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
 - Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, or final computed CSS with AFFO active.
