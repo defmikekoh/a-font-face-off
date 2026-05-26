@@ -271,6 +271,36 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.equal(state.hasFaceoffButton, true, 'Reattached toolbar iframe should load its controls');
     });
 
+    it('quick-pick toolbar remains visible when page CSS hides html-level iframes', async () => {
+        await ensureQuickPickAvailable();
+
+        await driver.executeScript(`
+            const style = document.createElement('style');
+            style.id = 'affo-test-hide-html-iframes';
+            style.textContent = 'html > iframe { display: none !important; }';
+            document.head.appendChild(style);
+        `);
+
+        try {
+            const iframeDisplay = await driver.executeScript(`
+                const iframe = document.getElementById('affo-left-toolbar-iframe');
+                if (!iframe) return null;
+                return {
+                    display: getComputedStyle(iframe).display,
+                    inlinePriority: iframe.style.getPropertyPriority('display')
+                };
+            `);
+
+            assert.ok(iframeDisplay, 'Toolbar iframe should exist with hostile page CSS');
+            assert.equal(iframeDisplay.display, 'block', 'Toolbar iframe should override page display suppression');
+            assert.equal(iframeDisplay.inlinePriority, 'important', 'Toolbar display should retain important priority');
+        } finally {
+            await driver.executeScript(`
+                document.getElementById('affo-test-hide-html-iframes')?.remove();
+            `);
+        }
+    });
+
     it('quick-pick toolbar hides touch-only buttons on non-touch pages', async (t) => {
         await ensureQuickPickAvailable();
 

@@ -505,7 +505,8 @@
         const mediaQuery = window.matchMedia('print');
         function handlePrint() {
             if (!leftToolbarIframe) return;
-            leftToolbarIframe.style.display = mediaQuery.matches ? 'none' : 'block';
+            // Preserve priority against sites such as usatoday.com that hide html-level iframes.
+            leftToolbarIframe.style.setProperty('display', mediaQuery.matches ? 'none' : 'block', 'important');
         }
         toolbarPrintMediaQuery = mediaQuery;
         toolbarPrintHandler = handlePrint;

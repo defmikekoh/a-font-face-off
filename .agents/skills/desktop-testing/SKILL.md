@@ -1,11 +1,17 @@
 ---
 name: firefox-extension-testing
-description: Test and inspect the A Font Face-off extension on desktop Firefox, Android Firefox, and the Edge Canary Android MV3 CRX prototype using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows.
+description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox, and the Edge Canary Android MV3 CRX prototype using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
 ---
 
 # A Font Face-off Extension Testing
 
 Automated and semi-automated testing of the extension on desktop Firefox Developer Edition, Android Firefox, and the Edge Canary Android MV3 CRX prototype. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android Firefox inspection uses the project WebDriver harness for real DOM and computed CSS. Edge Canary Android work uses generated MV3 source, native-packed CRX artifacts, and ADB/manual Canary extension UI.
+
+## Default Problem Target
+
+Unless the user states otherwise, treat AFFO behavior questions and reported problems as occurring in Firefox Nightly on Android. Desktop Firefox Developer Edition is often a faster initial testing area for shared extension logic, deterministic regression tests, and site CSS investigation. When mobile layout, touch behavior, Firefox Android behavior, or final user-visible verification matters, confirm the result on Android Firefox Nightly rather than treating a desktop result as conclusive.
+
+For automated Android Firefox verification, use the authorized Firefox Nightly target documented below unless the user explicitly authorizes a different target.
 
 ## Prerequisites
 
@@ -21,9 +27,9 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 ## AFFO Debugging Order
 
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
-2. Use desktop Selenium/geckodriver for repeatable popup and desktop content-script behavior.
+2. Use desktop Selenium/geckodriver as a fast initial testing area for repeatable popup and shared content-script behavior where useful.
 3. Use Android Chrome/Edge DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
-4. Use the Android Firefox WebDriver harness for authoritative Firefox Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final extension behavior matters.
+4. Use the Android Firefox WebDriver harness for authoritative Firefox Nightly on Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final behavior matters.
 5. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
 6. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
@@ -127,6 +133,39 @@ const affoBase = await driver.executeScript(
 );
 // Returns 'serif', 'sans', or 'mono'
 ```
+
+### Reusable Desktop Page Inspector
+
+Use the skill-adjacent inspector for live desktop page and toolbar investigations instead of creating a new `ztemp/inspect-*.js` launcher for each site:
+
+```bash
+npm run build:latest
+node .agents/skills/desktop-testing/desktop-firefox-inspect.js \
+  --url https://www.usatoday.com/story/... \
+  --apply body=Lora \
+  --expect-affo \
+  --expect-toolbar \
+  --dismiss '.gnt_mol_xb' \
+  --snapshot-at 1000 \
+  --snapshot-at 5000 \
+  --selector article \
+  --selector 'iframe[src*="overlay"]' \
+  --out ztemp/desktop-firefox-inspect.json
+```
+
+The command opens Firefox Developer Edition with a fresh temporary profile and the built XPI. Supported inputs include `--url`, repeated `--apply <body|serif|sans|mono>=<font>`, arbitrary storage seeds through `--storage-json` or `--storage-file`, repeated `--selector`, `--frame-selector '<iframe selector>::<element selector>'`, and `--snapshot-at`, `--expect-affo`, `--expect-toolbar`, `--timeout` for pages held open by ad/interstitial activity, and optional `--screenshot`. Keep its report and screenshot output under `ztemp/`.
+
+For pages with predictable interstitial markup, dismiss the overlay before snapshots rather than extending waits:
+
+```bash
+node .agents/skills/desktop-testing/desktop-firefox-inspect.js \
+  --url https://example.com/article \
+  --dismiss 'button[aria-label="Close"]' \
+  --dismiss-frame 'iframe[src*="overlay"]::button[aria-label="Close"]' \
+  --out ztemp/desktop-firefox-inspect.json
+```
+
+Use `--dismiss` for a close control in the page and `--dismiss-frame '<iframe selector>::<close selector>'` when it lives inside a modal iframe. Both are optional and reported as clicked or not found; `--dismiss-timeout` controls how long the inspector waits for each control. When a modal's close selector is unknown, use repeated `--frame-selector` arguments to report candidate controls inside its iframe before choosing a dismissal selector. The inspector uses eager page loading so it can perform these actions once the DOM is ready even when long-running ads keep normal navigation open.
 
 ### Android Firefox Inspection
 

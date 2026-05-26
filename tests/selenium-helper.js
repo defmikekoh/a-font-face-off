@@ -166,13 +166,16 @@ function applyFirefoxAutomationPrefs(options) {
  *
  * Returns { driver, profileDir }.
  */
-async function setup() {
+async function setup(setupOptions = {}) {
     assertFirefoxDeveloperEditionReady();
     const profileDir = createProfileDir('affo-test-');
 
     const options = new firefox.Options();
     options.setBinary(FIREFOX_BINARY);
     applyFirefoxAutomationPrefs(options);
+    if (setupOptions.pageLoadStrategy) {
+        options.setPageLoadStrategy(setupOptions.pageLoadStrategy);
+    }
     options.addArguments('-profile', profileDir);
     options.addArguments('-remote-allow-system-access');
 
