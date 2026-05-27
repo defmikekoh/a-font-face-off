@@ -132,6 +132,47 @@ describe('Integration tests', () => {
         }
     });
 
+    it('offers Sroulette pools in the mono panel favorites picker', async () => {
+        await popupExec(driver, `
+            browser.storage.local.set({
+                affoSubstackRoulette: true,
+                affoSubstackRouletteSerif: ['Integration Serif'],
+                affoSubstackRouletteSans: ['Integration Sans'],
+                affoFavorites: {
+                    'Integration Serif': { fontName: 'Lora', variableAxes: {} },
+                    'Integration Sans': { fontName: 'Inter', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['Integration Serif', 'Integration Sans']
+            });
+            document.querySelector('[data-mode="third-man-in"]').click();
+            return true;
+        `);
+        await driver.sleep(300);
+
+        await popupExec(driver, `
+            showFavoritesPopup('mono');
+            return true;
+        `);
+        await driver.sleep(300);
+
+        const result = await popupExec(driver, `
+            const serifChoice = document.querySelector('.sroulette-favorite-item[data-sroulette-pool="serif"]');
+            const sansChoice = document.querySelector('.sroulette-favorite-item[data-sroulette-pool="sans"]');
+            if (serifChoice) serifChoice.click();
+            return {
+                hasSerifChoice: !!serifChoice,
+                hasSansChoice: !!sansChoice,
+                state: getCurrentPanelState('mono'),
+                display: document.getElementById('mono-font-display')?.textContent.trim()
+            };
+        `);
+
+        assert.equal(result.hasSerifChoice, true, 'Mono favorites should offer the configured serif pool');
+        assert.equal(result.hasSansChoice, true, 'Mono favorites should offer the configured sans pool');
+        assert.deepEqual(result.state, { kind: 'sroulette', pool: 'serif' });
+        assert.equal(result.display, 'Sroulette Serif');
+    });
+
     it('switches to body-contact mode', async () => {
         await popupExec(driver, 'document.querySelector(\'[data-mode="body-contact"]\').click()');
         await driver.sleep(500);

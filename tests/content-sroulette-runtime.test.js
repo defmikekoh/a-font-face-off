@@ -33,11 +33,11 @@ describe('content-sroulette-runtime materialization', () => {
     it('materializes Sroulette intent without mutating favorite configs', () => {
         const data = makeSrouletteData();
         const entry = {
-            mono: { fontName: 'JetBrains Mono' },
             sroulette: {
                 body: { pool: 'serif' },
                 serif: { pool: 'serif' },
                 sans: { pool: 'sans' },
+                mono: { pool: 'serif' },
             },
             __affoSrouletteResolved: { serif: true },
         };
@@ -49,6 +49,7 @@ describe('content-sroulette-runtime materialization', () => {
             body: true,
             serif: true,
             sans: true,
+            mono: true,
         });
         assert.deepEqual(resolved.body, {
             fontName: 'Lora',
@@ -65,44 +66,31 @@ describe('content-sroulette-runtime materialization', () => {
             lineHeight: '1.5',
             variableAxes: { wdth: 100 },
         });
+        assert.deepEqual(resolved.mono, {
+            fontName: 'Lora',
+            fontSize: '18px',
+            variableAxes: { wght: 500 },
+        });
 
         resolved.serif.variableAxes.wght = 700;
         assert.equal(data.affoFavorites['Serif One'].variableAxes.wght, 500);
     });
 
-    it('leaves Substack entries unresolved for site-native rerolls', () => {
+    it('materializes explicit Substack intent so a configured page bypasses native Roulette', () => {
         const entry = {
             sroulette: {
-                body: { pool: 'serif' },
+                mono: { pool: 'serif' },
             },
         };
 
-        assert.equal(
-            contentSroulette.materializeEntry(entry, makeSrouletteData(), { isSubstack: true }),
-            entry
-        );
-    });
-
-    it('treats intent-only Substack entries as empty', () => {
-        assert.equal(
-            contentSroulette.shouldTreatEntryAsEmptyOnSubstack({
-                sroulette: { serif: { pool: 'serif' } },
-            }, true),
-            true
-        );
-        assert.equal(
-            contentSroulette.shouldTreatEntryAsEmptyOnSubstack({
-                serif: { fontName: 'Lora' },
-                sroulette: { serif: { pool: 'serif' } },
-            }, true),
-            false
-        );
-        assert.equal(
-            contentSroulette.shouldTreatEntryAsEmptyOnSubstack({
-                sroulette: { serif: { pool: 'serif' } },
-            }, false),
-            false
-        );
+        assert.deepEqual(contentSroulette.materializeEntry(entry, makeSrouletteData()), {
+            mono: {
+                fontName: 'Lora',
+                fontSize: '18px',
+                variableAxes: { wght: 500 },
+            },
+            __affoSrouletteResolved: { mono: true },
+        });
     });
 });
 
@@ -119,6 +107,7 @@ describe('content-sroulette-runtime CSS tracking messages', () => {
         };
 
         contentSroulette.requestCssInsert('serif', '.affo-serif { font-family: Lora; }');
+        contentSroulette.requestCssInsert('mono', '.affo-mono { font-family: Lora; }');
         contentSroulette.requestCssInsert('body', '.ignored {}');
         contentSroulette.requestCssRemoval(['serif', 'body', 'sans', 'mono']);
 
@@ -129,8 +118,13 @@ describe('content-sroulette-runtime CSS tracking messages', () => {
                 css: '.affo-serif { font-family: Lora; }',
             },
             {
+                type: 'affoInsertSrouletteCss',
+                fontType: 'mono',
+                css: '.affo-mono { font-family: Lora; }',
+            },
+            {
                 type: 'affoRemoveSrouletteCss',
-                fontTypes: ['serif', 'sans'],
+                fontTypes: ['serif', 'sans', 'mono'],
             },
         ]);
     });
@@ -153,7 +147,7 @@ describe('content-sroulette-runtime CSS tracking messages', () => {
         assert.deepEqual(messages, [
             {
                 type: 'affoRemoveSrouletteCss',
-                fontTypes: ['sans'],
+                fontTypes: ['sans', 'mono'],
             },
         ]);
     });

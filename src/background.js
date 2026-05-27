@@ -219,7 +219,7 @@ async function removeTrackedSrouletteCss(tabId, targets) {
     delete tracked[target];
   }
 
-  if (!tracked.serif && !tracked.sans) {
+  if (!tracked.serif && !tracked.sans && !tracked.mono) {
     srouletteInsertedCssByTab.delete(tabId);
   }
 }

@@ -9,8 +9,9 @@ describe('sroulette-utils intent helpers', () => {
         assert.equal(sroulette.isPool('sans'), true);
         assert.equal(sroulette.isPool('mono'), false);
         assert.equal(sroulette.isTarget('body'), true);
-        assert.equal(sroulette.isTarget('mono'), false);
+        assert.equal(sroulette.isTarget('mono'), true);
         assert.equal(sroulette.isCssTarget('serif'), true);
+        assert.equal(sroulette.isCssTarget('mono'), true);
         assert.equal(sroulette.isCssTarget('body'), false);
     });
 
@@ -31,6 +32,15 @@ describe('sroulette-utils intent helpers', () => {
 
         sroulette.clearIntent(entry, 'serif');
         assert.deepEqual(entry, {});
+
+        assert.equal(sroulette.setIntent(entry, 'mono', 'serif'), true);
+        assert.deepEqual(entry, {
+            sroulette: {
+                mono: { pool: 'serif' },
+            },
+        });
+        sroulette.clearIntent(entry, 'mono');
+        assert.deepEqual(entry, {});
     });
 
     it('ignores invalid intent data', () => {
@@ -42,7 +52,7 @@ describe('sroulette-utils intent helpers', () => {
 
         assert.equal(sroulette.getIntent(entry, 'serif'), null);
         assert.equal(sroulette.hasIntent(entry), false);
-        assert.equal(sroulette.setIntent(entry, 'mono', 'serif'), false);
+        assert.equal(sroulette.setIntent(entry, 'top', 'serif'), false);
         assert.equal(sroulette.setIntent(entry, 'serif', 'mono'), false);
     });
 

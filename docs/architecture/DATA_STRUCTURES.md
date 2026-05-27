@@ -21,13 +21,14 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
     "sroulette": {
       "body": { "pool": "serif" },
       "serif": { "pool": "serif" },
-      "sans": { "pool": "sans" }
+      "sans": { "pool": "sans" },
+      "mono": { "pool": "serif" }
     }
   }
 }
 ```
 
-`sroulette` stores synced intent only. It does not store the random font chosen for a page load; each device resolves `pool: "serif"` or `pool: "sans"` against its current Substack Roulette pools and favorites at render time. The target key (`body`/`serif`/`sans`) is the page target, and `pool` is the Substack Roulette source pool to sample.
+`sroulette` stores synced intent only. It does not store the random font chosen for a page load; each device resolves `pool: "serif"` or `pool: "sans"` against its current Substack Roulette pools and favorites at render time. The target key (`body`/`serif`/`sans`/`mono`) is the page target, and `pool` is the Substack Roulette source pool to sample. Explicit domain intent may apply either existing pool to the `mono` target, including on Substack. A saved `sroulette` intent counts as a domain font entry, so native Substack Roulette's automatic serif/sans, beige, and dimming path is used only for domains without saved font settings.
 
 ### Domain Merge Metadata (`affoApplyMapMeta`)
 **Purpose**: Tracks per-origin sync timestamps and tombstones for bidirectional per-domain merge

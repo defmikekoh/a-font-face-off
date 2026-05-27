@@ -199,14 +199,14 @@ describe('background quick-pick Sroulette', () => {
 
         const firstResult = await context.self.affoHandleRuntimeMessage({
             type: 'affoInsertSrouletteCss',
-            fontType: 'serif',
-            css: '.first { font-family: serif; }'
+            fontType: 'mono',
+            css: '.first { font-family: Lora; }'
         }, { tab: { id: 123 } });
 
         const secondResult = await context.self.affoHandleRuntimeMessage({
             type: 'affoInsertSrouletteCss',
-            fontType: 'serif',
-            css: '.second { font-family: serif; }'
+            fontType: 'mono',
+            css: '.second { font-family: Lora; }'
         }, { tab: { id: 123 } });
 
         assert.equal(firstResult.success, true);
@@ -215,32 +215,32 @@ describe('background quick-pick Sroulette', () => {
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: serif; }', cssOrigin: 'author' }
+                details: { code: '.first { font-family: Lora; }', cssOrigin: 'author' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: serif; }', cssOrigin: 'user' }
+                details: { code: '.first { font-family: Lora; }', cssOrigin: 'user' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: serif; }', cssOrigin: 'author' }
+                details: { code: '.first { font-family: Lora; }', cssOrigin: 'author' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: serif; }', cssOrigin: 'user' }
+                details: { code: '.first { font-family: Lora; }', cssOrigin: 'user' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.second { font-family: serif; }', cssOrigin: 'author' }
+                details: { code: '.second { font-family: Lora; }', cssOrigin: 'author' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.second { font-family: serif; }', cssOrigin: 'user' }
+                details: { code: '.second { font-family: Lora; }', cssOrigin: 'user' }
             }
         ]);
     });
@@ -250,13 +250,13 @@ describe('background quick-pick Sroulette', () => {
 
         await context.self.affoHandleRuntimeMessage({
             type: 'affoInsertSrouletteCss',
-            fontType: 'sans',
-            css: '.sans { font-family: sans-serif; }'
+            fontType: 'mono',
+            css: '.mono { font-family: Lora; }'
         }, { tab: { id: 123 } });
 
         const result = await context.self.affoHandleRuntimeMessage({
             type: 'affoRemoveSrouletteCss',
-            fontTypes: ['sans']
+            fontTypes: ['mono']
         }, { tab: { id: 123 } });
 
         assert.equal(result.success, true);
@@ -264,22 +264,22 @@ describe('background quick-pick Sroulette', () => {
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'author' }
+                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'author' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'user' }
+                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'user' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'author' }
+                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'author' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.sans { font-family: sans-serif; }', cssOrigin: 'user' }
+                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'user' }
             }
         ]);
     });

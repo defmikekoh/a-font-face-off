@@ -101,6 +101,11 @@ describe('popup-panel-utils Sroulette helpers', () => {
 
         popupPanelUtils.clearSrouletteIntentFromEntry(entry, 'serif');
         assert.deepEqual(entry, {});
+
+        assert.equal(popupPanelUtils.setSrouletteIntentOnEntry(entry, 'mono', 'serif'), true);
+        assert.deepEqual(popupPanelUtils.getSrouletteIntent(entry, 'mono'), { pool: 'serif' });
+        popupPanelUtils.clearSrouletteIntentFromEntry(entry, 'mono');
+        assert.deepEqual(entry, {});
     });
 });
 

@@ -18,7 +18,7 @@
     "lint": "eslint --no-warn-ignored src/*.js scripts/ tests/**/*.js",
     "inspect:android-firefox": "node scripts/android-firefox-inspect.js",
     "test": "node --test 'tests/**/*.test.js'",
-    "test:integration": "npm run build:latest && node --test 'tests/**/*.itest.js'"
+    "test:integration": "npm run build:latest && node --test --test-concurrency=1 'tests/**/*.itest.js'"
   },
   "devDependencies": {
     "eslint": "^9.39.2",

@@ -9,10 +9,10 @@
   }
 
   var POOL_LIST = ['serif', 'sans'];
-  var TARGET_LIST = ['body', 'serif', 'sans'];
+  var TARGET_LIST = ['body', 'serif', 'sans', 'mono'];
   var BODY_TARGET_LIST = ['body'];
-  var TMI_TARGET_LIST = ['serif', 'sans'];
-  var CSS_TARGET_LIST = ['serif', 'sans'];
+  var TMI_TARGET_LIST = ['serif', 'sans', 'mono'];
+  var CSS_TARGET_LIST = ['serif', 'sans', 'mono'];
   var POOL_STORAGE_KEYS = {
     serif: 'affoSubstackRouletteSerif',
     sans: 'affoSubstackRouletteSans'
@@ -74,7 +74,7 @@
     if (!entry || !isTarget(target)) return;
     if (!entry.sroulette || typeof entry.sroulette !== 'object' || Array.isArray(entry.sroulette)) return;
     delete entry.sroulette[target];
-    if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans) {
+    if (!entry.sroulette.body && !entry.sroulette.serif && !entry.sroulette.sans && !entry.sroulette.mono) {
       delete entry.sroulette;
     }
   }

@@ -14,10 +14,6 @@
     if (root.AFFO_DEBUG === true) console.log.apply(console, arguments);
   }
 
-  function getIsSubstackFromOptions(options) {
-    return !!(options && options.isSubstack);
-  }
-
   function getLogFromOptions(options) {
     return (options && typeof options.log === 'function') ? options.log : debugLog;
   }
@@ -33,16 +29,6 @@
       fontConfig.letterSpacing != null ||
       fontConfig.fontColor
     ));
-  }
-
-  function hasConcreteFontEntry(entry) {
-    return !!(entry && ['body', 'serif', 'sans', 'mono'].some(function(fontType) {
-      return hasMeaningfulFontConfig(entry[fontType]);
-    }));
-  }
-
-  function shouldTreatEntryAsEmptyOnSubstack(entry, isSubstack) {
-    return !!(entry && isSubstack && AFFOSroulette.hasIntent(entry) && !hasConcreteFontEntry(entry));
   }
 
   function cloneFontConfig(config) {
@@ -73,7 +59,7 @@
   }
 
   function materializeEntry(entry, data, options) {
-    if (!entry || !AFFOSroulette.hasIntent(entry) || getIsSubstackFromOptions(options)) return entry;
+    if (!entry || !AFFOSroulette.hasIntent(entry)) return entry;
     var log = getLogFromOptions(options);
     var materialized = {};
     Object.keys(entry).forEach(function(key) {
@@ -93,7 +79,7 @@
         log('[AFFO Content] Sroulette has no valid ' + intent.pool + ' pool config for ' + target);
       }
     });
-    if (resolvedTargets.serif || resolvedTargets.sans) {
+    if (resolvedTargets.serif || resolvedTargets.sans || resolvedTargets.mono) {
       materialized[RESOLVED_TARGETS_KEY] = resolvedTargets;
     }
     return materialized;
@@ -138,7 +124,7 @@
   }
 
   function resolveEntry(entry, data, options) {
-    if (!entry || !AFFOSroulette.hasIntent(entry) || getIsSubstackFromOptions(options)) return Promise.resolve(entry);
+    if (!entry || !AFFOSroulette.hasIntent(entry)) return Promise.resolve(entry);
     if (data) return Promise.resolve(materializeEntry(entry, data, options));
     return browser.storage.local.get([
       'affoSubstackRoulette',
@@ -154,7 +140,6 @@
 
   root.AFFOContentSroulette = {
     RESOLVED_TARGETS_KEY: RESOLVED_TARGETS_KEY,
-    hasConcreteFontEntry: hasConcreteFontEntry,
     hasMeaningfulFontConfig: hasMeaningfulFontConfig,
     isResolvedCssTarget: isResolvedCssTarget,
     materializeEntry: materializeEntry,
@@ -162,7 +147,6 @@
     requestCssInsert: requestCssInsert,
     requestCssRemoval: requestCssRemoval,
     resolveEntry: resolveEntry,
-    shouldTreatEntryAsEmptyOnSubstack: shouldTreatEntryAsEmptyOnSubstack,
     syncCssTrackingForEntry: syncCssTrackingForEntry
   };
 

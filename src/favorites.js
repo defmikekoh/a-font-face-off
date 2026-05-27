@@ -413,7 +413,12 @@ function hideSaveModal() {
 let srouletteFavoritesPopupEntries = [];
 
 function positionSupportsSrouletteFavorite(position) {
-    return position === 'body' || position === 'serif' || position === 'sans';
+    return position === 'body' || position === 'serif' || position === 'sans' || position === 'mono';
+}
+
+function canOfferSrouletteFavoriteForPage(position, isSubstack) {
+    // Native Substack Roulette covers serif/sans; mono must be selected explicitly.
+    return positionSupportsSrouletteFavorite(position) && (!isSubstack || position === 'mono');
 }
 
 async function isActivePageSubstackForFavorites(origin) {
@@ -436,7 +441,7 @@ async function loadSrouletteFavoritesForPopup(position) {
     if (!positionSupportsSrouletteFavorite(position)) return [];
 
     const origin = typeof getActiveOrigin === 'function' ? await getActiveOrigin() : null;
-    if (!origin || await isActivePageSubstackForFavorites(origin)) return [];
+    if (!origin || !canOfferSrouletteFavoriteForPage(position, await isActivePageSubstackForFavorites(origin))) return [];
 
     const data = await browser.storage.local.get([
         'affoSubstackRoulette',
@@ -1032,6 +1037,8 @@ if (typeof module !== 'undefined' && module.exports) {
         getValidSroulettePoolInfoFromData,
         getAvailableSrouletteFavoriteEntriesFromData,
         srouletteFavoriteMatchesSearch,
+        positionSupportsSrouletteFavorite,
+        canOfferSrouletteFavoriteForPage,
         showSaveModal,
     };
 }

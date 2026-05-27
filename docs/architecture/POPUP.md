@@ -8,13 +8,13 @@
 ### Centralized Storage Functions
 - `getApplyMapForOrigin(origin, fontType?)`: Retrieve from `affoApplyMap` — single read gets all domain fonts or specific font type
 - `saveApplyMapForOrigin(origin, fontType, config)`: Save single font type to `affoApplyMap`
-- `saveSrouletteApplyMapForOrigin(origin, target, pool)`: Save a non-Substack Sroulette intent for `body`, `serif`, or `sans` without resolving the sampled font
+- `saveSrouletteApplyMapForOrigin(origin, target, pool)`: Save an explicit Sroulette intent for `body`, `serif`, `sans`, or `mono` without resolving the sampled font
 - `saveBatchApplyStateForOrigin(origin, batchConfigs)`: Batch save multiple font targets or Sroulette intents in single storage write (used by Apply All)
 - `clearApplyMapForOrigin(origin, fontType?)`: Clear specific font type or all fonts from `affoApplyMap`
 
 ### Storage Access Patterns
 - **popup.js**: Read-only callers use `getApplyMapForOrigin()`. Primary write path is via `saveApplyMapForOrigin`, `saveBatchApplyStateForOrigin`, `clearApplyMapForOrigin`, with reads by `getAppliedConfigForDomain` (read-modify-write pattern).
-- **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and supported TMI panels when the corresponding Substack Roulette pool has at least one valid favorite. Clicking one marks the panel; Apply writes only Sroulette intent. Save is disabled while a panel is showing Sroulette because the synced state is the Sroulette intent, not the sampled font.
+- **favorites.js**: Load Favorites renders Sroulette Serif/Sans as pseudo-favorites above saved favorites for Body and all TMI panels, including Mono, when the corresponding pool has at least one valid favorite. On Substack pages, these pseudo-favorites are exposed in Mono only, allowing a configured mono-heavy publication to use a sampled font without starting native Substack Roulette. Clicking one marks the panel; Apply writes only Sroulette intent. Save is disabled while a panel is showing Sroulette because the synced state is the Sroulette intent, not the sampled font.
 - **background.js**: WebDAV manual domain pull writes directly to `affoApplyMap` when importing `/a-font-face-off/affo-apply-map.json`.
 - **background.js**: WebDAV manual favorites pull writes directly to `affoFavorites`/`affoFavoritesOrder` when importing `/a-font-face-off/affo-favorites.json`.
 - **content.js**: Read-only — 3 inline reads (page-load reapply, custom font load, storage change listener). Storage change listener diffs `oldValue[origin]` vs `newValue[origin]` before acting. No write operations.

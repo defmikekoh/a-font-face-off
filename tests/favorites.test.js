@@ -8,6 +8,8 @@ const {
     getAvailableSrouletteFavoriteEntriesFromData,
     getValidSroulettePoolInfoFromData,
     normalizeFavoriteSearch,
+    canOfferSrouletteFavoriteForPage,
+    positionSupportsSrouletteFavorite,
     showSaveModal,
     srouletteFavoriteMatchesSearch,
 } = require('../src/favorites.js');
@@ -88,6 +90,15 @@ test('srouletteFavoriteMatchesSearch matches labels and roulette terms', () => {
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'sroulette'), true);
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'substack'), true);
     assert.equal(srouletteFavoriteMatchesSearch(entry, 'sans'), false);
+});
+
+test('Sroulette pseudo-favorites are selectable for the mono TMI panel', () => {
+    assert.equal(positionSupportsSrouletteFavorite('body'), true);
+    assert.equal(positionSupportsSrouletteFavorite('mono'), true);
+    assert.equal(positionSupportsSrouletteFavorite('top'), false);
+    assert.equal(canOfferSrouletteFavoriteForPage('mono', true), true);
+    assert.equal(canOfferSrouletteFavoriteForPage('serif', true), false);
+    assert.equal(canOfferSrouletteFavoriteForPage('serif', false), true);
 });
 
 test('showSaveModal is blocked while Sroulette is selected', () => {
