@@ -3974,6 +3974,17 @@
     });
   }
 
+  function getActiveTmiFontTypes(entry) {
+    return ['serif', 'sans', 'mono'].filter(function (ft) {
+      return hasMeaningfulFontConfig(entry && entry[ft]);
+    });
+  }
+
+  function createTmiWalkerPromiseForEntry(entry) {
+    var activeTmiTypes = getActiveTmiFontTypes(entry);
+    return activeTmiTypes.length > 0 ? runElementWalkerAll(activeTmiTypes) : null;
+  }
+
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry, options) {
     try {
@@ -3982,6 +3993,7 @@
       syncSrouletteCssTrackingForEntry(entry);
       syncObservedTmiCssTypesFromEntry(entry);
       clearFontSizeScalesNotInEntry(entry);
+      var tmiWalkerPromise = createTmiWalkerPromiseForEntry(entry);
       ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
         var fontConfig = entry[fontType];
         if (hasMeaningfulFontConfig(fontConfig)) {
@@ -3989,7 +4001,7 @@
 
           // Run element walker for Third Man In mode
           var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
-          var walkerPromise = isTmi ? runElementWalker(fontType) : null;
+          var walkerPromise = isTmi ? tmiWalkerPromise : null;
 
           // Inject CSS immediately (before font loads) to prevent flash of original font
           var lines = [];
@@ -4229,6 +4241,7 @@
           syncSrouletteCssTrackingForEntry(effectiveEntry);
           syncObservedTmiCssTypesFromEntry(effectiveEntry);
           clearFontSizeScalesNotInEntry(effectiveEntry);
+          var tmiWalkerPromise = createTmiWalkerPromiseForEntry(effectiveEntry);
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             var fontConfig = effectiveEntry[fontType];
             if (hasMeaningfulFontConfig(fontConfig)) {
@@ -4236,7 +4249,7 @@
 
               // Run element walker for Third Man In mode
               var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
-              var walkerPromise = isTmi ? runElementWalker(fontType) : null;
+              var walkerPromise = isTmi ? tmiWalkerPromise : null;
 
               // Inject CSS immediately (before font loads) to prevent flash of original font.
               // The browser will show a fallback until the font file loads, then swap in.
