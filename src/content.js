@@ -137,6 +137,7 @@
     NOSCRIPT: true,
     TEMPLATE: true
   };
+  var INTERACTIVE_SUBTREE_ROOT_SELECTOR = '[role="dialog"], [role="alertdialog"], [aria-modal="true"]';
   var DUPLICATE_ENTRY_REAPPLY_SUPPRESS_MS = 1000;
   var lastEntryReapplySignature = '';
   var lastEntryReapplyStartedAt = 0;
@@ -596,6 +597,35 @@
     }
 
     return false;
+  }
+
+  function elementMatchesSelector(node, selector) {
+    if (!node || node.nodeType !== 1 || !node.matches) return false;
+    try {
+      return node.matches(selector);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function closestElementForNode(node) {
+    if (!node) return null;
+    if (node.nodeType === 1) return node;
+    return node.parentElement || null;
+  }
+
+  function isInteractiveSubtreeRoot(node) {
+    return elementMatchesSelector(node, INTERACTIVE_SUBTREE_ROOT_SELECTOR);
+  }
+
+  function isInsideInteractiveSubtree(node) {
+    var element = closestElementForNode(node);
+    if (!element || !element.closest) return false;
+    try {
+      return !!element.closest(INTERACTIVE_SUBTREE_ROOT_SELECTOR);
+    } catch (_) {
+      return false;
+    }
   }
 
   var BLOCK_TEXT_CONTAINER_TAGS = {
@@ -1266,6 +1296,7 @@
 
       var hasMeaningfulAddition = false;
       muts.some(function (m) {
+        if (isInsideInteractiveSubtree(m.target)) return false;
         return Array.prototype.some.call(m.addedNodes || [], function (n) {
           try {
             if (!isMeaningfulInlineAddedNode(n)) return false;
@@ -1664,6 +1695,7 @@
   function isMeaningfulInlineAddedNode(node) {
     if (!node || node.nodeType !== 1) return false;
     if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
+    if (isInsideInteractiveSubtree(node)) return false;
 
     // Ignore pure SVG tree additions (icon swaps, etc.) to avoid noisy re-applies.
     if (node.namespaceURI === 'http://www.w3.org/2000/svg') return false;
@@ -1689,6 +1721,7 @@
 
       var hasMeaningfulAddition = false;
       muts.some(function (m) {
+        if (isInsideInteractiveSubtree(m.target)) return false;
         return Array.prototype.some.call(m.addedNodes || [], function (n) {
           try {
             if (!isMeaningfulInlineAddedNode(n)) return false;
@@ -3622,7 +3655,7 @@
     // on configured domains. Article decks/standfirsts inside article headers
     // are handled separately by isInsideArticleDeck().
     if (element.closest) {
-      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"], [role="dialog"]';
+      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"], ' + INTERACTIVE_SUBTREE_ROOT_SELECTOR;
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
@@ -3831,6 +3864,7 @@
           NodeFilter.SHOW_ELEMENT,
           {
             acceptNode: function (node) {
+              if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
               return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
           }
