@@ -21,10 +21,10 @@ Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts
 
 - **font-url-utils.js**: Shared pure URL builder used by popup.js and the background font runtime
 - **popup.js**: Computes css2 URLs directly for popup previews and immediate tab injection, but does not include them in `buildPayload()`
-- **background.js**: Routes `resolveCss2Url` runtime messages to `background-font-runtime.js`
+- **background.js**: Routes `resolveCss2Url` runtime messages from popup/content/toolbar to `background-font-runtime.js`
 - **background-font-runtime.js**: Loads `gfMetadataCache` or bundled `data/gf-axis-registry.json`, memoizes resolved URLs in memory only, and owns CORS-safe font fetch/WOFF2 cache handling
 - **content.js**: Requests css2 URLs from background.js when loading standard Google Fonts or FontFace-only Google Fonts
-- **left-toolbar.js**: Requests css2 URLs from background.js at `document_start` for early font preloading
+- **popup.js / content.js / left-toolbar.js**: Request css2 URLs from background.js; each keeps only short-lived in-memory promise/memo maps for duplicate calls in the same context
 - **Domain storage (affoApplyMap)**: Does NOT store css2Url
 
 ## WOFF2 Binary Cache
@@ -41,7 +41,7 @@ Custom font `@font-face` blocks use the same initial byte-budget and idle serial
 
 ## Custom Font Architecture
 
-- **popup.js**: Parses `custom-fonts.css` + `ap-fonts.css` at startup → `fontDefinitions` map with `fontFaceRule`
+- **popup.js**: Parses `custom-fonts.css` + `ap-fonts.css` at startup → `fontDefinitions` map with `fontFaceRule`; the picker hydrates from bundled/cached `gf-family-list.json` and loads full Google Fonts metadata only when axis/CSS2 details are needed
 - **content.js**: Parses same files on-demand (first font load) → `customFontDefinitions` map with `fontFaceRule`
 - **Domain storage (affoApplyMap)**: Does NOT store `fontFaceRule` (eliminated duplication)
 - **UI state**: May include `fontFaceRule` from `getCurrentUIConfig` for in-popup behavior

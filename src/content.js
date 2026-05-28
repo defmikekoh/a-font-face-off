@@ -108,7 +108,9 @@
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
   var sharedInlineObserver = null; // single MutationObserver for all inline types
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
+  var sharedInlineCleanupTimer = null; // final teardown timer for inline observer/config lifecycle
   var sharedInlineDebounceTimer = null; // debounced re-apply timer for inline observer
+  var sharedInlineLastActivityAt = 0; // last apply or meaningful content addition
   var observedTmiCssTypes = {}; // fontType → true for non-inline TMI types needing re-walk on DOM mutations
   var sharedTmiCssObserver = null; // single MutationObserver for non-inline TMI types
   var sharedTmiCssDebounceTimer = null; // debounced re-walk timer for non-inline TMI observer
@@ -123,6 +125,8 @@
 
   // Inline observer thresholds: only reapply on meaningful content additions
   var INLINE_REAPPLY_DEBOUNCE_MS = 250;
+  var INLINE_POLLING_QUIET_STOP_MS = 45000;
+  var INLINE_POLLING_TOTAL_MS = 180000;
   var INLINE_MEANINGFUL_MIN_TEXT = 10;
   var INLINE_MEANINGFUL_MIN_CHILDREN = 1;
   var INLINE_MEANINGFUL_IGNORE_TAGS = {
@@ -574,10 +578,38 @@
     return false;
   }
 
+  function directTextHasMinNonWhitespace(node, minChars) {
+    if (!node || !node.childNodes) return false;
+    var needed = Math.max(1, minChars || 1);
+    var count = 0;
+
+    for (var i = 0; i < node.childNodes.length; i++) {
+      var child = node.childNodes[i];
+      if (!child || child.nodeType !== 3) continue;
+      var text = child.nodeValue || '';
+      for (var j = 0; j < text.length; j++) {
+        if (/\S/.test(text.charAt(j))) {
+          count++;
+          if (count >= needed) return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   var BLOCK_TEXT_CONTAINER_TAGS = {
     P: true,
     LI: true,
     BLOCKQUOTE: true
+  };
+
+  var SEMANTIC_CODE_TEXT_TAGS = {
+    CODE: true,
+    PRE: true,
+    KBD: true,
+    SAMP: true,
+    TT: true
   };
 
   var SIMPLE_INLINE_TEXT_TAGS = {
@@ -610,27 +642,48 @@
     WBR: true
   };
 
-  function elementHasOnlySimpleInlineTextDescendants(node) {
-    if (!node || !node.childNodes) return true;
+  function elementHasSimpleInlineTextDescendant(node) {
+    if (!node || !node.childNodes) return false;
 
-    for (var i = 0; i < node.childNodes.length; i++) {
-      var child = node.childNodes[i];
-      if (!child || child.nodeType === 3) continue;
-      if (child.nodeType !== 1) continue;
+    var hasText = false;
+    function scan(current) {
+      if (!current || !current.childNodes) return true;
 
-      var childTag = String(child.tagName || '').toUpperCase();
-      if (!SIMPLE_INLINE_TEXT_TAGS[childTag]) return false;
-      if (!elementHasOnlySimpleInlineTextDescendants(child)) return false;
+      for (var i = 0; i < current.childNodes.length; i++) {
+        var child = current.childNodes[i];
+        if (!child) continue;
+        if (child.nodeType === 3) {
+          if (/\S/.test(child.nodeValue || '')) hasText = true;
+          continue;
+        }
+        if (child.nodeType !== 1) continue;
+
+        var childTag = String(child.tagName || '').toUpperCase();
+        if (!SIMPLE_INLINE_TEXT_TAGS[childTag]) return false;
+        if (!scan(child)) return false;
+      }
+
+      return true;
     }
 
-    return true;
+    return scan(node) && hasText;
   }
 
   function elementOwnsTmiText(node) {
     if (elementHasOwnText(node)) return true;
     if (!node || !BLOCK_TEXT_CONTAINER_TAGS[String(node.tagName || '').toUpperCase()]) return false;
-    if (!/\S/.test(node.textContent || '')) return false;
-    return elementHasOnlySimpleInlineTextDescendants(node);
+    return elementHasSimpleInlineTextDescendant(node);
+  }
+
+  function elementMayOwnTmiText(node) {
+    if (!node || node.nodeType !== 1 || !node.firstChild) return false;
+
+    var tagName = String(node.tagName || '').toUpperCase();
+    if (INLINE_MEANINGFUL_IGNORE_TAGS[tagName] || tagName === 'SVG' || tagName === 'CANVAS') return false;
+    if (elementHasOwnText(node)) return true;
+    if (BLOCK_TEXT_CONTAINER_TAGS[tagName]) return true;
+    if (SEMANTIC_CODE_TEXT_TAGS[tagName]) return true;
+    return false;
   }
 
   function elementHasClass(node, className) {
@@ -1417,6 +1470,7 @@
   function applyInlineStyles(fontConfig, fontType) {
     elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
     var inlineTimer = createAffoTimer('Inline apply ' + fontType + ' ' + (fontConfig.fontName || ''));
+    sharedInlineLastActivityAt = Date.now();
 
     // Remove this type from shared inline config registry (will be re-added below)
     delete inlineConfigs[fontType];
@@ -1621,8 +1675,7 @@
     } catch (_) { }
 
     try {
-      var textLen = String(node.textContent || '').trim().length;
-      if (textLen >= INLINE_MEANINGFUL_MIN_TEXT) return true;
+      if (directTextHasMinNonWhitespace(node, INLINE_MEANINGFUL_MIN_TEXT)) return true;
     } catch (_) { }
 
     return false;
@@ -1697,6 +1750,10 @@
       });
 
       if (!hasMeaningfulAddition) return;
+      sharedInlineLastActivityAt = Date.now();
+      if (sharedInlineTimers.length === 0) {
+        ensureSharedInlinePolling();
+      }
 
       if (sharedInlineDebounceTimer) {
         clearTimeout(sharedInlineDebounceTimer);
@@ -1717,6 +1774,24 @@
     debugLog('[AFFO Content] Created shared inline MutationObserver (meaningful additions + debounce)');
   }
 
+  function stopSharedInlinePolling(reason) {
+    if (sharedInlineTimers.length === 0) return;
+    sharedInlineTimers.forEach(function (timerId) {
+      try { clearTimeout(timerId); clearInterval(timerId); } catch (_) { }
+    });
+    sharedInlineTimers = [];
+    debugLog('[AFFO Content] Stopped shared inline polling' + (reason ? ' (' + reason + ')' : ''));
+  }
+
+  function maybeStopSharedInlinePollingForQuietPage() {
+    if (Object.keys(inlineConfigs).length === 0) return true;
+    if (!sharedInlineLastActivityAt) return false;
+    var quietMs = Date.now() - sharedInlineLastActivityAt;
+    if (quietMs < INLINE_POLLING_QUIET_STOP_MS) return false;
+    stopSharedInlinePolling('quiet for ' + Math.round(quietMs / 1000) + 's');
+    return true;
+  }
+
   // Set up shared polling timers (frequency ramp: fast → slow → stop)
   function ensureSharedInlinePolling() {
     if (sharedInlineTimers.length > 0) return; // already running
@@ -1725,11 +1800,18 @@
     var initialFrequency = isInline ? 2000 : 5000;
     var laterFrequency = 10000;
     var initialDuration = isInline ? 30000 : 60000;
-    var totalDuration = 180000; // 3 minutes total
+    var totalDuration = INLINE_POLLING_TOTAL_MS;
 
     debugLog('[AFFO Content] Starting shared inline monitoring - initial: ' + initialFrequency + 'ms, later: ' + laterFrequency + 'ms');
 
     var checkCount = 0;
+    if (!sharedInlineLastActivityAt) sharedInlineLastActivityAt = Date.now();
+    if (!sharedInlineCleanupTimer) {
+      sharedInlineCleanupTimer = setTimeout(function () {
+        debugLog('[AFFO Content] Stopped shared style monitoring after ' + (totalDuration / 1000) + ' seconds (' + checkCount + ' total checks)');
+        cleanupSharedInlineInfra();
+      }, totalDuration);
+    }
 
     // Start monitoring after 1s delay (same as before)
     var monitoringTimer = setTimeout(function () {
@@ -1739,6 +1821,7 @@
             // Check for expired types and remove them
             checkExpiredInlineTypes();
             if (Object.keys(inlineConfigs).length === 0) return;
+            if (maybeStopSharedInlinePollingForQuietPage()) return;
             checkCount++;
             reapplyAllInlineStyles();
             if (checkCount % 10 === 0) {
@@ -1759,6 +1842,7 @@
             try {
               checkExpiredInlineTypes();
               if (Object.keys(inlineConfigs).length === 0) return;
+              if (maybeStopSharedInlinePollingForQuietPage()) return;
               checkCount++;
               reapplyAllInlineStyles();
 
@@ -1774,14 +1858,6 @@
             }
           }, laterFrequency);
           sharedInlineTimers.push(laterInterval);
-
-          // Stop monitoring after total duration
-          var stopTimer = setTimeout(function () {
-            clearInterval(laterInterval);
-            debugLog('[AFFO Content] Stopped shared style monitoring after ' + (totalDuration / 1000) + ' seconds (' + checkCount + ' total checks)');
-            cleanupSharedInlineInfra();
-          }, totalDuration - initialDuration);
-          sharedInlineTimers.push(stopTimer);
 
         }, initialDuration);
         sharedInlineTimers.push(switchTimer);
@@ -1818,10 +1894,11 @@
       try { clearTimeout(sharedInlineDebounceTimer); } catch (_) { }
       sharedInlineDebounceTimer = null;
     }
-    sharedInlineTimers.forEach(function (timerId) {
-      try { clearTimeout(timerId); clearInterval(timerId); } catch (_) { }
-    });
-    sharedInlineTimers = [];
+    stopSharedInlinePolling();
+    if (sharedInlineCleanupTimer) {
+      try { clearTimeout(sharedInlineCleanupTimer); } catch (_) { }
+      sharedInlineCleanupTimer = null;
+    }
   }
 
   // Shared CSS helpers for weight/axis handling.
@@ -3383,10 +3460,10 @@
                 });
               }
 
-              function textMatchesRemainingLazyRanges(text) {
+              function textMatchesRemainingLazyRanges(text, sampleLimit) {
                 if (!text || remainingLazyUrls.length === 0) return false;
                 var value = String(text);
-                var limit = Math.min(value.length, FONTFACE_SUBSET_SAMPLE_LIMIT);
+                var limit = Math.min(value.length, sampleLimit || FONTFACE_SUBSET_SAMPLE_LIMIT);
                 for (var i = 0; i < limit; i++) {
                   var codePoint = value.codePointAt(i);
                   if (!Number.isFinite(codePoint)) continue;
@@ -3405,7 +3482,27 @@
                 if (node.nodeType === 3) return textMatchesRemainingLazyRanges(node.nodeValue || '');
                 if (node.nodeType !== 1) return false;
                 if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
-                return textMatchesRemainingLazyRanges(node.textContent || '');
+
+                var sampledChars = 0;
+                function scan(current) {
+                  if (!current || sampledChars >= FONTFACE_SUBSET_SAMPLE_LIMIT) return false;
+                  if (current.nodeType === 3) {
+                    var text = current.nodeValue || '';
+                    var remaining = FONTFACE_SUBSET_SAMPLE_LIMIT - sampledChars;
+                    if (textMatchesRemainingLazyRanges(text, remaining)) return true;
+                    sampledChars += Math.min(text.length, remaining);
+                    return false;
+                  }
+                  if (current.nodeType !== 1) return false;
+                  if (INLINE_MEANINGFUL_IGNORE_TAGS[current.tagName]) return false;
+                  for (var i = 0; i < current.childNodes.length; i++) {
+                    if (scan(current.childNodes[i])) return true;
+                    if (sampledChars >= FONTFACE_SUBSET_SAMPLE_LIMIT) return false;
+                  }
+                  return false;
+                }
+
+                return scan(node);
               }
 
               function runLazySubsetCheck(reason) {
@@ -3726,15 +3823,15 @@
         // This prevents the "revert flash" where markers are cleared synchronously
         // but re-applied chunk-by-chunk with setTimeout(0) delays in between.
 
-        // Walk all text-containing elements
-        // Visibility checks moved to main loop (merged with getElementFontType's getComputedStyle)
+        // Walk elements that can actually own TMI text. Avoid node.textContent
+        // here; reading full subtrees in TreeWalker.acceptNode is expensive on
+        // large pages because it happens for every element.
         var walker = document.createTreeWalker(
           document.body,
           NodeFilter.SHOW_ELEMENT,
           {
             acceptNode: function (node) {
-              if (!node.textContent || node.textContent.trim().length === 0) return NodeFilter.FILTER_SKIP;
-              return NodeFilter.FILTER_ACCEPT;
+              return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
           }
         );

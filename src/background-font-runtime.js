@@ -144,6 +144,22 @@
     return affoParseGfMetadataText(await res.text());
   }
 
+  function getGfFamilyListForRuntime(metadata) {
+    return affoGetMetadataFamilies(metadata)
+      .map(family => family && (family.family || family.name))
+      .filter(Boolean);
+  }
+
+  async function storeGfMetadataForRuntime(metadata) {
+    const timestamp = Date.now();
+    await browser.storage.local.set({
+      gfMetadataCache: metadata,
+      gfMetadataTimestamp: timestamp,
+      gfFamilyListCache: Array.from(new Set(getGfFamilyListForRuntime(metadata))),
+      gfFamilyListTimestamp: timestamp
+    }).catch(e => debugWarn('[AFFO Background] Failed to store GF metadata:', e));
+  }
+
   async function ensureRuntimeGfMetadata() {
     if (runtimeGfMetadata) return runtimeGfMetadata;
     if (runtimeGfMetadataPromise) return runtimeGfMetadataPromise;
@@ -156,18 +172,12 @@
       const localUrl = browser.runtime.getURL('data/gf-axis-registry.json');
       try {
         const metadata = await fetchGfMetadataForRuntime(localUrl);
-        await browser.storage.local.set({
-          gfMetadataCache: metadata,
-          gfMetadataTimestamp: Date.now()
-        }).catch(e => debugWarn('[AFFO Background] Failed to store local GF metadata:', e));
+        await storeGfMetadataForRuntime(metadata);
         return metadata;
       } catch (localError) {
         debugWarn('[AFFO Background] Local GF metadata load failed; trying remote metadata', localError);
         const metadata = await fetchGfMetadataForRuntime('https://fonts.google.com/metadata/fonts');
-        await browser.storage.local.set({
-          gfMetadataCache: metadata,
-          gfMetadataTimestamp: Date.now()
-        }).catch(e => debugWarn('[AFFO Background] Failed to store remote GF metadata:', e));
+        await storeGfMetadataForRuntime(metadata);
         return metadata;
       }
     }).catch(e => {

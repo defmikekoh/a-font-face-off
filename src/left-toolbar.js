@@ -637,91 +637,41 @@
         document.dispatchEvent(new CustomEvent('affo-wait-for-it-apply'));
     }
 
-    // Handle WhatFont initialization - using original working architecture
-    function handleInitWhatFont() {
-        
-        // Check if WhatFont is already loaded (from content script)
-        if (typeof window.WhatFont !== 'undefined') {
-            try {
-                // Set the CSS URL to use local file before initializing
-                const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
-                window.WhatFont.setCSSURL(localCSSUrl);
-                
-                window.WhatFont.init();
-            } catch (e) {
-                console.error('[Left Toolbar] Error initializing WhatFont:', e);
-            }
-            return;
+    function initAvailableWhatFont() {
+        if (typeof window.WhatFont === 'undefined') {
+            if (typeof window._whatFont !== 'function') return false;
+            window.WhatFont = window._whatFont();
         }
-        
-        // Check if jQuery is available first
-        if (typeof window.$ === 'undefined') {
-            loadJQueryThenWhatFont();
-            return;
-        }
-        
-        // Load WhatFont script
-        const script = document.createElement('script');
-        script.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('whatfont_core.js');
-        script.onload = function() {
-            
-            // Create WhatFont object from _whatFont function
-            if (typeof window._whatFont === 'function') {
-                try {
-                    window.WhatFont = window._whatFont();
-                    
-                    // Set the CSS URL to use local file before initializing
-                    const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
-                    window.WhatFont.setCSSURL(localCSSUrl);
-                    
-                    window.WhatFont.init();
-                } catch (e) {
-                    console.error('[Left Toolbar] Error creating/initializing WhatFont:', e);
-                }
-            }
-        };
-        script.onerror = function() {
-            console.error('[Left Toolbar] Error loading WhatFont script');
-        };
-        document.head.appendChild(script);
+
+        const localCSSUrl = getBrowserAPI().runtime.getURL('wf.css');
+        window.WhatFont.setCSSURL(localCSSUrl);
+        return !!window.WhatFont.init();
     }
-    
-    
-    // Load jQuery first, then WhatFont - using original working architecture
-    function loadJQueryThenWhatFont() {
-        const jqueryScript = document.createElement('script');
-        jqueryScript.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('jquery.js');
-        jqueryScript.onload = function() {
-            const whatfontScript = document.createElement('script');
-            whatfontScript.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('whatfont_core.js');
-            whatfontScript.onload = function() {
-                
-                // Create WhatFont object from _whatFont function
-                if (typeof window._whatFont === 'function') {
-                    try {
-                        window.WhatFont = window._whatFont();
-                        
-                        // Set the CSS URL to use local file before initializing
-                        const localCSSUrl = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('wf.css');
-                        window.WhatFont.setCSSURL(localCSSUrl);
-                        
-                        window.WhatFont.init();
-                    } catch (e) {
-                        console.error('[Left Toolbar] Error creating/initializing WhatFont:', e);
-                    }
-                } else {
-                    affoDebugWarn('[Left Toolbar] _whatFont function not found after loading script');
-                }
-            };
-            whatfontScript.onerror = function(e) {
-                console.error('[Left Toolbar] Error loading WhatFont script:', e);
-            };
-            document.head.appendChild(whatfontScript);
-        };
-        jqueryScript.onerror = function(e) {
-            console.error('[Left Toolbar] Error loading jQuery:', e);
-        };
-        document.head.appendChild(jqueryScript);
+
+    async function ensureWhatFontScriptsLoaded() {
+        const response = await sendRuntimeMessageWithRetry({
+            type: 'affoEnsureWhatFontScripts'
+        }, {
+            retryMs: 1500,
+            retryDelayMs: 100
+        });
+        if (!response || !response.success) {
+            throw new Error(response && response.error ? response.error : 'Unable to load WhatFont scripts');
+        }
+    }
+
+    async function handleInitWhatFont() {
+        try {
+            if (initAvailableWhatFont()) return;
+
+            await ensureWhatFontScriptsLoaded();
+
+            if (!initAvailableWhatFont()) {
+                affoDebugWarn('[Left Toolbar] _whatFont function not found after loading scripts');
+            }
+        } catch (e) {
+            console.error('[Left Toolbar] Error initializing WhatFont:', e);
+        }
     }
     
     // Handle opening popup with current domain and tab context

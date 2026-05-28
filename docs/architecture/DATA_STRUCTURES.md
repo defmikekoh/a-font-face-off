@@ -98,6 +98,8 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
+| `gfFamilyListCache` | Cached Google Fonts family names for popup picker hydration without loading full axis metadata | `["Inter", "Roboto"]` |
+| `gfFamilyListTimestamp` | Timestamp for family-list cache age checks | `1699999999999` |
 | `affoLocalFonts` | User-managed local desktop font family names | `["Iowan Old Style", "Aptos"]` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
@@ -249,7 +251,7 @@ undefined  // No font configured (not null or empty object)
 ### Domain Storage Structure
 Domain storage uses the same "no key" format as UI state. Both use identical object structures, enabling direct comparison via `configsEqual()`.
 
-Derived Google Fonts css2 URLs are not stored. `font-url-utils.js` derives them from `fontName` + `gfMetadataCache` at runtime; background/content/toolbar keep only page/background-process memory memoization.
+Derived Google Fonts css2 URLs are not stored. `font-url-utils.js` derives them from `fontName` + `gfMetadataCache` at runtime; popup/content/toolbar ask background for resolution and keep only page/background-process memory memoization.
 
 Local desktop font configs include `fontSource: "local"` so popup/content/toolbar skip Google Fonts CSS resolution and apply the family name directly. If `affoCustomFontsCss` defines `@font-face` for the same family, that custom CSS definition takes precedence over the local marker.
 

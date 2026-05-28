@@ -963,7 +963,102 @@ async function ensureCustomFontsLoaded() {
 }
 // Google Fonts metadata cache
 let gfMetadata = null;
+let gfMetadataPromise = null;
+let gfFamilyList = null;
+let gfFamilyListPromise = null;
+let popupCss2UrlMemo = {};
+let popupCss2UrlPromises = {};
 let css2AxisRanges = null; // built from Google Fonts metadata at runtime
+const GF_METADATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const GF_METADATA_REMOTE_URL = 'https://fonts.google.com/metadata/fonts';
+
+function parseGfMetadataText(text) {
+    const json = String(text || '').replace(/^\)\]\}'\n?/, '');
+    return JSON.parse(json);
+}
+
+function getGfFamilyNamesFromMetadata(metadata) {
+    const families = affoGetMetadataFamilies(metadata);
+    return families.map(f => (f && (f.family || f.name))).filter(Boolean);
+}
+
+function normalizeGfFamilyListPayload(payload) {
+    const raw = Array.isArray(payload) ? payload : (payload && payload.families);
+    if (!Array.isArray(raw)) return [];
+    return Array.from(new Set(raw.map(name => String(name || '').trim()).filter(Boolean)));
+}
+
+function rememberGfMetadata(metadata) {
+    gfMetadata = metadata || { familyMetadataList: [] };
+    gfFamilyList = getGfFamilyNamesFromMetadata(gfMetadata);
+    return gfMetadata;
+}
+
+function cacheGfMetadata(metadata, timestamp) {
+    const storedMetadata = rememberGfMetadata(metadata);
+    browser.storage.local.set({
+        gfMetadataCache: storedMetadata,
+        gfMetadataTimestamp: timestamp,
+        gfFamilyListCache: gfFamilyList,
+        gfFamilyListTimestamp: timestamp
+    }).catch(e => affoDebugWarn('Failed to cache GF metadata:', e));
+    return storedMetadata;
+}
+
+function fetchGfMetadataUrl(url) {
+    return fetch(url, { credentials: 'omit' }).then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+    }).then(parseGfMetadataText);
+}
+
+function fetchBundledGfFamilyList() {
+    return fetch('data/gf-family-list.json', { credentials: 'omit' }).then(res => {
+        if (!res.ok) throw new Error(`Local family list HTTP ${res.status}`);
+        return res.json();
+    }).then(normalizeGfFamilyListPayload);
+}
+
+function resolvePopupCss2Url(fontName, options = {}) {
+    const key = String(fontName || '').trim();
+    if (!key || key.toLowerCase() === 'default') return Promise.resolve('');
+    const fallbackWhenMissing = !!options.fallbackWhenMissing;
+    const memoKey = key + '|' + (fallbackWhenMissing ? 'fallback' : 'strict');
+    if (Object.prototype.hasOwnProperty.call(popupCss2UrlMemo, memoKey)) {
+        return Promise.resolve(popupCss2UrlMemo[memoKey]);
+    }
+    if (popupCss2UrlPromises[memoKey]) return popupCss2UrlPromises[memoKey];
+
+    popupCss2UrlPromises[memoKey] = browser.runtime.sendMessage({
+        type: 'resolveCss2Url',
+        fontName: key,
+        fallbackWhenMissing
+    }).then(response => {
+        if (!response || response.ok !== true) {
+            throw new Error(response && response.error ? response.error : 'css2 URL resolution failed');
+        }
+        popupCss2UrlMemo[memoKey] = response.css2Url || '';
+        delete popupCss2UrlPromises[memoKey];
+        return popupCss2UrlMemo[memoKey];
+    }).catch(e => {
+        delete popupCss2UrlPromises[memoKey];
+        affoDebugWarn('Background css2 URL resolution failed; falling back in popup:', e);
+        return ensureGfMetadata().then(metadata => {
+            const url = affoBuildCss2UrlFromMetadata(key, metadata, {
+                fallbackWhenMissing,
+                fallbackWhenMetadataEmpty: true
+            });
+            popupCss2UrlMemo[memoKey] = url || '';
+            return popupCss2UrlMemo[memoKey];
+        }).catch(() => {
+            const url = fallbackWhenMissing ? affoBuildPlainCss2Url(key) : '';
+            popupCss2UrlMemo[memoKey] = url;
+            return url;
+        });
+    });
+
+    return popupCss2UrlPromises[memoKey];
+}
 
 // Heuristic steps when not specified per-axis
 const AXIS_STEP_DEFAULTS = {
@@ -1087,91 +1182,101 @@ function getAxesForFamilyFromMetadata(fontName) {
 
 function ensureGfMetadata() {
     if (gfMetadata) return Promise.resolve(gfMetadata);
+    if (gfMetadataPromise) return gfMetadataPromise;
 
-    // Check for cached metadata with 24-hour expiration
-    return browser.storage.local.get(['gfMetadataCache', 'gfMetadataTimestamp']).then(data => {
+    gfMetadataPromise = browser.storage.local.get(['gfMetadataCache', 'gfMetadataTimestamp']).then(data => {
         const now = Date.now();
         const cacheAge = now - (data.gfMetadataTimestamp || 0);
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        const remoteUrl = 'https://fonts.google.com/metadata/fonts';
 
-        const parseMetadataText = text => {
-            const jsonLocal = text.replace(/^\)\]\}'\n?/, '');
-            return JSON.parse(jsonLocal);
-        };
-
-        const cacheMetadata = metadata => {
-            gfMetadata = metadata;
-            browser.storage.local.set({
-                gfMetadataCache: gfMetadata,
-                gfMetadataTimestamp: now
-            }).catch(e => affoDebugWarn('Failed to cache GF metadata:', e));
-            return gfMetadata;
-        };
-
-        const fetchRemoteMetadata = () => {
-            return fetch(remoteUrl, { credentials: 'omit' }).then(res => {
-                if (!res.ok) throw new Error(`Remote HTTP ${res.status}`);
-                return res.text();
-            }).then(parseMetadataText).then(cacheMetadata);
-        };
-
-        const fetchLocalMetadata = () => {
-            return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
-                if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-                return resLocal.text();
-            }).then(parseMetadataText).then(cacheMetadata);
-        };
-
-        if (data.gfMetadataCache && cacheAge < twentyFourHours) {
-            gfMetadata = data.gfMetadataCache;
-            return gfMetadata;
+        if (data.gfMetadataCache && cacheAge < GF_METADATA_CACHE_MAX_AGE_MS) {
+            return rememberGfMetadata(data.gfMetadataCache);
         }
 
         // Cache expired or missing, fetch fresh data (remote first, then local fallback)
-        return fetchRemoteMetadata().catch(err => {
+        return fetchGfMetadataUrl(GF_METADATA_REMOTE_URL).then(metadata => cacheGfMetadata(metadata, now)).catch(err => {
             affoDebugWarn('Remote metadata load failed; falling back to local metadata', err);
-            return fetchLocalMetadata();
+            return fetchGfMetadataUrl('data/gf-axis-registry.json').then(metadata => cacheGfMetadata(metadata, now));
         }).catch(e2 => {
             affoDebugWarn('Local metadata load failed; proceeding with empty metadata', e2);
-            gfMetadata = { familyMetadataList: [] };
-            return gfMetadata;
+            return rememberGfMetadata({ familyMetadataList: [] });
         });
     }).catch(e => {
         affoDebugWarn('Storage access failed, loading fresh metadata:', e);
-        // Fallback to original behavior if storage fails
-        const remoteUrl = 'https://fonts.google.com/metadata/fonts';
-        const parseMetadataText = text => {
-            const jsonLocal = text.replace(/^\)\]\}'\n?/, '');
-            return JSON.parse(jsonLocal);
-        };
-        const fetchRemoteMetadata = () => {
-            return fetch(remoteUrl, { credentials: 'omit' }).then(res => {
-                if (!res.ok) throw new Error(`Remote HTTP ${res.status}`);
-                return res.text();
-            }).then(parseMetadataText);
-        };
-        const fetchLocalMetadata = () => {
-            return fetch('data/gf-axis-registry.json', { credentials: 'omit' }).then(resLocal => {
-                if (!resLocal.ok) throw new Error(`Local HTTP ${resLocal.status}`);
-                return resLocal.text();
-            }).then(parseMetadataText);
-        };
-        return fetchRemoteMetadata().then(metadata => {
-            gfMetadata = metadata;
-            return gfMetadata;
-        }).catch(err => {
+        return fetchGfMetadataUrl(GF_METADATA_REMOTE_URL).then(rememberGfMetadata).catch(err => {
             affoDebugWarn('Remote metadata load failed; falling back to local metadata', err);
-            return fetchLocalMetadata().then(metadata => {
-                gfMetadata = metadata;
-                return gfMetadata;
-            });
+            return fetchGfMetadataUrl('data/gf-axis-registry.json').then(rememberGfMetadata);
         }).catch(e2 => {
             affoDebugWarn('Local metadata load failed; proceeding with empty metadata', e2);
-            gfMetadata = { familyMetadataList: [] };
-            return gfMetadata;
+            return rememberGfMetadata({ familyMetadataList: [] });
         });
     });
+
+    gfMetadataPromise = gfMetadataPromise.then(metadata => {
+        gfMetadataPromise = null;
+        return metadata;
+    }, error => {
+        gfMetadataPromise = null;
+        throw error;
+    });
+    return gfMetadataPromise;
+}
+
+function ensureGfFamilyList() {
+    if (gfFamilyList && gfFamilyList.length) return Promise.resolve(gfFamilyList);
+    if (gfMetadata) {
+        gfFamilyList = getGfFamilyNamesFromMetadata(gfMetadata);
+        return Promise.resolve(gfFamilyList);
+    }
+    if (gfFamilyListPromise) return gfFamilyListPromise;
+
+    gfFamilyListPromise = browser.storage.local.get([
+        'gfFamilyListCache',
+        'gfFamilyListTimestamp',
+        'gfMetadataCache',
+        'gfMetadataTimestamp'
+    ]).then(data => {
+        const now = Date.now();
+        const metadataAge = now - (data.gfMetadataTimestamp || 0);
+        if (data.gfMetadataCache && metadataAge < GF_METADATA_CACHE_MAX_AGE_MS) {
+            rememberGfMetadata(data.gfMetadataCache);
+            if (gfFamilyList.length) return gfFamilyList;
+        }
+
+        const familyListAge = now - (data.gfFamilyListTimestamp || 0);
+        const cachedFamilyList = normalizeGfFamilyListPayload(data.gfFamilyListCache);
+        if (cachedFamilyList.length && familyListAge < GF_METADATA_CACHE_MAX_AGE_MS) {
+            gfFamilyList = cachedFamilyList;
+            return gfFamilyList;
+        }
+
+        return fetchBundledGfFamilyList().then(list => {
+            gfFamilyList = list;
+            browser.storage.local.set({
+                gfFamilyListCache: gfFamilyList,
+                gfFamilyListTimestamp: now
+            }).catch(e => affoDebugWarn('Failed to cache GF family list:', e));
+            return gfFamilyList;
+        });
+    }).catch(e => {
+        affoDebugWarn('GF family list load failed; falling back to full metadata:', e);
+        return ensureGfMetadata().then(() => {
+            gfFamilyList = getGfFamilyNamesFromMetadata(gfMetadata);
+            return gfFamilyList;
+        });
+    });
+
+    gfFamilyListPromise = gfFamilyListPromise.then(list => {
+        gfFamilyListPromise = null;
+        return list;
+    }, error => {
+        gfFamilyListPromise = null;
+        throw error;
+    });
+    return gfFamilyListPromise;
+}
+
+if (typeof window !== 'undefined') {
+    window.ensureGfFamilyList = ensureGfFamilyList;
 }
 
 // Remote CSS probing helpers removed.
@@ -2175,16 +2280,8 @@ function buildCss2Url(fontName, _fontConfig) {
         return Promise.resolve('');
     }
 
-    return ensureGfMetadata().then(metadata => {
-        const url = affoBuildCss2UrlFromMetadata(fontName, metadata, {
-            fallbackWhenMissing: true,
-            fallbackWhenMetadataEmpty: true
-        });
+    return resolvePopupCss2Url(fontName, { fallbackWhenMissing: true }).then(url => {
         try { affoDebugLog(`[Fonts] Resolved css2 for ${fontName}: ${url}`); } catch (_) {}
-        return url;
-    }).catch(() => {
-        const url = affoBuildPlainCss2Url(fontName);
-        try { affoDebugLog(`[Fonts] Using plain css2 for ${fontName}: ${url}`); } catch (_) {}
         return url;
     });
 }

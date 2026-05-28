@@ -3,7 +3,8 @@
  *
  * Depends on:
  *   favorites.js      (loadFavoritesFromStorage, savedFavorites)
- *   popup.js globals   (gfMetadata, ensureGfMetadata, ensureCustomFontsLoaded,
+ *   popup.js globals   (gfMetadata, gfFamilyList, ensureGfMetadata,
+ *                        ensureGfFamilyList, ensureCustomFontsLoaded,
  *                        CUSTOM_FONTS, LOCAL_FONTS, getPanelLabel, loadFont, applyFont,
  *                        getCurrentUIConfig, updateBodyButtons,
  *                        updateAllThirdManInButtons, refreshApplyButtonsDirtyState,
@@ -29,12 +30,20 @@ function getFamiliesFromMetadata(md) {
     return list.map(f => (f.family || f.name)).filter(Boolean);
 }
 
+function getKnownGoogleFamilies() {
+    if (typeof gfFamilyList !== 'undefined' && Array.isArray(gfFamilyList) && gfFamilyList.length) {
+        return gfFamilyList;
+    }
+    if (typeof gfMetadata !== 'undefined') return getFamiliesFromMetadata(gfMetadata);
+    return [];
+}
+
 async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
     try {
-        await ensureGfMetadata();
+        await ensureGfFamilyList();
         await ensureCustomFontsLoaded();
         // Start from Google families
-        let families = getFamiliesFromMetadata(gfMetadata);
+        let families = getKnownGoogleFamilies();
         // Ensure favorites are included
         try { loadFavoritesFromStorage(); } catch (e) {}
         const favNames = Array.from(new Set(
@@ -97,8 +106,8 @@ async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
 }
 
 function resolveFamilyCase(name) {
-    if (!name || !gfMetadata) return name;
-    const families = getFamiliesFromMetadata(gfMetadata);
+    if (!name) return name;
+    const families = getKnownGoogleFamilies();
     const lower = String(name).toLowerCase();
     for (const fam of families) {
         if (String(fam).toLowerCase() === lower) return fam;
@@ -143,12 +152,12 @@ function setupFontPicker() {
         titleEl.textContent = `Select ${getPanelLabel(position)} Font`;
         await ensureCustomFontsLoaded();
         // Build family list (custom pinned + local + google)
-        if (!gfMetadata) {
-            try { await ensureGfMetadata(); } catch (e) { affoDebugWarn('GF metadata load failed:', e); }
+        if (typeof gfFamilyList === 'undefined' || !Array.isArray(gfFamilyList) || gfFamilyList.length === 0) {
+            try { await ensureGfFamilyList(); } catch (e) { affoDebugWarn('GF family list load failed:', e); }
         }
         // Ensure favorites are up-to-date
         try { loadFavoritesFromStorage(); } catch (e) {}
-        const gf = getFamiliesFromMetadata(gfMetadata);
+        const gf = getKnownGoogleFamilies();
         const set = new Set();
         const list = [];
         // Add pinned customs first

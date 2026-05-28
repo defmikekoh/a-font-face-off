@@ -459,7 +459,9 @@ export default [
                 savedFavorites: "readonly",
                 // From popup.js (available at call time)
                 gfMetadata: "readonly",
+                gfFamilyList: "readonly",
                 ensureGfMetadata: "readonly",
+                ensureGfFamilyList: "readonly",
                 ensureCustomFontsLoaded: "readonly",
                 CUSTOM_FONTS: "readonly",
                 LOCAL_FONTS: "readonly",

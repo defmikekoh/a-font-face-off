@@ -2220,6 +2220,21 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    if (msg.type === 'affoEnsureWhatFontScripts') {
+      try {
+        const tabId = sender && sender.tab ? sender.tab.id : null;
+        if (tabId == null) {
+          return { success: false, error: 'Missing sender tab' };
+        }
+        await browser.tabs.executeScript(tabId, { file: 'jquery.js' });
+        await browser.tabs.executeScript(tabId, { file: 'whatfont_core.js' });
+        return { success: true };
+      } catch (e) {
+        console.error('[AFFO Background] WhatFont script injection failed:', e);
+        return { success: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
     // Handle toolbar popup opening requests
     if (msg.type === 'openPopup') {
       affoDebugLog('[AFFO Background] Received openPopup request');

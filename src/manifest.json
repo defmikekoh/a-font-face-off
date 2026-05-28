@@ -44,11 +44,6 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["messaging-utils.js", "sroulette-utils.js", "site-detection-utils.js", "content-sroulette-runtime.js", "font-face-utils.js", "local-font-utils.js", "content.js"],
       "run_at": "document_end"
-    },
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["jquery.js", "whatfont_core.js"],
-      "run_at": "document_idle"
     }
   ],
 

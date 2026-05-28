@@ -1155,9 +1155,15 @@
       } catch (e) {
         throw new Error('Failed to parse metadata: ' + e.message);
       }
+      const families = (metadata.familyMetadataList || metadata.familyMetadata || metadata.families || [])
+        .map(f => f && (f.family || f.name))
+        .filter(Boolean);
+      const timestamp = Date.now();
       await browser.storage.local.set({
         gfMetadataCache: metadata,
-        gfMetadataTimestamp: Date.now()
+        gfMetadataTimestamp: timestamp,
+        gfFamilyListCache: Array.from(new Set(families)),
+        gfFamilyListTimestamp: timestamp
       });
       statusEl.textContent = 'Refreshed';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
