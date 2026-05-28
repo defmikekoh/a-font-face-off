@@ -342,14 +342,42 @@
             : (isChromiumOptions ? 'transparent' : '#ffffff');
         }
 
-        // Load custom CSS and axes when switching to that tab
-        if (tab.id === 'customTab') { loadCustomCss(); loadCustomAxes(); }
+        // Load custom/local font settings when switching to that tab
+        if (tab.id === 'customTab') { loadLocalFonts(); loadCustomCss(); loadCustomAxes(); }
       });
     });
   }
 
   // Custom CSS editor
   let customCssLoaded = false;
+  let localFontsLoaded = false;
+
+  function normalizeLocalFontsInput(text) {
+    if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.normalizeLocalFonts === 'function') {
+      return AFFOLocalFontUtils.normalizeLocalFonts(text);
+    }
+    return fromTextarea(text);
+  }
+
+  async function loadLocalFonts() {
+    if (localFontsLoaded) return;
+    const editor = document.getElementById('local-fonts-editor');
+    if (!editor) return;
+    const stored = await browser.storage.local.get('affoLocalFonts');
+    const fonts = normalizeLocalFontsInput(stored.affoLocalFonts || []);
+    editor.value = toTextarea(fonts);
+    localFontsLoaded = true;
+  }
+
+  async function saveLocalFonts() {
+    const editor = document.getElementById('local-fonts-editor');
+    const status = document.getElementById('local-fonts-status');
+    const fonts = normalizeLocalFontsInput(editor.value);
+    await browser.storage.local.set({ affoLocalFonts: fonts });
+    editor.value = toTextarea(fonts);
+    status.textContent = 'Saved!';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  }
 
   async function loadCustomCss() {
     if (customCssLoaded) return;
@@ -1203,6 +1231,7 @@
         'This will clear:\n' +
         '• All applied fonts from websites\n' +
         '• All saved font configurations\n' +
+        '• Local desktop font names\n' +
         '• Known serif/sans family lists\n' +
         '• FontFace-only domains list\n' +
         '• Toolbar settings\n' +
@@ -1222,6 +1251,7 @@
       // Reset all form values to defaults
       document.getElementById('known-serif').value = toTextarea(DEFAULT_SERIF);
       document.getElementById('known-sans').value = toTextarea(DEFAULT_SANS);
+      document.getElementById('local-fonts-editor').value = '';
       document.getElementById('preserved-fonts').value = toTextarea(DEFAULT_PRESERVED);
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
@@ -1271,6 +1301,7 @@
   document.addEventListener('DOMContentLoaded', function(){
     initTabs();
     load();
+    document.getElementById('save-local-fonts').addEventListener('click', saveLocalFonts);
     document.getElementById('save-css').addEventListener('click', saveCustomCss);
     document.getElementById('reset-css').addEventListener('click', resetCustomCss);
     document.getElementById('save-axes').addEventListener('click', saveCustomAxes);

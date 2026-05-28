@@ -98,6 +98,7 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
+| `affoLocalFonts` | User-managed local desktop font family names | `["Iowan Old Style", "Aptos"]` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
@@ -223,6 +224,7 @@ undefined  // No font configured (not null or empty object)
   "fontWeight": 400,                  // Font weight (only if set)
   "fontStyle": "italic",              // Static style (only if set; "normal" is omitted)
   "fontColor": "#333333",             // Font color (only if set, NOT 'default')
+  "fontSource": "local",              // Only for user-managed local desktop fonts
   "variableAxes": {                   // ALWAYS present (even if empty {})
     "wght": 400,                      // Weight axis (only if modified from default)
     "slnt": -10                       // Slant axis (only if the font exposes it)
@@ -249,6 +251,8 @@ Domain storage uses the same "no key" format as UI state. Both use identical obj
 
 Derived Google Fonts css2 URLs are not stored. `font-url-utils.js` derives them from `fontName` + `gfMetadataCache` at runtime; background/content/toolbar keep only page/background-process memory memoization.
 
+Local desktop font configs include `fontSource: "local"` so popup/content/toolbar skip Google Fonts CSS resolution and apply the family name directly. If `affoCustomFontsCss` defines `@font-face` for the same family, that custom CSS definition takes precedence over the local marker.
+
 ## Custom Font Definitions
 
 Custom fonts are defined in `custom-fonts.css`. All detected `font-family` values are treated as pinned custom fonts.
@@ -270,6 +274,18 @@ Pinned custom font family names, parsed from the effective CSS (override or pack
   "Graphik Trial",
   "FK Roman Standard Trial",
   "TiemposText"
+]
+```
+
+### LOCAL_FONTS
+
+User-managed local desktop font family names from `affoLocalFonts`. These are shown separately in the picker and are not auto-enumerated from the host system.
+
+```javascript
+[
+  "Iowan Old Style",
+  "Aptos",
+  "Helvetica Neue"
 ]
 ```
 

@@ -802,6 +802,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
 
 // Custom font definitions are loaded from custom-fonts-starter.css (or user-customized version).
 let CUSTOM_FONTS = [];
+let LOCAL_FONTS = [];
 let fontDefinitions = {};
 let customFontsCssText = '';
 let customFontsLoaded = false;
@@ -869,12 +870,42 @@ function buildCustomFontAxes(stored) {
     return result;
 }
 
+function getLocalFontsFromStorageValue(value) {
+    if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.normalizeLocalFonts === 'function') {
+        return AFFOLocalFontUtils.normalizeLocalFonts(value);
+    }
+    return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function hasCustomFontFaceDefinition(fontName) {
+    const def = fontName ? fontDefinitions[fontName] : null;
+    return !!(def && def.fontFaceRule);
+}
+
+function isLocalFontName(fontName) {
+    if (!fontName || String(fontName).toLowerCase() === 'default') return false;
+    if (hasCustomFontFaceDefinition(fontName)) return false;
+    return LOCAL_FONTS.includes(fontName);
+}
+
+function rememberLocalFontName(fontName) {
+    if (!fontName || String(fontName).toLowerCase() === 'default') return;
+    if (hasCustomFontFaceDefinition(fontName)) return;
+    if (!LOCAL_FONTS.includes(fontName)) LOCAL_FONTS.push(fontName);
+    fontDefinitions[fontName] = { axes: [], defaults: {}, ranges: {}, steps: {}, fontSource: 'local' };
+}
+
+function shouldMarkFontAsLocal(fontName, config) {
+    if (!fontName || hasCustomFontFaceDefinition(fontName)) return false;
+    return isLocalFontName(fontName) || !!(config && config.fontSource === 'local');
+}
+
 async function ensureCustomFontsLoaded() {
     if (customFontsLoaded) return;
     if (!customFontsPromise) {
         customFontsPromise = (async () => {
             try {
-                const stored = await browser.storage.local.get(['affoCustomFontsCss', 'affoCustomFontAxes']);
+                const stored = await browser.storage.local.get(['affoCustomFontsCss', 'affoCustomFontAxes', 'affoLocalFonts']);
                 let cssText = stored.affoCustomFontsCss;
                 if (!cssText) {
                     const url = browser.runtime.getURL('custom-fonts-starter.css');
@@ -912,10 +943,16 @@ async function ensureCustomFontsLoaded() {
                     });
                 } catch (_e) { /* sil-fonts.css missing or failed */ }
 
+                LOCAL_FONTS = getLocalFontsFromStorageValue(stored.affoLocalFonts);
+                LOCAL_FONTS.forEach(name => {
+                    rememberLocalFontName(name);
+                });
+
                 customFontsLoaded = true;
             } catch (e) {
                 affoDebugWarn('Failed to load custom fonts CSS:', e);
                 CUSTOM_FONTS = [];
+                LOCAL_FONTS = [];
                 fontDefinitions = {};
                 customFontsCssText = '';
                 customFontsLoaded = true;
@@ -1618,6 +1655,8 @@ function getCurrentUIConfig(position) {
         const fontDef = getEffectiveFontDefinition(fontName);
         if (fontDef && fontDef.fontFaceRule) {
             config.fontFaceRule = fontDef.fontFaceRule;
+        } else if (shouldMarkFontAsLocal(fontName, config)) {
+            config.fontSource = 'local';
         }
     }
 
@@ -1706,6 +1745,9 @@ async function waitForControls(position, maxWaitMs = 2000, config = null) {
 async function applyFontConfig(position, config) {
     config = normalizeConfig(config);
     if (!config) return;
+    if (config.fontSource === 'local' && config.fontName) {
+        rememberLocalFontName(config.fontName);
+    }
 
     if (position === 'body' || position === 'serif' || position === 'sans' || position === 'mono') {
         affoDebugLog(`applyFontConfig called for ${position}:`, config);
@@ -1731,7 +1773,7 @@ async function applyFontConfig(position, config) {
         // Suppress immediate apply/save during restore; we'll apply after values are set
         // Must await so generateFontControls replaces any stale axis controls
         // before waitForControls checks for them (avoids setting values on old elements)
-        await loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true });
+        await loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true, fontSource: config.fontSource });
     }
 
     // Wait for font controls to be generated, then apply settings
@@ -1970,7 +2012,7 @@ function hideTooltip() {
 
 // Font loading and management functions
 async function loadFont(position, fontName, options = {}) {
-    const { suppressImmediateApply = false, suppressImmediateSave = false } = options || {};
+    const { suppressImmediateApply = false, suppressImmediateSave = false, fontSource = null } = options || {};
 
     try {
         await ensureCustomFontsLoaded();
@@ -1990,7 +2032,10 @@ async function loadFont(position, fontName, options = {}) {
 
         // Load font CSS (Google Fonts only - custom fonts handled via fontFaceRule)
         // Skip font loading for Default (no actual font to load)
-        if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName)) {
+        const useLocalSource = fontSource === 'local' || isLocalFontName(fontName);
+        if (useLocalSource) rememberLocalFontName(fontName);
+
+        if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName) && !useLocalSource) {
             // Also kick off dynamic axis discovery in background for Google families
             loadGoogleFont(fontName);
             try {
@@ -2005,7 +2050,8 @@ async function loadFont(position, fontName, options = {}) {
                 affoDebugWarn('Dynamic axis discovery failed', err);
             }
         } else {
-            // Ensure custom font CSS is injected for popup preview
+            // Ensure custom font CSS is injected for popup preview when a
+            // matching @font-face rule exists. Plain local fonts need no load.
             ensureCustomFontInjected(fontName);
             // Generate controls for this font (if not already done)
             generateFontControls(position, fontName);
@@ -2122,8 +2168,10 @@ function buildCss2Url(fontName, _fontConfig) {
         return Promise.resolve('');
     }
 
-    // Skip URL generation for custom fonts (they have their own @font-face rules)
-    if (fontDefinitions[fontName] && fontDefinitions[fontName].fontFaceRule) {
+    // Skip URL generation for custom/local fonts.
+    if ((fontDefinitions[fontName] && fontDefinitions[fontName].fontFaceRule) ||
+        isLocalFontName(fontName) ||
+        (_fontConfig && _fontConfig.fontSource === 'local')) {
         return Promise.resolve('');
     }
 
@@ -2676,6 +2724,7 @@ async function buildPayload(position, providedConfig = null) {
     if (cfg.fontWeight != null) payload.fontWeight = Number(cfg.fontWeight);
     if (cfg.fontStyle === 'italic') payload.fontStyle = 'italic';
     if (cfg.fontColor) payload.fontColor = cfg.fontColor;
+    if (shouldMarkFontAsLocal(cfg.fontName, cfg)) payload.fontSource = 'local';
 
     // Note: styleId is not stored - content.js computes it as 'a-font-face-off-style-' + fontType
 
@@ -4434,6 +4483,7 @@ function resetFontForPosition(position) {
 function payloadEquals(a, b) {
     if (!a || !b) return false;
     if (a.fontName !== b.fontName) return false;
+    if ((a.fontSource || null) !== (b.fontSource || null)) return false;
     const numEq = (x, y) => (x == null) && (y == null) ? true : Number(x) === Number(y);
     if (!numEq(a.fontWeight, b.fontWeight)) return false;
     if ((a.fontSizeScale != null) !== (b.fontSizeScale != null)) return false;

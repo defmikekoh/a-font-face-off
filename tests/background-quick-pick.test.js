@@ -194,6 +194,29 @@ describe('background quick-pick Sroulette', () => {
         assert.equal(storage.data.affoApplyMap['example.com'].sroulette, undefined);
     });
 
+    it('preserves local font source when a local favorite is quick-applied', async () => {
+        const { context, storage } = loadBackground({
+            affoApplyMap: {},
+            affoAggressiveDomains: []
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'quickApplyFavorite',
+            origin: 'example.com',
+            position: 'serif',
+            fontConfig: {
+                fontName: 'Iowan Old Style',
+                fontSource: 'local'
+            }
+        }, { tab: { id: 123 } });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(storage.data.affoApplyMap['example.com'].serif, {
+            fontName: 'Iowan Old Style',
+            fontSource: 'local'
+        });
+    });
+
     it('injects resolved Sroulette CSS as tracked extension CSS', async () => {
         const { context, cssOps } = loadBackground();
 

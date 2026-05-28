@@ -92,6 +92,11 @@ describe('normalizeConfig', () => {
         assert.equal(result.fontFaceRule, rule);
     });
 
+    it('preserves local font source marker', () => {
+        const result = normalizeConfig({ fontName: 'Iowan Old Style', fontSource: 'local' });
+        assert.equal(result.fontSource, 'local');
+    });
+
     it('coerces variable axes values to numbers', () => {
         const result = normalizeConfig({
             fontName: 'Inter',

@@ -18,13 +18,14 @@ export default [
     // Extension source files (browser context), excluding files with their own config
     {
         files: ["src/*.js"],
-        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/sroulette-utils.js", "src/site-detection-utils.js", "src/popup-panel-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
+        ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/local-font-utils.js", "src/sroulette-utils.js", "src/site-detection-utils.js", "src/popup-panel-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: "script",
             globals: {
                 // Browser
+                globalThis: "readonly",
                 self: "readonly",
                 window: "readonly",
                 document: "readonly",
@@ -97,6 +98,8 @@ export default [
                 affoBuildPlainCss2Url: "readonly",
                 affoBuildCss2AxisRangesFromMetadata: "readonly",
                 affoBuildCss2UrlFromMetadata: "readonly",
+                // From local-font-utils.js
+                AFFOLocalFontUtils: "readonly",
                 // From sroulette-utils.js
                 AFFOSroulette: "readonly",
                 // From site-detection-utils.js
@@ -216,6 +219,23 @@ export default [
             sourceType: "script",
             globals: {
                 isFinite: "readonly",
+                module: "readonly",
+            },
+        },
+        rules: {
+            "no-undef": "error",
+        },
+    },
+
+    // local-font-utils.js — pure browser/Node helpers for local font names
+    {
+        files: ["src/local-font-utils.js"],
+        ...js.configs.recommended,
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: "script",
+            globals: {
+                globalThis: "readonly",
                 module: "readonly",
             },
         },
@@ -442,6 +462,7 @@ export default [
                 ensureGfMetadata: "readonly",
                 ensureCustomFontsLoaded: "readonly",
                 CUSTOM_FONTS: "readonly",
+                LOCAL_FONTS: "readonly",
                 getPanelLabel: "readonly",
                 loadFont: "readonly",
                 applyFont: "readonly",

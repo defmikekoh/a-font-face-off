@@ -680,6 +680,16 @@
   </div>
 
   <div id="customSettings" style="display: none;">
+    <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Local Desktop Fonts</label>
+    <p class="description">Add installed desktop font family names, one per line. These appear in the picker without scanning your system or fetching Google Fonts. If Custom Font CSS defines @font-face for the same family, that CSS source is used instead.</p>
+    <textarea id="local-fonts-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="Iowan Old Style&#10;Aptos&#10;Helvetica Neue"></textarea>
+    <div class="editor-actions">
+      <span id="local-fonts-status" class="status"></span>
+      <button id="save-local-fonts" class="save-button">Save</button>
+    </div>
+
+    <div style="margin-top: 24px;"></div>
+
     <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
     <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving.</p>
     <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
@@ -868,6 +878,7 @@
   </div>
 
   <script src="messaging-utils.js"></script>
+  <script src="local-font-utils.js"></script>
   <script src="options.js"></script>
   <script src="jquery.js"></script>
   <script src="whatfont_core.js"></script>

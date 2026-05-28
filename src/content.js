@@ -872,7 +872,7 @@
     var names = {};
     ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
       var cfg = entry && entry[fontType];
-      if (cfg && cfg.fontName) names[cfg.fontName] = true;
+      if (cfg && cfg.fontName && !shouldTreatFontConfigAsLocal(cfg)) names[cfg.fontName] = true;
     });
     return Promise.all(Object.keys(names).map(resolveCss2Url)).then(function () { });
   }
@@ -882,6 +882,29 @@
   var customFontDefinitions = {};
   var customFontsLoaded = false;
   var customFontsPromise = null;
+  var localFontNames = [];
+
+  function normalizeLocalFontsValue(value) {
+    if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.normalizeLocalFonts === 'function') {
+      return AFFOLocalFontUtils.normalizeLocalFonts(value);
+    }
+    return Array.isArray(value) ? value.filter(Boolean) : [];
+  }
+
+  function isLocalFontConfig(fontConfig) {
+    if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.isLocalFontConfig === 'function') {
+      return AFFOLocalFontUtils.isLocalFontConfig(fontConfig);
+    }
+    return !!(fontConfig && fontConfig.fontSource === 'local');
+  }
+
+  function isConfiguredLocalFontName(fontName) {
+    return !!(fontName && localFontNames.indexOf(fontName) !== -1);
+  }
+
+  function shouldTreatFontConfigAsLocal(fontConfig) {
+    return !!(fontConfig && fontConfig.fontName && (isLocalFontConfig(fontConfig) || isConfiguredLocalFontName(fontConfig.fontName)));
+  }
 
   function parseCustomFontsFromCss(cssText) {
     var blocks = String(cssText || '').match(/@font-face\s*{[\s\S]*?}/gi) || [];
@@ -2080,6 +2103,12 @@
           return Promise.resolve();
         }
       }
+      // User-managed local desktop fonts are already available to the browser.
+      // Do not resolve/fetch Google CSS for these names.
+      else if (shouldTreatFontConfigAsLocal(fontConfig)) {
+        debugLog(`[AFFO Content] Using local desktop font ${fontName}`);
+        return Promise.resolve();
+      }
       // If Google font and not FontFace-only domain, load Google Fonts CSS
       else if (!shouldUseFontFaceOnly()) {
         return loadGoogleFontCSS(fontConfig);
@@ -2135,6 +2164,7 @@
 
   function loadGoogleFontCSS(fontConfig) {
     try {
+      if (shouldTreatFontConfigAsLocal(fontConfig)) return Promise.resolve();
       var fontName = fontConfig.fontName;
       var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
       if (document.getElementById(linkId)) return Promise.resolve(); // Already loaded
@@ -2168,7 +2198,7 @@
   function injectGoogleFontLinkForConfig(fontConfig) {
     try {
       var fontName = fontConfig && fontConfig.fontName;
-      if (!fontName || shouldUseFontFaceOnly()) return Promise.resolve(false);
+      if (!fontName || shouldUseFontFaceOnly() || shouldTreatFontConfigAsLocal(fontConfig)) return Promise.resolve(false);
       var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
       if (document.getElementById(linkId)) return Promise.resolve(true);
       ensureGoogleFontsPreconnect();
@@ -3882,7 +3912,7 @@
           }
 
           // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
-          if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
+          if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly() && !shouldTreatFontConfigAsLocal(fontConfig)) {
             injectGoogleFontLinkForConfig(fontConfig);
           }
 
@@ -3943,7 +3973,7 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains']).then(function (data) {
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoLocalFonts']).then(function (data) {
       // Ensure domain lists are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -3964,6 +3994,7 @@
       if (Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains)) {
         substackRouletteBeigeDisabledDomains = data.affoSubstackRouletteBeigeDisabledDomains;
       }
+      localFontNames = normalizeLocalFontsValue(data.affoLocalFonts || []);
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = map[origin];
       if (!entry) {
@@ -4129,7 +4160,7 @@
               }
 
               // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
-              if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly()) {
+              if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly() && !shouldTreatFontConfigAsLocal(fontConfig)) {
                 injectGoogleFontLinkForConfig(fontConfig);
               }
 
@@ -4176,6 +4207,9 @@
       if (area !== 'local') return;
       try {
         var origin = location.hostname;
+        if (changes.affoLocalFonts) {
+          localFontNames = normalizeLocalFontsValue(changes.affoLocalFonts.newValue || []);
+        }
         var ignoreCommentsMembershipChanged = false;
         if (changes.affoIgnoreCommentsDomains) {
           var oldIgnoreList = Array.isArray(changes.affoIgnoreCommentsDomains.oldValue) ? changes.affoIgnoreCommentsDomains.oldValue : [];

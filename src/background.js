@@ -2384,6 +2384,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (fontConfig.fontStyle === 'italic') payload.fontStyle = 'italic';
         if (fontConfig.fontColor) payload.fontColor = fontConfig.fontColor;
         if (fontConfig.variableAxes) payload.variableAxes = fontConfig.variableAxes;
+        if (fontConfig.fontSource === 'local') payload.fontSource = 'local';
 
         // Save to storage
         const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);

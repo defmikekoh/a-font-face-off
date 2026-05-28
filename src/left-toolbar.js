@@ -88,6 +88,20 @@
         return runtimeCss2UrlPromises[key];
     }
 
+    function normalizeLocalFontsValue(value) {
+        if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.normalizeLocalFonts === 'function') {
+            return AFFOLocalFontUtils.normalizeLocalFonts(value);
+        }
+        return Array.isArray(value) ? value.filter(Boolean) : [];
+    }
+
+    function isLocalFontConfig(fontConfig, localFonts) {
+        if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.isLocalFontConfig === 'function' && AFFOLocalFontUtils.isLocalFontConfig(fontConfig)) {
+            return true;
+        }
+        return !!(fontConfig && fontConfig.fontName && localFonts.indexOf(fontConfig.fontName) !== -1);
+    }
+
     function isWaitForItConfiguredForCurrentDomain(data) {
         const host = location.hostname;
         const waitForItDomains = data && data.affoWaitForItDomains ? data.affoWaitForItDomains : [];
@@ -365,7 +379,7 @@
     (function earlyFontPreload() {
         try {
             const origin = location.hostname;
-            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains', 'affoFontFaceOnlyDomains']).then(data => {
+            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains', 'affoFontFaceOnlyDomains', 'affoLocalFonts']).then(data => {
                 const map = data.affoApplyMap || {};
                 const entry = map[origin];
 
@@ -381,6 +395,8 @@
                     ? data.affoFontFaceOnlyDomains
                     : ['x.com'];
                 if (fontFaceOnlyDomains.includes(origin)) return;
+
+                const localFonts = normalizeLocalFontsValue(data.affoLocalFonts || []);
 
                 // Wait for document.head to be available
                 function injectWhenReady() {
@@ -411,6 +427,7 @@
                     ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
                         const fontConfig = entry[fontType];
                         if (!fontConfig || !fontConfig.fontName) return;
+                        if (isLocalFontConfig(fontConfig, localFonts)) return;
 
                         const fontName = fontConfig.fontName;
                         const linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';

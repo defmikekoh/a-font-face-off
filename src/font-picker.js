@@ -4,7 +4,7 @@
  * Depends on:
  *   favorites.js      (loadFavoritesFromStorage, savedFavorites)
  *   popup.js globals   (gfMetadata, ensureGfMetadata, ensureCustomFontsLoaded,
- *                        CUSTOM_FONTS, getPanelLabel, loadFont, applyFont,
+ *                        CUSTOM_FONTS, LOCAL_FONTS, getPanelLabel, loadFont, applyFont,
  *                        getCurrentUIConfig, updateBodyButtons,
  *                        updateAllThirdManInButtons, refreshApplyButtonsDirtyState,
  *                        currentViewMode, saveFontSettings)
@@ -42,10 +42,10 @@ async function initializeGoogleFontsSelects(preferredTop, preferredBottom) {
                 .map(cfg => cfg && cfg.fontName)
                 .filter(Boolean)
         ));
-        // Merge custom fonts, favorites, and Google list
+        // Merge custom fonts, local fonts, favorites, and Google list
         const set = new Set();
         const combined = [];
-        [...CUSTOM_FONTS, ...favNames, ...families].forEach(name => {
+        [...CUSTOM_FONTS, ...LOCAL_FONTS, ...favNames, ...families].forEach(name => {
             if (!name) return;
             if (!set.has(name)) { set.add(name); combined.push(name); }
         });
@@ -122,7 +122,8 @@ function setupFontPicker() {
     const sansTrigger = document.getElementById('sans-font-display');
     const monoTrigger = document.getElementById('mono-font-display');
 
-    // Use CUSTOM_FONTS for pinned custom fonts
+    // Use CUSTOM_FONTS for pinned custom fonts and LOCAL_FONTS for manual
+    // desktop-family names that should not fetch Google Fonts.
 
     let currentPosition = 'top';
     let families = [];
@@ -141,7 +142,7 @@ function setupFontPicker() {
         currentPosition = position;
         titleEl.textContent = `Select ${getPanelLabel(position)} Font`;
         await ensureCustomFontsLoaded();
-        // Build family list (custom pinned + google)
+        // Build family list (custom pinned + local + google)
         if (!gfMetadata) {
             try { await ensureGfMetadata(); } catch (e) { affoDebugWarn('GF metadata load failed:', e); }
         }
@@ -152,6 +153,12 @@ function setupFontPicker() {
         const list = [];
         // Add pinned customs first
         CUSTOM_FONTS.forEach(f => { set.add(f); list.push(f); });
+        LOCAL_FONTS.forEach(f => {
+            if (!set.has(f)) {
+                set.add(f);
+                list.push(f);
+            }
+        });
         gf.forEach(f => { if (!set.has(f)) list.push(f); });
         families = list;
         searchEl.value = '';
@@ -211,7 +218,7 @@ function setupFontPicker() {
         ));
         const favFiltered = favNames
             .filter(n => (q ? normalize(n).includes(q) : true))
-            .filter(n => !CUSTOM_FONTS.includes(n)); // avoid duplicate with custom section
+            .filter(n => !CUSTOM_FONTS.includes(n) && !LOCAL_FONTS.includes(n)); // avoid duplicate with pinned sections
         if (favFiltered.length) {
             sections.set('Favorites', favFiltered);
         }
@@ -219,7 +226,7 @@ function setupFontPicker() {
         // Remaining items grouped by letter (Pinned handled as its own key)
         const favSet = new Set(favFiltered);
         const addItem = (name) => {
-            const key = CUSTOM_FONTS.includes(name) ? 'Pinned' : firstLetter(name);
+            const key = CUSTOM_FONTS.includes(name) ? 'Pinned' : LOCAL_FONTS.includes(name) ? 'Local' : firstLetter(name);
             if (favSet.has(name) && key !== 'Pinned') return; // don't duplicate favorites into letters
             if (!sections.has(key)) sections.set(key, []);
             sections.get(key).push(name);
@@ -229,6 +236,7 @@ function setupFontPicker() {
         // Order: Pinned section (if present), then A-Z, then '#'
         const order = [];
         if (sections.has('Pinned')) order.push('Pinned');
+        if (sections.has('Local')) order.push('Local');
         if (sections.has('Favorites')) order.push('Favorites');
         for (let i=0;i<26;i++) {
             const L = String.fromCharCode(65+i);
@@ -240,7 +248,7 @@ function setupFontPicker() {
         order.forEach(key => {
             const title = document.createElement('div');
             title.className = 'font-picker-section-title';
-            title.textContent = key === 'Pinned' ? 'Custom Fonts' : key;
+            title.textContent = key === 'Pinned' ? 'Custom Fonts' : key === 'Local' ? 'Local Fonts' : key;
             title.id = `fp-section-${key}`;
             listEl.appendChild(title);
 
@@ -255,7 +263,7 @@ function setupFontPicker() {
         });
 
         // Build rail letters
-        const letters = order.filter(k => k !== 'Pinned' && k !== 'Favorites');
+        const letters = order.filter(k => k !== 'Pinned' && k !== 'Local' && k !== 'Favorites');
         buildRail(letters);
 
         // Compute offsets after layout

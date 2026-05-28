@@ -36,6 +36,7 @@ function normalizeConfig(raw) {
     if (raw.fontWeight != null) config.fontWeight = Number(raw.fontWeight);
     if (raw.fontStyle === 'italic') config.fontStyle = 'italic';
     if (raw.fontColor && raw.fontColor !== 'default') config.fontColor = raw.fontColor;
+    if (raw.fontSource === 'local') config.fontSource = 'local';
     if (raw.fontFaceRule) config.fontFaceRule = raw.fontFaceRule;
 
     // Copy variable axes with Number coercion
