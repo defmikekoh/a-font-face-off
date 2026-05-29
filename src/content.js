@@ -106,17 +106,19 @@
 
   // Shared inline-apply infrastructure — single observer + single polling timer for all font types
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
-  var sharedInlineObserver = null; // single MutationObserver for all inline types
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
   var sharedInlineCleanupTimer = null; // final teardown timer for inline observer/config lifecycle
-  var sharedInlineDebounceTimer = null; // debounced re-apply timer for inline observer
   var sharedInlineLastActivityAt = 0; // last apply or meaningful content addition
+  var inlineObserverWanted = false; // true while the inline consumer wants the shared DOM observer (reset after the inline monitoring window ends)
   var observedTmiCssTypes = {}; // fontType → true for non-inline TMI types needing re-walk on DOM mutations
-  var sharedTmiCssObserver = null; // single MutationObserver for non-inline TMI types
-  var sharedTmiCssDebounceTimer = null; // debounced re-walk timer for non-inline TMI observer
   var fontSizeScaleConfigs = {}; // fontType → font config with fontSizeScale
-  var sharedFontSizeScaleObserver = null;
-  var sharedFontSizeScaleDebounceTimer = null;
+  // Unified DOM-mutation observer shared by all mutation-driven consumers
+  // (inline apply, non-inline TMI CSS marking, font-size scaling). Replaces the
+  // three independent full-document subtree observers that previously each
+  // re-processed every mutation batch.
+  var sharedDomObserver = null;
+  var sharedDomDebounceTimer = null;
+  var pendingMeaningfulRoots = [];
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
@@ -1288,56 +1290,159 @@
     reapplyActiveFontSizeScales();
   }
 
-  function ensureFontSizeScaleObserver() {
-    if (sharedFontSizeScaleObserver) return;
-    sharedFontSizeScaleObserver = new MutationObserver(function (muts) {
-      var activeTypes = getActiveFontSizeScaleTypes();
-      if (activeTypes.length === 0) return;
+  // ---- Unified DOM-mutation dispatcher -------------------------------------
+  // One MutationObserver feeds every mutation-driven consumer. It computes the
+  // meaningful added subtree roots ONCE per batch (instead of three observers
+  // each scanning the same mutation records) and, after a single shared
+  // debounce, dispatches scoped work to whichever consumers are active. Scoped
+  // work only touches the newly added subtrees rather than re-walking and
+  // re-applying across the whole document.
+  function anyMutationConsumerActive() {
+    return inlineObserverWanted ||
+      getObservedTmiCssTypes().length > 0 ||
+      getActiveFontSizeScaleTypes().length > 0;
+  }
 
-      var hasMeaningfulAddition = false;
-      muts.some(function (m) {
-        if (isInsideInteractiveSubtree(m.target)) return false;
-        return Array.prototype.some.call(m.addedNodes || [], function (n) {
+  function ensureSharedDomObserver() {
+    if (sharedDomObserver) return;
+    sharedDomObserver = new MutationObserver(function (muts) {
+      if (!anyMutationConsumerActive()) return;
+
+      // Single pass over the batch: collect meaningful added subtree roots.
+      var newRoots = null;
+      for (var i = 0; i < muts.length; i++) {
+        var m = muts[i];
+        if (isInsideInteractiveSubtree(m.target)) continue;
+        var added = m.addedNodes;
+        if (!added || added.length === 0) continue;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
           try {
-            if (!isMeaningfulInlineAddedNode(n)) return false;
-            hasMeaningfulAddition = true;
-            return true;
-          } catch (_) {
-            return false;
-          }
-        });
-      });
-      if (!hasMeaningfulAddition) return;
-
-      if (sharedFontSizeScaleDebounceTimer) clearTimeout(sharedFontSizeScaleDebounceTimer);
-      sharedFontSizeScaleDebounceTimer = setTimeout(function () {
-        sharedFontSizeScaleDebounceTimer = null;
-        var latestTypes = getActiveFontSizeScaleTypes();
-        if (latestTypes.length === 0) return;
-        var tmiTypes = latestTypes.filter(function (ft) { return ft !== 'body'; });
-        if (tmiTypes.length > 0) {
-          rewalkTmiTypes(tmiTypes, function () { reapplyActiveFontSizeScales(latestTypes); });
-        } else {
-          reapplyActiveFontSizeScales(latestTypes);
+            if (isMeaningfulInlineAddedNode(n)) {
+              if (!newRoots) newRoots = [];
+              newRoots.push(n);
+            }
+          } catch (_) { }
         }
+      }
+      if (!newRoots) return;
+
+      // Inline-apply consumer also tracks activity and keeps polling alive.
+      if (inlineObserverWanted && Object.keys(inlineConfigs).length > 0) {
+        sharedInlineLastActivityAt = Date.now();
+        if (sharedInlineTimers.length === 0) ensureSharedInlinePolling();
+      }
+
+      for (var k = 0; k < newRoots.length; k++) pendingMeaningfulRoots.push(newRoots[k]);
+
+      if (sharedDomDebounceTimer) clearTimeout(sharedDomDebounceTimer);
+      sharedDomDebounceTimer = setTimeout(function () {
+        sharedDomDebounceTimer = null;
+        var roots = pendingMeaningfulRoots;
+        pendingMeaningfulRoots = [];
+        dispatchMeaningfulMutations(roots);
       }, INLINE_REAPPLY_DEBOUNCE_MS);
     });
-    sharedFontSizeScaleObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    sharedDomObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    debugLog('[AFFO Content] Created unified DOM mutation observer');
+  }
+
+  function maybeCleanupSharedDomObserver() {
+    if (anyMutationConsumerActive()) return;
+    if (sharedDomObserver) {
+      try { sharedDomObserver.disconnect(); } catch (_) { }
+      sharedDomObserver = null;
+      debugLog('[AFFO Content] Disconnected unified DOM mutation observer');
+    }
+    if (sharedDomDebounceTimer) {
+      try { clearTimeout(sharedDomDebounceTimer); } catch (_) { }
+      sharedDomDebounceTimer = null;
+    }
+    pendingMeaningfulRoots = [];
+  }
+
+  // Apply inline styles only within the given added subtree roots (instead of
+  // re-querying and re-writing every marked element in the document).
+  function applyInlineStylesInRoots(roots) {
+    var types = Object.keys(inlineConfigs);
+    if (types.length === 0) return;
+    types.forEach(function (ft) {
+      var cfg = inlineConfigs[ft];
+      if (!cfg) return;
+      var selector = getAffoSelector(ft);
+      var applied = 0;
+      roots.forEach(function (root) {
+        if (!root || root.nodeType !== 1) return;
+        var matches = [];
+        try {
+          if (root.matches && root.matches(selector)) matches.push(root);
+          if (root.querySelectorAll) {
+            var inner = root.querySelectorAll(selector);
+            for (var i = 0; i < inner.length; i++) matches.push(inner[i]);
+          }
+        } catch (_) { return; }
+        matches.forEach(function (el) {
+          if (ft === 'body') {
+            applyAffoProtection(el, cfg.cssPropsObject);
+          } else {
+            applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+            resetHeadingTypographyInMarkedSubtree(el);
+          }
+          applied++;
+        });
+      });
+      applyFontSizeScale(cfg.fontConfig || {}, ft);
+      if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
+    });
+  }
+
+  // Dispatch debounced, scoped work to the active consumers for the meaningful
+  // subtree roots that were added since the last dispatch.
+  function dispatchMeaningfulMutations(roots) {
+    if (!roots || roots.length === 0) return;
+    // Drop roots that have since detached.
+    var live = roots.filter(function (n) { return n && document.contains(n); });
+    if (live.length === 0) return;
+    // Drop roots nested inside another pending root to avoid double-walking.
+    var topRoots = live.filter(function (r) {
+      return !live.some(function (other) { return other !== r && other.contains && other.contains(r); });
+    });
+
+    // Inline consumer: mark inline TMI types in the new subtrees, then apply
+    // inline styles within them.
+    if (inlineObserverWanted && Object.keys(inlineConfigs).length > 0) {
+      var tmiInline = ['serif', 'sans', 'mono'].filter(function (ft) { return !!inlineConfigs[ft]; });
+      if (tmiInline.length > 0) markTypesInRoots(topRoots, tmiInline);
+      applyInlineStylesInRoots(topRoots);
+    }
+
+    // Non-inline TMI CSS consumer: marking the new nodes is enough — the
+    // injected attribute-selector CSS styles them automatically.
+    var tmiCssTypes = getObservedTmiCssTypes();
+    if (tmiCssTypes.length > 0) {
+      debugLog('[AFFO Content] Marking newly added subtrees for non-inline TMI types:', tmiCssTypes);
+      markTypesInRoots(topRoots, tmiCssTypes);
+    }
+
+    // Font-size scale consumer: mark new TMI subtrees, then reapply scales
+    // (applyFontSizeScale skips already-scaled elements, so only the freshly
+    // marked nodes incur work).
+    var scaleTypes = getActiveFontSizeScaleTypes();
+    if (scaleTypes.length > 0) {
+      var tmiScale = scaleTypes.filter(function (ft) { return ft !== 'body'; });
+      if (tmiScale.length > 0) markTypesInRoots(topRoots, tmiScale);
+      reapplyActiveFontSizeScales(scaleTypes);
+    }
+  }
+
+  function ensureFontSizeScaleObserver() {
     registerSpaHandler(reapplyFontSizeScalesAfterNavigation);
     registerFocusHandler(reapplyFontSizeScalesOnFocus);
-    debugLog('[AFFO Content] Created shared font-size scale observer');
+    ensureSharedDomObserver();
   }
 
   function cleanupFontSizeScaleObserver() {
-    if (sharedFontSizeScaleObserver) {
-      try { sharedFontSizeScaleObserver.disconnect(); } catch (_) { }
-      sharedFontSizeScaleObserver = null;
-      debugLog('[AFFO Content] Disconnected shared font-size scale observer');
-    }
-    if (sharedFontSizeScaleDebounceTimer) {
-      try { clearTimeout(sharedFontSizeScaleDebounceTimer); } catch (_) { }
-      sharedFontSizeScaleDebounceTimer = null;
-    }
+    maybeCleanupSharedDomObserver();
   }
 
   function applyAffoProtection(el, propsObj) {
@@ -1714,97 +1819,17 @@
   }
 
   function ensureSharedTmiCssObserver() {
-    if (sharedTmiCssObserver) return;
-    sharedTmiCssObserver = new MutationObserver(function (muts) {
-      var activeTypes = getObservedTmiCssTypes();
-      if (activeTypes.length === 0) return;
-
-      var hasMeaningfulAddition = false;
-      muts.some(function (m) {
-        if (isInsideInteractiveSubtree(m.target)) return false;
-        return Array.prototype.some.call(m.addedNodes || [], function (n) {
-          try {
-            if (!isMeaningfulInlineAddedNode(n)) return false;
-            hasMeaningfulAddition = true;
-            return true;
-          } catch (_) {
-            return false;
-          }
-        });
-      });
-
-      if (!hasMeaningfulAddition) return;
-
-      if (sharedTmiCssDebounceTimer) {
-        clearTimeout(sharedTmiCssDebounceTimer);
-      }
-      sharedTmiCssDebounceTimer = setTimeout(function () {
-        sharedTmiCssDebounceTimer = null;
-        var latestTypes = getObservedTmiCssTypes();
-        if (latestTypes.length === 0) return;
-        debugLog('[AFFO Content] Re-walking non-inline TMI types after meaningful DOM additions:', latestTypes);
-        rewalkTmiTypes(latestTypes);
-      }, INLINE_REAPPLY_DEBOUNCE_MS);
-    });
-    sharedTmiCssObserver.observe(document.documentElement || document, { childList: true, subtree: true });
-    debugLog('[AFFO Content] Created shared non-inline TMI MutationObserver');
+    ensureSharedDomObserver();
   }
 
   function cleanupSharedTmiCssObserver() {
-    if (sharedTmiCssObserver) {
-      try { sharedTmiCssObserver.disconnect(); } catch (_) { }
-      sharedTmiCssObserver = null;
-      debugLog('[AFFO Content] Disconnected shared non-inline TMI MutationObserver');
-    }
-    if (sharedTmiCssDebounceTimer) {
-      try { clearTimeout(sharedTmiCssDebounceTimer); } catch (_) { }
-      sharedTmiCssDebounceTimer = null;
-    }
+    maybeCleanupSharedDomObserver();
   }
 
-  // Create or reuse the single shared MutationObserver for all inline types
+  // Inline-type consumer now shares the unified DOM observer.
   function ensureSharedInlineObserver() {
-    if (sharedInlineObserver) return;
-    sharedInlineObserver = new MutationObserver(function (muts) {
-      var types = Object.keys(inlineConfigs);
-      if (types.length === 0) return;
-
-      var hasMeaningfulAddition = false;
-      muts.some(function (m) {
-        return Array.prototype.some.call(m.addedNodes || [], function (n) {
-          try {
-            if (!isMeaningfulInlineAddedNode(n)) return false;
-            hasMeaningfulAddition = true;
-            return true;
-          } catch (_) {
-            return false;
-          }
-        });
-      });
-
-      if (!hasMeaningfulAddition) return;
-      sharedInlineLastActivityAt = Date.now();
-      if (sharedInlineTimers.length === 0) {
-        ensureSharedInlinePolling();
-      }
-
-      if (sharedInlineDebounceTimer) {
-        clearTimeout(sharedInlineDebounceTimer);
-      }
-      sharedInlineDebounceTimer = setTimeout(function () {
-        sharedInlineDebounceTimer = null;
-        if (Object.keys(inlineConfigs).length === 0) return;
-        var activeTmiInlineTypes = ['serif', 'sans', 'mono'].filter(function (ft) { return !!inlineConfigs[ft]; });
-        if (activeTmiInlineTypes.length > 0) {
-          debugLog('[AFFO Content] Re-walking inline TMI types after meaningful DOM additions:', activeTmiInlineTypes);
-          rewalkTmiTypes(activeTmiInlineTypes, reapplyAllInlineStyles);
-        } else {
-          reapplyAllInlineStyles();
-        }
-      }, INLINE_REAPPLY_DEBOUNCE_MS);
-    });
-    sharedInlineObserver.observe(document.documentElement || document, { childList: true, subtree: true });
-    debugLog('[AFFO Content] Created shared inline MutationObserver (meaningful additions + debounce)');
+    inlineObserverWanted = true;
+    ensureSharedDomObserver();
   }
 
   function stopSharedInlinePolling(reason) {
@@ -1916,22 +1941,16 @@
     }
   }
 
-  // Tear down all shared inline infrastructure
+  // Tear down all shared inline infrastructure. The unified DOM observer is
+  // only disconnected if no other consumer (TMI CSS / font-size scale) needs it.
   function cleanupSharedInlineInfra() {
-    if (sharedInlineObserver) {
-      try { sharedInlineObserver.disconnect(); } catch (_) { }
-      sharedInlineObserver = null;
-      debugLog('[AFFO Content] Disconnected shared inline MutationObserver');
-    }
-    if (sharedInlineDebounceTimer) {
-      try { clearTimeout(sharedInlineDebounceTimer); } catch (_) { }
-      sharedInlineDebounceTimer = null;
-    }
+    inlineObserverWanted = false;
     stopSharedInlinePolling();
     if (sharedInlineCleanupTimer) {
       try { clearTimeout(sharedInlineCleanupTimer); } catch (_) { }
       sharedInlineCleanupTimer = null;
     }
+    maybeCleanupSharedDomObserver();
   }
 
   // Shared CSS helpers for weight/axis handling.
@@ -3640,6 +3659,83 @@
   // In-flight promise cache — prevents concurrent walkers for the same types
   var elementWalkerInFlight = {}; // fontType → Promise
 
+  // Apply/update AFFO type markers on a single element using a precomputed
+  // style. Shared by the full-document walker and the scoped (mutation-driven)
+  // walker so marking behavior stays identical between them.
+  function markElementForTypes(element, cs, typeSet, markedCounts) {
+    var detectedType = getElementFontType(element, cs);
+    var currentMarker = element.getAttribute('data-affo-font-type');
+
+    // Update marker: set if type detected and in requested set, remove if not
+    if (detectedType && typeSet[detectedType]) {
+      if (currentMarker !== detectedType) {
+        element.setAttribute('data-affo-font-type', detectedType);
+      }
+      if (!element.getAttribute('data-affo-original-font-type')) {
+        element.setAttribute('data-affo-original-font-type', detectedType);
+      }
+      if (isBoldFontWeightValue(cs.fontWeight)) {
+        element.setAttribute('data-affo-was-bold', 'true');
+      } else {
+        element.removeAttribute('data-affo-was-bold');
+      }
+      if (markedCounts) markedCounts[detectedType]++;
+      return detectedType;
+    } else if (currentMarker && typeSet[currentMarker]) {
+      // Element had a marker for one of the types we're walking, but shouldn't anymore
+      element.removeAttribute('data-affo-font-type');
+      element.removeAttribute('data-affo-original-font-type');
+      element.removeAttribute('data-affo-was-bold');
+    }
+    return null;
+  }
+
+  // Scoped marker for mutation-driven updates: walks only the given added-node
+  // subtree roots (not the whole document) and marks text-owning elements.
+  // For non-inline TMI this is sufficient on its own — the injected attribute-
+  // selector CSS styles the freshly marked nodes automatically. Mirrors the
+  // full walker's acceptNode/visibility/interactive-subtree pruning so results
+  // are identical to a full re-walk over just that subtree.
+  function markTypesInRoots(roots, types) {
+    if (!roots || roots.length === 0 || !types || types.length === 0) return;
+    var typeSet = {};
+    types.forEach(function (ft) { typeSet[ft] = true; });
+
+    function markOne(el) {
+      if (!el) return;
+      var cs;
+      try {
+        cs = window.getComputedStyle(el);
+        if (el.tagName !== 'BODY' && (cs.display === 'none' || cs.visibility === 'hidden')) return;
+      } catch (_) { return; }
+      markElementForTypes(el, cs, typeSet, null);
+    }
+
+    roots.forEach(function (root) {
+      if (!root || root.nodeType !== 1) return;
+      try {
+        if (isInteractiveSubtreeRoot(root) || isInsideInteractiveSubtree(root)) return;
+      } catch (_) { return; }
+
+      if (elementMayOwnTmiText(root)) markOne(root);
+
+      var walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode: function (node) {
+            if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
+            return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+          }
+        }
+      );
+      var node;
+      while ((node = walker.nextNode())) {
+        markOne(node);
+      }
+    });
+  }
+
   // Element type detection logic (module-scope so both single and unified walker can use it)
   // computedStyle is passed from the walker to avoid a second getComputedStyle call
   function getElementFontType(element, computedStyle) {
@@ -3651,11 +3747,15 @@
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
     // Exclude descendants of non-body containers: figcaptions, buttons, guards,
-    // post headers, top-bar chrome, dialogs, and optionally Substack comments
-    // on configured domains. Article decks/standfirsts inside article headers
-    // are handled separately by isInsideArticleDeck().
+    // post headers, top-bar chrome, and optionally Substack comments on
+    // configured domains. Article decks/standfirsts inside article headers
+    // are handled separately by isInsideArticleDeck(). Interactive subtrees
+    // (dialogs/modals) are intentionally NOT listed here: both the full and
+    // scoped walkers prune them via FILTER_REJECT / root guards before any
+    // element inside one reaches this function, so a .closest() check for them
+    // would be dead weight on every element.
     if (element.closest) {
-      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"], ' + INTERACTIVE_SUBTREE_ROOT_SELECTOR;
+      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
@@ -3892,29 +3992,7 @@
 
             totalElements++;
             chunkCount++;
-            var detectedType = getElementFontType(element, cs);
-            var currentMarker = element.getAttribute('data-affo-font-type');
-
-            // Update marker: set if type detected and in requested set, remove if not
-            if (detectedType && typeSet[detectedType]) {
-              if (currentMarker !== detectedType) {
-                element.setAttribute('data-affo-font-type', detectedType);
-              }
-              if (!element.getAttribute('data-affo-original-font-type')) {
-                element.setAttribute('data-affo-original-font-type', detectedType);
-              }
-              if (isBoldFontWeightValue(cs.fontWeight)) {
-                element.setAttribute('data-affo-was-bold', 'true');
-              } else {
-                element.removeAttribute('data-affo-was-bold');
-              }
-              markedCounts[detectedType]++;
-            } else if (currentMarker && typeSet[currentMarker]) {
-              // Element had a marker for one of the types we're walking, but shouldn't anymore
-              element.removeAttribute('data-affo-font-type');
-              element.removeAttribute('data-affo-original-font-type');
-              element.removeAttribute('data-affo-was-bold');
-            }
+            markElementForTypes(element, cs, typeSet, markedCounts);
           }
 
           if (element) {
@@ -4152,12 +4230,15 @@
         maybeStopNonAggressiveStyleOrderChaser();
 
         // --- Substack Roulette ---
+        // Only meaningful on Substack documents; skip all setup (closure,
+        // DOMContentLoaded listener, timer) on the vast majority of pages that
+        // aren't Substack. getIsSubstack() is cheap and memoized.
         var rouletteEnabled = data.affoSubstackRoulette !== false; // default true
         var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
         var rouletteSans = Array.isArray(data.affoSubstackRouletteSans) ? data.affoSubstackRouletteSans : [];
         var favorites = data.affoFavorites || {};
 
-        if (rouletteEnabled && rouletteSerif.length >= 1 && rouletteSans.length >= 1) {
+        if (getIsSubstack() && rouletteEnabled && rouletteSerif.length >= 1 && rouletteSans.length >= 1) {
           function trySubstackRoulette() {
             if (!getIsSubstack()) return;
 
