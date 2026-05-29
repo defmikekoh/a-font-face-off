@@ -637,27 +637,51 @@
         document.dispatchEvent(new CustomEvent('affo-wait-for-it-apply'));
     }
 
+    let whatFontScriptLoadPromise = null;
+
+    function getWhatFontJQuery() {
+        if (typeof window.jQuery === 'function') return window.jQuery;
+        if (typeof window.$ === 'function' && window.$.fn && window.$.fn.jquery) return window.$;
+        return null;
+    }
+
+    function isWhatFontScriptReady() {
+        return typeof window._whatFont === 'function' && !!getWhatFontJQuery();
+    }
+
     function initAvailableWhatFont() {
+        if (window._WHATFONT === true) return true;
+        if (!isWhatFontScriptReady()) return false;
+
         if (typeof window.WhatFont === 'undefined') {
-            if (typeof window._whatFont !== 'function') return false;
             window.WhatFont = window._whatFont();
         }
 
+        if (typeof window.WhatFont.setJQuery === 'function') {
+            window.WhatFont.setJQuery(getWhatFontJQuery());
+        }
         const localCSSUrl = getBrowserAPI().runtime.getURL('wf.css');
         window.WhatFont.setCSSURL(localCSSUrl);
-        return !!window.WhatFont.init();
+        window.WhatFont.init();
+        return window._WHATFONT === true;
     }
 
     async function ensureWhatFontScriptsLoaded() {
-        const response = await sendRuntimeMessageWithRetry({
-            type: 'affoEnsureWhatFontScripts'
-        }, {
-            retryMs: 1500,
-            retryDelayMs: 100
-        });
-        if (!response || !response.success) {
-            throw new Error(response && response.error ? response.error : 'Unable to load WhatFont scripts');
+        if (!whatFontScriptLoadPromise) {
+            whatFontScriptLoadPromise = sendRuntimeMessageWithRetry({
+                type: 'affoEnsureWhatFontScripts'
+            }, {
+                retryMs: 1500,
+                retryDelayMs: 100
+            }).then(async (response) => {
+                if (!response || !response.success) {
+                    throw new Error(response && response.error ? response.error : 'Unable to load WhatFont scripts');
+                }
+            }).finally(() => {
+                whatFontScriptLoadPromise = null;
+            });
         }
+        return whatFontScriptLoadPromise;
     }
 
     async function handleInitWhatFont() {

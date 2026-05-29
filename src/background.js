@@ -2226,8 +2226,77 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (tabId == null) {
           return { success: false, error: 'Missing sender tab' };
         }
-        await browser.tabs.executeScript(tabId, { file: 'jquery.js' });
-        await browser.tabs.executeScript(tabId, { file: 'whatfont_core.js' });
+        const injectionTarget = { runAt: 'document_end' };
+        if (sender && typeof sender.frameId === 'number') {
+          injectionTarget.frameId = sender.frameId;
+        }
+        const existingResults = await browser.tabs.executeScript(tabId, Object.assign({
+          code: `window._WHATFONT === true && !!document.querySelector('.__whatfont_control');`
+        }, injectionTarget));
+        if (existingResults && existingResults[0]) {
+          return { success: true };
+        }
+        await browser.tabs.executeScript(tabId, Object.assign({ file: 'jquery.js' }, injectionTarget));
+        try {
+          await browser.tabs.executeScript(tabId, Object.assign({ file: 'whatfont_core.js' }, injectionTarget));
+        } catch (e) {
+          // whatfont_core.js ends by assigning a function, which Firefox reports
+          // as a non-clonable executeScript result even though the load succeeded.
+          const message = e && e.message ? e.message : String(e);
+          if (!/non-structured-clonable data/i.test(message)) {
+            throw e;
+          }
+        }
+        const cssUrl = browser.runtime.getURL('wf.css');
+        const activationResults = await browser.tabs.executeScript(tabId, Object.assign({
+          code: `
+            (function() {
+              try {
+                if (window._WHATFONT === true && document.querySelector('.__whatfont_control')) {
+                  return { success: true, alreadyActive: true };
+                }
+
+                var jq = null;
+                if (typeof window.jQuery === 'function') {
+                  jq = window.jQuery;
+                } else if (typeof window.$ === 'function' && window.$.fn && window.$.fn.jquery) {
+                  jq = window.$;
+                }
+
+                if (!jq) {
+                  return { success: false, error: 'jQuery was not available after injection' };
+                }
+                if (typeof window._whatFont !== 'function') {
+                  return { success: false, error: '_whatFont was not available after injection' };
+                }
+
+                if (typeof window.WhatFont === 'undefined') {
+                  window.WhatFont = window._whatFont();
+                }
+                if (typeof window.WhatFont.setJQuery === 'function') {
+                  window.WhatFont.setJQuery(jq);
+                }
+                window.WhatFont.setCSSURL(${JSON.stringify(cssUrl)});
+                window.WhatFont.init();
+
+                return {
+                  success: window._WHATFONT === true && !!document.querySelector('.__whatfont_control'),
+                  active: window._WHATFONT === true,
+                  hasControl: !!document.querySelector('.__whatfont_control')
+                };
+              } catch (e) {
+                return { success: false, error: e && e.message ? e.message : String(e) };
+              }
+            })();
+          `
+        }, injectionTarget));
+        const activation = activationResults && activationResults[0];
+        if (!activation || !activation.success) {
+          return {
+            success: false,
+            error: activation && activation.error ? activation.error : 'Unable to activate WhatFont'
+          };
+        }
         return { success: true };
       } catch (e) {
         console.error('[AFFO Background] WhatFont script injection failed:', e);
