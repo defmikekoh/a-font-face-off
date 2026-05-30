@@ -513,14 +513,14 @@ li button {
     text-align: center;
 }
 
-.custom-css-actions {
+.import-editor-actions {
     flex-wrap: nowrap;
     width: 100%;
     max-width: 100%;
     padding-right: 0;
 }
 
-.custom-css-actions .status {
+.import-editor-actions .status {
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
@@ -528,7 +528,7 @@ li button {
     white-space: nowrap;
 }
 
-.custom-css-actions button {
+.import-editor-actions button {
     flex: 0 0 auto;
 }
 
@@ -550,7 +550,7 @@ li button {
     display: none;
 }
 
-.custom-css-actions .import-css-button {
+.import-editor-actions .import-css-button {
     flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;

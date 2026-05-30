@@ -531,6 +531,29 @@
     }
   }
 
+  async function importCustomAxesFile() {
+    const input = document.getElementById('custom-axes-file-input');
+    const editor = document.getElementById('custom-axes-editor');
+    const status = document.getElementById('axes-status');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+
+    try {
+      const axesText = await readFileAsText(file);
+      const result = validateAxesJson(axesText);
+      editor.value = Object.keys(result.data).length > 0 ? JSON.stringify(result.data, null, 2) : '';
+      await browser.storage.local.set({ affoCustomFontAxes: result.data });
+      customAxesLoaded = true;
+      status.textContent = `Imported ${file.name}`;
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    } catch (e) {
+      status.textContent = 'Import failed: ' + (e.message || e);
+      setTimeout(() => { status.textContent = ''; }, 4000);
+    } finally {
+      input.value = '';
+    }
+  }
+
   function normalize(lines){
     return (lines || [])
       .map(s => String(s || '').trim())
@@ -1354,6 +1377,10 @@
     document.getElementById('custom-css-file-input').addEventListener('change', importCustomCssFile);
     document.getElementById('save-axes').addEventListener('click', saveCustomAxes);
     document.getElementById('reset-axes').addEventListener('click', resetCustomAxes);
+    document.getElementById('import-axes').addEventListener('click', () => {
+      document.getElementById('custom-axes-file-input').click();
+    });
+    document.getElementById('custom-axes-file-input').addEventListener('change', importCustomAxesFile);
     document.getElementById('save-serif').addEventListener('click', saveSerif);
     document.getElementById('save-sans').addEventListener('click', saveSans);
     document.getElementById('reset-serif').addEventListener('click', resetSerif);

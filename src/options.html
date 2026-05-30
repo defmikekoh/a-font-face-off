@@ -693,7 +693,7 @@
     <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
     <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving; imported CSS is saved immediately.</p>
     <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-    <div class="editor-actions custom-css-actions">
+    <div class="editor-actions import-editor-actions">
       <input id="custom-css-file-input" class="hidden-file-input" type="file" accept=".css,text/css">
       <button id="reset-css" class="reset-css-button">Reset to Default</button>
       <span id="css-status" class="status"></span>
@@ -706,9 +706,11 @@
       <p class="description">Define variable axis metadata for custom fonts. Use JSON format: font family name maps to an array of axes, each with tag, min, max, and defaultValue. Example:</p>
       <pre class="axes-example">{ "Lil Grotesk": [{ "tag": "wght", "min": 100, "max": 900, "defaultValue": 400 }] }</pre>
       <textarea id="custom-axes-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder='{ "Font Name": [{ "tag": "wght", "min": 100, "max": 900, "defaultValue": 400 }] }'></textarea>
-      <div class="editor-actions">
+      <div class="editor-actions import-editor-actions">
+        <input id="custom-axes-file-input" class="hidden-file-input" type="file" accept=".json,application/json">
         <button id="reset-axes" class="reset-css-button">Reset to Default</button>
         <span id="axes-status" class="status"></span>
+        <button id="import-axes" class="import-css-button">Import</button>
         <button id="save-axes" class="save-button">Save</button>
       </div>
     </div>
