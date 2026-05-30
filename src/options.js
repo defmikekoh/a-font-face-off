@@ -235,6 +235,7 @@
   const DEFAULT_TOOLBAR_HEIGHT = 50;
   const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
   const SYNC_LEGACY_DATA_CONSENT_KEY = 'affoLegacySyncDataConsent';
+  const IMPORT_EXPORT_LONG_PRESS_MS = 650;
 
   async function hasLegacySyncDataConsent() {
     try {
@@ -412,6 +413,121 @@
     });
   }
 
+  function downloadTextFile(filename, text, contentType) {
+    const blob = new Blob([text], { type: `${contentType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+  }
+
+  function isAndroidRuntime() {
+    return /\bAndroid\b/i.test(navigator.userAgent || '');
+  }
+
+  async function shareTextFile(filename, text, contentType) {
+    if (typeof navigator.share !== 'function' || typeof window.File !== 'function') {
+      return 'unavailable';
+    }
+
+    const file = new window.File([text], filename, { type: contentType });
+    const shareData = {
+      title: filename,
+      files: [file]
+    };
+
+    if (typeof navigator.canShare === 'function' && !navigator.canShare(shareData)) {
+      return 'unavailable';
+    }
+
+    try {
+      await navigator.share(shareData);
+      return 'shared';
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'canceled';
+      throw e;
+    }
+  }
+
+  async function exportTextFile(filename, text, contentType) {
+    const shareResult = await shareTextFile(filename, text, contentType);
+    if (shareResult !== 'unavailable') return shareResult;
+    if (isAndroidRuntime()) return 'unsupported';
+    downloadTextFile(filename, text, contentType);
+    return 'downloaded';
+  }
+
+  function setupImportExportButton(buttonId, importAction, exportAction) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+
+    let longPressTimer = null;
+    let suppressClick = false;
+
+    function clearPressState() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      button.classList.remove('long-press-ready');
+    }
+
+    button.addEventListener('pointerdown', (e) => {
+      if (button.disabled) return;
+      if (e.button != null && e.button !== 0) return;
+      clearPressState();
+      suppressClick = false;
+      if (typeof button.setPointerCapture === 'function' && e.pointerId != null) {
+        try {
+          button.setPointerCapture(e.pointerId);
+        } catch (_e) {
+          // Best-effort; older browsers may reject pointer capture.
+        }
+      }
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        suppressClick = true;
+        button.classList.add('long-press-ready');
+        exportAction();
+        setTimeout(() => {
+          button.classList.remove('long-press-ready');
+        }, 250);
+      }, IMPORT_EXPORT_LONG_PRESS_MS);
+    });
+
+    button.addEventListener('pointerup', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      clearPressState();
+    });
+
+    button.addEventListener('pointercancel', clearPressState);
+    button.addEventListener('pointerleave', () => {
+      clearPressState();
+    });
+    button.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+    button.addEventListener('click', (e) => {
+      if (suppressClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressClick = false;
+        return;
+      }
+      importAction();
+    });
+  }
+
   async function saveCustomCss() {
     const editor = document.getElementById('custom-css-editor');
     const status = document.getElementById('css-status');
@@ -456,6 +572,27 @@
       setTimeout(() => { status.textContent = ''; }, 4000);
     } finally {
       input.value = '';
+    }
+  }
+
+  async function exportCustomCssFile() {
+    const editor = document.getElementById('custom-css-editor');
+    const status = document.getElementById('css-status');
+    try {
+      await loadCustomCss();
+      const cssText = editor.value || '';
+      const result = await exportTextFile('custom-fonts.css', cssText, 'text/css');
+      if (result === 'unsupported') {
+        status.textContent = 'Export not supported here.';
+      } else if (result === 'canceled') {
+        status.textContent = 'Export canceled.';
+      } else {
+        status.textContent = result === 'shared' ? 'Shared custom-fonts.css' : 'Exported custom-fonts.css';
+      }
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    } catch (e) {
+      status.textContent = 'Export failed: ' + (e.message || e);
+      setTimeout(() => { status.textContent = ''; }, 4000);
     }
   }
 
@@ -551,6 +688,29 @@
       setTimeout(() => { status.textContent = ''; }, 4000);
     } finally {
       input.value = '';
+    }
+  }
+
+  async function exportCustomAxesFile() {
+    const editor = document.getElementById('custom-axes-editor');
+    const status = document.getElementById('axes-status');
+    try {
+      await loadCustomAxes();
+      const result = validateAxesJson(editor.value);
+      const axesText = JSON.stringify(result.data, null, 2) + '\n';
+      editor.value = Object.keys(result.data).length > 0 ? JSON.stringify(result.data, null, 2) : '';
+      const exportResult = await exportTextFile('custom-font-axes.json', axesText, 'application/json');
+      if (exportResult === 'unsupported') {
+        status.textContent = 'Export not supported here.';
+      } else if (exportResult === 'canceled') {
+        status.textContent = 'Export canceled.';
+      } else {
+        status.textContent = exportResult === 'shared' ? 'Shared custom-font-axes.json' : 'Exported custom-font-axes.json';
+      }
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    } catch (e) {
+      status.textContent = 'Export failed: ' + (e.message || e);
+      setTimeout(() => { status.textContent = ''; }, 4000);
     }
   }
 
@@ -1371,15 +1531,15 @@
     document.getElementById('save-local-fonts').addEventListener('click', saveLocalFonts);
     document.getElementById('save-css').addEventListener('click', saveCustomCss);
     document.getElementById('reset-css').addEventListener('click', resetCustomCss);
-    document.getElementById('import-css').addEventListener('click', () => {
+    setupImportExportButton('import-css', () => {
       document.getElementById('custom-css-file-input').click();
-    });
+    }, exportCustomCssFile);
     document.getElementById('custom-css-file-input').addEventListener('change', importCustomCssFile);
     document.getElementById('save-axes').addEventListener('click', saveCustomAxes);
     document.getElementById('reset-axes').addEventListener('click', resetCustomAxes);
-    document.getElementById('import-axes').addEventListener('click', () => {
+    setupImportExportButton('import-axes', () => {
       document.getElementById('custom-axes-file-input').click();
-    });
+    }, exportCustomAxesFile);
     document.getElementById('custom-axes-file-input').addEventListener('change', importCustomAxesFile);
     document.getElementById('save-serif').addEventListener('click', saveSerif);
     document.getElementById('save-sans').addEventListener('click', saveSans);

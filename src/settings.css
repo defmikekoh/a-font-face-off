@@ -555,7 +555,13 @@ li button {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    touch-action: manipulation;
+    user-select: none;
     white-space: nowrap;
+}
+
+.import-editor-actions .import-css-button.long-press-ready {
+    background: rgba(30, 102, 245, 0.12);
 }
 
 .containers {
