@@ -520,16 +520,24 @@ li button {
     padding-right: 0;
 }
 
-.import-editor-actions .status {
+.editor-action-spacer {
     flex: 1 1 0;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .import-editor-actions button {
     flex: 0 0 auto;
+}
+
+.editor-status-row {
+    margin-top: 6px;
+    min-height: 1em;
+    text-align: center;
+    width: 100%;
+}
+
+.editor-status-row .status {
+    display: block;
 }
 
 .reset-css-button {
