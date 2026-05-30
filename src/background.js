@@ -250,6 +250,116 @@ try {
   }
 } catch (_) {}
 
+function getAffoBrowserActionOriginFromUrl(url) {
+  if (typeof url !== 'string' || !url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.hostname || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function getAffoBrowserActionTitleForTab(tab, applyMap) {
+  const origin = getAffoBrowserActionOriginFromUrl(tab && tab.url);
+  const domainData = origin && applyMap && applyMap[origin] ? applyMap[origin] : null;
+  const formatter = typeof globalThis !== 'undefined' && typeof globalThis.formatAffoBrowserActionTitle === 'function'
+    ? globalThis.formatAffoBrowserActionTitle
+    : null;
+  if (formatter) {
+    return formatter(domainData);
+  }
+  return 'A Font Face-off';
+}
+
+function canSetAffoBrowserActionTitle() {
+  return browser &&
+    browser.browserAction &&
+    typeof browser.browserAction.setTitle === 'function';
+}
+
+function sanitizeApplyMapForTitle(rawMap) {
+  return (rawMap && typeof rawMap === 'object' && !Array.isArray(rawMap)) ? rawMap : {};
+}
+
+async function getAffoApplyMapForTitle() {
+  const data = await browser.storage.local.get(APPLY_MAP_KEY);
+  return sanitizeApplyMapForTitle(data && data[APPLY_MAP_KEY]);
+}
+
+async function updateAffoBrowserActionTitleForTab(tab, applyMap = null) {
+  if (!canSetAffoBrowserActionTitle() || !tab || tab.id == null) return false;
+  const map = applyMap || await getAffoApplyMapForTitle();
+  const title = getAffoBrowserActionTitleForTab(tab, map);
+  await browser.browserAction.setTitle({ tabId: tab.id, title });
+  return true;
+}
+
+async function updateAffoBrowserActionTitleForTabId(tabId) {
+  if (tabId == null || !browser.tabs || typeof browser.tabs.get !== 'function') return false;
+  try {
+    const tab = await browser.tabs.get(tabId);
+    return updateAffoBrowserActionTitleForTab(tab);
+  } catch (e) {
+    affoDebugWarn('[AFFO Background] Failed to update browser action title for tab:', e);
+    return false;
+  }
+}
+
+async function updateAffoBrowserActionTitleForActiveTabs() {
+  if (!canSetAffoBrowserActionTitle() || !browser.tabs || typeof browser.tabs.query !== 'function') return false;
+  try {
+    const tabs = await browser.tabs.query({ active: true });
+    if (!tabs || !tabs.length) return false;
+    const applyMap = await getAffoApplyMapForTitle();
+    await Promise.all(tabs.map(tab => updateAffoBrowserActionTitleForTab(tab, applyMap)));
+    return true;
+  } catch (e) {
+    affoDebugWarn('[AFFO Background] Failed to update active browser action titles:', e);
+    return false;
+  }
+}
+
+function initAffoBrowserActionTitleUpdates() {
+  try {
+    if (browser.tabs && browser.tabs.onActivated) {
+      browser.tabs.onActivated.addListener(info => {
+        updateAffoBrowserActionTitleForTabId(info && info.tabId);
+      });
+    }
+    if (browser.tabs && browser.tabs.onUpdated) {
+      browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (changeInfo && changeInfo.url && tab && tab.active) {
+          updateAffoBrowserActionTitleForTab(tab);
+        } else if (changeInfo && changeInfo.url && tabId != null) {
+          updateAffoBrowserActionTitleForTabId(tabId);
+        }
+      });
+    }
+    if (browser.windows && browser.windows.onFocusChanged) {
+      browser.windows.onFocusChanged.addListener(() => {
+        updateAffoBrowserActionTitleForActiveTabs();
+      });
+    }
+    updateAffoBrowserActionTitleForActiveTabs();
+  } catch (e) {
+    affoDebugWarn('[AFFO Background] Failed to initialize browser action title updates:', e);
+  }
+}
+
+if (typeof self !== 'undefined') {
+  self.affoGetBrowserActionTitleForTab = getAffoBrowserActionTitleForTab;
+  self.affoUpdateBrowserActionTitleForTab = updateAffoBrowserActionTitleForTab;
+  self.affoUpdateBrowserActionTitleForActiveTabs = updateAffoBrowserActionTitleForActiveTabs;
+} else if (typeof globalThis !== 'undefined') {
+  globalThis.affoGetBrowserActionTitleForTab = getAffoBrowserActionTitleForTab;
+  globalThis.affoUpdateBrowserActionTitleForTab = updateAffoBrowserActionTitleForTab;
+  globalThis.affoUpdateBrowserActionTitleForActiveTabs = updateAffoBrowserActionTitleForActiveTabs;
+}
+
+initAffoBrowserActionTitleUpdates();
+
 async function markApplyMapOriginsModified(change) {
   const oldMap = sanitizeApplyMap(change && change.oldValue);
   const newMap = sanitizeApplyMap(change && change.newValue);
@@ -2557,6 +2667,10 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   // Only mark items modified when data actually changed (avoid unnecessary sync cycles)
   const storageValueChanged = (c) =>
     JSON.stringify(c.oldValue) !== JSON.stringify(c.newValue);
+
+  if (changes[APPLY_MAP_KEY] && storageValueChanged(changes[APPLY_MAP_KEY])) {
+    updateAffoBrowserActionTitleForActiveTabs();
+  }
 
   if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges && storageValueChanged(changes[APPLY_MAP_KEY])) {
     markApplyMapOriginsModified(changes[APPLY_MAP_KEY]).then((changed) => {

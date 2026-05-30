@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const {
     REGISTERED_AXES,
     normalizeConfig,
+    hasAffoAppliedFontSetting,
+    getAffoBrowserActionTitleEntries,
+    formatAffoBrowserActionTitle,
     determineButtonState,
     getEffectiveWeight,
     getEffectiveWidth,
@@ -163,6 +166,86 @@ describe('normalizeConfig', () => {
     it('preserves letterSpacing of 0', () => {
         const result = normalizeConfig({ fontName: 'Roboto', letterSpacing: 0 });
         assert.equal(result.letterSpacing, 0);
+    });
+});
+
+// ── browser action title formatting ─────────────────────────────────────────
+
+describe('formatAffoBrowserActionTitle', () => {
+    it('uses the full product title when no domain settings are applied', () => {
+        assert.equal(formatAffoBrowserActionTitle(null), 'A Font Face-off');
+        assert.equal(formatAffoBrowserActionTitle({}), 'A Font Face-off');
+        assert.equal(formatAffoBrowserActionTitle({ body: { fontName: null, variableAxes: {} } }), 'A Font Face-off');
+    });
+
+    it('shows one applied font family with its type prefix', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({ body: { fontName: 'Merriweather' } }),
+            'AFFO - B: Merriweather'
+        );
+    });
+
+    it('shows prefix-only entries for applied non-family settings', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({ serif: { fontName: null, lineHeight: 1.4 } }),
+            'AFFO - S:'
+        );
+    });
+
+    it('shows two applied families in full', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                serif: { fontName: 'Roboto Slab' },
+                sans: { fontName: 'Roboto' },
+            }),
+            'AFFO - S: Roboto Slab SS: Roboto'
+        );
+    });
+
+    it('shows only two abbreviated entries when more than two types are applied', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                serif: { fontName: 'Roboto Slab' },
+                sans: { fontName: 'Roboto' },
+                mono: { fontName: 'JetBrains Mono' },
+            }),
+            'AFFO - S: Robo SS: Robo'
+        );
+    });
+
+    it('shows Sroulette intent with its pool label', () => {
+        assert.deepEqual(
+            getAffoBrowserActionTitleEntries({
+                sroulette: {
+                    serif: { pool: 'serif' },
+                },
+            }),
+            [{ key: 'serif', prefix: 'S', fontName: 'Sroulette Serif' }]
+        );
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                sroulette: {
+                    sans: { pool: 'sans' },
+                },
+            }),
+            'AFFO - SS: Sroulette Sans'
+        );
+    });
+
+    it('ignores invalid Sroulette pool data', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                sroulette: {
+                    serif: { pool: 'invalid' },
+                },
+            }),
+            'A Font Face-off'
+        );
+    });
+
+    it('detects non-family applied settings', () => {
+        assert.equal(hasAffoAppliedFontSetting({ variableAxes: { wght: 650 } }), true);
+        assert.equal(hasAffoAppliedFontSetting({ fontColor: 'default', variableAxes: {} }), false);
     });
 });
 

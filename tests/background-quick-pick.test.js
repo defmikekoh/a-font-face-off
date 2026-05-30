@@ -42,9 +42,17 @@ function createStorage(seed = {}) {
     };
 }
 
-function loadBackground(seed = {}) {
+function loadBackground(seed = {}, options = {}) {
     const storage = createStorage(seed);
     const cssOps = [];
+    const titleOps = [];
+    const tabsSeed = clone(options.tabs || []);
+    const matchesTabQuery = (tab, queryInfo = {}) => {
+        if (queryInfo.active != null && !!tab.active !== !!queryInfo.active) return false;
+        if (queryInfo.currentWindow != null && !!tab.currentWindow !== !!queryInfo.currentWindow) return false;
+        if (queryInfo.lastFocusedWindow != null && !!tab.lastFocusedWindow !== !!queryInfo.lastFocusedWindow) return false;
+        return true;
+    };
     const browserStub = {
         storage: {
             local: storage.local,
@@ -56,7 +64,8 @@ function loadBackground(seed = {}) {
             sendMessage() { return Promise.resolve(); }
         },
         tabs: {
-            query() { return Promise.resolve([]); },
+            query(queryInfo = {}) { return Promise.resolve(clone(tabsSeed.filter(tab => matchesTabQuery(tab, queryInfo)))); },
+            get(tabId) { return Promise.resolve(clone(tabsSeed.find(tab => tab.id === tabId))); },
             sendMessage() { return Promise.resolve({ success: true }); },
             insertCSS(tabId, details) {
                 cssOps.push({ op: 'insertCSS', tabId, details: clone(details) });
@@ -68,7 +77,12 @@ function loadBackground(seed = {}) {
             },
             executeScript() { return Promise.resolve(); },
             create() { return Promise.resolve({ id: 1 }); },
-            onRemoved: { addListener() {} }
+            onRemoved: { addListener() {} },
+            onActivated: { addListener() {} },
+            onUpdated: { addListener() {} }
+        },
+        windows: {
+            onFocusChanged: { addListener() {} }
         },
         alarms: {
             create() { return Promise.resolve(); },
@@ -79,7 +93,11 @@ function loadBackground(seed = {}) {
             launchWebAuthFlow() { return Promise.resolve(); }
         },
         browserAction: {
-            openPopup() { return Promise.resolve(); }
+            openPopup() { return Promise.resolve(); },
+            setTitle(details) {
+                titleOps.push(clone(details));
+                return Promise.resolve();
+            }
         }
     };
 
@@ -92,6 +110,7 @@ function loadBackground(seed = {}) {
         performance: { now: () => 0 },
         crypto: globalThis.crypto,
         TextEncoder: globalThis.TextEncoder,
+        URL: globalThis.URL,
         URLSearchParams,
         btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
         setTimeout,
@@ -105,12 +124,13 @@ function loadBackground(seed = {}) {
         generateThirdManInCSS: () => '/* css */'
     });
 
+    const configSourcePath = path.join(__dirname, '..', 'src', 'config-utils.js');
     const runtimeSourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(sourcePath, 'utf8');
+    const source = fs.readFileSync(configSourcePath, 'utf8') + '\n' + fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(sourcePath, 'utf8');
     vm.runInContext(source, context, { filename: 'background.js' });
 
-    return { context, storage, cssOps };
+    return { context, storage, cssOps, titleOps };
 }
 
 describe('background quick-pick Sroulette', () => {
@@ -304,6 +324,29 @@ describe('background quick-pick Sroulette', () => {
                 tabId: 123,
                 details: { code: '.mono { font-family: Lora; }', cssOrigin: 'user' }
             }
+        ]);
+    });
+
+    it('sets the browser action title from the active tab domain settings', async () => {
+        const { context, titleOps } = loadBackground({
+            affoApplyMap: {
+                'example.com': {
+                    body: { fontName: 'Merriweather' }
+                }
+            }
+        }, {
+            tabs: [
+                { id: 7, active: true, url: 'https://example.com/story' }
+            ]
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        titleOps.length = 0;
+        const updated = await context.self.affoUpdateBrowserActionTitleForActiveTabs();
+
+        assert.equal(updated, true);
+        assert.deepEqual(titleOps, [
+            { tabId: 7, title: 'AFFO - B: Merriweather' }
         ]);
     });
 });

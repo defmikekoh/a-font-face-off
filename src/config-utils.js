@@ -9,6 +9,14 @@
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const REGISTERED_AXES = new Set(['wght', 'wdth', 'slnt', 'ital', 'opsz']);
+const AFFO_BROWSER_ACTION_DEFAULT_TITLE = 'A Font Face-off';
+const AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX = 'AFFO -';
+const AFFO_BROWSER_ACTION_FONT_TYPES = [
+    { key: 'body', prefix: 'B' },
+    { key: 'serif', prefix: 'S' },
+    { key: 'sans', prefix: 'SS' },
+    { key: 'mono', prefix: 'M' },
+];
 
 // ── Config pipeline ──────────────────────────────────────────────────────────
 
@@ -56,6 +64,99 @@ function normalizeConfig(raw) {
     if (raw.italVal != null && Number(raw.italVal) >= 1 && !config.fontStyle) config.fontStyle = 'italic';
 
     return config;
+}
+
+// ── Browser action title formatting ─────────────────────────────────────────
+
+function getAffoTitleFontName(config) {
+    if (!config || config.fontName == null) return '';
+    const fontName = String(config.fontName).trim();
+    return fontName || '';
+}
+
+function hasAffoTitleVariableAxes(config) {
+    if (!config || !config.variableAxes || typeof config.variableAxes !== 'object') return false;
+    return Object.values(config.variableAxes).some(value => value != null && value !== '');
+}
+
+function hasAffoAppliedFontSetting(config) {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return false;
+    if (getAffoTitleFontName(config)) return true;
+    if (config.fontSizeScale != null) return true;
+    if (config.fontSize != null) return true;
+    if (config.lineHeight != null) return true;
+    if (config.letterSpacing != null) return true;
+    if (config.fontWeight != null) return true;
+    if (config.fontStyle === 'italic') return true;
+    if (config.fontColor && config.fontColor !== 'default') return true;
+    return hasAffoTitleVariableAxes(config);
+}
+
+function isAffoSroulettePool(pool) {
+    if (typeof globalThis !== 'undefined' &&
+        globalThis.AFFOSroulette &&
+        typeof globalThis.AFFOSroulette.isPool === 'function') {
+        return globalThis.AFFOSroulette.isPool(pool);
+    }
+    return pool === 'serif' || pool === 'sans';
+}
+
+function getAffoSroulettePoolLabel(pool) {
+    if (!isAffoSroulettePool(pool)) return '';
+    if (typeof globalThis !== 'undefined' &&
+        globalThis.AFFOSroulette &&
+        typeof globalThis.AFFOSroulette.getPoolLabel === 'function') {
+        return globalThis.AFFOSroulette.getPoolLabel(pool);
+    }
+    return pool === 'serif' ? 'Sroulette Serif' : 'Sroulette Sans';
+}
+
+function getAffoBrowserActionTitleEntries(domainData) {
+    if (!domainData || typeof domainData !== 'object' || Array.isArray(domainData)) return [];
+
+    const sroulette = (domainData.sroulette && typeof domainData.sroulette === 'object' && !Array.isArray(domainData.sroulette))
+        ? domainData.sroulette
+        : {};
+
+    return AFFO_BROWSER_ACTION_FONT_TYPES.reduce((entries, fontType) => {
+        const config = domainData[fontType.key];
+        if (hasAffoAppliedFontSetting(config)) {
+            entries.push({
+                key: fontType.key,
+                prefix: fontType.prefix,
+                fontName: getAffoTitleFontName(config),
+            });
+        } else if (sroulette[fontType.key] && typeof sroulette[fontType.key] === 'object') {
+            const srouletteLabel = getAffoSroulettePoolLabel(sroulette[fontType.key].pool);
+            if (!srouletteLabel) return entries;
+            entries.push({
+                key: fontType.key,
+                prefix: fontType.prefix,
+                fontName: srouletteLabel,
+            });
+        }
+        return entries;
+    }, []);
+}
+
+function abbreviateAffoTitleFontName(fontName) {
+    return String(fontName || '').trim().slice(0, 4);
+}
+
+function formatAffoBrowserActionTitleEntry(entry, abbreviate) {
+    const fontName = abbreviate ? abbreviateAffoTitleFontName(entry.fontName) : String(entry.fontName || '').trim();
+    return fontName ? `${entry.prefix}: ${fontName}` : `${entry.prefix}:`;
+}
+
+function formatAffoBrowserActionTitle(domainData) {
+    const entries = getAffoBrowserActionTitleEntries(domainData);
+    if (!entries.length) return AFFO_BROWSER_ACTION_DEFAULT_TITLE;
+
+    const abbreviate = entries.length > 2;
+    const visibleEntries = abbreviate ? entries.slice(0, 2) : entries;
+    return [AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX]
+        .concat(visibleEntries.map(entry => formatAffoBrowserActionTitleEntry(entry, abbreviate)))
+        .join(' ');
 }
 
 // ── Button state logic ───────────────────────────────────────────────────────
@@ -130,7 +231,13 @@ function buildCustomAxisSettings(payload) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         REGISTERED_AXES,
+        AFFO_BROWSER_ACTION_DEFAULT_TITLE,
+        AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX,
+        AFFO_BROWSER_ACTION_FONT_TYPES,
         normalizeConfig,
+        hasAffoAppliedFontSetting,
+        getAffoBrowserActionTitleEntries,
+        formatAffoBrowserActionTitle,
         determineButtonState,
         getEffectiveWeight,
         getEffectiveWidth,
