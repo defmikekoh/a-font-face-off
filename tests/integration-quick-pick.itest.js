@@ -65,6 +65,9 @@ async function getToolbarIframeMetrics() {
     try {
         return await driver.executeScript(`
             const toolbar = document.getElementById('toolbar');
+            const rootStyles = window.getComputedStyle(document.documentElement);
+            const bodyStyles = window.getComputedStyle(document.body);
+            const toolbarStyles = toolbar ? window.getComputedStyle(toolbar) : null;
             const buttons = Array.from(document.querySelectorAll('.toolbar-button'));
             const visibleButtons = buttons.filter((button) => {
                 const styles = window.getComputedStyle(button);
@@ -78,10 +81,15 @@ async function getToolbarIframeMetrics() {
             return {
                 frameWidth: ${JSON.stringify(frameRect.width)},
                 frameHeight: ${JSON.stringify(frameRect.height)},
+                documentClientWidth: doc.clientWidth,
+                documentScrollWidth: doc.scrollWidth,
                 documentClientHeight: doc.clientHeight,
                 documentScrollHeight: doc.scrollHeight,
                 toolbarClientHeight: toolbar ? toolbar.clientHeight : null,
                 toolbarScrollHeight: toolbar ? toolbar.scrollHeight : null,
+                rootOverflowX: rootStyles.overflowX,
+                bodyOverflowX: bodyStyles.overflowX,
+                toolbarOverflowX: toolbarStyles ? toolbarStyles.overflowX : null,
                 buttonCount: buttons.length,
                 visibleButtonCount: visibleButtons.length,
                 visibleButtonIds: visibleButtons.map((button) => button.id),
@@ -254,6 +262,11 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.ok(
             metrics.lastButtonBottom <= metrics.documentClientHeight + 1,
             `Last toolbar button should fit in the default iframe height: ${JSON.stringify(metrics)}`
+        );
+        assert.deepEqual(
+            [metrics.rootOverflowX, metrics.bodyOverflowX, metrics.toolbarOverflowX],
+            ['hidden', 'hidden', 'hidden'],
+            `Toolbar iframe should suppress horizontal scrollbars during hover states: ${JSON.stringify(metrics)}`
         );
     });
 

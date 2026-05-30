@@ -6,6 +6,7 @@
     <style>
         :root {
             height: 100%;
+            overflow: hidden;
             --toolbar-background: #2b2a33;
             --private-background: 50, 28, 100;
             --border-color: #45444c;
@@ -29,10 +30,14 @@
         
         body {
             margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
         
         #toolbar {
             display: flex;
+            overflow: hidden;
         }
         
         #menu {
@@ -43,7 +48,7 @@
             box-sizing: border-box;
             justify-content: space-between;
             position: absolute;
-            overflow: auto;
+            overflow: hidden;
             border: none;
             background-color: transparent;
         }
