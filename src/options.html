@@ -691,11 +691,13 @@
     <div style="margin-top: 24px;"></div>
 
     <label style="font-size: 16px; font-weight: bold; color: var(--text-color);">Custom Font CSS</label>
-    <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving.</p>
+    <p class="description">Add @font-face rules for custom fonts not available on Google Fonts. Changes take effect after saving; imported CSS is saved immediately.</p>
     <textarea id="custom-css-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-    <div class="editor-actions">
+    <div class="editor-actions custom-css-actions">
+      <input id="custom-css-file-input" class="hidden-file-input" type="file" accept=".css,text/css">
       <button id="reset-css" class="reset-css-button">Reset to Default</button>
       <span id="css-status" class="status"></span>
+      <button id="import-css" class="import-css-button">Import</button>
       <button id="save-css" class="save-button">Save</button>
     </div>
 

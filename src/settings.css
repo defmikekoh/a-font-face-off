@@ -497,13 +497,39 @@ li button {
 .editor-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
     margin-top: 10px;
 }
 
+.editor-actions button {
+    margin: 0;
+}
+
 .editor-actions .status {
-    flex: 1;
+    flex: 1 1 160px;
+    min-height: 1em;
     text-align: center;
+}
+
+.custom-css-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    padding-right: 0;
+}
+
+.custom-css-actions .status {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.custom-css-actions button {
+    flex: 0 0 auto;
 }
 
 .reset-css-button {
@@ -518,6 +544,18 @@ li button {
 
 .reset-css-button:hover {
     background: rgba(204, 51, 51, 0.1);
+}
+
+.hidden-file-input {
+    display: none;
+}
+
+.custom-css-actions .import-css-button {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .containers {

@@ -396,6 +396,22 @@
     customCssLoaded = true;
   }
 
+  function readFileAsText(file) {
+    if (file && typeof file.text === 'function') {
+      return file.text();
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result == null ? '' : String(reader.result));
+      };
+      reader.onerror = () => {
+        reject(reader.error || new Error('Failed to read file'));
+      };
+      reader.readAsText(file);
+    });
+  }
+
   async function saveCustomCss() {
     const editor = document.getElementById('custom-css-editor');
     const status = document.getElementById('css-status');
@@ -418,6 +434,28 @@
       setTimeout(() => { status.textContent = ''; }, 2000);
     } catch (e) {
       status.textContent = 'Failed to load default CSS.';
+    }
+  }
+
+  async function importCustomCssFile() {
+    const input = document.getElementById('custom-css-file-input');
+    const editor = document.getElementById('custom-css-editor');
+    const status = document.getElementById('css-status');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+
+    try {
+      const cssText = await readFileAsText(file);
+      editor.value = cssText;
+      await browser.storage.local.set({ affoCustomFontsCss: cssText });
+      customCssLoaded = true;
+      status.textContent = `Imported ${file.name}`;
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    } catch (e) {
+      status.textContent = 'Import failed: ' + (e.message || e);
+      setTimeout(() => { status.textContent = ''; }, 4000);
+    } finally {
+      input.value = '';
     }
   }
 
@@ -1310,6 +1348,10 @@
     document.getElementById('save-local-fonts').addEventListener('click', saveLocalFonts);
     document.getElementById('save-css').addEventListener('click', saveCustomCss);
     document.getElementById('reset-css').addEventListener('click', resetCustomCss);
+    document.getElementById('import-css').addEventListener('click', () => {
+      document.getElementById('custom-css-file-input').click();
+    });
+    document.getElementById('custom-css-file-input').addEventListener('change', importCustomCssFile);
     document.getElementById('save-axes').addEventListener('click', saveCustomAxes);
     document.getElementById('reset-axes').addEventListener('click', resetCustomAxes);
     document.getElementById('save-serif').addEventListener('click', saveSerif);
