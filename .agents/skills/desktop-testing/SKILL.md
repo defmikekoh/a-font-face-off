@@ -28,10 +28,11 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
 2. Use desktop Selenium/geckodriver as a fast initial testing area for repeatable popup and shared content-script behavior where useful.
-3. Use Android Chrome/Edge DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
-4. Use the Android Firefox WebDriver harness for authoritative Firefox Nightly on Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final behavior matters.
-5. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
-6. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
+3. Use the Android Firefox WebDriver harness for authoritative Firefox Nightly on Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final behavior matters.
+4. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
+5. Use the Edge Canary Android MV3 prototype when Chromium-extension behavior matters; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
+6. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
+7. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
 ## Running Tests
 
@@ -213,9 +214,10 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 On USA Today, an acquisition/modal overlay may be present at the same time as a functioning AFFO toolbar. Its observed mobile close-control selector is `.gnt_mol_xb`; do not treat the overlay itself as proof that the toolbar failed to inject or display.
 
 Speed/fidelity rule:
-- Use Android Chrome DevTools/CDP for the fastest look at a site's original mobile DOM, selectors, layout, network, and baseline computed styles.
-- Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, or final computed CSS with AFFO active.
-- If Chrome reveals a selector or page structure, verify in Firefox before treating it as extension behavior; sites and engines can diverge.
+- Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, seeded settings, or final computed CSS with AFFO active.
+- Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance and Chromium-family comparison: original DOM, selectors, layout, network, and baseline computed styles.
+- Use the Edge Canary Android MV3 prototype when the question is about the Chromium/Edge extension build, popup/options path, toolbar, Quick Pick, or sync behavior.
+- If Chrome or Edge reveals a selector or page structure, verify in Firefox before treating it as Firefox extension behavior; sites and engines can diverge.
 
 Storage-dependent features will not be configured unless the script seeds storage or the approved Nightly testing profile already has configuration. For Substack Roulette checks, seed deterministic favorites before inspecting:
 
