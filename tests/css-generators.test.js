@@ -79,18 +79,20 @@ describe('css-generators bold variable-axis overrides', () => {
 
     it('does not carry wght into body bold overrides', () => {
         const css = generateBodyCSS(payload, false, false);
-        assert.match(css, /body strong, body b, html body strong, html body b/);
+        const boldRule = css.split('\n').find(line => line.startsWith('body strong'));
+        assert.ok(boldRule);
         assert.match(css, /font-weight: 700/);
-        assert.match(css, /body strong, body b, html body strong, html body b \{[^}]*"wght" 700[^}]*"CASL" 1/);
-        assert.doesNotMatch(css, /body strong, body b, html body strong, html body b \{[^}]*"wght" 385/);
+        assert.match(boldRule, /"wght" 700[^}]*"CASL" 1/);
+        assert.doesNotMatch(boldRule, /"wght" 385/);
     });
 
     it('does not carry wght into body-contact bold overrides', () => {
         const css = generateBodyContactCSS(payload, false, false);
-        assert.match(css, /body strong, body b/);
+        const boldRule = css.split('\n').find(line => line.startsWith('body strong'));
+        assert.ok(boldRule);
         assert.match(css, /font-weight: 700/);
-        assert.match(css, /body strong, body b \{[^}]*"wght" 700[^}]*"CASL" 1/);
-        assert.doesNotMatch(css, /body strong, body b \{[^}]*"wght" 385/);
+        assert.match(boldRule, /"wght" 700[^}]*"CASL" 1/);
+        assert.doesNotMatch(boldRule, /"wght" 385/);
     });
 
     it('does not carry wght into third-man-in bold overrides', () => {
@@ -181,6 +183,36 @@ describe('css-generators third-man-in text sizing', () => {
         }, false);
         assert.doesNotMatch(css, /font-size:/);
         assert.match(css, /line-height: 1\.7/);
+    });
+});
+
+describe('css-generators drop cap preservation', () => {
+    const payload = {
+        fontName: 'Spectral',
+        fontSize: 19,
+        lineHeight: 1.65,
+        fontWeight: 420,
+        variableAxes: {}
+    };
+
+    function assertDropCapExclusion(css) {
+        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\)\)/);
+        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\) \*\)/);
+        assert.match(css, /\[style\*="initial-letter" i\]/);
+        assert.match(css, /\[class\*="dropcap" i\]/);
+        assert.match(css, /\[data-drop-cap\]/);
+    }
+
+    it('keeps drop-cap elements out of body-contact replacement selectors', () => {
+        assertDropCapExclusion(generateBodyContactCSS(payload, false, false));
+    });
+
+    it('keeps drop-cap elements out of body-mode replacement selectors', () => {
+        assertDropCapExclusion(generateBodyCSS(payload, false, false));
+    });
+
+    it('keeps drop-cap elements out of third-man-in replacement selectors', () => {
+        assertDropCapExclusion(generateThirdManInCSS('serif', payload, false));
     });
 });
 

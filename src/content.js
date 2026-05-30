@@ -440,6 +440,44 @@
     return ':not(' + selector + '):not(' + selector + ' *)';
   }
 
+  var DROP_CAP_MATCH_SELECTOR = [
+    '[style*="var(--drop-cap" i]',
+    '[style*="initial-letter" i]',
+    '[class*="drop-cap" i]',
+    '[class*="dropcap" i]',
+    '[class*="drop_cap" i]',
+    '[data-drop-cap]',
+    '[data-dropcap]',
+    '[data-testid*="drop-cap" i]',
+    '[data-testid*="dropcap" i]'
+  ].join(', ');
+  var DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + ')';
+  var DROP_CAP_EXCLUDE = ':not(' + DROP_CAP_SELECTOR + '):not(' + DROP_CAP_SELECTOR + ' *)';
+
+  function appendDropCapExclude(selector) {
+    return selector + DROP_CAP_EXCLUDE;
+  }
+
+  function joinDropCapExcludedSelectors(selectors) {
+    return selectors.map(appendDropCapExclude).join(', ');
+  }
+
+  function isDropCapElement(element) {
+    try {
+      return !!(element && element.matches && element.matches(DROP_CAP_MATCH_SELECTOR));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isInsideDropCap(element) {
+    try {
+      return !!(element && element.closest && element.closest(DROP_CAP_MATCH_SELECTOR));
+    } catch (_) {
+      return false;
+    }
+  }
+
   function looksLikeArticleDeckNode(element) {
     if (!element || !element.tagName) return false;
     var tagName = element.tagName.toLowerCase();
@@ -1076,7 +1114,7 @@
 
   var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
   function getBodyExcludeSelector() {
-    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector();
+    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector() + DROP_CAP_EXCLUDE;
   }
 
   function getAffoSelector(ft) {
@@ -1087,7 +1125,7 @@
   }
 
   function getBodyFontSizeScaleExtraSelector() {
-    var guard = ':not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector();
+    var guard = ':not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector() + DROP_CAP_EXCLUDE;
     var nonChrome = ':not(nav *):not(footer *):not(aside *):not(button *):not(form *):not([role="navigation"] *):not([role="contentinfo"] *):not([role="complementary"] *):not([role="dialog"] *):not(.site-header *):not(.sidebar *):not(.toc *):not([class*="widget"]):not([class*="widget"] *)';
     var contentScope = ':is(main, article, [role="main"], .post, .post-content, .entry-content, .article, .story, .content, .markup, .available-content)';
     var headings = 'body ' + contentScope + ' :is(h1, h2, h3, h4, h5, h6)' + guard + nonChrome;
@@ -1099,7 +1137,7 @@
   }
 
   function getThirdManInTextSelector(fontType) {
-    return [
+    return joinDropCapExcludedSelectors([
       'html body div[data-affo-font-type="' + fontType + '"]',
       'html body blockquote[data-affo-font-type="' + fontType + '"]',
       'html body p[data-affo-font-type="' + fontType + '"]',
@@ -1125,7 +1163,7 @@
       'html body li[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body div[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body blockquote[data-affo-font-type="' + fontType + '"] :where(em, i)'
-    ].join(', ');
+    ]);
   }
 
   function hasFontSizeScale(fontConfig) {
@@ -2073,7 +2111,7 @@
         if (boldAxes.length > 0) {
           boldRule += '; font-variation-settings: ' + boldAxes.join(', ') + imp;
         }
-        lines.push('body strong, body b { ' + boldRule + '; }');
+        lines.push(joinDropCapExcludedSelectors(['body strong', 'body b']) + ' { ' + boldRule + '; }');
       }
     } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
       var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
@@ -2098,7 +2136,7 @@
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
       if (nonBoldProps.length > 0) {
-        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"]) { ' + nonBoldProps.join('; ') + '; }');
+        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"])' + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
       }
 
       // Bold rule — font-weight 700; stretch/style inherit from parent
@@ -2111,7 +2149,14 @@
         if (boldAxes.length > 0) {
           boldProps.push('font-variation-settings: ' + boldAxes.join(', ') + imp);
         }
-        lines.push('strong[data-affo-font-type="' + fontType + '"], b[data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"], [data-affo-font-type="' + fontType + '"] strong, [data-affo-font-type="' + fontType + '"] b { ' + boldProps.join('; ') + '; }');
+        var tmiBoldSelector = joinDropCapExcludedSelectors([
+          'strong[data-affo-font-type="' + fontType + '"]',
+          'b[data-affo-font-type="' + fontType + '"]',
+          '[data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"]',
+          '[data-affo-font-type="' + fontType + '"] strong',
+          '[data-affo-font-type="' + fontType + '"] b'
+        ]);
+        lines.push(tmiBoldSelector + ' { ' + boldProps.join('; ') + '; }');
       }
 
       lines.push('[data-affo-font-type="' + fontType + '"] h1, [data-affo-font-type="' + fontType + '"] h2, [data-affo-font-type="' + fontType + '"] h3, [data-affo-font-type="' + fontType + '"] h4, [data-affo-font-type="' + fontType + '"] h5, [data-affo-font-type="' + fontType + '"] h6 { font-family: revert' + imp + '; font-weight: revert' + imp + '; font-stretch: revert' + imp + '; font-style: revert' + imp + '; font-variation-settings: normal' + imp + '; }');
@@ -3715,6 +3760,7 @@
       if (!root || root.nodeType !== 1) return;
       try {
         if (isInteractiveSubtreeRoot(root) || isInsideInteractiveSubtree(root)) return;
+        if (isInsideDropCap(root)) return;
       } catch (_) { return; }
 
       if (elementMayOwnTmiText(root)) markOne(root);
@@ -3725,6 +3771,7 @@
         {
           acceptNode: function (node) {
             if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
+            if (isDropCapElement(node)) return NodeFilter.FILTER_REJECT;
             return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
           }
         }
@@ -3759,6 +3806,8 @@
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
+
+    if (isInsideDropCap(element)) return null;
 
     if (isSubstackPrimaryButtonWrapperText(element)) return null;
 
@@ -3965,6 +4014,7 @@
           {
             acceptNode: function (node) {
               if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
+              if (isDropCapElement(node)) return NodeFilter.FILTER_REJECT;
               return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
           }
