@@ -7,6 +7,8 @@ description: Test and inspect the A Font Face-off extension on Android Firefox N
 
 Automated and semi-automated testing of the extension on desktop Firefox Developer Edition, Android Firefox, and the Edge Canary Android MV3 CRX prototype. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android Firefox inspection uses the project WebDriver harness for real DOM and computed CSS. Edge Canary Android work uses generated MV3 source, native-packed CRX artifacts, and ADB/manual Canary extension UI.
 
+This repo skill is canonical for AFFO-specific commands, selectors, storage seeds, popup/toolbar IDs, generated Edge MV3 artifacts, and known site examples. Use the global `firefox-extension-debug` skill for reusable Android Firefox safety boundaries, ADB patterns, CDP reconnaissance guidance, and GUI/DevTools route selection.
+
 ## Default Problem Target
 
 Unless the user states otherwise, treat AFFO behavior questions and reported problems as occurring in Firefox Nightly on Android. Desktop Firefox Developer Edition is often a faster initial testing area for shared extension logic, deterministic regression tests, and site CSS investigation. When mobile layout, touch behavior, Firefox Android behavior, or final user-visible verification matters, confirm the result on Android Firefox Nightly rather than treating a desktop result as conclusive.
@@ -198,7 +200,7 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; this approval applies only to Nightly on the Note10 identified above.
 
-The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Pass `--skip-addon` when the extension is already installed in the approved testing profile.
+The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
 For toolbar visibility or page-overlay investigations, explicitly select the toolbar iframe and any suspected blocking overlay. The report includes `display`, `visibility`, `opacity`, positioning, z-index, size, bounding rectangle, and inline style, so it can distinguish a hidden toolbar from a visible toolbar covered by unrelated page UI:
 
@@ -216,11 +218,12 @@ On USA Today, an acquisition/modal overlay may be present at the same time as a 
 
 Speed/fidelity rule:
 - Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, seeded settings, or final computed CSS with AFFO active.
+- Use desktop Chrome through the Codex Chrome Extension when an authenticated or already-open desktop Chrome page is the fastest way to inspect live page structure, overlays, console logs, screenshots, or baseline computed styles.
 - Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance and Chromium-family comparison: original DOM, selectors, layout, network, and baseline computed styles.
 - Use the Edge Canary Android MV3 prototype when the question is about the Chromium/Edge extension build, popup/options path, toolbar, Quick Pick, or sync behavior.
 - If Chrome or Edge reveals a selector or page structure, verify in Firefox before treating it as Firefox extension behavior; sites and engines can diverge.
 
-Storage-dependent features will not be configured unless the script seeds storage or the approved Nightly testing profile already has configuration. For Substack Roulette checks, seed deterministic favorites before inspecting:
+Storage-dependent features will not be configured unless the script seeds storage during the run. Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. For Substack Roulette checks, seed deterministic favorites before inspecting:
 
 ```bash
 npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
