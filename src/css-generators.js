@@ -25,6 +25,8 @@ const DROP_CAP_MATCH_SELECTOR = [
 ].join(', ');
 const DROP_CAP_SELECTOR = `:is(${DROP_CAP_MATCH_SELECTOR})`;
 const DROP_CAP_EXCLUDE = `:not(${DROP_CAP_SELECTOR}):not(${DROP_CAP_SELECTOR} *)`;
+const HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
+const HEADING_TREE_EXCLUDE = `:not(${HEADING_SELECTOR}):not(${HEADING_SELECTOR} *)`;
 
 function getIgnoreCommentsExclude(ignoreComments) {
     if (!ignoreComments) return '';
@@ -52,6 +54,14 @@ function appendDropCapExclude(selector) {
 
 function joinDropCapExcludedSelectors(selectors) {
     return selectors.map(appendDropCapExclude).join(', ');
+}
+
+function appendTmiTextExclude(selector) {
+    return selector + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE;
+}
+
+function joinTmiTextExcludedSelectors(selectors) {
+    return selectors.map(appendTmiTextExclude).join(', ');
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────
@@ -116,7 +126,7 @@ function getSiteSpecificRules(fontType, otherProps, hostname) {
 }
 
 function buildThirdManInTextSelector(fontType) {
-    return joinDropCapExcludedSelectors([
+    return joinTmiTextExcludedSelectors([
         `html body div[data-affo-font-type="${fontType}"]`,
         `html body blockquote[data-affo-font-type="${fontType}"]`,
         `html body p[data-affo-font-type="${fontType}"]`,
@@ -363,7 +373,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
-        lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b):not([data-affo-was-bold="true"])${DROP_CAP_EXCLUDE} { ${nonBoldProps.join('; ')}; }`);
+        lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b):not([data-affo-was-bold="true"])${HEADING_TREE_EXCLUDE}${DROP_CAP_EXCLUDE} { ${nonBoldProps.join('; ')}; }`);
     }
 
     // Bold rule
@@ -374,7 +384,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         if (boldAxes.length > 0) {
             boldProps.push(`font-variation-settings: ${boldAxes.join(', ')}${imp}`);
         }
-        const boldSelector = joinDropCapExcludedSelectors([
+        const boldSelector = joinTmiTextExcludedSelectors([
             `strong[data-affo-font-type="${ft}"]`,
             `b[data-affo-font-type="${ft}"]`,
             `[data-affo-font-type="${ft}"][data-affo-was-bold="true"]`,
@@ -384,19 +394,19 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         lines.push(`${boldSelector} { ${boldProps.join('; ')}; }`);
     }
 
-    lines.push(`[data-affo-font-type="${ft}"] h1, [data-affo-font-type="${ft}"] h2, [data-affo-font-type="${ft}"] h3, [data-affo-font-type="${ft}"] h4, [data-affo-font-type="${ft}"] h5, [data-affo-font-type="${ft}"] h6 { font-family: revert${imp}; font-weight: revert${imp}; font-stretch: revert${imp}; font-style: revert${imp}; font-variation-settings: normal${imp}; }`);
+    lines.push(`${HEADING_SELECTOR}[data-affo-font-type="${ft}"], ${HEADING_SELECTOR} [data-affo-font-type="${ft}"], [data-affo-font-type="${ft}"] ${HEADING_SELECTOR}, [data-affo-font-type="${ft}"] ${HEADING_SELECTOR} * { font-family: revert${imp}; font-weight: revert${imp}; font-stretch: revert${imp}; font-style: revert${imp}; font-variation-settings: normal${imp}; }`);
 
     // Italic rule — ensure <em>/<i> render true italic with correct axis values
     if (payload.fontName) {
         const italicProps = buildItalicProps(payload, imp);
-        const italicSelector = joinDropCapExcludedSelectors([
+        const italicSelector = joinTmiTextExcludedSelectors([
             `:where(em, i)[data-affo-font-type="${ft}"]`,
             `[data-affo-font-type="${ft}"] :where(em, i)`
         ]);
         lines.push(`${italicSelector} { ${italicProps.join('; ')}; }`);
         // Bold-italic rule
         const boldItalicProps = buildItalicProps(payload, imp, 700);
-        lines.push(`${appendDropCapExclude(`[data-affo-font-type="${ft}"] :where(strong, b) :where(em, i)`)} { ${boldItalicProps.join('; ')}; }`);
+        lines.push(`${appendTmiTextExclude(`[data-affo-font-type="${ft}"] :where(strong, b) :where(em, i)`)} { ${boldItalicProps.join('; ')}; }`);
     }
 
     // Other properties apply only to body text elements

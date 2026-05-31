@@ -118,7 +118,7 @@ describe('css-generators bold variable-axis overrides', () => {
 
     it('resets headings inside third-man-in marked containers', () => {
         const css = generateThirdManInCSS('serif', payload, false);
-        const headingRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"] h1'));
+        const headingRule = css.split('\n').find(line => line.includes('[data-affo-font-type="serif"] :is(h1, h2, h3, h4, h5, h6)'));
         assert.ok(headingRule);
         assert.match(headingRule, /font-family: revert/);
         assert.match(headingRule, /font-weight: revert/);
@@ -183,6 +183,41 @@ describe('css-generators third-man-in text sizing', () => {
         }, false);
         assert.doesNotMatch(css, /font-size:/);
         assert.match(css, /line-height: 1\.7/);
+    });
+});
+
+describe('css-generators third-man-in heading preservation', () => {
+    it('keeps marked heading descendants out of TMI replacement rules', () => {
+        const css = generateThirdManInCSS('sans', {
+            fontName: 'Inter',
+            fontSize: 20,
+            fontWeight: 420,
+            variableAxes: { wght: 420 }
+        }, false);
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="sans"]:not(strong)'));
+        const boldRule = css.split('\n').find(line => line.includes('strong[data-affo-font-type="sans"]'));
+        const textRule = css.split('\n').find(line => line.includes('font-size: 20px'));
+
+        assert.ok(nonBoldRule);
+        assert.ok(boldRule);
+        assert.ok(textRule);
+        assert.match(nonBoldRule, /:not\(:is\(h1, h2, h3, h4, h5, h6\)\)/);
+        assert.match(nonBoldRule, /:not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
+        assert.match(boldRule, /strong\[data-affo-font-type="sans"\]:not\(:is\(h1, h2, h3, h4, h5, h6\)\):not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
+        assert.match(textRule, /html body p\[data-affo-font-type="sans"\]:not\(:is\(h1, h2, h3, h4, h5, h6\)\):not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
+    });
+
+    it('resets both marked headings and marked descendants inside headings', () => {
+        const css = generateThirdManInCSS('serif', {
+            fontName: 'Spectral',
+            variableAxes: {}
+        }, false);
+        const resetRule = css.split('\n').find(line => line.includes('font-family: revert'));
+
+        assert.ok(resetRule);
+        assert.match(resetRule, /:is\(h1, h2, h3, h4, h5, h6\)\[data-affo-font-type="serif"\]/);
+        assert.match(resetRule, /:is\(h1, h2, h3, h4, h5, h6\) \[data-affo-font-type="serif"\]/);
+        assert.match(resetRule, /\[data-affo-font-type="serif"\] :is\(h1, h2, h3, h4, h5, h6\) \*/);
     });
 });
 

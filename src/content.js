@@ -453,6 +453,8 @@
   ].join(', ');
   var DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + ')';
   var DROP_CAP_EXCLUDE = ':not(' + DROP_CAP_SELECTOR + '):not(' + DROP_CAP_SELECTOR + ' *)';
+  var HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
+  var HEADING_TREE_EXCLUDE = ':not(' + HEADING_SELECTOR + '):not(' + HEADING_SELECTOR + ' *)';
 
   function appendDropCapExclude(selector) {
     return selector + DROP_CAP_EXCLUDE;
@@ -460,6 +462,14 @@
 
   function joinDropCapExcludedSelectors(selectors) {
     return selectors.map(appendDropCapExclude).join(', ');
+  }
+
+  function appendTmiTextExclude(selector) {
+    return selector + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE;
+  }
+
+  function joinTmiTextExcludedSelectors(selectors) {
+    return selectors.map(appendTmiTextExclude).join(', ');
   }
 
   function isDropCapElement(element) {
@@ -1137,7 +1147,7 @@
   }
 
   function getThirdManInTextSelector(fontType) {
-    return joinDropCapExcludedSelectors([
+    return joinTmiTextExcludedSelectors([
       'html body div[data-affo-font-type="' + fontType + '"]',
       'html body blockquote[data-affo-font-type="' + fontType + '"]',
       'html body p[data-affo-font-type="' + fontType + '"]',
@@ -1541,7 +1551,7 @@
   function resetHeadingTypographyInMarkedSubtree(root) {
     if (!root || !root.querySelectorAll) return;
     try {
-      root.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function (heading) {
+      root.querySelectorAll('h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *').forEach(function (heading) {
         heading.style.setProperty('font-family', 'revert', 'important');
         heading.style.setProperty('font-weight', 'revert', 'important');
         heading.style.setProperty('font-stretch', 'revert', 'important');
@@ -2136,7 +2146,7 @@
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
       if (nonBoldProps.length > 0) {
-        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"])' + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
+        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"])' + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
       }
 
       // Bold rule — font-weight 700; stretch/style inherit from parent
@@ -2149,7 +2159,7 @@
         if (boldAxes.length > 0) {
           boldProps.push('font-variation-settings: ' + boldAxes.join(', ') + imp);
         }
-        var tmiBoldSelector = joinDropCapExcludedSelectors([
+        var tmiBoldSelector = joinTmiTextExcludedSelectors([
           'strong[data-affo-font-type="' + fontType + '"]',
           'b[data-affo-font-type="' + fontType + '"]',
           '[data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"]',
@@ -2159,7 +2169,7 @@
         lines.push(tmiBoldSelector + ' { ' + boldProps.join('; ') + '; }');
       }
 
-      lines.push('[data-affo-font-type="' + fontType + '"] h1, [data-affo-font-type="' + fontType + '"] h2, [data-affo-font-type="' + fontType + '"] h3, [data-affo-font-type="' + fontType + '"] h4, [data-affo-font-type="' + fontType + '"] h5, [data-affo-font-type="' + fontType + '"] h6 { font-family: revert' + imp + '; font-weight: revert' + imp + '; font-stretch: revert' + imp + '; font-style: revert' + imp + '; font-variation-settings: normal' + imp + '; }');
+      lines.push(HEADING_SELECTOR + '[data-affo-font-type="' + fontType + '"], ' + HEADING_SELECTOR + ' [data-affo-font-type="' + fontType + '"], [data-affo-font-type="' + fontType + '"] ' + HEADING_SELECTOR + ', [data-affo-font-type="' + fontType + '"] ' + HEADING_SELECTOR + ' * { font-family: revert' + imp + '; font-weight: revert' + imp + '; font-stretch: revert' + imp + '; font-style: revert' + imp + '; font-variation-settings: normal' + imp + '; }');
 
       // Other properties apply to body text elements
       var otherProps = [];
@@ -3792,6 +3802,7 @@
 
     // Exclude headings, UI elements, and form controls
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
+    if (element.closest && element.closest('h1, h2, h3, h4, h5, h6')) return null;
 
     // Exclude descendants of non-body containers: figcaptions, buttons, guards,
     // post headers, top-bar chrome, and optionally Substack comments on
