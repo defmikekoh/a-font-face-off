@@ -29,10 +29,11 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
 2. Use desktop Selenium/geckodriver as a fast initial testing area for repeatable popup and shared content-script behavior where useful.
 3. Use the Android Firefox WebDriver harness for authoritative Firefox Nightly on Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final behavior matters.
-4. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
-5. Use the Edge Canary Android MV3 prototype when Chromium-extension behavior matters; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
-6. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
-7. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
+4. Use desktop Chrome through the Codex Chrome Extension when the user's real Chrome profile/session is the fastest way to inspect already-open or authenticated desktop pages: original DOM, selectors, overlays, console logs, screenshots, and baseline computed styles. Treat this as reconnaissance, and verify AFFO/Firefox-specific conclusions in Firefox.
+5. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
+6. Use the Edge Canary Android MV3 prototype when Chromium-extension behavior matters; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
+7. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
+8. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
 ## Running Tests
 
