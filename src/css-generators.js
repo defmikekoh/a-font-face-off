@@ -373,7 +373,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
-        lines.push(`[data-affo-font-type="${ft}"]:not(strong):not(b):not([data-affo-was-bold="true"])${HEADING_TREE_EXCLUDE}${DROP_CAP_EXCLUDE} { ${nonBoldProps.join('; ')}; }`);
+        lines.push(`[data-affo-font-type="${ft}"]:not([data-affo-was-bold="true"])${HEADING_TREE_EXCLUDE}${DROP_CAP_EXCLUDE} { ${nonBoldProps.join('; ')}; }`);
     }
 
     // Bold rule
@@ -385,11 +385,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
             boldProps.push(`font-variation-settings: ${boldAxes.join(', ')}${imp}`);
         }
         const boldSelector = joinTmiTextExcludedSelectors([
-            `strong[data-affo-font-type="${ft}"]`,
-            `b[data-affo-font-type="${ft}"]`,
-            `[data-affo-font-type="${ft}"][data-affo-was-bold="true"]`,
-            `[data-affo-font-type="${ft}"] strong`,
-            `[data-affo-font-type="${ft}"] b`
+            `[data-affo-font-type="${ft}"][data-affo-was-bold="true"]`
         ]);
         lines.push(`${boldSelector} { ${boldProps.join('; ')}; }`);
     }

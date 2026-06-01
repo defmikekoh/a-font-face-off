@@ -97,8 +97,7 @@ describe('css-generators bold variable-axis overrides', () => {
 
     it('does not carry wght into third-man-in bold overrides', () => {
         const css = generateThirdManInCSS('serif', payload, false);
-        const boldRule = css.split('\n').find(line => line.startsWith('strong[data-affo-font-type="serif"]'));
-        assert.match(css, /strong\[data-affo-font-type="serif"\]/);
+        const boldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"][data-affo-was-bold="true"]'));
         assert.match(css, /font-weight: 700/);
         assert.match(boldRule, /"wght" 700/);
         assert.match(boldRule, /"CASL" 1/);
@@ -108,12 +107,28 @@ describe('css-generators bold variable-axis overrides', () => {
 
     it('keeps walker-marked bold descendants out of the non-bold TMI rule', () => {
         const css = generateThirdManInCSS('serif', payload, false);
-        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not(strong)'));
-        const boldRule = css.split('\n').find(line => line.startsWith('strong[data-affo-font-type="serif"]'));
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not([data-affo-was-bold="true"])'));
+        const boldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"][data-affo-was-bold="true"]'));
         assert.ok(nonBoldRule);
         assert.ok(boldRule);
         assert.match(nonBoldRule, /:not\(\[data-affo-was-bold="true"\]\)/);
         assert.match(boldRule, /\[data-affo-font-type="serif"\]\[data-affo-was-bold="true"\]/);
+    });
+
+    it('does not treat unmarked third-man-in strong descendants as bold', () => {
+        const css = generateThirdManInCSS('sans', {
+            fontName: 'Merriweather',
+            fontSize: 15.5,
+            variableAxes: {}
+        }, false);
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="sans"]:not([data-affo-was-bold="true"])'));
+        const boldRule = css.split('\n').find(line => line.includes('font-weight: 700'));
+
+        assert.ok(nonBoldRule);
+        assert.ok(boldRule);
+        assert.doesNotMatch(boldRule, /strong\[data-affo-font-type="sans"\]/);
+        assert.doesNotMatch(boldRule, /\[data-affo-font-type="sans"\] strong/);
+        assert.match(boldRule, /^\[data-affo-font-type="sans"\]\[data-affo-was-bold="true"\]/);
     });
 
     it('resets headings inside third-man-in marked containers', () => {
@@ -194,8 +209,8 @@ describe('css-generators third-man-in heading preservation', () => {
             fontWeight: 420,
             variableAxes: { wght: 420 }
         }, false);
-        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="sans"]:not(strong)'));
-        const boldRule = css.split('\n').find(line => line.includes('strong[data-affo-font-type="sans"]'));
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="sans"]:not([data-affo-was-bold="true"])'));
+        const boldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="sans"][data-affo-was-bold="true"]'));
         const textRule = css.split('\n').find(line => line.includes('font-size: 20px'));
 
         assert.ok(nonBoldRule);
@@ -203,7 +218,7 @@ describe('css-generators third-man-in heading preservation', () => {
         assert.ok(textRule);
         assert.match(nonBoldRule, /:not\(:is\(h1, h2, h3, h4, h5, h6\)\)/);
         assert.match(nonBoldRule, /:not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
-        assert.match(boldRule, /strong\[data-affo-font-type="sans"\]:not\(:is\(h1, h2, h3, h4, h5, h6\)\):not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
+        assert.match(boldRule, /\[data-affo-font-type="sans"\]\[data-affo-was-bold="true"\]:not\(:is\(h1, h2, h3, h4, h5, h6\)\):not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
         assert.match(textRule, /html body p\[data-affo-font-type="sans"\]:not\(:is\(h1, h2, h3, h4, h5, h6\)\):not\(:is\(h1, h2, h3, h4, h5, h6\) \*\)/);
     });
 

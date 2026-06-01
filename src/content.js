@@ -1511,15 +1511,14 @@
     return isFinite(numeric) && numeric >= 700;
   }
 
-  // TMI-aware wrapper: detects bold elements before overwriting, preserves weight 700
+  // TMI-aware wrapper: detects computed-bold elements before overwriting, preserves weight 700
   function applyTmiProtection(el, propsObj, effectiveWeight) {
-    // Detect bold BEFORE applying — check tag, prior-run marker, or computed style
+    // Detect bold BEFORE applying — check prior-run marker or computed style.
+    // Some publishers wrap non-bold text in <strong>, so tag semantics alone
+    // are not a reliable signal for preserving a 700 weight.
     var isBold = false;
     try {
-      var tag = el.tagName && el.tagName.toLowerCase();
-      if (tag === 'strong' || tag === 'b') {
-        isBold = true;
-      } else if (el.getAttribute('data-affo-was-bold') === 'true') {
+      if (el.getAttribute('data-affo-was-bold') === 'true') {
         isBold = true;
       } else {
         var cw = window.getComputedStyle(el).fontWeight;
@@ -2146,7 +2145,7 @@
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
       if (nonBoldProps.length > 0) {
-        lines.push('[data-affo-font-type="' + fontType + '"]:not(strong):not(b):not([data-affo-was-bold="true"])' + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
+        lines.push('[data-affo-font-type="' + fontType + '"]:not([data-affo-was-bold="true"])' + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
       }
 
       // Bold rule — font-weight 700; stretch/style inherit from parent
@@ -2160,11 +2159,7 @@
           boldProps.push('font-variation-settings: ' + boldAxes.join(', ') + imp);
         }
         var tmiBoldSelector = joinTmiTextExcludedSelectors([
-          'strong[data-affo-font-type="' + fontType + '"]',
-          'b[data-affo-font-type="' + fontType + '"]',
-          '[data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"]',
-          '[data-affo-font-type="' + fontType + '"] strong',
-          '[data-affo-font-type="' + fontType + '"] b'
+          '[data-affo-font-type="' + fontType + '"][data-affo-was-bold="true"]'
         ]);
         lines.push(tmiBoldSelector + ' { ' + boldProps.join('; ') + '; }');
       }
