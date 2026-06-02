@@ -47,16 +47,18 @@ describe('css-generators ignore comments selectors', () => {
 
     it('excludes generic article deck selectors from body-contact css', () => {
         const css = generateBodyContactCSS(payload, false, false);
-        assert.match(css, /:not\(article header :is\(p, div\):is\(/);
+        assert.match(css, /:not\(:is\(article header :is\(p, div\):is\(/);
+        assert.match(css, /#fullBleedHeaderContent header p/);
         assert.match(css, /\[id\*="summary" i\]/);
         assert.match(css, /\[class\*="standfirst" i\]/);
         assert.match(css, /\[data-testid\*="subheadline" i\]/);
-        assert.match(css, /:not\(article header :is\(p, div\):is\([^)]*\) \*\)/);
+        assert.match(css, /:not\(:is\(article header :is\(p, div\):is\([^)]*\), #fullBleedHeaderContent header p\) \*\)/);
     });
 
     it('excludes generic article deck selectors from face-off body css', () => {
         const css = generateBodyCSS(payload, false, false);
-        assert.match(css, /:not\(article header :is\(p, div\):is\(/);
+        assert.match(css, /:not\(:is\(article header :is\(p, div\):is\(/);
+        assert.match(css, /#fullBleedHeaderContent header p/);
         assert.match(css, /\[name\*="excerpt" i\]/);
         assert.match(css, /\[itemprop\*="deck" i\]/);
     });
@@ -139,6 +141,18 @@ describe('css-generators bold variable-axis overrides', () => {
         assert.match(headingRule, /font-weight: revert/);
         assert.match(headingRule, /font-variation-settings: normal/);
     });
+
+    it('keeps article decks out of third-man-in replacement selectors', () => {
+        const css = generateThirdManInCSS('serif', payload, false);
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not([data-affo-was-bold="true"])'));
+        const boldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"][data-affo-was-bold="true"]'));
+        assert.ok(nonBoldRule);
+        assert.ok(boldRule);
+        assert.match(nonBoldRule, /:not\(:is\(article header :is\(p, div\):is\(/);
+        assert.match(nonBoldRule, /#fullBleedHeaderContent header p/);
+        assert.match(boldRule, /:not\(:is\(article header :is\(p, div\):is\(/);
+        assert.match(boldRule, /#fullBleedHeaderContent header p/);
+    });
 });
 
 describe('css-generators static italic style', () => {
@@ -187,6 +201,8 @@ describe('css-generators third-man-in text sizing', () => {
         assert.match(textRule, /font-size: 19px/);
         assert.match(textRule, /line-height: 1\.7/);
         assert.match(textRule, /letter-spacing: 0\.02em/);
+        assert.match(textRule, /:not\(:is\(article header :is\(p, div\):is\(/);
+        assert.match(textRule, /#fullBleedHeaderContent header p/);
     });
 
     it('does not emit cascading font-size rules for percent scaling', () => {

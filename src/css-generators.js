@@ -12,6 +12,7 @@ const GUARD_EXCLUDE = ':not([data-affo-guard]):not([data-affo-guard] *)';
 const POST_HEADER_EXCLUDE = ':not(.post-header):not(.post-header *)';
 const ARTICLE_DECK_HINTS = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
 const ARTICLE_DECK_ATTRS = ['id', 'class', 'data-testid', 'itemprop', 'name'];
+const ARTICLE_DECK_STRUCTURAL_SELECTORS = ['#fullBleedHeaderContent header p'];
 const DROP_CAP_MATCH_SELECTOR = [
     '[style*="var(--drop-cap" i]',
     '[style*="initial-letter" i]',
@@ -40,7 +41,8 @@ function getArticleDeckSelector() {
             hintSelectors.push(`[${attr}*="${hint}" i]`);
         });
     });
-    return `article header :is(p, div):is(${hintSelectors.join(', ')})`;
+    const hintedDeckSelector = `article header :is(p, div):is(${hintSelectors.join(', ')})`;
+    return `:is(${[hintedDeckSelector].concat(ARTICLE_DECK_STRUCTURAL_SELECTORS).join(', ')})`;
 }
 
 function getArticleDeckExclude() {
@@ -57,7 +59,7 @@ function joinDropCapExcludedSelectors(selectors) {
 }
 
 function appendTmiTextExclude(selector) {
-    return selector + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE;
+    return selector + HEADING_TREE_EXCLUDE + getArticleDeckExclude() + DROP_CAP_EXCLUDE;
 }
 
 function joinTmiTextExcludedSelectors(selectors) {
@@ -373,7 +375,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }
     if (nonBoldProps.length > 0) {
-        lines.push(`[data-affo-font-type="${ft}"]:not([data-affo-was-bold="true"])${HEADING_TREE_EXCLUDE}${DROP_CAP_EXCLUDE} { ${nonBoldProps.join('; ')}; }`);
+        lines.push(`${appendTmiTextExclude(`[data-affo-font-type="${ft}"]:not([data-affo-was-bold="true"])`)} { ${nonBoldProps.join('; ')}; }`);
     }
 
     // Bold rule

@@ -424,6 +424,7 @@
 
   var ARTICLE_DECK_HINTS = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
   var ARTICLE_DECK_ATTRS = ['id', 'class', 'data-testid', 'itemprop', 'name'];
+  var ARTICLE_DECK_STRUCTURAL_SELECTORS = ['#fullBleedHeaderContent header p'];
 
   function getArticleDeckSelector() {
     var hintSelectors = [];
@@ -432,7 +433,8 @@
         hintSelectors.push('[' + attr + '*="' + hint + '" i]');
       });
     });
-    return 'article header :is(p, div):is(' + hintSelectors.join(', ') + ')';
+    var hintedDeckSelector = 'article header :is(p, div):is(' + hintSelectors.join(', ') + ')';
+    return ':is(' + [hintedDeckSelector].concat(ARTICLE_DECK_STRUCTURAL_SELECTORS).join(', ') + ')';
   }
 
   function getArticleDeckExcludeSelector() {
@@ -465,7 +467,7 @@
   }
 
   function appendTmiTextExclude(selector) {
-    return selector + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE;
+    return selector + HEADING_TREE_EXCLUDE + getArticleDeckExcludeSelector() + DROP_CAP_EXCLUDE;
   }
 
   function joinTmiTextExcludedSelectors(selectors) {
@@ -513,6 +515,10 @@
 
   function isInsideArticleDeck(element) {
     if (!element || !element.closest) return false;
+    try {
+      if (element.closest(getArticleDeckSelector())) return true;
+    } catch (_) { }
+
     var header = element.closest('article header');
     if (!header) return false;
 
@@ -1131,7 +1137,7 @@
     if (ft === 'body') {
       return 'body ' + getBodyExcludeSelector();
     }
-    return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]';
+    return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]' + getArticleDeckExcludeSelector();
   }
 
   function getBodyFontSizeScaleExtraSelector() {
@@ -1501,6 +1507,32 @@
     });
     el.setAttribute('data-affo-protected', 'true');
     el.setAttribute('data-affo-font-name', propsObj['font-family']);
+  }
+
+  function clearAffoProtection(el) {
+    if (!el || !el.style) return;
+    [
+      'font-family',
+      'font-size',
+      'font-weight',
+      'line-height',
+      'letter-spacing',
+      'color',
+      'font-stretch',
+      'font-style',
+      'font-variation-settings'
+    ].forEach(function (prop) {
+      el.style.removeProperty(prop);
+      el.style.removeProperty('--affo-' + prop);
+      if (el.removeAttribute) el.removeAttribute('data-affo-' + prop);
+    });
+    if (el.removeAttribute) {
+      el.removeAttribute('data-affo-protected');
+      el.removeAttribute('data-affo-font-name');
+      el.removeAttribute('data-affo-font-type');
+      el.removeAttribute('data-affo-original-font-type');
+      el.removeAttribute('data-affo-was-bold');
+    }
   }
 
   function isBoldFontWeightValue(weightValue) {
@@ -2145,7 +2177,7 @@
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
       }
       if (nonBoldProps.length > 0) {
-        lines.push('[data-affo-font-type="' + fontType + '"]:not([data-affo-was-bold="true"])' + HEADING_TREE_EXCLUDE + DROP_CAP_EXCLUDE + ' { ' + nonBoldProps.join('; ') + '; }');
+        lines.push(appendTmiTextExclude('[data-affo-font-type="' + fontType + '"]:not([data-affo-was-bold="true"])') + ' { ' + nonBoldProps.join('; ') + '; }');
       }
 
       // Bold rule — font-weight 700; stretch/style inherit from parent
@@ -3817,7 +3849,10 @@
 
     if (isSubstackPrimaryButtonWrapperText(element)) return null;
 
-    if (isInsideArticleDeck(element)) return null;
+    if (isInsideArticleDeck(element)) {
+      clearAffoProtection(element);
+      return null;
+    }
 
     // Exclude ARIA landmark roles
     var role = element.getAttribute && element.getAttribute('role');
