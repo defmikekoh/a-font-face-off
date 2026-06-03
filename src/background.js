@@ -39,6 +39,9 @@ const SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_META_NAME = 'substack-beige-disabled-
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
 const SYNC_SUBSTACK_ROULETTE_NAME = 'substack-roulette.json';
 const SYNC_CUSTOM_FONT_AXES_NAME = 'custom-font-axes.json';
+const SYNC_MODE_MERGE = 'merge';
+const SYNC_MODE_PUSH = 'push';
+const SYNC_MODE_PULL = 'pull';
 const KNOWN_SERIF_KEY = 'affoKnownSerif';
 const KNOWN_SANS_KEY = 'affoKnownSans';
 const FFONLY_DOMAINS_KEY = 'affoFontFaceOnlyDomains';
@@ -492,6 +495,23 @@ function setModified(items, itemKey, modified, options = {}) {
   const next = { modified };
   if (remoteRev) next.remoteRev = remoteRev;
   items[itemKey] = next;
+}
+
+function normalizeSyncMode(mode) {
+  if (mode === SYNC_MODE_PUSH || mode === SYNC_MODE_PULL) return mode;
+  return SYNC_MODE_MERGE;
+}
+
+function createForcedDomainMeta(activeOrigins, deletedOrigins, modified) {
+  const byOrigin = {};
+  for (const origin of Array.from(new Set(activeOrigins || [])).sort()) {
+    byOrigin[origin] = { modified };
+  }
+  for (const origin of Array.from(new Set(deletedOrigins || [])).sort()) {
+    if (byOrigin[origin]) continue;
+    byOrigin[origin] = { modified, deletedAt: modified };
+  }
+  return { version: 1, byOrigin };
 }
 
 
@@ -1397,6 +1417,23 @@ async function isSyncConfigured() {
   return backend ? backend.isConfigured() : false;
 }
 
+async function setSyncBackendSelection(backendName) {
+  const normalized = backendName === 'gdrive' || backendName === 'webdav' ? backendName : '';
+  if (!normalized) {
+    await browser.storage.local.remove(SYNC_BACKEND_KEY);
+    await stopSyncAlarm();
+    return { ok: true };
+  }
+
+  await browser.storage.local.set({ [SYNC_BACKEND_KEY]: normalized });
+  if (await isSyncConfigured()) {
+    await startSyncAlarm();
+  } else {
+    await stopSyncAlarm();
+  }
+  return { ok: true };
+}
+
 async function hasDataCollectionPermissionsApi() {
   if (!browser.permissions || typeof browser.permissions.getAll !== 'function') {
     return false;
@@ -1505,20 +1542,29 @@ async function getLocalFavoritesSnapshot() {
   };
 }
 
-// Push helper: optionally checks GDrive revision before writing
-async function syncPush(backend, localState, filename, content, contentType) {
+// Push helper: normal sync checks remote revisions; one-shot push intentionally overwrites remote.
+async function syncPush(backend, localState, filename, content, contentType, options = {}) {
+  const force = options.force === true;
   if (backend.name === 'gdrive') {
+    if (force) {
+      const putResult = await backend.put(filename, content, contentType);
+      return putResult.remoteRev || null;
+    }
     const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, backend._folderId);
     assertRemoteRevisionUnchanged(revCheck, filename);
     const putResult = await backend.put(filename, content, contentType);
     return putResult.remoteRev || revCheck.currentRemoteRev || null;
   }
-  const expectedRemoteRev = getExpectedRemoteRevision(localState);
+  const expectedRemoteRev = force ? null : getExpectedRemoteRevision(localState);
   const putResult = await backend.put(filename, content, contentType, { expectedRemoteRev });
   return putResult.remoteRev || null;
 }
 
-async function runSync() {
+async function runSync(options = {}) {
+  const syncMode = normalizeSyncMode(options.mode);
+  const forcePush = syncMode === SYNC_MODE_PUSH;
+  const forcePull = syncMode === SYNC_MODE_PULL;
+
   if (!(await hasSyncDataCollectionConsent())) {
     affoDebugWarn('[AFFO Background] Sync skipped — optional data collection consent not granted');
     return { ok: true, skipped: true, reason: 'data_consent_not_granted' };
@@ -1578,68 +1624,92 @@ async function runSync() {
       ? sanitizeApplyMapMeta(JSON.parse(remoteDomainsMetaResult.data))
       : { version: 1, byOrigin: {} };
 
-    // Migration fallback: if per-origin metadata is absent, seed from whole-file timestamps.
-    if (!Object.keys(localApplyMapMeta.byOrigin).length && localDomainsModified > 0) {
-      for (const origin of Object.keys(localApplyMap)) {
-        localApplyMapMeta.byOrigin[origin] = { modified: localDomainsModified };
-      }
-    }
-    if (!Object.keys(remoteApplyMapMeta.byOrigin).length && remoteDomainsModified > 0) {
+    let mergedApplyMap;
+    let mergedApplyMapMeta;
+    let mergedModified;
+
+    if (forcePush) {
+      mergedApplyMap = localApplyMap;
+      mergedApplyMapMeta = createForcedDomainMeta(
+        Object.keys(localApplyMap),
+        Object.keys(remoteApplyMap).filter((origin) => !Object.prototype.hasOwnProperty.call(localApplyMap, origin)),
+        now
+      );
+      mergedModified = now;
+    } else if (forcePull) {
       for (const origin of Object.keys(remoteApplyMap)) {
-        remoteApplyMapMeta.byOrigin[origin] = { modified: remoteDomainsModified };
+        if (!remoteApplyMapMeta.byOrigin[origin]) {
+          remoteApplyMapMeta.byOrigin[origin] = { modified: remoteDomainsModified || now };
+        }
       }
-    }
+      mergedApplyMap = remoteApplyMap;
+      mergedApplyMapMeta = remoteApplyMapMeta;
+      mergedModified = getApplyMapMetaMaxModified(mergedApplyMapMeta.byOrigin) || remoteDomainsModified || now;
+    } else {
+      // Migration fallback: if per-origin metadata is absent, seed from whole-file timestamps.
+      if (!Object.keys(localApplyMapMeta.byOrigin).length && localDomainsModified > 0) {
+        for (const origin of Object.keys(localApplyMap)) {
+          localApplyMapMeta.byOrigin[origin] = { modified: localDomainsModified };
+        }
+      }
+      if (!Object.keys(remoteApplyMapMeta.byOrigin).length && remoteDomainsModified > 0) {
+        for (const origin of Object.keys(remoteApplyMap)) {
+          remoteApplyMapMeta.byOrigin[origin] = { modified: remoteDomainsModified };
+        }
+      }
 
-    const allOrigins = new Set([
-      ...Object.keys(localApplyMap),
-      ...Object.keys(remoteApplyMap),
-      ...Object.keys(localApplyMapMeta.byOrigin),
-      ...Object.keys(remoteApplyMapMeta.byOrigin)
-    ]);
+      const allOrigins = new Set([
+        ...Object.keys(localApplyMap),
+        ...Object.keys(remoteApplyMap),
+        ...Object.keys(localApplyMapMeta.byOrigin),
+        ...Object.keys(remoteApplyMapMeta.byOrigin)
+      ]);
 
-    const mergedApplyMap = {};
-    const mergedApplyMapByOriginMeta = {};
+      const mergedApplyMapByOriginMeta = {};
+      mergedApplyMap = {};
 
-    for (const origin of Array.from(allOrigins).sort()) {
-      const localMetaItem = localApplyMapMeta.byOrigin[origin] || null;
-      const remoteMetaItem = remoteApplyMapMeta.byOrigin[origin] || null;
-      const cmp = compareSyncItems(localMetaItem, remoteMetaItem);
-      const preferRemote = cmp < 0 || (cmp === 0 && (remoteMetaItem || remoteApplyMap[origin]));
-      const winningMeta = sanitizeSyncItem(preferRemote ? remoteMetaItem : localMetaItem);
-      const winningIsDeleted = sanitizeTimestamp(winningMeta.deletedAt) > 0;
+      for (const origin of Array.from(allOrigins).sort()) {
+        const localMetaItem = localApplyMapMeta.byOrigin[origin] || null;
+        const remoteMetaItem = remoteApplyMapMeta.byOrigin[origin] || null;
+        const cmp = compareSyncItems(localMetaItem, remoteMetaItem);
+        const preferRemote = cmp < 0 || (cmp === 0 && (remoteMetaItem || remoteApplyMap[origin]));
+        const winningMeta = sanitizeSyncItem(preferRemote ? remoteMetaItem : localMetaItem);
+        const winningIsDeleted = sanitizeTimestamp(winningMeta.deletedAt) > 0;
 
-      if (winningMeta.modified > 0) {
-        if (winningIsDeleted) {
-          mergedApplyMapByOriginMeta[origin] = {
-            modified: winningMeta.modified,
-            deletedAt: winningMeta.deletedAt
-          };
+        if (winningMeta.modified > 0) {
+          if (winningIsDeleted) {
+            mergedApplyMapByOriginMeta[origin] = {
+              modified: winningMeta.modified,
+              deletedAt: winningMeta.deletedAt
+            };
+            continue;
+          }
+
+          let winningConfig = preferRemote ? remoteApplyMap[origin] : localApplyMap[origin];
+          if (!winningConfig || typeof winningConfig !== 'object' || Array.isArray(winningConfig)) {
+            winningConfig = preferRemote ? localApplyMap[origin] : remoteApplyMap[origin];
+          }
+          if (winningConfig && typeof winningConfig === 'object' && !Array.isArray(winningConfig)) {
+            mergedApplyMap[origin] = winningConfig;
+            mergedApplyMapByOriginMeta[origin] = { modified: winningMeta.modified };
+          }
           continue;
         }
 
-        let winningConfig = preferRemote ? remoteApplyMap[origin] : localApplyMap[origin];
-        if (!winningConfig || typeof winningConfig !== 'object' || Array.isArray(winningConfig)) {
-          winningConfig = preferRemote ? localApplyMap[origin] : remoteApplyMap[origin];
+        // Legacy fallback when both sides lack metadata.
+        if (Object.prototype.hasOwnProperty.call(remoteApplyMap, origin)) {
+          mergedApplyMap[origin] = remoteApplyMap[origin];
+        } else if (Object.prototype.hasOwnProperty.call(localApplyMap, origin)) {
+          mergedApplyMap[origin] = localApplyMap[origin];
         }
-        if (winningConfig && typeof winningConfig === 'object' && !Array.isArray(winningConfig)) {
-          mergedApplyMap[origin] = winningConfig;
-          mergedApplyMapByOriginMeta[origin] = { modified: winningMeta.modified };
-        }
-        continue;
       }
 
-      // Legacy fallback when both sides lack metadata.
-      if (Object.prototype.hasOwnProperty.call(remoteApplyMap, origin)) {
-        mergedApplyMap[origin] = remoteApplyMap[origin];
-      } else if (Object.prototype.hasOwnProperty.call(localApplyMap, origin)) {
-        mergedApplyMap[origin] = localApplyMap[origin];
-      }
+      mergedApplyMapMeta = { version: 1, byOrigin: mergedApplyMapByOriginMeta };
+      mergedModified = getApplyMapMetaMaxModified(mergedApplyMapByOriginMeta);
     }
 
-    const mergedApplyMapMeta = { version: 1, byOrigin: mergedApplyMapByOriginMeta };
     const localNeedsUpdate = !jsonEqual(localApplyMap, mergedApplyMap) || !jsonEqual(localApplyMapMeta, mergedApplyMapMeta);
-    const remoteNeedsUpdate = !jsonEqual(remoteApplyMap, mergedApplyMap) || !jsonEqual(remoteApplyMapMeta, mergedApplyMapMeta);
-    const mergedModified = getApplyMapMetaMaxModified(mergedApplyMapByOriginMeta);
+    const remoteNeedsUpdate = !forcePull && (!jsonEqual(remoteApplyMap, mergedApplyMap) || !jsonEqual(remoteApplyMapMeta, mergedApplyMapMeta));
 
     if (localNeedsUpdate) {
       await setStorageDuringSync({
@@ -1657,14 +1727,16 @@ async function runSync() {
         localDomainsState,
         SYNC_DOMAINS_NAME,
         JSON.stringify(mergedApplyMap, null, 2),
-        'application/json'
+        'application/json',
+        { force: forcePush }
       );
       domainsMetaRemoteRev = await syncPush(
         backend,
         localDomainsMetaState,
         SYNC_DOMAINS_META_NAME,
         JSON.stringify(mergedApplyMapMeta, null, 2),
-        'application/json'
+        'application/json',
+        { force: forcePush }
       );
       manifestChanged = true;
     }
@@ -1696,7 +1768,8 @@ async function runSync() {
     const localModified = (localMeta.items[favItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[favItemKey] || {}).modified || 0;
 
-    if (firstSync) {
+    let handled = false;
+    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
@@ -1704,30 +1777,22 @@ async function runSync() {
         await setStorageDuringSync({ [FAVORITES_KEY]: sanitized.favorites, [FAVORITES_ORDER_KEY]: sanitized.favoritesOrder });
         const modified = remoteModified || now;
         setModified(localMeta.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
-        setModified(remoteManifest.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
-        manifestChanged = true;
-      } else {
-        const modified = localModified || now;
-        const payload = JSON.stringify(localFavSnapshot, null, 2);
-        const remoteRev = await syncPush(backend, localState, SYNC_FAVORITES_NAME, payload, 'application/json');
-        setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
-        setModified(localMeta.items, favItemKey, modified, { remoteRev });
-        manifestChanged = true;
+        if (firstSync) {
+          setModified(remoteManifest.items, favItemKey, modified, { remoteRev: fileResult.remoteRev });
+          manifestChanged = true;
+        }
+        handled = true;
+      } else if (forcePull) {
+        await setStorageDuringSync({ [FAVORITES_KEY]: {}, [FAVORITES_ORDER_KEY]: [] });
+        setModified(localMeta.items, favItemKey, now);
+        handled = true;
       }
-    } else if (remoteModified > localModified) {
-      // Pull
-      const fileResult = await backend.get(SYNC_FAVORITES_NAME);
-      if (!fileResult.notFound) {
-        const remoteFav = JSON.parse(fileResult.data);
-        const sanitized = sanitizeFavoritesForSync(remoteFav[FAVORITES_KEY], remoteFav[FAVORITES_ORDER_KEY]);
-        await setStorageDuringSync({ [FAVORITES_KEY]: sanitized.favorites, [FAVORITES_ORDER_KEY]: sanitized.favoritesOrder });
-        setModified(localMeta.items, favItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
-      }
-    } else if (localModified > remoteModified) {
+    }
+    if (!handled && (forcePush || (!forcePull && (firstSync || localModified > remoteModified)))) {
       // Push
-      const modified = localModified || now;
+      const modified = forcePush ? now : (localModified || now);
       const payload = JSON.stringify(localFavSnapshot, null, 2);
-      const remoteRev = await syncPush(backend, localState, SYNC_FAVORITES_NAME, payload, 'application/json');
+      const remoteRev = await syncPush(backend, localState, SYNC_FAVORITES_NAME, payload, 'application/json', { force: forcePush });
       setModified(remoteManifest.items, favItemKey, modified, { remoteRev });
       setModified(localMeta.items, favItemKey, modified, { remoteRev });
       manifestChanged = true;
@@ -1744,38 +1809,25 @@ async function runSync() {
     const localModified = (localMeta.items[cssItemKey] || {}).modified || 0;
     const remoteModified = ((remoteManifest.items || {})[cssItemKey] || {}).modified || 0;
 
-    if (firstSync) {
+    let handled = false;
+    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_CUSTOM_FONTS_NAME);
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
         const modified = remoteModified || now;
         setModified(localMeta.items, cssItemKey, modified, { remoteRev: fileResult.remoteRev });
-        setModified(remoteManifest.items, cssItemKey, modified, { remoteRev: fileResult.remoteRev });
-        manifestChanged = true;
-      } else {
-        const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
-        let cssText = stored[CUSTOM_FONTS_CSS_KEY];
-        if (!cssText) {
-          const url = browser.runtime.getURL('custom-fonts-starter.css');
-          const response = await fetch(url);
-          cssText = await response.text();
-        }
-        if (cssText) {
-          const modified = localModified || now;
-          const remoteRev = await syncPush(backend, localState, SYNC_CUSTOM_FONTS_NAME, cssText, 'text/css');
-          setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
-          setModified(localMeta.items, cssItemKey, modified, { remoteRev });
+        if (firstSync) {
+          setModified(remoteManifest.items, cssItemKey, modified, { remoteRev: fileResult.remoteRev });
           manifestChanged = true;
         }
+        handled = true;
+      } else if (forcePull) {
+        await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: '' });
+        setModified(localMeta.items, cssItemKey, now);
+        handled = true;
       }
-    } else if (remoteModified > localModified) {
-      // Pull
-      const fileResult = await backend.get(SYNC_CUSTOM_FONTS_NAME);
-      if (!fileResult.notFound) {
-        await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
-        setModified(localMeta.items, cssItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
-      }
-    } else if (localModified > remoteModified) {
+    }
+    if (!handled && (forcePush || (!forcePull && (firstSync || localModified > remoteModified)))) {
       // Push
       const stored = await browser.storage.local.get(CUSTOM_FONTS_CSS_KEY);
       let cssText = stored[CUSTOM_FONTS_CSS_KEY];
@@ -1785,8 +1837,8 @@ async function runSync() {
         cssText = await response.text();
       }
       if (cssText) {
-        const modified = localModified || now;
-        const remoteRev = await syncPush(backend, localState, SYNC_CUSTOM_FONTS_NAME, cssText, 'text/css');
+        const modified = forcePush ? now : (localModified || now);
+        const remoteRev = await syncPush(backend, localState, SYNC_CUSTOM_FONTS_NAME, cssText, 'text/css', { force: forcePush });
         setModified(remoteManifest.items, cssItemKey, modified, { remoteRev });
         setModified(localMeta.items, cssItemKey, modified, { remoteRev });
         manifestChanged = true;
@@ -1864,18 +1916,37 @@ async function runSync() {
         ? sanitizeDomainOriginMeta(JSON.parse(remoteMetaResult.data))
         : { version: 1, byOrigin: {} };
 
-      seedDomainMetaFromArray(localOriginMeta, localOrigins, localArrayModified, now);
-      seedDomainMetaFromArray(remoteOriginMeta, remoteOrigins, remoteArrayModified, now);
-
-      const { mergedMeta, mergedOrigins } = mergeDomainOriginMeta(localOriginMeta, remoteOriginMeta);
+      let mergedMeta;
+      let mergedOrigins;
+      let mergedModified;
+      if (forcePush) {
+        mergedOrigins = localOrigins;
+        mergedMeta = createForcedDomainMeta(
+          localOrigins,
+          remoteOrigins.filter((origin) => !localOrigins.includes(origin)),
+          now
+        );
+        mergedModified = now;
+      } else if (forcePull) {
+        seedDomainMetaFromArray(remoteOriginMeta, remoteOrigins, remoteArrayModified, now);
+        mergedOrigins = remoteOrigins;
+        mergedMeta = remoteOriginMeta;
+        mergedModified = getApplyMapMetaMaxModified(mergedMeta.byOrigin) || remoteArrayModified || now;
+      } else {
+        seedDomainMetaFromArray(localOriginMeta, localOrigins, localArrayModified, now);
+        seedDomainMetaFromArray(remoteOriginMeta, remoteOrigins, remoteArrayModified, now);
+        const merged = mergeDomainOriginMeta(localOriginMeta, remoteOriginMeta);
+        mergedMeta = merged.mergedMeta;
+        mergedOrigins = merged.mergedOrigins;
+        mergedModified = getApplyMapMetaMaxModified(mergedMeta.byOrigin);
+      }
       const remoteMetaAsOrigins = Object.keys(remoteOriginMeta.byOrigin)
         .filter((origin) => !sanitizeTimestamp(remoteOriginMeta.byOrigin[origin].deletedAt))
         .sort();
       const localNeedsUpdate = !jsonEqual(localOrigins, mergedOrigins) || !jsonEqual(localOriginMeta, mergedMeta);
-      const remoteNeedsUpdate = !jsonEqual(remoteOrigins, mergedOrigins)
+      const remoteNeedsUpdate = !forcePull && (!jsonEqual(remoteOrigins, mergedOrigins)
         || !jsonEqual(remoteOriginMeta, mergedMeta)
-        || !jsonEqual(remoteMetaAsOrigins, mergedOrigins);
-      const mergedModified = getApplyMapMetaMaxModified(mergedMeta.byOrigin);
+        || !jsonEqual(remoteMetaAsOrigins, mergedOrigins));
 
       if (localNeedsUpdate) {
         await setStorageDuringSync({
@@ -1892,14 +1963,16 @@ async function runSync() {
           localArrayState,
           item.filename,
           JSON.stringify(mergedOrigins, null, 2),
-          'application/json'
+          'application/json',
+          { force: forcePush }
         );
         metaRemoteRev = await syncPush(
           backend,
           localMetaState,
           item.metaFilename,
           JSON.stringify(mergedMeta, null, 2),
-          'application/json'
+          'application/json',
+          { force: forcePush }
         );
         manifestChanged = true;
       }
@@ -1931,41 +2004,32 @@ async function runSync() {
       const localModified = (localMeta.items[item.filename] || {}).modified || 0;
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
-      if (firstSync) {
+      let handled = false;
+      if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
         const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
           const modified = remoteModified || now;
           setModified(localMeta.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
-          setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
-          manifestChanged = true;
-        } else {
-          const stored = await browser.storage.local.get(item.key);
-          const arr = stored[item.key];
-          if (Array.isArray(arr)) {
-            const modified = localModified || now;
-            const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(arr, null, 2), 'application/json');
-            setModified(remoteManifest.items, item.filename, modified, { remoteRev });
-            setModified(localMeta.items, item.filename, modified, { remoteRev });
+          if (firstSync) {
+            setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
             manifestChanged = true;
           }
+          handled = true;
+        } else if (forcePull) {
+          await setStorageDuringSync({ [item.key]: [] });
+          setModified(localMeta.items, item.filename, now);
+          handled = true;
         }
-      } else if (remoteModified > localModified) {
-        // Pull
-        const fileResult = await backend.get(item.filename);
-        if (!fileResult.notFound) {
-          const parsed = JSON.parse(fileResult.data);
-          await setStorageDuringSync({ [item.key]: parsed });
-          setModified(localMeta.items, item.filename, remoteModified, { remoteRev: fileResult.remoteRev });
-        }
-      } else if (localModified > remoteModified) {
+      }
+      if (!handled && (forcePush || (!forcePull && (firstSync || localModified > remoteModified)))) {
         // Push
         const stored = await browser.storage.local.get(item.key);
         const arr = stored[item.key];
         if (Array.isArray(arr)) {
-          const modified = localModified || now;
-          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(arr, null, 2), 'application/json');
+          const modified = forcePush ? now : (localModified || now);
+          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(arr, null, 2), 'application/json', { force: forcePush });
           setModified(remoteManifest.items, item.filename, modified, { remoteRev });
           setModified(localMeta.items, item.filename, modified, { remoteRev });
           manifestChanged = true;
@@ -1987,39 +2051,31 @@ async function runSync() {
       const localModified = (localMeta.items[item.filename] || {}).modified || 0;
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
-      if (firstSync) {
+      let handled = false;
+      if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
         const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
           await setStorageDuringSync({ [item.key]: parsed });
           const modified = remoteModified || now;
           setModified(localMeta.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
-          setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
-          manifestChanged = true;
-        } else {
-          const stored = await browser.storage.local.get(item.key);
-          const obj = stored[item.key];
-          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-            const modified = localModified || now;
-            const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(obj, null, 2), 'application/json');
-            setModified(remoteManifest.items, item.filename, modified, { remoteRev });
-            setModified(localMeta.items, item.filename, modified, { remoteRev });
+          if (firstSync) {
+            setModified(remoteManifest.items, item.filename, modified, { remoteRev: fileResult.remoteRev });
             manifestChanged = true;
           }
+          handled = true;
+        } else if (forcePull) {
+          await setStorageDuringSync({ [item.key]: {} });
+          setModified(localMeta.items, item.filename, now);
+          handled = true;
         }
-      } else if (remoteModified > localModified) {
-        const fileResult = await backend.get(item.filename);
-        if (!fileResult.notFound) {
-          const parsed = JSON.parse(fileResult.data);
-          await setStorageDuringSync({ [item.key]: parsed });
-          setModified(localMeta.items, item.filename, remoteModified, { remoteRev: fileResult.remoteRev });
-        }
-      } else if (localModified > remoteModified) {
+      }
+      if (!handled && (forcePush || (!forcePull && (firstSync || localModified > remoteModified)))) {
         const stored = await browser.storage.local.get(item.key);
         const obj = stored[item.key];
         if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-          const modified = localModified || now;
-          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(obj, null, 2), 'application/json');
+          const modified = forcePush ? now : (localModified || now);
+          const remoteRev = await syncPush(backend, localState, item.filename, JSON.stringify(obj, null, 2), 'application/json', { force: forcePush });
           setModified(remoteManifest.items, item.filename, modified, { remoteRev });
           setModified(localMeta.items, item.filename, modified, { remoteRev });
           manifestChanged = true;
@@ -2047,7 +2103,8 @@ async function runSync() {
       };
     };
 
-    if (firstSync) {
+    let handled = false;
+    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_SUBSTACK_ROULETTE_NAME);
       if (!fileResult.notFound) {
         const remote = JSON.parse(fileResult.data);
@@ -2058,33 +2115,26 @@ async function runSync() {
         });
         const modified = remoteModified || now;
         setModified(localMeta.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
-        setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
-        manifestChanged = true;
-      } else {
-        const snapshot = await getLocalRouletteSnapshot();
-        const modified = localModified || now;
-        const remoteRev = await syncPush(backend, localState, SYNC_SUBSTACK_ROULETTE_NAME, JSON.stringify(snapshot, null, 2), 'application/json');
-        setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev });
-        setModified(localMeta.items, rouletteItemKey, modified, { remoteRev });
-        manifestChanged = true;
-      }
-    } else if (remoteModified > localModified) {
-      // Pull
-      const fileResult = await backend.get(SYNC_SUBSTACK_ROULETTE_NAME);
-      if (!fileResult.notFound) {
-        const remote = JSON.parse(fileResult.data);
+        if (firstSync) {
+          setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev: fileResult.remoteRev });
+          manifestChanged = true;
+        }
+        handled = true;
+      } else if (forcePull) {
         await setStorageDuringSync({
-          [SUBSTACK_ROULETTE_KEY]: remote[SUBSTACK_ROULETTE_KEY] !== false,
-          [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SERIF_KEY]) ? remote[SUBSTACK_ROULETTE_SERIF_KEY] : [],
-          [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(remote[SUBSTACK_ROULETTE_SANS_KEY]) ? remote[SUBSTACK_ROULETTE_SANS_KEY] : []
+          [SUBSTACK_ROULETTE_KEY]: true,
+          [SUBSTACK_ROULETTE_SERIF_KEY]: [],
+          [SUBSTACK_ROULETTE_SANS_KEY]: []
         });
-        setModified(localMeta.items, rouletteItemKey, remoteModified, { remoteRev: fileResult.remoteRev });
+        setModified(localMeta.items, rouletteItemKey, now);
+        handled = true;
       }
-    } else if (localModified > remoteModified) {
+    }
+    if (!handled && (forcePush || (!forcePull && (firstSync || localModified > remoteModified)))) {
       // Push
       const snapshot = await getLocalRouletteSnapshot();
-      const modified = localModified || now;
-      const remoteRev = await syncPush(backend, localState, SYNC_SUBSTACK_ROULETTE_NAME, JSON.stringify(snapshot, null, 2), 'application/json');
+      const modified = forcePush ? now : (localModified || now);
+      const remoteRev = await syncPush(backend, localState, SYNC_SUBSTACK_ROULETTE_NAME, JSON.stringify(snapshot, null, 2), 'application/json', { force: forcePush });
       setModified(remoteManifest.items, rouletteItemKey, modified, { remoteRev });
       setModified(localMeta.items, rouletteItemKey, modified, { remoteRev });
       manifestChanged = true;
@@ -2128,7 +2178,7 @@ function enqueueSync(options = {}) {
       if (!(await isSyncConfigured())) {
         return { ok: true, skipped: true, reason: 'not_configured' };
       }
-      return runSync();
+      return runSync({ mode: options.mode });
     });
 
   syncQueue = queued.then(
@@ -2245,6 +2295,14 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    if (msg.type === 'affoSyncSetBackend') {
+      try {
+        return await setSyncBackendSelection(msg.backend);
+      } catch (e) {
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
     if (msg.type === 'affoWebDavConnect') {
       try {
         await assertSyncDataCollectionConsent();
@@ -2284,7 +2342,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
     if (msg.type === 'affoSyncNow') {
       try {
         await assertSyncDataCollectionConsent();
-        return await enqueueSync({ notifyOnError: true });
+        return await enqueueSync({ notifyOnError: true, mode: msg.mode });
       } catch (e) {
         return { ok: false, error: e && e.message ? e.message : String(e) };
       }

@@ -822,6 +822,91 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
         assert.equal(domainPut, undefined, 'should not push when revision conflict detected');
     });
+
+    it('push-once overwrites remote despite a stale stored revision', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'force.example': { body: { fontName: 'LocalForce', variableAxes: {} } }
+                },
+                affoSyncMeta: {
+                    lastSync: 600,
+                    items: {
+                        'domains.json': {
+                            modified: 500,
+                            remoteRev: 'app-folder:domains.json:v1'
+                        }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 550,
+                items: { 'domains.json': { modified: 400 } }
+            },
+            remoteAppFiles: {
+                'domains.json': {
+                    'remote.example': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+                }
+            },
+            remoteFileInfo: {
+                'app-folder/domains.json': {
+                    id: 'app-folder:domains.json',
+                    version: '2',
+                    modifiedTime: '2026-01-01T00:00:00.050Z'
+                }
+            }
+        });
+
+        const result = await harness.runSync({ mode: 'push' });
+        assert.equal(result.ok, true);
+
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.ok(domainPut, 'expected domains.json to be force-pushed');
+        const pushed = JSON.parse(domainPut.content);
+        assert.equal(pushed['force.example'].body.fontName, 'LocalForce');
+        assert.equal(pushed['remote.example'], undefined);
+    });
+
+    it('pull-once applies remote favorites even when local metadata is newer', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoFavorites: {
+                    LocalOnly: { fontName: 'LocalOnly', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['LocalOnly'],
+                affoSyncMeta: {
+                    lastSync: 1000,
+                    items: {
+                        'favorites.json': { modified: 900 }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 1000,
+                items: {
+                    'favorites.json': { modified: 100 }
+                }
+            },
+            remoteAppFiles: {
+                'favorites.json': {
+                    affoFavorites: {
+                        RemoteOnly: { fontName: 'RemoteOnly', variableAxes: {} }
+                    },
+                    affoFavoritesOrder: ['RemoteOnly']
+                }
+            }
+        });
+
+        const result = await harness.runSync({ mode: 'pull' });
+        assert.equal(result.ok, true);
+        assert.equal(harness.storageData.affoFavoritesOrder[0], 'RemoteOnly');
+        assert.ok(harness.storageData.affoFavorites.RemoteOnly);
+
+        const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.equal(favoritesPut, undefined, 'pull-once should not push local favorites back');
+    });
 });
 
 describe('Google Drive first-sync behavior', () => {

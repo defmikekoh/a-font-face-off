@@ -8,8 +8,8 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 - `gdriveBackend` / `webdavBackend` objects with `init()`, `isConfigured()`, `get()`, `put()`, `remove()`
 - One active at a time: `affoSyncBackend` storage key = `'gdrive'` | `'webdav'`
-- `runSync()` is backend-agnostic, uses `getActiveBackend()` to select
-- `syncPush()` helper wraps revision checks for both backends (GDrive remote revision, WebDAV ETag when available)
+- `runSync({ mode })` is backend-agnostic, uses `getActiveBackend()` to select, and supports one-shot `merge`, `push`, and `pull` modes.
+- `syncPush()` helper wraps revision checks for both backends (GDrive remote revision, WebDAV ETag when available). Normal merge sync uses optimistic checks; one-shot push intentionally bypasses them to overwrite remote.
 
 ## Google Drive
 
@@ -41,10 +41,10 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 - Domain-list settings auto-sync on list changes by updating per-origin local metadata keys and marking both list file and sidecar metadata file modified.
 - Favorites auto-sync when `affoFavorites` or `affoFavoritesOrder` changes. All other synced settings auto-sync on storage change.
 - Storage change listener compares `oldValue` vs `newValue` before marking modified (avoids unnecessary syncs).
-- Manual sync via "Sync Now" button in Advanced Options. "Clear Local Sync" button resets local sync metadata without disconnecting OAuth.
+- Manual sync actions in Advanced Options are `Sync` (normal merge), `Push once to remote` (local wins for one run), and `Pull once to local` (remote wins for one run). The sync source selector can disable sync without deleting stored backend configuration; Google Drive additionally exposes explicit `Authorize` and `Revoke` buttons, while WebDAV is saved/edited through its config form.
 - `self.addEventListener('online', ...)` triggers sync when connectivity returns (covers wake-from-sleep). `gdriveFetch()` throws when offline to prevent futile requests mid-sync.
 - Auto-sync failures emit `affoSyncFailed` runtime messages consumed by the Options page modal. When the stored Google Drive refresh token has been rejected, the modal switches from retry to reconnect.
 
 ## Key Functions
 
-`runSync()` (core bidirectional merge), `gdriveFetch()` (auth + retry wrapper), `ensureAppFolder()`, `scheduleAutoSync()`, `markLocalItemModified()`.
+`runSync()` (core merge and one-shot direction modes), `gdriveFetch()` (auth + retry wrapper), `ensureAppFolder()`, `scheduleAutoSync()`, `markLocalItemModified()`.

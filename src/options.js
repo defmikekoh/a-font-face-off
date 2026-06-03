@@ -5,7 +5,6 @@
   const GDRIVE_RECONNECT_REQUIRED_STATE = 'reconnect_required';
   const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, close this Options tab and open a fresh one, then try again.';
   let syncModalPrimaryAction = null;
-  let syncConnectedPrimaryAction = null;
   let syncUiPendingCount = 0;
   let pendingSyncLastSyncedText = '';
 
@@ -62,19 +61,6 @@
     return `Google rejected the stored refresh token: ${parts.join('; ')}.`;
   }
 
-  function setSyncConnectedPrimaryAction(label, action) {
-    const btn = document.getElementById('sync-now');
-    syncConnectedPrimaryAction = typeof action === 'function' ? action : null;
-    if (!btn) return;
-    btn.textContent = label || 'Sync Now';
-    btn.disabled = !syncConnectedPrimaryAction;
-  }
-
-  async function handleSyncConnectedPrimaryAction() {
-    if (!syncConnectedPrimaryAction) return;
-    await syncConnectedPrimaryAction();
-  }
-
   function getSyncSkippedMessage(res) {
     if (!res || !res.skipped) return '';
     if (res.reason === 'offline') return 'You appear to be offline';
@@ -112,10 +98,10 @@
     return buildLastSyncedText(meta, fallbackText);
   }
 
-  async function runTrackedSyncMessage(type) {
+  async function runTrackedSyncMessage(type, payload = {}) {
     beginSyncUiTracking();
     try {
-      return await requestSyncMessage(type);
+      return await requestSyncMessage(type, payload);
     } finally {
       endSyncUiTracking();
     }
@@ -131,9 +117,9 @@
     }, options));
   }
 
-  async function requestSyncMessage(type) {
+  async function requestSyncMessage(type, payload = {}) {
     // Firefox can transiently lose the background message receiver right after OAuth tab flows.
-    const res = await sendRuntimeMessage({ type }, { retryMs: 3000, retryDelayMs: 100 });
+    const res = await sendRuntimeMessage(Object.assign({ type }, payload), { retryMs: 3000, retryDelayMs: 100 });
     if (!res) throw new Error('No response from background');
     if (!res.ok && !res.skipped) {
       throw new Error(res.error || 'Sync failed');
@@ -528,6 +514,112 @@
     });
   }
 
+  function setupLongPressTooltips(selector) {
+    const buttons = Array.from(document.querySelectorAll(selector));
+    const LONG_PRESS_MS = 420;
+    buttons.forEach((button) => {
+      let longPressTimer = null;
+      let hideTimer = null;
+      let suppressClick = false;
+      let activePointerId = null;
+
+      function clearTimer() {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }
+
+      function clearHideTimer() {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      }
+
+      function showTooltipFromLongPress() {
+        longPressTimer = null;
+        suppressClick = true;
+        button.classList.add('tooltip-visible');
+      }
+
+      function startPressTimer() {
+        if (button.disabled) return;
+        clearTimer();
+        clearHideTimer();
+        suppressClick = false;
+        longPressTimer = setTimeout(showTooltipFromLongPress, LONG_PRESS_MS);
+      }
+
+      function scheduleHideTooltip() {
+        clearTimer();
+        activePointerId = null;
+        clearHideTimer();
+        hideTimer = setTimeout(() => {
+          hideTimer = null;
+          button.classList.remove('tooltip-visible');
+        }, 900);
+      }
+
+      function hideTooltip() {
+        clearTimer();
+        clearHideTimer();
+        activePointerId = null;
+        button.classList.remove('tooltip-visible');
+      }
+
+      button.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch') return;
+        activePointerId = e.pointerId;
+        startPressTimer();
+      });
+
+      button.addEventListener('pointerup', (e) => {
+        if (activePointerId != null && e.pointerId !== activePointerId) return;
+        scheduleHideTooltip();
+      });
+      button.addEventListener('pointercancel', (e) => {
+        if (e.pointerType === 'touch') return;
+        hideTooltip();
+      });
+      button.addEventListener('pointerleave', hideTooltip);
+      button.addEventListener('touchstart', () => {
+        startPressTimer();
+      }, { passive: true });
+      button.addEventListener('touchend', () => {
+        scheduleHideTooltip();
+      });
+      button.addEventListener('touchcancel', () => {
+        hideTooltip();
+      });
+      button.addEventListener('mousedown', () => {
+        if (window.PointerEvent) return;
+        startPressTimer();
+      });
+      button.addEventListener('mouseup', () => {
+        if (window.PointerEvent) return;
+        clearTimer();
+        setTimeout(() => {
+          button.classList.remove('tooltip-visible');
+        }, 900);
+      });
+      button.addEventListener('mouseleave', () => {
+        if (window.PointerEvent) return;
+        hideTooltip();
+      });
+      button.addEventListener('blur', hideTooltip);
+      button.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+      });
+      button.addEventListener('click', (e) => {
+        if (!suppressClick) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        suppressClick = false;
+      }, true);
+    });
+  }
+
   async function saveCustomCss() {
     const editor = document.getElementById('custom-css-editor');
     const status = document.getElementById('css-status');
@@ -850,14 +942,6 @@
     return `${days}d ago`;
   }
 
-  function showSyncSection(sectionId) {
-    const sections = ['gdrive-config', 'webdav-config', 'sync-connected'];
-    for (const id of sections) {
-      const el = document.getElementById(id);
-      if (el) el.style.display = id === sectionId ? 'block' : 'none';
-    }
-  }
-
   async function updateSyncConnectionState() {
     const data = await browser.storage.local.get(['affoSyncBackend', 'affoGDriveTokens', 'affoWebDavConfig', 'affoSyncMeta', GDRIVE_AUTH_STATUS_KEY]);
     const activeBackend = data.affoSyncBackend;
@@ -866,54 +950,85 @@
     const connectedLabelEl = document.getElementById('sync-connected-label');
     const lastSyncedEl = document.getElementById('sync-last-synced');
     const authDetailEl = document.getElementById('sync-auth-detail');
+    const gdriveAuthActionsEl = document.getElementById('gdrive-auth-actions');
+    const gdriveConnectBtn = document.getElementById('gdrive-connect');
+    const gdriveDisconnectBtn = document.getElementById('gdrive-disconnect');
+    const syncButtons = ['sync-now', 'sync-push', 'sync-pull']
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
     const reconnectStatus = activeBackend === 'gdrive' ? data[GDRIVE_AUTH_STATUS_KEY] : null;
     const gdriveReconnectRequired = !!(reconnectStatus && reconnectStatus.state === GDRIVE_RECONNECT_REQUIRED_STATE);
 
-    let connected = false;
-    if (activeBackend === 'gdrive') {
-      const tokens = data.affoGDriveTokens;
-      connected = !!(tokens && tokens.accessToken && tokens.refreshToken);
-    } else if (activeBackend === 'webdav') {
-      const config = data.affoWebDavConfig;
-      connected = !!(config && config.serverUrl);
+    const tokens = data.affoGDriveTokens;
+    const gdriveConnected = !!(tokens && tokens.accessToken && tokens.refreshToken);
+    const webdavConfig = data.affoWebDavConfig;
+    const webdavConnected = !!(webdavConfig && webdavConfig.serverUrl);
+    const connected = (activeBackend === 'gdrive' && gdriveConnected)
+      || (activeBackend === 'webdav' && webdavConnected);
+    const googleDriveSelected = activeBackend === 'gdrive';
+
+    if (webdavConfig && activeBackend === 'webdav') {
+      const serverUrlEl = document.getElementById('webdav-server-url');
+      const usernameEl = document.getElementById('webdav-username');
+      const passwordEl = document.getElementById('webdav-password');
+      const anonymousEl = document.getElementById('webdav-anonymous');
+      if (serverUrlEl && document.activeElement !== serverUrlEl) serverUrlEl.value = webdavConfig.serverUrl || '';
+      if (usernameEl && document.activeElement !== usernameEl) usernameEl.value = webdavConfig.username || '';
+      if (passwordEl && document.activeElement !== passwordEl) passwordEl.value = webdavConfig.password || '';
+      if (anonymousEl) {
+        anonymousEl.checked = !!webdavConfig.anonymous;
+        if (usernameEl) usernameEl.disabled = anonymousEl.checked;
+        if (passwordEl) passwordEl.disabled = anonymousEl.checked;
+      }
     }
 
     if (selectEl) {
       selectEl.value = activeBackend || '';
     }
+    if (selectorEl) selectorEl.style.display = 'block';
+    updateBackendSelector(activeBackend || '');
+    if (gdriveAuthActionsEl) {
+      gdriveAuthActionsEl.style.display = googleDriveSelected ? 'flex' : 'none';
+    }
 
     if (connected) {
-      if (selectorEl) selectorEl.style.display = 'none';
       const backendLabel = activeBackend === 'gdrive' ? 'Google Drive' : 'WebDAV';
-      if (connectedLabelEl) connectedLabelEl.textContent = `Connected (${backendLabel})`;
+      if (connectedLabelEl) connectedLabelEl.textContent = `${backendLabel} ready`;
       if (connectedLabelEl) connectedLabelEl.style.color = 'green';
-      showSyncSection('sync-connected');
-      setSyncConnectedPrimaryAction('Sync Now', syncNow);
+      syncButtons.forEach((btn) => { btn.disabled = false; });
       if (lastSyncedEl) {
         const meta = data.affoSyncMeta || {};
         lastSyncedEl.textContent = getVisibleLastSyncedText(meta, 'Not yet synced');
       }
       if (authDetailEl) authDetailEl.textContent = '';
     } else if (gdriveReconnectRequired) {
-      if (selectorEl) selectorEl.style.display = 'none';
-      showSyncSection('sync-connected');
       if (connectedLabelEl) connectedLabelEl.textContent = 'Reconnect Required (Google Drive)';
       if (connectedLabelEl) connectedLabelEl.style.color = '#b35c00';
-      setSyncConnectedPrimaryAction('Reconnect Google Drive', connectGDrive);
+      syncButtons.forEach((btn) => { btn.disabled = true; });
       if (lastSyncedEl) {
         const meta = data.affoSyncMeta || {};
         lastSyncedEl.textContent = getVisibleLastSyncedText(meta, 'Reconnect Google Drive to resume sync');
       }
       if (authDetailEl) authDetailEl.textContent = buildGDriveReconnectDetail(reconnectStatus);
     } else {
-      if (selectorEl) selectorEl.style.display = 'block';
-      showSyncSection(null);
-      setSyncConnectedPrimaryAction('Sync Now', syncNow);
-      if (connectedLabelEl) connectedLabelEl.style.color = 'green';
+      syncButtons.forEach((btn) => { btn.disabled = true; });
+      if (connectedLabelEl) {
+        connectedLabelEl.textContent = activeBackend === 'gdrive'
+          ? 'Google Drive authorization required'
+          : (activeBackend === 'webdav' ? 'WebDAV configuration required' : 'Sync disabled');
+      }
+      if (connectedLabelEl) connectedLabelEl.style.color = activeBackend ? '#b35c00' : 'green';
       if (authDetailEl) authDetailEl.textContent = '';
       if (lastSyncedEl) lastSyncedEl.textContent = '';
-      // Show the config for whatever's selected in the dropdown
-      if (selectEl) updateBackendSelector(selectEl.value);
+    }
+
+    if (gdriveConnectBtn) {
+      gdriveConnectBtn.textContent = 'Authorize';
+      gdriveConnectBtn.disabled = !(googleDriveSelected && (!gdriveConnected || gdriveReconnectRequired));
+    }
+    if (gdriveDisconnectBtn) {
+      gdriveDisconnectBtn.textContent = 'Revoke';
+      gdriveDisconnectBtn.disabled = !(googleDriveSelected && (gdriveConnected || gdriveReconnectRequired));
     }
   }
 
@@ -922,8 +1037,26 @@
     const webdavConfig = document.getElementById('webdav-config');
     if (gdriveConfig) gdriveConfig.style.display = value === 'gdrive' ? 'block' : 'none';
     if (webdavConfig) webdavConfig.style.display = value === 'webdav' ? 'block' : 'none';
-    const connectedEl = document.getElementById('sync-connected');
-    if (connectedEl) connectedEl.style.display = 'none';
+  }
+
+  async function handleSyncBackendSelectionChange(value) {
+    const statusEl = document.getElementById('status-sync');
+    try {
+      if (statusEl) statusEl.textContent = value ? 'Selecting sync source...' : 'Disabling sync...';
+      const res = await sendRuntimeMessage({ type: 'affoSyncSetBackend', backend: value }, { retryMs: 3000, retryDelayMs: 100 });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Sync source update failed');
+      if (statusEl) {
+        statusEl.textContent = value ? 'Sync source selected' : 'Sync disabled';
+        setTimeout(() => { statusEl.textContent = ''; }, 1800);
+      }
+      await updateSyncConnectionState();
+    } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = 'Error: ' + (e.message || e);
+        setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      }
+      await updateSyncConnectionState();
+    }
   }
 
   async function connectGDrive() {
@@ -931,7 +1064,7 @@
     try {
       statusEl.textContent = 'Awaiting consent...';
       await ensureSyncDataCollectionConsent();
-      statusEl.textContent = 'Connecting...';
+      statusEl.textContent = 'Authorizing...';
       const res = await sendRuntimeMessage({ type: 'affoGDriveAuth' }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
       statusEl.textContent = 'Connected. Syncing...';
@@ -968,10 +1101,10 @@
         throw new Error('Username and password required (or check Anonymous)');
       }
       await saveWebDavFolderSuffix();
-      statusEl.textContent = 'Connecting...';
+      statusEl.textContent = 'Saving...';
       const res = await sendRuntimeMessage({ type: 'affoWebDavConnect', config }, { retryMs: 3000, retryDelayMs: 100 });
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Connection failed');
-      statusEl.textContent = 'Connected';
+      statusEl.textContent = 'WebDAV saved';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
       await updateSyncConnectionState();
     } catch (e) {
@@ -1004,16 +1137,13 @@
     }
   }
 
-  async function disconnectSync() {
-    const statusEl = document.getElementById('status-sync');
+  async function disconnectGDrive() {
+    const statusEl = document.getElementById('status-gdrive-connect');
     try {
-      statusEl.textContent = 'Disconnecting...';
-      const data = await browser.storage.local.get('affoSyncBackend');
-      const backend = data.affoSyncBackend;
-      const msgType = backend === 'webdav' ? 'affoWebDavDisconnect' : 'affoGDriveDisconnect';
-      const res = await sendRuntimeMessage({ type: msgType }, { retryMs: 3000, retryDelayMs: 100 });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Disconnect failed');
-      statusEl.textContent = 'Disconnected';
+      statusEl.textContent = 'Revoking...';
+      const res = await sendRuntimeMessage({ type: 'affoGDriveDisconnect' }, { retryMs: 3000, retryDelayMs: 100 });
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Revoke failed');
+      statusEl.textContent = 'Revoked';
       setTimeout(() => { statusEl.textContent = ''; }, 2000);
       await updateSyncConnectionState();
     } catch (e) {
@@ -1022,32 +1152,28 @@
     }
   }
 
-  async function clearLocalSync() {
+  async function syncNow(mode) {
+    const syncMode = mode === 'push' || mode === 'pull' ? mode : 'merge';
     const statusEl = document.getElementById('status-sync');
-    try {
-      statusEl.textContent = 'Clearing...';
-      const res = await sendRuntimeMessage({ type: 'affoClearLocalSync' }, { retryMs: 3000, retryDelayMs: 100 });
-      if (!res || !res.ok) throw new Error(res && res.error ? res.error : 'Clear failed');
-      statusEl.textContent = 'Local sync data cleared';
-      setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      await updateSyncConnectionState();
-    } catch (e) {
-      statusEl.textContent = 'Error: ' + (e.message || e);
-      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    if (syncMode === 'push' && !confirm('Push this device\'s sync data to remote now? This can overwrite remote settings and custom-fonts.css.')) {
+      return;
     }
-  }
-
-  async function syncNow() {
-    const statusEl = document.getElementById('status-sync');
+    if (syncMode === 'pull' && !confirm('Pull remote sync data to this device now? This can overwrite local settings and custom-fonts.css.')) {
+      return;
+    }
     try {
       statusEl.textContent = 'Awaiting consent...';
       await ensureSyncDataCollectionConsent();
-      statusEl.textContent = 'Syncing...';
-      const res = await runTrackedSyncMessage('affoSyncNow');
+      statusEl.textContent = syncMode === 'push'
+        ? 'Pushing...'
+        : (syncMode === 'pull' ? 'Pulling...' : 'Syncing...');
+      const res = await runTrackedSyncMessage('affoSyncNow', { mode: syncMode });
       if (res.skipped) {
         statusEl.textContent = getSyncSkippedMessage(res);
       } else {
-        statusEl.textContent = 'Synced';
+        statusEl.textContent = syncMode === 'push'
+          ? 'Pushed to remote'
+          : (syncMode === 'pull' ? 'Pulled to local' : 'Synced');
       }
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
       await updateSyncConnectionState();
@@ -1055,7 +1181,7 @@
       statusEl.textContent = 'Error: ' + (e.message || e);
       setTimeout(() => { statusEl.textContent = ''; }, 4000);
       await updateSyncConnectionState();
-      await presentSyncFailureModal(e.message || String(e), syncNow);
+      await presentSyncFailureModal(e.message || String(e), () => syncNow(syncMode));
     }
   }
 
@@ -1577,9 +1703,10 @@
 
     // Cloud sync handlers
     document.getElementById('sync-backend-select').addEventListener('change', function() {
-      updateBackendSelector(this.value);
+      handleSyncBackendSelectionChange(this.value);
     });
     document.getElementById('gdrive-connect').addEventListener('click', connectGDrive);
+    document.getElementById('gdrive-disconnect').addEventListener('click', disconnectGDrive);
     document.getElementById('webdav-connect').addEventListener('click', connectWebDav);
     document.getElementById('webdav-test').addEventListener('click', testWebDav);
     document.getElementById('webdav-anonymous').addEventListener('change', function() {
@@ -1587,9 +1714,10 @@
       document.getElementById('webdav-username').disabled = disabled;
       document.getElementById('webdav-password').disabled = disabled;
     });
-    document.getElementById('sync-disconnect').addEventListener('click', disconnectSync);
-    document.getElementById('sync-clear').addEventListener('click', clearLocalSync);
-    document.getElementById('sync-now').addEventListener('click', handleSyncConnectedPrimaryAction);
+    document.getElementById('sync-now').addEventListener('click', () => syncNow('merge'));
+    document.getElementById('sync-push').addEventListener('click', () => syncNow('push'));
+    document.getElementById('sync-pull').addEventListener('click', () => syncNow('pull'));
+    setupLongPressTooltips('.sync-icon-button');
     document.getElementById('gdrive-folder-suffix').addEventListener('input', function() {
       updateGDriveFolderPreview();
       saveGDriveFolderSuffix();

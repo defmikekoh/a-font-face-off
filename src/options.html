@@ -351,19 +351,130 @@
     }
 
     /* Cloud Sync button layout */
-    #sync-now {
-      margin-left: auto;
-      flex: 1;
+    .sync-main-row,
+    .sync-actions {
       display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       align-items: center;
-      justify-content: center;
-      min-height: 0;
     }
 
-    #sync-clear,
-    #sync-disconnect {
+    .sync-main-row {
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .sync-source-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 4px;
+    }
+
+    .sync-auth-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sync-actions button,
+    #gdrive-disconnect {
       white-space: nowrap;
       margin: 0;
+    }
+
+    .sync-auth-actions button:disabled,
+    .sync-actions button:disabled {
+      color: #6b7280;
+      border-color: #9ca3af;
+      background: rgba(156, 163, 175, 0.08);
+      cursor: default;
+      opacity: 0.65;
+    }
+
+    .sync-icon-button {
+      position: relative;
+      width: 36px;
+      height: 34px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .sync-icon-button svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .sync-icon-button::before,
+    .sync-icon-button::after {
+      position: absolute;
+      left: 50%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+      z-index: 20;
+    }
+
+    .sync-icon-button::before {
+      content: "";
+      top: calc(100% + 2px);
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-bottom-color: var(--primary-color);
+    }
+
+    .sync-icon-button::after {
+      content: attr(data-tooltip);
+      top: calc(100% + 14px);
+      transform: translateX(-50%);
+      min-width: max-content;
+      max-width: 180px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: var(--primary-color);
+      color: white;
+      font-size: 12px;
+      line-height: 1.2;
+      text-align: center;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+      white-space: normal;
+    }
+
+    .sync-icon-button:hover::before,
+    .sync-icon-button:hover::after,
+    .sync-icon-button:focus-visible::before,
+    .sync-icon-button:focus-visible::after,
+    .sync-icon-button.tooltip-visible::before,
+    .sync-icon-button.tooltip-visible::after {
+      opacity: 1;
+    }
+
+    .sync-icon-button:disabled::before,
+    .sync-icon-button:disabled::after {
+      opacity: 0;
+    }
+
+    .sync-status-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-height: 20px;
+      margin: 4px 0 10px;
+    }
+
+    .sync-config {
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -610,31 +721,64 @@
     <div class="hint">Shows a floating vertical toolbar on the left side of web pages with Face-off, WhatFont, and navigation buttons. Position controls vertical centering. Page Up/Down buttons support longpress for different scroll distances.</div>
 
     <div class="section" style="margin-top: 20px;">
-      <div class="section-title">Cloud Sync</div>
+      <div class="section-title">Sync</div>
 
-      <!-- Backend selector (shown when disconnected) -->
-      <div id="sync-backend-selector">
-        <label for="sync-backend-select">Sync backend</label>
-        <select id="sync-backend-select">
-          <option value="">None</option>
-          <option value="gdrive">Google Drive</option>
-          <option value="webdav">WebDAV</option>
-        </select>
-      </div>
-
-      <!-- Google Drive config (shown when gdrive selected and disconnected) -->
-      <div id="gdrive-config" style="display: none;">
-        <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
-        <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
-        <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
-        <div class="row">
-          <button id="gdrive-connect" class="purple">Connect Google Drive</button>
+      <div class="sync-main-row">
+        <div id="sync-backend-selector" class="sync-source-control">
+          <label for="sync-backend-select">Sync to</label>
+          <select id="sync-backend-select">
+            <option value="">None</option>
+            <option value="gdrive">Google Drive</option>
+            <option value="webdav">WebDAV</option>
+          </select>
+        </div>
+        <div id="gdrive-auth-actions" class="sync-auth-actions">
+          <button id="gdrive-connect" class="purple">Authorize</button>
+          <button id="gdrive-disconnect" class="danger">Revoke</button>
           <span id="status-gdrive-connect" class="status"></span>
+        </div>
+        <div class="sync-actions">
+          <button id="sync-now" class="sync-icon-button" type="button" aria-label="Sync" title="Sync" data-tooltip="Sync">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 0 1 15.7-6L21 8"></path>
+              <path d="M21 3v5h-5"></path>
+              <path d="M21 12a9 9 0 0 1-15.7 6L3 16"></path>
+              <path d="M3 21v-5h5"></path>
+            </svg>
+          </button>
+          <button id="sync-push" class="sync-icon-button" type="button" aria-label="Push once to remote" title="Push once to remote" data-tooltip="Push once to remote">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 13v8"></path>
+              <path d="M16 17l-4-4-4 4"></path>
+              <path d="M20.4 18.4A5 5 0 0 0 18 9h-1.3A8 8 0 1 0 3 16.3"></path>
+            </svg>
+          </button>
+          <button id="sync-pull" class="sync-icon-button" type="button" aria-label="Pull once to local" title="Pull once to local" data-tooltip="Pull once to local">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 13v8"></path>
+              <path d="M8 17l4 4 4-4"></path>
+              <path d="M20.4 18.4A5 5 0 0 0 18 9h-1.3A8 8 0 1 0 3 16.3"></path>
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- WebDAV config (shown when webdav selected and disconnected) -->
-      <div id="webdav-config" style="display: none;">
+      <div class="sync-status-line">
+        <span id="sync-connected-label" class="status"></span>
+        <span id="sync-last-synced" class="status"></span>
+        <span id="sync-auth-detail" class="status"></span>
+        <span id="status-sync" class="status"></span>
+      </div>
+
+      <!-- Google Drive config -->
+      <div id="gdrive-config" class="sync-config" style="display: none;">
+        <label for="gdrive-folder-suffix">Folder suffix (optional)</label>
+        <input id="gdrive-folder-suffix" type="text" placeholder="e.g. (dev)">
+        <div class="hint" id="gdrive-folder-preview" style="margin-top: 2px; margin-bottom: 8px;">Folder: A Font Face-off</div>
+      </div>
+
+      <!-- WebDAV config -->
+      <div id="webdav-config" class="sync-config" style="display: none;">
         <label for="webdav-server-url">Server URL</label>
         <input id="webdav-server-url" type="url" placeholder="https://example.com/remote.php/dav/files/user/">
         <label for="webdav-folder-suffix">Folder suffix (optional)</label>
@@ -647,33 +791,9 @@
         <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;"><input id="webdav-anonymous" type="checkbox"> Anonymous (no auth)</label>
         <div class="row" style="margin-top: 8px;">
           <button id="webdav-test">Test Connection</button>
-          <button id="webdav-connect" class="purple">Connect WebDAV</button>
+          <button id="webdav-connect" class="purple">Save WebDAV</button>
           <span id="status-webdav-connect" class="status"></span>
         </div>
-      </div>
-
-      <!-- Connected state (shared, shown when any backend connected) -->
-      <div id="sync-connected" style="display: none;">
-        <div class="row">
-          <span id="sync-connected-label" style="color: green; font-weight: bold;">Connected</span>
-        </div>
-        <div class="row" style="align-items: stretch; gap: 10px;">
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="sync-clear" class="danger">Clear Local Sync</button>
-            <button id="sync-disconnect" class="danger">Disconnect</button>
-          </div>
-          <button id="sync-now">Sync Now</button>
-        </div>
-        <div class="row">
-          <span id="sync-last-synced" class="status"></span>
-        </div>
-        <div class="row">
-          <span id="sync-auth-detail" class="status"></span>
-        </div>
-      </div>
-
-      <div class="row">
-        <span id="status-sync" class="status"></span>
       </div>
       <div class="hint">Syncs domain settings, favorites, and custom-fonts.css to your chosen cloud storage.</div>
     </div>
