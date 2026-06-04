@@ -427,15 +427,15 @@
 
     .sync-icon-button::before {
       content: "";
-      top: calc(100% + 2px);
+      bottom: calc(100% + 2px);
       transform: translateX(-50%);
       border: 6px solid transparent;
-      border-bottom-color: var(--primary-color);
+      border-top-color: var(--primary-color);
     }
 
     .sync-icon-button::after {
       content: attr(data-tooltip);
-      top: calc(100% + 14px);
+      bottom: calc(100% + 14px);
       transform: translateX(-50%);
       min-width: max-content;
       max-width: 180px;
