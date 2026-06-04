@@ -244,6 +244,146 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
     };
 }
 
+function createWebDavHarness({ localSeed, remoteFiles, remoteEtags }) {
+    const seed = {
+        affoSyncBackend: 'webdav',
+        affoWebDavConfig: {
+            serverUrl: 'https://dav.example/files/test',
+            anonymous: true,
+        },
+        affoLegacySyncDataConsent: true,
+        ...localSeed,
+    };
+    const storage = createStorageStub(seed);
+    const calls = {
+        put: [],
+        get: [],
+    };
+    const remote = {
+        files: JSON.parse(JSON.stringify(remoteFiles || {})),
+        etags: { ...(remoteEtags || {}) },
+    };
+    let putCounter = 0;
+
+    const serialize = (value) => typeof value === 'string' ? value : JSON.stringify(value);
+    const parseOrRaw = (text) => {
+        try {
+            return JSON.parse(text);
+        } catch (_e) {
+            return text;
+        }
+    };
+    const response = (status, { body = '', etag = null } = {}) => ({
+        ok: status >= 200 && status < 300,
+        status,
+        headers: {
+            get(name) {
+                return String(name || '').toLowerCase() === 'etag' ? etag : null;
+            },
+        },
+        async text() {
+            return serialize(body);
+        },
+        async arrayBuffer() {
+            return new ArrayBuffer(0);
+        },
+    });
+    const fileNameFromUrl = (url) => {
+        const pathname = new URL(url).pathname;
+        const parts = pathname.split('/').filter(Boolean);
+        return decodeURIComponent(parts[parts.length - 1] || '');
+    };
+
+    const browserStub = {
+        storage: {
+            local: storage.local,
+            onChanged: storage.onChanged,
+        },
+        runtime: {
+            sendMessage() { return Promise.resolve(); },
+            getURL(file) { return `moz-extension://test/${file}`; },
+            onMessage: { addListener() {} },
+        },
+        alarms: {
+            create() { return Promise.resolve(); },
+            clear() { return Promise.resolve(); },
+            onAlarm: { addListener() {} },
+        },
+        tabs: {
+            query() { return Promise.resolve([]); },
+            sendMessage() { return Promise.resolve(); },
+            create() { return Promise.resolve({ id: 1 }); },
+        },
+        identity: {
+            launchWebAuthFlow() { return Promise.resolve(); },
+        },
+        browserAction: {
+            openPopup() { return Promise.resolve(); },
+        },
+    };
+
+    const context = vm.createContext({
+        console,
+        browser: browserStub,
+        navigator: { onLine: true, userAgent: 'node-test' },
+        fetch: async (url, options = {}) => {
+            const method = String(options.method || 'GET').toUpperCase();
+            if (method === 'MKCOL') return response(201);
+
+            const name = fileNameFromUrl(url);
+            if (method === 'GET') {
+                calls.get.push({ name, url });
+                if (!Object.prototype.hasOwnProperty.call(remote.files, name)) return response(404);
+                return response(200, { body: remote.files[name], etag: remote.etags[name] || null });
+            }
+            if (method === 'PUT') {
+                const headers = options.headers || {};
+                const ifMatch = headers['If-Match'] || headers['if-match'] || null;
+                calls.put.push({
+                    name,
+                    content: options.body,
+                    contentType: headers['Content-Type'] || headers['content-type'] || null,
+                    ifMatch,
+                });
+                const currentEtag = remote.etags[name] || null;
+                if (ifMatch && ifMatch !== currentEtag) return response(412);
+
+                remote.files[name] = parseOrRaw(options.body);
+                putCounter += 1;
+                remote.etags[name] = `"${name}-put-${putCounter}"`;
+                return response(201, { etag: remote.etags[name] });
+            }
+            if (method === 'DELETE') {
+                delete remote.files[name];
+                delete remote.etags[name];
+                return response(204);
+            }
+            return response(405);
+        },
+        performance: { now: () => 0 },
+        crypto: globalThis.crypto,
+        TextEncoder: globalThis.TextEncoder,
+        URLSearchParams,
+        URL,
+        btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
+        setTimeout,
+        clearTimeout,
+        Promise,
+        Date,
+        AFFOSroulette,
+    });
+
+    const source = readBackgroundSource('\n;globalThis.__affoTest = { runSync };');
+    vm.runInContext(source, context, { filename: 'background.js' });
+
+    return {
+        runSync: context.__affoTest.runSync,
+        storageData: storage.data,
+        calls,
+        remote,
+    };
+}
+
 function createQueueHarness() {
     const storage = createStorageStub({
         affoSyncBackend: 'gdrive',
@@ -781,7 +921,7 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         assert.equal(domainPut, undefined, 'should not push when timestamps are equal');
     });
 
-    it('refuses to push when remote revision changed since last seen', async () => {
+    it('uses the current remote revision after merging domains changed since last seen', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {
@@ -817,10 +957,60 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         });
 
         const result = await harness.runSync();
-        assert.equal(result.ok, false);
+        assert.equal(result.ok, true);
 
         const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
-        assert.equal(domainPut, undefined, 'should not push when revision conflict detected');
+        assert.ok(domainPut, 'expected domains.json to be pushed after merge');
+        const pushed = JSON.parse(domainPut.content);
+        assert.equal(pushed['conflict.example'].body.fontName, 'LocalFont');
+        assert.equal(pushed['remote.example'].body.fontName, 'RemoteFont');
+    });
+
+    it('refuses to push whole-file settings when remote revision changed since last seen', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoFavorites: {
+                    LocalOnly: { fontName: 'LocalOnly', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['LocalOnly'],
+                affoSyncMeta: {
+                    lastSync: 600,
+                    items: {
+                        'favorites.json': {
+                            modified: 500,
+                            remoteRev: 'app-folder:favorites.json:v1'
+                        }
+                    }
+                },
+            },
+            remoteManifest: {
+                version: 1,
+                lastSync: 550,
+                items: { 'favorites.json': { modified: 400 } }
+            },
+            remoteAppFiles: {
+                'favorites.json': {
+                    affoFavorites: {
+                        RemoteOnly: { fontName: 'RemoteOnly', variableAxes: {} }
+                    },
+                    affoFavoritesOrder: ['RemoteOnly']
+                }
+            },
+            remoteFileInfo: {
+                'app-folder/favorites.json': {
+                    id: 'app-folder:favorites.json',
+                    version: '2',
+                    modifiedTime: '2026-01-01T00:00:00.050Z'
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, false);
+
+        const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.equal(favoritesPut, undefined, 'should not push whole-file settings when revision conflict detected');
     });
 
     it('push-once overwrites remote despite a stale stored revision', async () => {
@@ -906,6 +1096,125 @@ describe('Google Drive domain sync (per-domain merge)', () => {
 
         const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
         assert.equal(favoritesPut, undefined, 'pull-once should not push local favorites back');
+    });
+});
+
+describe('WebDAV sync revision handling', () => {
+    it('uses the ETag read during domain merge instead of a stale local ETag', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'local.example': { body: { fontName: 'LocalFont', variableAxes: {} } }
+                },
+                affoApplyMapMeta: {
+                    version: 1,
+                    byOrigin: {
+                        'local.example': { modified: 300 }
+                    }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: {
+                        'domains.json': { modified: 300, remoteRev: 'webdav-etag:"domains-v1"' },
+                        'domains-meta.json': { modified: 300, remoteRev: 'webdav-etag:"domains-meta-v1"' }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: {
+                        'domains.json': { modified: 200 },
+                        'domains-meta.json': { modified: 200 }
+                    }
+                },
+                'domains.json': {
+                    'remote.example': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+                },
+                'domains-meta.json': {
+                    version: 1,
+                    byOrigin: {
+                        'remote.example': { modified: 200 }
+                    }
+                }
+            },
+            remoteEtags: {
+                'domains.json': '"domains-v2"',
+                'domains-meta.json': '"domains-meta-v2"',
+                'sync-manifest.json': '"manifest-v2"'
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        const domainPut = harness.calls.put.find((call) => call.name === 'domains.json');
+        assert.ok(domainPut, 'expected domains.json to be pushed after merge');
+        assert.equal(domainPut.ifMatch, '"domains-v2"');
+        const pushedDomains = JSON.parse(domainPut.content);
+        assert.equal(pushedDomains['local.example'].body.fontName, 'LocalFont');
+        assert.equal(pushedDomains['remote.example'].body.fontName, 'RemoteFont');
+
+        const domainMetaPut = harness.calls.put.find((call) => call.name === 'domains-meta.json');
+        assert.ok(domainMetaPut, 'expected domains-meta.json to be pushed after merge');
+        assert.equal(domainMetaPut.ifMatch, '"domains-meta-v2"');
+    });
+
+    it('uses the ETag read during domain-list merge instead of a stale local ETag', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoAggressiveDomains: ['local.example'],
+                affoAggressiveDomainsMeta: {
+                    version: 1,
+                    byOrigin: {
+                        'local.example': { modified: 300 }
+                    }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: {
+                        'aggressive-domains.json': { modified: 300, remoteRev: 'webdav-etag:"aggressive-v1"' },
+                        'aggressive-domains-meta.json': { modified: 300, remoteRev: 'webdav-etag:"aggressive-meta-v1"' }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: {
+                        'aggressive-domains.json': { modified: 200 },
+                        'aggressive-domains-meta.json': { modified: 200 }
+                    }
+                },
+                'aggressive-domains.json': ['remote.example'],
+                'aggressive-domains-meta.json': {
+                    version: 1,
+                    byOrigin: {
+                        'remote.example': { modified: 200 }
+                    }
+                }
+            },
+            remoteEtags: {
+                'aggressive-domains.json': '"aggressive-v2"',
+                'aggressive-domains-meta.json': '"aggressive-meta-v2"',
+                'sync-manifest.json': '"manifest-v2"'
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        const aggressivePut = harness.calls.put.find((call) => call.name === 'aggressive-domains.json');
+        assert.ok(aggressivePut, 'expected aggressive-domains.json to be pushed after merge');
+        assert.equal(aggressivePut.ifMatch, '"aggressive-v2"');
+        const pushedDomains = JSON.parse(aggressivePut.content);
+        assert.deepEqual(pushedDomains, ['local.example', 'remote.example']);
+
+        const aggressiveMetaPut = harness.calls.put.find((call) => call.name === 'aggressive-domains-meta.json');
+        assert.ok(aggressiveMetaPut, 'expected aggressive-domains-meta.json to be pushed after merge');
+        assert.equal(aggressiveMetaPut.ifMatch, '"aggressive-meta-v2"');
     });
 });
 

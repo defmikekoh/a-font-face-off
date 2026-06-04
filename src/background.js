@@ -551,6 +551,15 @@ function getExpectedRemoteRevision(itemState) {
     : null;
 }
 
+function getPushExpectedRemoteRevision(itemState, options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'expectedRemoteRev')) {
+    return (typeof options.expectedRemoteRev === 'string' && options.expectedRemoteRev.trim())
+      ? options.expectedRemoteRev.trim()
+      : null;
+  }
+  return getExpectedRemoteRevision(itemState);
+}
+
 async function ensureRemoteRevisionUnchanged(itemState, filename, folderId) {
   const expectedRemoteRev = getExpectedRemoteRevision(itemState);
   if (!expectedRemoteRev) {
@@ -1550,12 +1559,13 @@ async function syncPush(backend, localState, filename, content, contentType, opt
       const putResult = await backend.put(filename, content, contentType);
       return putResult.remoteRev || null;
     }
-    const revCheck = await ensureRemoteRevisionUnchanged(localState, filename, backend._folderId);
+    const expectedRemoteRev = getPushExpectedRemoteRevision(localState, options);
+    const revCheck = await ensureRemoteRevisionUnchanged({ remoteRev: expectedRemoteRev }, filename, backend._folderId);
     assertRemoteRevisionUnchanged(revCheck, filename);
     const putResult = await backend.put(filename, content, contentType);
     return putResult.remoteRev || revCheck.currentRemoteRev || null;
   }
-  const expectedRemoteRev = force ? null : getExpectedRemoteRevision(localState);
+  const expectedRemoteRev = force ? null : getPushExpectedRemoteRevision(localState, options);
   const putResult = await backend.put(filename, content, contentType, { expectedRemoteRev });
   return putResult.remoteRev || null;
 }
@@ -1728,7 +1738,7 @@ async function runSync(options = {}) {
         SYNC_DOMAINS_NAME,
         JSON.stringify(mergedApplyMap, null, 2),
         'application/json',
-        { force: forcePush }
+        { force: forcePush, expectedRemoteRev: domainsRemoteRev }
       );
       domainsMetaRemoteRev = await syncPush(
         backend,
@@ -1736,7 +1746,7 @@ async function runSync(options = {}) {
         SYNC_DOMAINS_META_NAME,
         JSON.stringify(mergedApplyMapMeta, null, 2),
         'application/json',
-        { force: forcePush }
+        { force: forcePush, expectedRemoteRev: domainsMetaRemoteRev }
       );
       manifestChanged = true;
     }
@@ -1964,7 +1974,7 @@ async function runSync(options = {}) {
           item.filename,
           JSON.stringify(mergedOrigins, null, 2),
           'application/json',
-          { force: forcePush }
+          { force: forcePush, expectedRemoteRev: arrayRemoteRev }
         );
         metaRemoteRev = await syncPush(
           backend,
@@ -1972,7 +1982,7 @@ async function runSync(options = {}) {
           item.metaFilename,
           JSON.stringify(mergedMeta, null, 2),
           'application/json',
-          { force: forcePush }
+          { force: forcePush, expectedRemoteRev: metaRemoteRev }
         );
         manifestChanged = true;
       }
