@@ -88,6 +88,8 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 | Key | Purpose | Example Value |
 |-----|---------|---------------|
 | `affoCurrentMode` | Current view mode persistence | `"third-man-in"` |
+| `affoCurrentView` | Currently visible popup mode; also controls desktop toolbar availability for Face-off | `"faceoff"` |
+| `affoFaceoffPageFontDraft` | One-shot page-font config waiting to open in Face-off top; removed by popup startup and never synced | `{ createdAt, sourceTabId, sourceUrl, config: { fontName, variableAxes, fontFaceRule } }` |
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
 | `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |
@@ -254,6 +256,8 @@ Domain storage uses the same "no key" format as UI state. Both use identical obj
 Derived Google Fonts css2 URLs are not stored. `font-url-utils.js` derives them from `fontName` + `gfMetadataCache` at runtime; popup/content/toolbar ask background for resolution and keep only page/background-process memory memoization.
 
 Local desktop font configs include `fontSource: "local"` so popup/content/toolbar skip Google Fonts CSS resolution and apply the family name directly. If `affoCustomFontsCss` defines `@font-face` for the same family, that custom CSS definition takes precedence over the local marker.
+
+Page fonts sent from a pinned WhatFont card use temporary `affoFaceoffPageFontDraft` storage only as a handoff between the content script, background, and popup. The popup removes the draft immediately, loads it into Face-off top, and skips that top panel when saving `affoUIState`. Its Apply and Save Favorite actions stay disabled while the temporary font is selected.
 
 ## Custom Font Definitions
 

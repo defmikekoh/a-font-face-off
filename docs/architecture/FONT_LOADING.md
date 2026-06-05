@@ -27,6 +27,18 @@ Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts
 - **popup.js / content.js / left-toolbar.js**: Request css2 URLs from background.js; each keeps only short-lived in-memory promise/memo maps for duplicate calls in the same context
 - **Domain storage (affoApplyMap)**: Does NOT store css2Url
 
+## One-shot Page Fonts in Face-off
+
+A pinned WhatFont card exposes a `Face-off` action for comparing the detected page font without adding it to custom fonts:
+
+1. `whatfont_core.js` collects same-origin-accessible matching `@font-face` rules plus candidate stylesheet URLs.
+2. `background.js` uses `page-font-utils.js` to extract matching rules, resolve relative font URLs, select the rule matching the detected weight/style, and fetch candidate stylesheets when page CSSOM access is blocked.
+3. Background fetches the selected font binary through `background-font-runtime.js` and replaces its remote source with a temporary data URL. This avoids cross-origin font restrictions when the rule moves from the source page to the extension popup.
+4. Background writes a short-lived `affoFaceoffPageFontDraft` and opens the popup.
+5. `popup.js` removes the draft immediately, registers its `fontFaceRule` in memory, converts the embedded source to a popup-safe blob URL, forces Face-off mode, and loads it into the top preview.
+
+The temporary family is preview-only. It is not added to custom CSS, favorites, domain storage, or saved Face-off UI state. Face-off Apply and Save Favorite are disabled until the top panel switches to a normal font. No CSS or font source is injected into the source page.
+
 ## WOFF2 Binary Cache
 
 FontFace-only domains such as x.com cannot rely on page-level Google Fonts `<link>` injection. For those domains, `content.js` asks `background-font-runtime.js` to fetch the Google Fonts CSS, select matching WOFF2 subsets, and fetch font binaries via `affoFetch`.

@@ -637,7 +637,7 @@ function _whatFont() {
 
                 '<div class="font_services panel_label" style="display:none;">' + 'Font Served by ' + '</div>' + '</li>' + '</ul>' +
 
-                '<div class="panel_tools clearfix">' + '<div class="panel_tools_left">' + '<div class="color_info">' + '<a title="Click to change color format" class="color_info_sample">&nbsp;</a>' + '<span class="color_info_value"></span>' + '</div>' + '</div>' + '<div class="panel_tools_right">' + '<a href="https://twitter.com/share" class="tweet_icon" target="_blank">Tweet</a>' + '</div>' + '</div>' + '</div>' + '</div>');
+                '<div class="panel_tools clearfix">' + '<div class="panel_tools_left">' + '<div class="color_info">' + '<a title="Click to change color format" class="color_info_sample">&nbsp;</a>' + '<span class="color_info_value"></span>' + '</div>' + '</div>' + '<div class="panel_tools_right">' + '<a href="#" class="faceoff_compare" title="Compare this page font in Face-off">Face-off</a> <a href="https://twitter.com/share" class="tweet_icon" target="_blank">Tweet</a>' + '</div>' + '</div>' + '</div>' + '</div>');
 
                 return (function() {
                     return tmpl.clone();
@@ -895,8 +895,133 @@ function _whatFont() {
             });
         },
 
+        faceoffCompare: function(typeInfo, newPanel) {
+            var compareButton = $(newPanel).find(".faceoff_compare"),
+                browserAPI = globalThis.browser || globalThis.chrome || null;
+
+            function normalizeFamily(value) {
+                var text = String(value || '').trim();
+                if ((text[0] === '"' && text[text.length - 1] === '"') ||
+                    (text[0] === "'" && text[text.length - 1] === "'")) {
+                    text = text.slice(1, -1);
+                }
+                return text.trim().toLowerCase();
+            }
+
+            function collectFontFaceRules(fontName) {
+                var target = normalizeFamily(fontName),
+                    results = [],
+                    seen = {};
+
+                function visitRules(rules, baseUrl) {
+                    var i, rule, family, key;
+                    if (!rules) { return; }
+                    for (i = 0; i < rules.length; i += 1) {
+                        rule = rules[i];
+                        if (rule && rule.style && /^@font-face/i.test(rule.cssText || '')) {
+                            family = normalizeFamily(rule.style.getPropertyValue('font-family'));
+                            if (family === target) {
+                                key = String(rule.cssText || '');
+                                if (!seen[key]) {
+                                    seen[key] = true;
+                                    results.push({ cssText: key, baseUrl: baseUrl || document.baseURI });
+                                }
+                            }
+                        } else if (rule && rule.cssRules) {
+                            visitRules(rule.cssRules, baseUrl);
+                        }
+                    }
+                }
+
+                Array.prototype.forEach.call(document.styleSheets || [], function(sheet) {
+                    try {
+                        visitRules(sheet.cssRules || sheet.rules, sheet.href || document.baseURI);
+                    } catch (_) {}
+                });
+                return results;
+            }
+
+            function collectStylesheetUrls() {
+                var urls = [],
+                    seen = {};
+
+                function add(url) {
+                    var value = String(url || '').trim();
+                    if (!value || seen[value]) { return; }
+                    seen[value] = true;
+                    urls.push(value);
+                }
+
+                Array.prototype.forEach.call(document.styleSheets || [], function(sheet) {
+                    add(sheet && sheet.href);
+                });
+                Array.prototype.forEach.call(
+                    document.querySelectorAll('link[rel~="stylesheet"][href], link[rel="preload"][as="style"][href]'),
+                    function(link) { add(link.href); }
+                );
+                if (window.performance && typeof window.performance.getEntriesByType === 'function') {
+                    window.performance.getEntriesByType('resource').forEach(function(entry) {
+                        if (/\.css(?:[?#]|$)/i.test(entry.name || '')) add(entry.name);
+                    });
+                }
+                return urls;
+            }
+
+            function openFaceoff(response) {
+                var isMobileFirefox = window.navigator.userAgent.indexOf('Mobile') !== -1 &&
+                    window.navigator.userAgent.indexOf('Firefox') !== -1;
+                var fallbackMessage = {
+                    type: 'openPopupFallback',
+                    domain: response.domain,
+                    sourceTabId: response.sourceTabId
+                };
+
+                if (isMobileFirefox) {
+                    return browserAPI.runtime.sendMessage(fallbackMessage);
+                }
+                return browserAPI.runtime.sendMessage({ type: 'openPopup' }).then(function(openResponse) {
+                    if (openResponse && openResponse.success) return openResponse;
+                    return browserAPI.runtime.sendMessage(fallbackMessage);
+                });
+            }
+
+            compareButton.click(function(e) {
+                var fontWeight = parseFloat(typeInfo.weight);
+                e.preventDefault();
+                e.stopPropagation();
+                if (!browserAPI || !browserAPI.runtime || !browserAPI.runtime.sendMessage) {
+                    compareButton.text('Unavailable');
+                    return false;
+                }
+
+                compareButton.text('Loading...');
+                browserAPI.runtime.sendMessage({
+                    type: 'affoPrepareFaceoffPageFont',
+                    fontName: typeInfo.current,
+                    fontWeight: isFinite(fontWeight) ? fontWeight : null,
+                    fontStyle: typeInfo.style,
+                    variableAxes: typeInfo.variableAxes || {},
+                    fontFaceRules: collectFontFaceRules(typeInfo.current),
+                    stylesheetUrls: collectStylesheetUrls(),
+                    pageUrl: window.location.href
+                }).then(function(response) {
+                    if (!response || !response.success) {
+                        throw new Error(response && response.error ? response.error : 'Page font unavailable');
+                    }
+                    compareButton.text('Opening...');
+                    return openFaceoff(response);
+                }).catch(function(error) {
+                    compareButton.text('Unavailable');
+                    if (window.console && console.error) {
+                        console.error('[WhatFont] Could not open page font in Face-off:', error);
+                    }
+                });
+                return false;
+            });
+        },
+
         panelContent: function(typeInfo, newPanel) {
-            $(['typePreview', 'fontService', 'fontFam', 'sizeLineHeight', 'filter', 'variableAxes', 'color', 'tweet']).each(function(i, prop) {
+            $(['typePreview', 'fontService', 'fontFam', 'sizeLineHeight', 'filter', 'variableAxes', 'color', 'faceoffCompare', 'tweet']).each(function(i, prop) {
                 panel[prop](typeInfo, newPanel);
             });
         },

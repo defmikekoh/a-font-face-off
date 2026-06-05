@@ -61,7 +61,7 @@
 
 
   "background": {
-    "scripts": ["config-utils.js", "css-generators.js", "font-url-utils.js", "sroulette-utils.js", "background-font-runtime.js", "gdrive-config.js", "background.js"],
+    "scripts": ["config-utils.js", "css-generators.js", "font-url-utils.js", "font-face-utils.js", "page-font-utils.js", "sroulette-utils.js", "background-font-runtime.js", "gdrive-config.js", "background.js"],
     "persistent": false
   },
 

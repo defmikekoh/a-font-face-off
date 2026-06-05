@@ -59,6 +59,9 @@ Per-panel font setting history, not persisted to storage. Remembers axis/control
 - `saveFontSettings(position, fontName)`: Saves current UI config (via `getCurrentUIConfig`) into font memory — only stores active controls
 - `restoreFontSettings(position, fontName)`: Restores saved settings from font memory — only activates controls that were previously saved
 
+### One-shot Page-font Face-off
+`loadPendingFaceoffPageFontDraft()` consumes and removes `affoFaceoffPageFontDraft` during popup startup. A valid recent draft forces Face-off mode and `applyPendingFaceoffPageFontDraft()` loads its in-memory `fontFaceRule` into the top panel after normal Face-off restoration. `saveExtensionStateImmediate()` skips the ephemeral top family, preserving the previously saved top selection, while Apply and Save Favorite remain disabled for that temporary family.
+
 ### Functions that modify BOTH Domain Storage AND UI State
 - `resetAllThirdManInFonts()`: Clears domain storage + resets UI to `null` state
 - `applyUnsetSettings(panelId)`: Clears domain storage + resets UI to `null` state

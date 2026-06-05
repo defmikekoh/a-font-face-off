@@ -243,6 +243,23 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.equal(state.hasFaceoffButton, true, 'non-touch profile should show the faceoff button when a font is applied');
     });
 
+    it('quick-pick toolbar appears on non-touch pages while Face-off is active', async (t) => {
+        const initial = await getQuickPickState();
+        if (initial.isTouchEligible) {
+            t.skip('Touch-eligible profile always shows the toolbar');
+            return;
+        }
+
+        await writeExtensionStorage({ affoApplyMap: {}, affoCurrentView: 'body-contact' });
+        await waitForToolbarPresence(false, 'Body Contact without applied fonts should hide the desktop toolbar');
+        await writeExtensionStorage({ affoCurrentView: 'faceoff' });
+        await waitForToolbarPresence(true, 'Face-off mode should show the desktop toolbar');
+
+        const state = await getQuickPickState();
+        assert.equal(state.hasToolbarIframe, true, 'non-touch profile should inject the toolbar iframe for Face-off');
+        assert.equal(state.hasFaceoffButton, true, 'non-touch profile should show the faceoff button for Face-off');
+    });
+
     it('quick-pick toolbar default size fits all iframe buttons without scrolling', async () => {
         await ensureQuickPickAvailable();
 

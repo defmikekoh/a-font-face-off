@@ -1,3 +1,4 @@
+/* global AFFOPageFontUtils */
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
 function affoDebugLog() {
@@ -12,6 +13,8 @@ const APPLY_MAP_KEY = 'affoApplyMap';
 const APPLY_MAP_META_KEY = 'affoApplyMapMeta';
 const FAVORITES_KEY = 'affoFavorites';
 const FAVORITES_ORDER_KEY = 'affoFavoritesOrder';
+const FACEOFF_PAGE_FONT_DRAFT_KEY = 'affoFaceoffPageFontDraft';
+const PAGE_FONT_STYLESHEET_FETCH_LIMIT = 12;
 
 // Sync constants (backend-agnostic)
 const SYNC_BACKEND_KEY = 'affoSyncBackend';       // 'gdrive' | 'webdav'
@@ -2271,6 +2274,108 @@ isSyncConfigured().then(configured => {
 
 AFFOBackgroundFontRuntime.startup();
 
+function appendUniquePageFontRules(target, rules) {
+  (Array.isArray(rules) ? rules : []).forEach(rule => {
+    const text = String(rule || '').trim();
+    if (text && !target.includes(text)) target.push(text);
+  });
+}
+
+function arrayBufferToPageFontDataUrl(buffer, fontUrl) {
+  const bytes = new Uint8Array(buffer);
+  const parts = [];
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    parts.push(String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize)));
+  }
+  const mimeType = /\.woff2(?:[?#]|$)/i.test(fontUrl) ? 'font/woff2' : 'font/woff';
+  return `data:${mimeType};base64,${btoa(parts.join(''))}`;
+}
+
+async function embedPageFontSource(rule) {
+  const urls = AFFOPageFontUtils.extractRemoteFontUrls(rule);
+  for (const url of urls) {
+    try {
+      const response = await AFFOBackgroundFontRuntime.handleFetchMessage({ url, binary: true });
+      if (!response || !response.ok || !response.data) continue;
+      const dataUrl = arrayBufferToPageFontDataUrl(response.data, url);
+      return AFFOPageFontUtils.replaceFontFaceUrl(rule, url, dataUrl);
+    } catch (e) {
+      affoDebugWarn('[AFFO Background] Page font binary fetch failed:', url, e);
+    }
+  }
+  return rule;
+}
+
+async function prepareFaceoffPageFontDraft(msg, sender) {
+  const fontName = AFFOPageFontUtils.cleanFontFamilyName(msg.fontName);
+  if (!fontName) return { success: false, error: 'Missing detected font family' };
+
+  const rules = [];
+  (Array.isArray(msg.fontFaceRules) ? msg.fontFaceRules : []).forEach(entry => {
+    if (!entry || typeof entry.cssText !== 'string') return;
+    appendUniquePageFontRules(
+      rules,
+      AFFOPageFontUtils.extractMatchingFontFaceRules(entry.cssText, fontName, entry.baseUrl || msg.pageUrl)
+    );
+  });
+
+  if (rules.length === 0) {
+    const stylesheetUrls = AFFOPageFontUtils.rankStylesheetUrls(msg.stylesheetUrls, fontName)
+      .slice(0, PAGE_FONT_STYLESHEET_FETCH_LIMIT);
+
+    for (const url of stylesheetUrls) {
+      try {
+        const response = await AFFOBackgroundFontRuntime.handleFetchMessage({ url, binary: false });
+        if (!response || !response.ok || typeof response.data !== 'string') continue;
+        appendUniquePageFontRules(
+          rules,
+          AFFOPageFontUtils.extractMatchingFontFaceRules(response.data, fontName, url)
+        );
+        if (rules.length > 0) break;
+      } catch (e) {
+        affoDebugWarn('[AFFO Background] Page font stylesheet fetch failed:', url, e);
+      }
+    }
+  }
+
+  if (rules.length === 0) {
+    return {
+      success: false,
+      error: `Could not find a reusable @font-face rule for ${fontName}`
+    };
+  }
+
+  const selectedRule = AFFOPageFontUtils.selectBestFontFaceRule(rules, msg.fontWeight, msg.fontStyle);
+  const embeddedRule = await embedPageFontSource(selectedRule);
+  const config = {
+    fontName,
+    variableAxes: {},
+    fontFaceRule: embeddedRule
+  };
+  const fontWeight = Number(msg.fontWeight);
+  if (Number.isFinite(fontWeight)) config.fontWeight = fontWeight;
+  if (msg.fontStyle === 'italic') config.fontStyle = 'italic';
+
+  const sourceTabId = sender && sender.tab && sender.tab.id != null ? sender.tab.id : null;
+  const sourceUrl = (sender && sender.tab && sender.tab.url) || String(msg.pageUrl || '');
+  let domain = '';
+  try {
+    domain = new URL(sourceUrl).hostname;
+  } catch (_) { }
+
+  await browser.storage.local.set({
+    [FACEOFF_PAGE_FONT_DRAFT_KEY]: {
+      createdAt: Date.now(),
+      sourceTabId,
+      sourceUrl,
+      config
+    }
+  });
+
+  return { success: true, sourceTabId, domain, fontName };
+}
+
 async function handleAffoRuntimeMessage(msg, sender) {
   try {
     // Handle cache flush requests
@@ -2395,6 +2500,15 @@ async function handleAffoRuntimeMessage(msg, sender) {
       } catch (e) {
         affoDebugWarn('[AFFO Background] css2 URL resolution failed:', e);
         return { ok: false, css2Url: '', error: e && e.message ? e.message : String(e) };
+      }
+    }
+
+    if (msg.type === 'affoPrepareFaceoffPageFont') {
+      try {
+        return await prepareFaceoffPageFontDraft(msg, sender);
+      } catch (e) {
+        console.error('[AFFO Background] Could not prepare page font for Face-off:', e);
+        return { success: false, error: e && e.message ? e.message : String(e) };
       }
     }
 

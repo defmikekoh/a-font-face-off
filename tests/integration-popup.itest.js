@@ -58,6 +58,23 @@ describe('Integration tests', () => {
         );
         assert.equal(active, 'faceoff');
 
+        const defaults = await popupExec(driver, `
+            return {
+                topHeading: document.getElementById('top-font-name')?.textContent.trim(),
+                topDisplay: document.getElementById('top-font-display')?.textContent.trim(),
+                topPreviewStyle: document.getElementById('top-font-text')?.getAttribute('style') || '',
+                bottomHeading: document.getElementById('bottom-font-name')?.textContent.trim(),
+                bottomDisplay: document.getElementById('bottom-font-display')?.textContent.trim(),
+                bottomPreviewStyle: document.getElementById('bottom-font-text')?.getAttribute('style') || ''
+            };
+        `);
+        assert.equal(defaults.topHeading, 'ABeeZee');
+        assert.equal(defaults.topDisplay, 'ABeeZee');
+        assert.match(defaults.topPreviewStyle, /font-family:\s*"ABeeZee"/);
+        assert.equal(defaults.bottomHeading, 'Zilla Slab Highlight');
+        assert.equal(defaults.bottomDisplay, 'Zilla Slab Highlight');
+        assert.match(defaults.bottomPreviewStyle, /font-family:\s*"Zilla Slab Highlight"/);
+
         // Verify cloned top/bottom control panels have correct elements
         const panels = await popupExec(driver, `
             return ['top', 'bottom'].map(pos => ({
@@ -84,6 +101,37 @@ describe('Integration tests', () => {
             assert.ok(p.applyBtn, `${p.pos} apply button exists`);
             assert.ok(p.resetBtn, `${p.pos} reset button exists`);
         }
+    });
+
+    it('keeps the newest Face-off font when an older load finishes later', async () => {
+        const result = await popupExec(driver, `
+            return (async () => {
+                const originalGetOrCreate = getOrCreateFontDefinition;
+                getOrCreateFontDefinition = async function(fontName) {
+                    if (fontName === 'ABeeZee') {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                    return originalGetOrCreate(fontName);
+                };
+                try {
+                    const staleLoad = loadFont('top', 'ABeeZee', { suppressImmediateSave: true });
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                    await loadFont('top', 'Rubik', { suppressImmediateSave: true });
+                    await staleLoad;
+                    return {
+                        heading: document.getElementById('top-font-name')?.textContent.trim(),
+                        display: document.getElementById('top-font-display')?.textContent.trim(),
+                        previewStyle: document.getElementById('top-font-text')?.getAttribute('style') || ''
+                    };
+                } finally {
+                    getOrCreateFontDefinition = originalGetOrCreate;
+                }
+            })();
+        `);
+
+        assert.equal(result.heading, 'Rubik');
+        assert.equal(result.display, 'Rubik');
+        assert.match(result.previewStyle, /font-family:\s*"Rubik"/);
     });
 
     it('switches to third-man-in mode', async () => {
@@ -313,5 +361,56 @@ describe('Integration tests', () => {
             "return document.getElementById('body-font-size-text')?.value"
         );
         assert.equal(newValue, '24', 'text input should reflect slider value');
+    });
+
+    it('consumes a page-font draft into Face-off top without saving it', async () => {
+        await popupExec(driver, `
+            return browser.storage.local.set({
+                affoUIState: {
+                    'body-contact': {},
+                    faceoff: {
+                        topFont: { fontName: 'Lora', variableAxes: {} },
+                        bottomFont: { fontName: 'Rubik', variableAxes: {} }
+                    },
+                    'third-man-in': {}
+                },
+                affoFaceoffPageFontDraft: {
+                    createdAt: Date.now(),
+                    sourceUrl: location.href,
+                    config: {
+                        fontName: 'Ephemeral Test Font',
+                        variableAxes: {},
+                        fontFaceRule: '@font-face { font-family: "Ephemeral Test Font"; src: local("Arial"); font-weight: 400; }'
+                    }
+                }
+            }).then(() => true);
+        `);
+        await closePopup(driver);
+        await openPopup(driver);
+        await driver.sleep(1000);
+
+        const state = await popupExec(driver, `
+            return browser.storage.local.get(['affoUIState', 'affoFaceoffPageFontDraft']).then((stored) => ({
+                activeMode: document.querySelector('[data-mode].active')?.dataset?.mode,
+                topFont: document.getElementById('top-font-display')?.textContent.trim(),
+                bottomFont: document.getElementById('bottom-font-display')?.textContent.trim(),
+                topPreviewStyle: document.getElementById('top-font-text')?.getAttribute('style') || '',
+                topApplyDisabled: document.getElementById('apply-top')?.disabled,
+                topSaveDisabled: document.getElementById('top-save-favorite-bar')?.disabled,
+                injectedRule: !!document.getElementById('affo-custom-font-Ephemeral-Test-Font'),
+                draftPresent: !!stored.affoFaceoffPageFontDraft,
+                savedTopFont: stored.affoUIState?.faceoff?.topFont?.fontName
+            }));
+        `);
+
+        assert.equal(state.activeMode, 'faceoff');
+        assert.equal(state.topFont, 'Ephemeral Test Font');
+        assert.equal(state.bottomFont, 'Rubik');
+        assert.match(state.topPreviewStyle, /Ephemeral Test Font/);
+        assert.equal(state.topApplyDisabled, true);
+        assert.equal(state.topSaveDisabled, true);
+        assert.equal(state.injectedRule, true);
+        assert.equal(state.draftPresent, false, 'one-shot page-font draft should be removed after opening');
+        assert.equal(state.savedTopFont, 'Lora', 'ephemeral top font should not replace saved Face-off state');
     });
 });

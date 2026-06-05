@@ -90,4 +90,23 @@ describe('WhatFont toolbar integration', () => {
         assert.equal(overlayState.hasTip, true, 'WhatFont tooltip should be initialized after one toolbar click');
         assert.ok(overlayState.whatfontClassCount >= 2, 'WhatFont should add its overlay elements to the page');
     });
+
+    it('shows a Face-off action on pinned WhatFont cards', async () => {
+        await driver.executeScript(`
+            const target = document.querySelector('p') || document.body;
+            target.click();
+        `);
+        await driver.wait(async () => {
+            return driver.executeScript('return !!document.querySelector(".__whatfont_faceoff_compare");');
+        }, 5000, 'Pinned WhatFont card should expose a Face-off action');
+
+        const action = await driver.executeScript(`
+            const link = document.querySelector('.__whatfont_faceoff_compare');
+            return link ? { text: link.textContent.trim(), title: link.title } : null;
+        `);
+        assert.deepEqual(action, {
+            text: 'Face-off',
+            title: 'Compare this page font in Face-off'
+        });
+    });
 });

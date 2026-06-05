@@ -377,33 +377,26 @@ async function loadModeSettings(options = {}) {
             console.error('Error in third-man-in loadModeSettings:', error);
         }
     } else if (currentViewMode === 'faceoff') {
-        // Face-off mode (existing behavior)
         const priorSuppressUiStateSave = suppressUiStateSave;
         suppressUiStateSave = true;
         try {
-            // Load top font - face-off mode always needs a font family
-            if (modeState.topFont && modeState.topFont.fontName) {
-                await applyFontConfig('top', modeState.topFont);
-            } else if (modeState.topFont && (modeState.topFont.fontSize || modeState.topFont.fontSizeScale || modeState.topFont.lineHeight || modeState.topFont.letterSpacing != null || modeState.topFont.fontWeight || modeState.topFont.fontStyle || modeState.topFont.fontColor || modeState.topFont.variableAxes)) {
-                // Has saved settings but no custom font - load default font then apply settings
-                await loadFont('top', 'ABeeZee');
-                await applyFontConfig('top', { ...modeState.topFont, fontName: 'ABeeZee' });
-            } else {
-                // Use default font for this mode
-                loadFont('top', 'ABeeZee');
-            }
+            const loadFaceoffPosition = async (position, stateKey, defaultFont) => {
+                const config = modeState[stateKey];
+                if (config && config.fontName) {
+                    await applyFontConfig(position, config);
+                } else if (config && (config.fontSize || config.fontSizeScale || config.lineHeight || config.letterSpacing != null || config.fontWeight || config.fontStyle || config.fontColor || config.variableAxes)) {
+                    await applyFontConfig(position, { ...config, fontName: defaultFont });
+                } else {
+                    await loadFont(position, defaultFont, { suppressImmediateSave: true });
+                }
+            };
 
-            // Load bottom font - face-off mode always needs a font family
-            if (modeState.bottomFont && modeState.bottomFont.fontName) {
-                await applyFontConfig('bottom', modeState.bottomFont);
-            } else if (modeState.bottomFont && (modeState.bottomFont.fontSize || modeState.bottomFont.fontSizeScale || modeState.bottomFont.lineHeight || modeState.bottomFont.letterSpacing != null || modeState.bottomFont.fontWeight || modeState.bottomFont.fontStyle || modeState.bottomFont.fontColor || modeState.bottomFont.variableAxes)) {
-                // Has saved settings but no custom font - load default font then apply settings
-                await loadFont('bottom', 'Zilla Slab Highlight');
-                await applyFontConfig('bottom', { ...modeState.bottomFont, fontName: 'Zilla Slab Highlight' });
-            } else {
-                // Use default font for this mode
-                loadFont('bottom', 'Zilla Slab Highlight');
-            }
+            // Initialize both halves together so a slow first font cannot leave
+            // the other preview showing the reset placeholder on mobile.
+            await Promise.all([
+                loadFaceoffPosition('top', 'topFont', 'ABeeZee'),
+                loadFaceoffPosition('bottom', 'bottomFont', 'Zilla Slab Highlight')
+            ]);
         } finally {
             suppressUiStateSave = priorSuppressUiStateSave;
         }
@@ -672,6 +665,17 @@ async function openOptionsFromPopup() {
 // Track last applied CSS for the active tab to avoid 'tabs' permission
 const appliedCssActive = { serif: null, sans: null, mono: null, body: null };
 const dynamicFontDefinitions = {};
+const fontLoadRequestIds = {};
+
+function beginFontLoadRequest(position) {
+    const requestId = (fontLoadRequestIds[position] || 0) + 1;
+    fontLoadRequestIds[position] = requestId;
+    return requestId;
+}
+
+function isCurrentFontLoadRequest(position, requestId) {
+    return fontLoadRequestIds[position] === requestId;
+}
 
 // Re-apply Third Man In CSS when popup reopens (since context is reset)
 async function reapplyThirdManInCSS(fontType, fontConfig) {
@@ -807,6 +811,10 @@ let fontDefinitions = {};
 let customFontsCssText = '';
 let customFontsLoaded = false;
 let customFontsPromise = null;
+const FACEOFF_PAGE_FONT_DRAFT_KEY = 'affoFaceoffPageFontDraft';
+const FACEOFF_PAGE_FONT_DRAFT_MAX_AGE_MS = 2 * 60 * 1000;
+const ephemeralPageFontNames = new Set();
+let pendingFaceoffPageFontDraft = null;
 
 // Axis metadata for custom variable fonts, populated from affoCustomFontAxes storage.
 // Format: { fontName: { axes: ['wght', ...], defaults: { wght: 400 }, ranges: { wght: { min, max } } } }
@@ -880,6 +888,10 @@ function getLocalFontsFromStorageValue(value) {
 function hasCustomFontFaceDefinition(fontName) {
     const def = fontName ? fontDefinitions[fontName] : null;
     return !!(def && def.fontFaceRule);
+}
+
+function isEphemeralPageFontName(fontName) {
+    return !!fontName && ephemeralPageFontNames.has(fontName);
 }
 
 function isLocalFontName(fontName) {
@@ -1506,6 +1518,9 @@ function loadExtensionState() {
                 if (!extensionState['third-man-in']) {
                     extensionState['third-man-in'] = {};
                 }
+                if (!extensionState.faceoff) {
+                    extensionState.faceoff = {};
+                }
             }
         } else {
             extensionState = {
@@ -1561,6 +1576,9 @@ async function saveExtensionStateImmediate() {
         let config = getCurrentUIConfig(position);
         if (!config && getFallbackConfig) {
             config = getFallbackConfig(position);
+        }
+        if (config && isEphemeralPageFontName(config.fontName)) {
+            continue;
         }
         if (config) {
             extensionState[currentViewMode][stateKey] = config;
@@ -1850,6 +1868,7 @@ async function waitForControls(position, maxWaitMs = 2000, config = null) {
 async function applyFontConfig(position, config) {
     config = normalizeConfig(config);
     if (!config) return;
+    let fontLoadRequestId = null;
     if (config.fontSource === 'local' && config.fontName) {
         rememberLocalFontName(config.fontName);
     }
@@ -1878,11 +1897,13 @@ async function applyFontConfig(position, config) {
         // Suppress immediate apply/save during restore; we'll apply after values are set
         // Must await so generateFontControls replaces any stale axis controls
         // before waitForControls checks for them (avoids setting values on old elements)
-        await loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true, fontSource: config.fontSource });
+        fontLoadRequestId = await loadFont(position, config.fontName, { suppressImmediateApply: true, suppressImmediateSave: true, fontSource: config.fontSource });
+        if (fontLoadRequestId === false) return;
     }
 
     // Wait for font controls to be generated, then apply settings
     await waitForControls(position, 2000, config);
+    if (fontLoadRequestId != null && !isCurrentFontLoadRequest(position, fontLoadRequestId)) return;
 
     try {
         // Set basic controls
@@ -1998,6 +2019,7 @@ async function applyFontConfig(position, config) {
 
 
         // Apply the font preview
+        if (fontLoadRequestId != null && !isCurrentFontLoadRequest(position, fontLoadRequestId)) return;
         applyFont(position);
 
         // Update button states after configuration has been applied to UI controls and preview
@@ -2118,9 +2140,11 @@ function hideTooltip() {
 // Font loading and management functions
 async function loadFont(position, fontName, options = {}) {
     const { suppressImmediateApply = false, suppressImmediateSave = false, fontSource = null } = options || {};
+    const requestId = beginFontLoadRequest(position);
 
     try {
         await ensureCustomFontsLoaded();
+        if (!isCurrentFontLoadRequest(position, requestId)) return false;
         const wasSroulettePanel = isSrouletteTarget(position) && isPanelShowingSroulette(position);
         if (wasSroulettePanel) {
             clearSroulettePanelState(position);
@@ -2133,6 +2157,23 @@ async function loadFont(position, fontName, options = {}) {
             saveFontSettings(position, currentFontName);
         }
 
+        // Make the requested family the UI source of truth before applyFont()
+        // reads it. Cloned Face-off panels start as Default.
+        const fontNameDisplayElement = document.getElementById(`${position}-font-name`);
+        if (fontNameDisplayElement) {
+            fontNameDisplayElement.textContent = fontName;
+        }
+        const familyDisplay = document.getElementById(`${position}-font-display`);
+        if (familyDisplay) {
+            familyDisplay.textContent = fontName;
+            familyDisplay.classList.remove('placeholder');
+            familyDisplay.classList.toggle('default', fontName === 'Default');
+
+            const group = familyDisplay.closest('.control-group');
+            if (group) group.classList.remove('unset');
+        }
+        setEphemeralPageFontUi(position, isEphemeralPageFontName(fontName));
+
         // Active axes will be cleared when font controls are reset to unset state
 
         // Load font CSS (Google Fonts only - custom fonts handled via fontFaceRule)
@@ -2140,19 +2181,20 @@ async function loadFont(position, fontName, options = {}) {
         const useLocalSource = fontSource === 'local' || isLocalFontName(fontName);
         if (useLocalSource) rememberLocalFontName(fontName);
 
-        if (fontName !== 'Default' && !CUSTOM_FONTS.includes(fontName) && !useLocalSource) {
+        if (fontName !== 'Default' && !hasCustomFontFaceDefinition(fontName) && !useLocalSource) {
             // Also kick off dynamic axis discovery in background for Google families
             loadGoogleFont(fontName);
             try {
                 await getOrCreateFontDefinition(fontName);
-                // Regenerate controls if the dynamic def was just created
-                generateFontControls(position, fontName);
-                restoreFontSettings(position, fontName);
-                if (!suppressImmediateApply) {
-                    applyFont(position);
-                }
             } catch (err) {
                 affoDebugWarn('Dynamic axis discovery failed', err);
+            }
+            if (!isCurrentFontLoadRequest(position, requestId)) return false;
+            // Axis discovery is optional; the family preview must still update.
+            generateFontControls(position, fontName);
+            restoreFontSettings(position, fontName);
+            if (!suppressImmediateApply) {
+                applyFont(position);
             }
         } else {
             // Ensure custom font CSS is injected for popup preview when a
@@ -2166,26 +2208,7 @@ async function loadFont(position, fontName, options = {}) {
             }
         }
 
-        // Update font name display
-        const fontNameDisplayElement = document.getElementById(`${position}-font-name`);
-        if (fontNameDisplayElement) {
-            fontNameDisplayElement.textContent = fontName;
-        }
-        const familyDisplay = document.getElementById(`${position}-font-display`);
-        if (familyDisplay) {
-            familyDisplay.textContent = fontName;
-            familyDisplay.classList.remove('placeholder');
-
-            // Update default styling based on content
-            if (fontName === 'Default') {
-                familyDisplay.classList.add('default');
-            } else {
-                familyDisplay.classList.remove('default');
-            }
-
-            const group = familyDisplay.closest('.control-group');
-            if (group) group.classList.remove('unset');
-        }
+        if (!isCurrentFontLoadRequest(position, requestId)) return false;
 
         // Basic controls are set up via DOMContentLoaded event listeners
 
@@ -2202,6 +2225,7 @@ async function loadFont(position, fontName, options = {}) {
             } catch (_) {}
         }
 
+        return requestId;
     } catch (error) {
         console.error(`Error loading font ${fontName} for ${position}:`, error);
         throw error;
@@ -3071,6 +3095,71 @@ function ensureCustomFontInjected(fontName) {
     affoDebugLog(`Injected custom font @font-face rules for: ${fontName}`);
 }
 
+async function loadPendingFaceoffPageFontDraft() {
+    try {
+        const result = await browser.storage.local.get(FACEOFF_PAGE_FONT_DRAFT_KEY);
+        await browser.storage.local.remove(FACEOFF_PAGE_FONT_DRAFT_KEY);
+        const draft = result[FACEOFF_PAGE_FONT_DRAFT_KEY];
+        const config = draft && normalizeConfig(draft.config);
+        const age = draft && Number.isFinite(Number(draft.createdAt)) ? Date.now() - Number(draft.createdAt) : Infinity;
+        if (!config || !config.fontName || !config.fontFaceRule || age < 0 || age > FACEOFF_PAGE_FONT_DRAFT_MAX_AGE_MS) {
+            return;
+        }
+
+        fontDefinitions[config.fontName] = {
+            axes: [],
+            defaults: {},
+            ranges: {},
+            steps: {},
+            fontFaceRule: config.fontFaceRule
+        };
+        ephemeralPageFontNames.add(config.fontName);
+        pendingFaceoffPageFontDraft = {
+            config,
+            sourceTabId: draft.sourceTabId,
+            sourceUrl: draft.sourceUrl
+        };
+    } catch (error) {
+        affoDebugWarn('Could not load one-shot Face-off page font:', error);
+    }
+}
+
+function setEphemeralPageFontUi(position, active) {
+    const buttonIds = [
+        `${position}-save-favorite`,
+        `${position}-save-favorite-bar`,
+        `apply-${position}`
+    ];
+    buttonIds.forEach(id => {
+        const button = document.getElementById(id);
+        if (!button) return;
+        if (active) {
+            if (button.dataset.affoEphemeralOriginalDisabled == null) {
+                button.dataset.affoEphemeralOriginalDisabled = button.disabled ? 'true' : 'false';
+            }
+            if (button.dataset.affoEphemeralOriginalTitle == null) {
+                button.dataset.affoEphemeralOriginalTitle = button.getAttribute('title') || '';
+            }
+            button.disabled = true;
+            button.setAttribute('title', 'This page font is available only for the current Face-off');
+        } else if (button.dataset.affoEphemeralOriginalDisabled != null) {
+            button.disabled = button.dataset.affoEphemeralOriginalDisabled === 'true';
+            button.setAttribute('title', button.dataset.affoEphemeralOriginalTitle || '');
+            delete button.dataset.affoEphemeralOriginalDisabled;
+            delete button.dataset.affoEphemeralOriginalTitle;
+        }
+    });
+}
+
+async function applyPendingFaceoffPageFontDraft() {
+    if (!pendingFaceoffPageFontDraft) return false;
+    const draft = pendingFaceoffPageFontDraft;
+    pendingFaceoffPageFontDraft = null;
+    await applyFontConfig('top', draft.config);
+    setEphemeralPageFontUi('top', true);
+    return true;
+}
+
 // Returns mode-appropriate preview/button callbacks for a panel position
 function getPositionCallbacks(position) {
     if (position === 'body')
@@ -3468,6 +3557,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Inject custom fonts first, before any font previews
     await injectCustomFonts();
+    await loadPendingFaceoffPageFontDraft();
 
     // Get current tab hostname and context for site-specific CSS rules
     try {
@@ -3540,7 +3630,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Load saved state first, then continue initialization INSIDE the callback
     affoDebugLog('Loading extension state before initialization');
-    loadExtensionState().then(() => {
+    const popupInitializationPromise = loadExtensionState().then(() => {
         affoDebugLog('Extension state loaded, now determining correct mode');
 
         return determineInitialMode();
@@ -4192,7 +4282,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const currentModeState = extensionState ? extensionState[currentViewMode] : null;
 
     // Async font restoration
-    (async () => {
+    const initialFontRestorationPromise = (async () => {
         // Don't restore fonts if currentViewMode is not set yet
         if (!currentViewMode) {
             affoDebugWarn('Font restoration skipped: currentViewMode not set yet');
@@ -4240,6 +4330,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     (async () => {
         // Wait for font restoration to complete
         await new Promise(resolve => setTimeout(resolve, 250));
+        await popupInitializationPromise;
+        await initialFontRestorationPromise;
 
         const currentModeState = extensionState ? extensionState[currentViewMode] : null;
         const topDesired = (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) ? resolveFamilyCase(currentModeState.topFont.fontName) : undefined;
@@ -4267,6 +4359,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
         }
+        await applyPendingFaceoffPageFontDraft();
         // Face-off displays already show the correct font names from the font picker
         // Third Man In displays remain as "Default" unless specifically changed by user
         // Persist any canonicalized names
@@ -4762,6 +4855,11 @@ function updateActiveTab(mode) {
 
 // Determine the correct initial mode based on domain storage to avoid warnings
 function determineInitialMode() {
+    if (pendingFaceoffPageFontDraft) {
+        currentViewMode = 'faceoff';
+        return Promise.resolve();
+    }
+
     return getActiveOrigin().then(origin => {
         if (!origin) {
             // No origin - default to body mode

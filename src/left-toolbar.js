@@ -153,6 +153,7 @@
             const browserAPI = getBrowserAPI();
             const data = await browserAPI.storage.local.get([
                 'affoApplyMap',
+                'affoCurrentView',
                 'affoFavorites',
                 'affoSubstackRoulette',
                 'affoSubstackRouletteSerif',
@@ -161,7 +162,9 @@
             ]);
             const applyMap = data.affoApplyMap || {};
             const domainData = applyMap[location.hostname];
-            return hasDomainAppliedFontState(domainData) || hasAutoSubstackRouletteState(data);
+            return data.affoCurrentView === 'faceoff' ||
+                hasDomainAppliedFontState(domainData) ||
+                hasAutoSubstackRouletteState(data);
         } catch (e) {
             affoDebugWarn('[Left Toolbar] Error checking toolbar visibility:', e);
             return false;
@@ -1776,6 +1779,7 @@
                 }
                 if (
                     changes.affoApplyMap ||
+                    changes.affoCurrentView ||
                     changes.affoFavorites ||
                     changes.affoSubstackRoulette ||
                     changes.affoSubstackRouletteSerif ||

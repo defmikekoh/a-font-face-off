@@ -189,6 +189,11 @@ The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO
 
 Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
+After every reset-based Nightly session on the approved Note10, leave the disposable profile ready for the user:
+
+- Dismiss the main-menu `Make Firefox Nightly your default` promotion using its `Dismiss promotion` button.
+- Enable `Remote debugging via USB` in Settings. Settings search can locate it directly; verify the resulting Android `Switch` reports `checked="true"` in a UI dump.
+
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
 
 For real Android Firefox DOM and computed-style inspection on the approved target, use:

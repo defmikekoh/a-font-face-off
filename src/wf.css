@@ -450,6 +450,17 @@ ul.__whatfont_font_service li {
   border-color: #bbb;
 }
 
+.__whatfont_panel_content .__whatfont_panel_tools .__whatfont_faceoff_compare {
+  display: inline-block;
+  margin-right: 8px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+
+.__whatfont_panel_content .__whatfont_panel_tools .__whatfont_faceoff_compare:hover {
+  opacity: 1;
+}
+
 .__whatfont_panel_content .__whatfont_panel_tools .__whatfont_tweet_icon {
   background: url("img/tweet.png") no-repeat left top;
   display: inline-block;
