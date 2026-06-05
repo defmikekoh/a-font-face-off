@@ -16,9 +16,9 @@ const ARTICLE_DECK_STRUCTURAL_SELECTORS = ['#fullBleedHeaderContent header p'];
 const DROP_CAP_MATCH_SELECTOR = [
     '[style*="var(--drop-cap" i]',
     '[style*="initial-letter" i]',
-    '[class*="drop-cap" i]',
-    '[class*="dropcap" i]',
-    '[class*="drop_cap" i]',
+    '[class~="drop-cap" i]',
+    '[class~="dropcap" i]',
+    '[class~="drop_cap" i]',
     '[data-drop-cap]',
     '[data-dropcap]',
     '[data-testid*="drop-cap" i]',

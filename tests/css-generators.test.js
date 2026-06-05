@@ -265,7 +265,8 @@ describe('css-generators drop cap preservation', () => {
         assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\)\)/);
         assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\) \*\)/);
         assert.match(css, /\[style\*="initial-letter" i\]/);
-        assert.match(css, /\[class\*="dropcap" i\]/);
+        assert.match(css, /\[class~="dropcap" i\]/);
+        assert.doesNotMatch(css, /\[class\*="dropcap" i\]/);
         assert.match(css, /\[data-drop-cap\]/);
     }
 

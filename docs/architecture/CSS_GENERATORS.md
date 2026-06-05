@@ -5,7 +5,7 @@ Shared CSS generation functions used by popup.js and content.js (each has its ow
 ## Constants
 
 - **`GUARD_EXCLUDE`** — `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to all broad CSS selectors (Body mode `sel`/`weightSel`, Body Contact `selector`/`weightSelector`) to prevent the extension's own injected CSS from matching guarded overlays (e.g. quick pick panel).
-- **`DROP_CAP_EXCLUDE`** — `:not(:is(...)):not(:is(...) *)` using semantic drop-cap hints in `style` (`var(--drop-cap)` or `initial-letter`), `class`, `data-drop-cap`, `data-dropcap`, and `data-testid`. Appended to broad Body/Body Contact selectors plus TMI text/bold/italic selectors so site-styled drop caps, including Guardian spans using `var(--drop-cap)`, keep their original presentation.
+- **`DROP_CAP_EXCLUDE`** — `:not(:is(...)):not(:is(...) *)` using semantic drop-cap hints in `style` (`var(--drop-cap)` or `initial-letter`), exact `class` tokens, `data-drop-cap`, `data-dropcap`, and `data-testid`. Exact class-token matching avoids treating generated container classes such as `dropCap-hash` as drop-cap elements. Appended to broad Body/Body Contact selectors plus TMI text/bold/italic selectors so site-styled drop caps, including Guardian spans using `var(--drop-cap)`, keep their original presentation.
 
 ## Registered vs Custom Axes
 
