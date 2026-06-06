@@ -1233,19 +1233,15 @@ function ensureGfFamilyList() {
     }
     if (gfFamilyListPromise) return gfFamilyListPromise;
 
+    // Only read the slim family-name list here. The full ~2.4MB axis metadata
+    // (gfMetadataCache) is loaded lazily by ensureGfMetadata() when a variable
+    // font's axis ranges are actually needed — pulling it in on popup open just to
+    // populate the font selects forced a multi-MB structured-clone deserialize.
     gfFamilyListPromise = browser.storage.local.get([
         'gfFamilyListCache',
-        'gfFamilyListTimestamp',
-        'gfMetadataCache',
-        'gfMetadataTimestamp'
+        'gfFamilyListTimestamp'
     ]).then(data => {
         const now = Date.now();
-        const metadataAge = now - (data.gfMetadataTimestamp || 0);
-        if (data.gfMetadataCache && metadataAge < GF_METADATA_CACHE_MAX_AGE_MS) {
-            rememberGfMetadata(data.gfMetadataCache);
-            if (gfFamilyList.length) return gfFamilyList;
-        }
-
         const familyListAge = now - (data.gfFamilyListTimestamp || 0);
         const cachedFamilyList = normalizeGfFamilyListPayload(data.gfFamilyListCache);
         if (cachedFamilyList.length && familyListAge < GF_METADATA_CACHE_MAX_AGE_MS) {
@@ -4244,11 +4240,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Add event listeners for font selectors
     // Font changes now handled by font picker, no dropdown event listeners needed
 
-    // After state has been applied, populate the selects from metadata without clobbering selection
-    // Small delay ensures applyFontConfig runs first so current values reflect saved state
+    // After state has been applied, populate the selects from metadata without clobbering selection.
+    // Ordering (applyFontConfig before select population) is guaranteed by awaiting the init +
+    // font-restoration promises below — no fixed delay needed.
     (async () => {
-        // Wait for font restoration to complete
-        await new Promise(resolve => setTimeout(resolve, 250));
         await popupInitializationPromise;
         await initialFontRestorationPromise;
 
@@ -5468,8 +5463,8 @@ function setupPanelButtons(panelId) {
             try {
                 await handleApply(panelId);
             } finally {
-                // Re-enable after a short delay
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Brief debounce against accidental double-clicks (work already awaited)
+                await new Promise(resolve => setTimeout(resolve, 150));
                 applyBtn.disabled = false;
             }
         });
@@ -5486,7 +5481,8 @@ function setupPanelButtons(panelId) {
             try {
                 await resetPanelSettings(panelId);
             } finally {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Brief debounce against accidental double-clicks (work already awaited)
+                await new Promise(resolve => setTimeout(resolve, 150));
                 resetBtn.disabled = false;
             }
         });
