@@ -110,6 +110,15 @@ Generic reset for any panel position. Resets slider values (font-size: 17, line-
 ### `togglePanel(panelId)`
 Unified panel toggle for all modes. For face-off panels (top/bottom): manages grip active/aria state, overlay visibility, and narrow-screen single-panel enforcement. For body/TMI panels: simple classList toggle.
 
+## Shell Layout (popup.css / popup-context.js)
+
+The popup is a **three-rectangle flex column** on `body`: `#mode-tabs` (fixed height) / `#preview-region` (`flex:1`) / `#panel-grips` (fixed-height bottom bar). DOM order is tabs/bar/region, so CSS `order` (1/2/3) puts them in visual order.
+
+- `#preview-region` (`position:relative`, the middle rectangle) wraps both `#font-comparison` (the preview) and the slide-in `.controls-panel` overlays. Panels are `position:absolute; top:0; bottom:0` relative to the region — no hardcoded tab/bar offsets.
+- **Two sizing contexts, detected by platform** (NOT URL params or `@media(pointer:fine)` — the latter is tripped by the Note10 S-Pen). `popup-context.js` (external, since the extension CSP blocks inline scripts) adds `html.affo-mobile` when the UA is Android. Desktop browser-action panel = fixed `400x600` (it sizes-to-content, so the flex column needs a definite height); Android (normal popup AND the page-font tab) = `width:100vw; height: calc(100dvh + env(safe-area-inset-bottom))` to fill the viewport edge-to-edge. The bottom bar's `--panel-grips-total` (`--panel-grips-h + env(safe-area-inset-bottom)`) keeps its buttons above the system nav.
+- The page-font Face-off opens `popup.html?domain=…&sourceTabId=…` as a TAB (mobile `openPopupFallback` → `tabs.create`); desktop uses `browserAction.openPopup`.
+- Face-off is comparison-only and does NOT apply to the page; the old "facade" apply-to-page machinery (apply-top/bottom handlers, `syncApplyButtonsForOrigin`, `refreshApplyButtonsDirtyState`) was removed — it had been leaking `reset-top/bottom` into Face-off based on saved serif/sans state. Apply/Reset remain live only in TMI (`syncThirdManInButtons`) and Body-Contact (`updateBodyButtonsImmediate`).
+
 ## Font Application
 
 - `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyStateForOrigin()` (1 storage write instead of N) with parallel CSS application

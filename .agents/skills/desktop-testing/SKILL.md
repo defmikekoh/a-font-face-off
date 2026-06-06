@@ -231,6 +231,34 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 Use a seed font that differs from the site default when proving font application. On Substack, `Lora` is a better serif proof than `Spectral` because many Substack pages already use Spectral.
 
+#### Inspecting the popup ITSELF on Note10 (panel vs page-font tab)
+
+`inspect:android-firefox` inspects the *web page* (content script), not the popup UI. The popup renders on two surfaces and you often need to inspect the popup directly:
+
+- **Desktop**: a browser-action PANEL (sizes-to-content; CSS gives it a fixed `400x600`).
+- **Firefox Android**: a FULL-VIEWPORT surface. Opening the extension normally and the one-shot page-font Face-off (WhatFont card → Face-off, or long-press the top icon in the left toolbar) both open `popup.html` as a TAB via `openPopupFallback` → `browser.tabs.create('popup.html?domain=…&sourceTabId=…')`. `popup-context.js` keys mobile sizing off `/Android/i` in the UA → `html.affo-mobile`.
+
+To drive/inspect that popup tab with geckodriver, pin the add-on UUID so you can reach the moz-extension URL, then either navigate to it or trigger the real flow:
+
+```js
+const UUID = '11111111-2222-3333-4444-555555555555';
+options.setPreference('extensions.webextensions.uuids',
+  JSON.stringify({ 'a-font-face-off@example.com': UUID }));
+await driver.installAddon('web-ext-artifacts/latest.xpi', true);
+// A) direct: await driver.get(`moz-extension://${UUID}/popup.html?domain=x.com&sourceTabId=1`)
+// B) real long-press flow: on the page, window.postMessage({type:'openPopup'}, '*');
+//    then switch to the new window handle.
+```
+
+**Note10 measurement gotchas (learned the hard way):**
+
+- **A screenshot is authoritative, `getBoundingClientRect` is NOT.** Rect math caps at `innerHeight`, so it CANNOT see whitespace *below* the popup — a too-short body reads `gripsBottom === innerHeight` (gap 0) while a device screenshot clearly shows a gap. Always confirm popup fill/anchoring with `adb -s RF8M81WSL1V exec-out screencap -p > ztemp/x.png`.
+- **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
+- **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
+- **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
+- **Device asleep → `Failed to decode response from marionette`.** Wake it first: `adb -s RF8M81WSL1V shell input keyevent KEYCODE_WAKEUP`.
+- **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.
+
 ## Edge Canary Android MV3 Prototype
 
 Build the side-by-side Edge/Chrome MV3 prototype without modifying Firefox source:
