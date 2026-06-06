@@ -89,7 +89,7 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 |-----|---------|---------------|
 | `affoCurrentMode` | Current view mode persistence | `"third-man-in"` |
 | `affoCurrentView` | Currently visible popup mode; also controls desktop toolbar availability for Face-off | `"faceoff"` |
-| `affoFaceoffPageFontDraft` | One-shot page-font config waiting to open in Face-off top; removed by popup startup and never synced | `{ createdAt, sourceTabId, sourceUrl, config: { fontName, variableAxes, fontFaceRule } }` |
+| `affoFaceoffPageFontDraft` | One-shot page-font config waiting to open in Face-off top; removed by popup startup and never synced | `{ createdAt, sourceTabId, sourceUrl, config: { fontName, variableAxes, fontFaceRule }, fontDefinition: { axes, defaults, ranges } }` |
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
 | `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |

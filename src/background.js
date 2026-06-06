@@ -2348,13 +2348,21 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
 
   const selectedRule = AFFOPageFontUtils.selectBestFontFaceRule(rules, msg.fontWeight, msg.fontStyle);
   const embeddedRule = await embedPageFontSource(selectedRule);
+  const fontDefinition = AFFOPageFontUtils.buildFontFaceAxisDefinition(selectedRule);
+  const variableAxes = {};
+  fontDefinition.axes.forEach(axis => {
+    const value = Number(msg.variableAxes && msg.variableAxes[axis]);
+    if (Number.isFinite(value)) variableAxes[axis] = value;
+  });
   const config = {
     fontName,
-    variableAxes: {},
+    variableAxes,
     fontFaceRule: embeddedRule
   };
   const fontWeight = Number(msg.fontWeight);
-  if (Number.isFinite(fontWeight)) config.fontWeight = fontWeight;
+  if (Number.isFinite(fontWeight) && !Object.prototype.hasOwnProperty.call(variableAxes, 'wght')) {
+    config.fontWeight = fontWeight;
+  }
   if (msg.fontStyle === 'italic') config.fontStyle = 'italic';
 
   const sourceTabId = sender && sender.tab && sender.tab.id != null ? sender.tab.id : null;
@@ -2369,7 +2377,8 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
       createdAt: Date.now(),
       sourceTabId,
       sourceUrl,
-      config
+      config,
+      fontDefinition
     }
   });
 

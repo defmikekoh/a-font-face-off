@@ -2,6 +2,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    buildFontFaceAxisDefinition,
     cleanFontFamilyName,
     extractMatchingFontFaceRules,
     extractRemoteFontUrls,
@@ -59,6 +60,25 @@ describe('page-font-utils', () => {
 
         assert.match(selectBestFontFaceRule(rules, 700, 'normal'), /variable\.woff2/);
         assert.match(selectBestFontFaceRule(rules, 400, 'italic'), /italic\.woff2/);
+    });
+
+    it('derives only variable axes proven by font-face descriptor ranges', () => {
+        const definition = buildFontFaceAxisDefinition(
+            '@font-face { font-family: Test; font-weight: 200 900; font-stretch: 75% 125%; font-style: oblique -12deg 0deg; }'
+        );
+
+        assert.deepEqual(definition, {
+            axes: ['wght', 'wdth', 'slnt'],
+            defaults: { wght: 400, wdth: 100, slnt: 0 },
+            ranges: { wght: [200, 900], wdth: [75, 125], slnt: [-12, 0] }
+        });
+    });
+
+    it('does not expose a static font-face weight as a variable axis', () => {
+        assert.deepEqual(
+            buildFontFaceAxisDefinition('@font-face { font-weight: 500; }'),
+            { axes: [], defaults: {}, ranges: {} }
+        );
     });
 
     it('extracts and replaces a remote font URL', () => {

@@ -67,6 +67,40 @@
     return [Math.min(first, second), Math.max(first, second)];
   }
 
+  function getDescriptorRange(block, descriptorName, unitPattern) {
+    var descriptor = String(fontFaceUtils.getDescriptorValue(block, descriptorName) || '').trim().toLowerCase();
+    var values = descriptor.match(unitPattern);
+    if (!values || values.length < 2) return null;
+    var first = Number(values[0].replace(/[^\d.-]/g, ''));
+    var second = Number(values[1].replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(first) || !Number.isFinite(second) || first === second) return null;
+    return [Math.min(first, second), Math.max(first, second)];
+  }
+
+  function clamp(value, range) {
+    return Math.max(range[0], Math.min(range[1], value));
+  }
+
+  function buildFontFaceAxisDefinition(block) {
+    var axes = [];
+    var defaults = {};
+    var ranges = {};
+
+    function addAxis(axis, range, fallback) {
+      if (!Array.isArray(range) || range.length !== 2 || range[0] === range[1]) return;
+      axes.push(axis);
+      ranges[axis] = range;
+      defaults[axis] = clamp(fallback, range);
+    }
+
+    var weightRange = getFontWeightRange(block);
+    addAxis('wght', weightRange, 400);
+    addAxis('wdth', getDescriptorRange(block, 'font-stretch', /-?\d+(?:\.\d+)?%/g), 100);
+    addAxis('slnt', getDescriptorRange(block, 'font-style', /-?\d+(?:\.\d+)?deg/g), 0);
+
+    return { axes: axes, defaults: defaults, ranges: ranges };
+  }
+
   function selectBestFontFaceRule(rules, fontWeight, fontStyle) {
     var targetWeight = Number.isFinite(Number(fontWeight)) ? Number(fontWeight) : 400;
     var targetStyle = fontStyle === 'italic' ? 'italic' : 'normal';
@@ -143,6 +177,7 @@
 
   var api = {
     cleanFontFamilyName: cleanFontFamilyName,
+    buildFontFaceAxisDefinition: buildFontFaceAxisDefinition,
     extractFontFaceBlocks: extractFontFaceBlocks,
     extractMatchingFontFaceRules: extractMatchingFontFaceRules,
     extractRemoteFontUrls: extractRemoteFontUrls,

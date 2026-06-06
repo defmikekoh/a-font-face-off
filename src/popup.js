@@ -3106,11 +3106,42 @@ async function loadPendingFaceoffPageFontDraft() {
             return;
         }
 
+        const rawDefinition = draft.fontDefinition && typeof draft.fontDefinition === 'object'
+            ? draft.fontDefinition
+            : {};
+        const axes = Array.isArray(rawDefinition.axes)
+            ? rawDefinition.axes.filter(axis => {
+                const range = rawDefinition.ranges && rawDefinition.ranges[axis];
+                return typeof axis === 'string' &&
+                    Array.isArray(range) &&
+                    range.length === 2 &&
+                    Number.isFinite(Number(range[0])) &&
+                    Number.isFinite(Number(range[1])) &&
+                    Number(range[0]) !== Number(range[1]);
+            })
+            : [];
+        const defaults = {};
+        const ranges = {};
+        const steps = {};
+        axes.forEach(axis => {
+            const rawRange = rawDefinition.ranges[axis].map(Number);
+            const range = [Math.min(rawRange[0], rawRange[1]), Math.max(rawRange[0], rawRange[1])];
+            const rawDefault = Number(rawDefinition.defaults && rawDefinition.defaults[axis]);
+            ranges[axis] = range;
+            defaults[axis] = Number.isFinite(rawDefault)
+                ? Math.max(range[0], Math.min(range[1], rawDefault))
+                : range[0];
+            steps[axis] = AXIS_STEP_DEFAULTS[axis] || 1;
+        });
+        Object.keys(config.variableAxes).forEach(axis => {
+            if (!axes.includes(axis)) delete config.variableAxes[axis];
+        });
+
         fontDefinitions[config.fontName] = {
-            axes: [],
-            defaults: {},
-            ranges: {},
-            steps: {},
+            axes,
+            defaults,
+            ranges,
+            steps,
             fontFaceRule: config.fontFaceRule
         };
         ephemeralPageFontNames.add(config.fontName);
@@ -3622,8 +3653,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Font selection now handled by font picker interface, no dropdowns needed
 
     // Get control panels and UI elements
-    const topFontControls = document.getElementById('top-font-controls');
-    const bottomFontControls = document.getElementById('bottom-font-controls');
     const panelOverlay = document.getElementById('panel-overlay');
     const topFontGrip = document.getElementById('top-font-grip');
     const bottomFontGrip = document.getElementById('bottom-font-grip');
@@ -4401,25 +4430,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
-    // Dynamically align panel bottoms above the bottom strip (#panel-grips)
-    function adjustPanelBottomOffset() {
-        try {
-            const grips = document.getElementById('panel-grips');
-            const h = grips ? Math.ceil(grips.getBoundingClientRect().height || 0) : 100;
-            if (topFontControls) topFontControls.style.bottom = h + 'px';
-            if (bottomFontControls) bottomFontControls.style.bottom = h + 'px';
-        } catch (_) {}
-    }
-    adjustPanelBottomOffset();
-    // Recalculate on resize and when the bottom strip resizes (e.g., phone layout)
-    window.addEventListener('resize', adjustPanelBottomOffset);
-    try {
-        if ('ResizeObserver' in window) {
-            const ro = new ResizeObserver(adjustPanelBottomOffset);
-            const grips = document.getElementById('panel-grips');
-            if (grips) ro.observe(grips);
-        }
-    } catch (_) {}
+    // Control panels are positioned by CSS relative to #preview-region
+    // (top:0/bottom:0), so no JS bottom-offset adjustment is needed.
 
     // Initialize favorites system
     loadFavoritesFromStorage();

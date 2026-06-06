@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Font Face-off</title>
+    <!-- Sizes the popup for tab vs panel before first paint. External file because
+         the extension CSP blocks inline scripts. -->
+    <script src="popup-context.js"></script>
     <link rel="stylesheet" href="popup.css">
 
 </head>
@@ -177,6 +180,10 @@
 
     <!-- Top/Bottom control panels are cloned from body-font-controls at startup -->
 
+    <!-- Preview region: the middle rectangle of the popup. Holds the preview
+         (#font-comparison) and the slide-in control panels, which are positioned
+         relative to THIS box (top:0/bottom:0) rather than hardcoded tab/bar offsets. -->
+    <div id="preview-region">
     <!-- Font Comparison Area -->
     <div id="font-comparison">
         <button id="open-options-button" class="popup-options-button" type="button" title="Settings" aria-label="Settings">⚙</button>
@@ -378,6 +385,7 @@
             </div>
         </div>
     </div>
+    </div><!-- /#preview-region -->
 
     <!-- Serif/Sans/Mono control panels are cloned from body-font-controls at startup -->
 

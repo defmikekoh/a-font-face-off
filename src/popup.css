@@ -8,27 +8,52 @@
     box-sizing: border-box;
 }
 
-/* Desktop popup sizing — pointer:fine targets mouse (desktop), not touch (Android) */
-@media (pointer: fine) {
-  html, body { min-width: 400px; min-height: 600px; }
-}
-
 body {
-    width: 100vw;
-    height: 100vh;
+    /* Three-rectangle layout: a flex column of mode-tabs (fixed height) / preview
+       (fills the middle) / bottom bar (fixed height). The bar is the last flex
+       row, so it's always at the bottom and the preview can never overlap it.
+
+       Default sizing = the desktop browser-action PANEL: a definite 400x600 (the
+       panel sizes-to-content, so a flex column with a flex:1 preview needs a fixed
+       height or it collapses). Firefox Android fills the viewport instead — see
+       html.affo-mobile below. Platform is detected by user agent in popup-context.js
+       (NOT @media(pointer:fine), which the Note10 S-Pen trips, and NOT URL params,
+       which the normal Android popup lacks). */
+    min-width: 400px;
+    width: 400px;
+    height: 600px;
+    display: flex;
+    flex-direction: column;
     font-family: Arial, sans-serif;
     background: #f5f5f5;
     position: relative;
     overflow: hidden;
     overflow-x: hidden; /* avoid scrollbar-width adding to 100vw causing horizontal overflow */
-    padding-bottom: var(--panel-grips-h); /* Keep content clear of bottom bar */
     touch-action: pan-y; /* Only allow vertical touch scrolling */
+}
+
+/* Firefox Android (normal popup OR page-font tab): fill the viewport edge-to-edge.
+   Fenix reports dvh as the area ABOVE the system nav, so it leaves a gap; add the
+   nav inset back so the column reaches the screen bottom, and the bottom bar's own
+   safe-area padding keeps its buttons above the nav. (lvh/vh overshoot and push the
+   bar under the nav.) */
+html.affo-mobile body {
+    min-width: 0;
+    width: 100vw;
+    height: 100vh;
+    height: calc(100dvh + env(safe-area-inset-bottom));
 }
 
 /* Global layout variables */
 :root {
-    /* Height of the bottom grips/footer bar */
+    /* Height of the bottom grips/footer bar (button area only) */
     --panel-grips-h: 80px;
+    /* Full bottom-bar height INCLUDING the device gesture/safe-area strip. The
+       bar must be this tall so its buttons sit above the gesture strip (e.g. the
+       Note10 reserves ~42px). Everything that reserves space for the bar — the
+       preview's padding-bottom, the side control panels' bottom, and the bar's
+       own height — uses this same value so they always agree. */
+    --panel-grips-total: calc(var(--panel-grips-h) + env(safe-area-inset-bottom, 0px));
     /* Mode tabs total box height (content + borders) */
     --tabs-h: 64px; /* 60px content + 2px top border + 2px bottom border */
     /* Rink motif styling */
@@ -111,17 +136,17 @@ body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: ce
 
 /* Layout containers */
 body {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: relative;
 }
 
 /* Mode tabs */
 /* Hockey Rink Style Tabs */
 #mode-tabs {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    flex: 0 0 auto; /* fixed-height top rectangle */
+    order: 1; /* DOM order is tabs/bar/preview; force visual tabs/preview/bar */
     height: 60px; /* Increased height for hockey rink design */
     background: white; /* Ice color */
     display: flex;
@@ -131,7 +156,6 @@ body {
     /* Remove extra gaps so preview rink aligns perfectly */
     margin: 0 4px 0 4px;
     overflow: hidden;
-    position: relative;
 }
 
 /* Hockey rink blue lines between tabs - authentic NHL proportions */
@@ -526,9 +550,12 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     overflow: hidden; /* scroll is on panel-body so footer doesn't overlap */
     flex-direction: column;
     flex-shrink: 0;
-    position: fixed;
-    top: 60px; /* Account for mode tabs */
-    bottom: var(--panel-grips-h); /* Match bottom bar height across breakpoints */
+    /* Positioned relative to #preview-region (the middle rectangle): top:0/bottom:0
+       span exactly the preview area, so there are no hardcoded tab-height or
+       bar-height offsets to keep in sync. */
+    position: absolute;
+    top: 0;
+    bottom: 0;
     height: auto;
     transition: none;
     z-index: 999; /* Below bottom bar */
@@ -686,19 +713,36 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
 .panel-body { scrollbar-width: none; -ms-overflow-style: none; }
 .panel-body::-webkit-scrollbar { width: 0; height: 0; }
 
+/* Middle rectangle of the popup flex column: holds the preview and the slide-in
+   control panels. position:relative makes it the containing block both panels and
+   the preview are sized against (top:0/bottom:0/inset:0) — no hardcoded tab/bar
+   offsets. */
+#preview-region {
+    order: 2;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
 #font-comparison {
     width: 100%;
-    /* Fill the space exactly between fixed top tabs and bottom grip bar */
-    position: absolute;
-    /* Align with control panels: start at 60px below the fixed tab bar */
-    top: 60px;
-    bottom: var(--panel-grips-h);
-    left: 0;
-    right: 0;
+    /* Fills the preview region. position:relative is the containing block for the
+       absolute gear button; min-height:0 lets its inner sections scroll. */
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     transition: none;
 }
+
+/* Three rectangles in one flex column: mode-tabs / #preview-region (fills, holds
+   the preview + control-panel overlays) / #panel-grips (bottom bar, height includes
+   the device gesture strip via --panel-grips-total). Only the preview's inner
+   sections scroll (see #top/#bottom-font-section and the per-mode section rules). */
 
 #font-preview-rink {
     flex: 1 1 auto;
@@ -756,15 +800,6 @@ body.view-third-man-in #font-comparison.serif-panel-open.sans-panel-open {
     width: 33.334%;
 }
 
-/* Lower control panel positioning for Body Contact and Third Man In modes */
-/* Align control panel vertical offset across all modes to match Face-off */
-body.view-body-contact .controls-panel {
-    top: 60px;
-}
-
-body.view-third-man-in .controls-panel {
-    top: 60px;
-}
 
 /* Small screens: single-panel overlay not full width */
 @media (max-width: 599px) {
@@ -829,6 +864,8 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
 /* Font sections */
 .font-section {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
     /* Remove top padding so heading touches the top edge of its box */
     padding: 0 20px 20px;
     overflow-y: auto;
@@ -874,6 +911,10 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
 body.view-faceoff #top-font-section,
 body.view-faceoff #bottom-font-section {
     display: block;
+    flex: 1 1 0;
+    min-height: 0;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
 }
 
 /* Face-off preview boxes: round only the outer corners */
@@ -1058,6 +1099,7 @@ body.view-faceoff #font-preview-rink {
     box-sizing: border-box;
     background: #ffffff;
     overflow: hidden;
+    contain: paint;
 }
 
 /* Third Man In: thick rink border around combined 3 boxes */
@@ -1677,11 +1719,12 @@ body.body-contact #font-comparison {
 
 /* Panel control grips */
 #panel-grips {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: var(--panel-grips-h); /* Use variable so all layouts stay in sync */
+    position: relative; /* bottom rectangle: last row of the body flex column */
+    flex: 0 0 auto;
+    order: 3; /* force to the bottom (DOM has it before the preview) */
+    width: 100%;
+    /* Tall enough to hold the buttons AND clear the device gesture strip */
+    height: var(--panel-grips-total);
     background: linear-gradient(to top, rgba(44, 62, 80, 0.95), rgba(44, 62, 80, 0.8));
     display: flex;
     justify-content: space-between;
@@ -1693,7 +1736,11 @@ body.body-contact #font-comparison {
 }
 
 body.mode-switching #panel-grips {
-    display: none !important;
+    /* Hide the bar during a mode switch WITHOUT removing it from the flex column.
+       display:none would drop the last row, letting the preview expand to the
+       bottom and then snap back when the bar returns — a visible reflow that looked
+       like the bottom rectangle "moving up". visibility keeps its space. */
+    visibility: hidden !important;
 }
 
 /* Apply buttons near grips (visible in Facade view) */
@@ -1874,7 +1921,7 @@ body.mode-switching #panel-grips {
     #panel-grips {
         flex-wrap: nowrap;
         justify-content: space-between;
-        height: var(--panel-grips-h); /* more compact single row */
+        height: var(--panel-grips-total); /* button row + gesture strip */
         padding: 6px 8px max( env(safe-area-inset-bottom), 6px ) 8px; /* Symmetric left/right padding */
         column-gap: 8px;
         --grip-width: min(120px, calc((100vw - 32px) / 3));
@@ -2185,7 +2232,7 @@ body.view-faceoff .favorites-container {
     }
     /* Sync bottom bar height via variable so panels align (reduced) */
     :root { --panel-grips-h: 76px; }
-    #panel-grips { height: var(--panel-grips-h); --grip-width: 140px; }
+    #panel-grips { height: var(--panel-grips-total); --grip-width: 140px; }
 
     /* Tablet: make third-man-in-content behave like faceoff-content */
     body.view-third-man-in .third-man-in-content.active {

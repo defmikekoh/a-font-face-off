@@ -58,6 +58,15 @@ describe('Integration tests', () => {
         );
         assert.equal(active, 'faceoff');
 
+        // Wait for the mode-switch transition AND the browser-action panel resize
+        // to settle (the popup can briefly report a collapsed body height right
+        // after switching) before measuring the flex-column layout.
+        await driver.wait(async () => popupExec(driver, `
+            return !document.body.classList.contains('mode-switching') &&
+                document.getElementById('panel-grips').getBoundingClientRect().height > 0 &&
+                document.body.getBoundingClientRect().height >= 500;
+        `), 5000);
+
         const defaults = await popupExec(driver, `
             return {
                 topHeading: document.getElementById('top-font-name')?.textContent.trim(),
@@ -65,7 +74,24 @@ describe('Integration tests', () => {
                 topPreviewStyle: document.getElementById('top-font-text')?.getAttribute('style') || '',
                 bottomHeading: document.getElementById('bottom-font-name')?.textContent.trim(),
                 bottomDisplay: document.getElementById('bottom-font-display')?.textContent.trim(),
-                bottomPreviewStyle: document.getElementById('bottom-font-text')?.getAttribute('style') || ''
+                bottomPreviewStyle: document.getElementById('bottom-font-text')?.getAttribute('style') || '',
+                topMinHeight: getComputedStyle(document.getElementById('top-font-section')).minHeight,
+                bottomMinHeight: getComputedStyle(document.getElementById('bottom-font-section')).minHeight,
+                bodyDisplay: getComputedStyle(document.body).display,
+                topOverscrollBehavior: getComputedStyle(document.getElementById('top-font-section')).overscrollBehaviorY,
+                bottomOverscrollBehavior: getComputedStyle(document.getElementById('bottom-font-section')).overscrollBehaviorY,
+                previewPaintContainment: getComputedStyle(document.getElementById('font-preview-rink')).contain,
+                comparisonPosition: getComputedStyle(document.getElementById('font-comparison')).position,
+                gripsPosition: getComputedStyle(document.getElementById('panel-grips')).position,
+                comparisonBottom: document.getElementById('font-comparison').getBoundingClientRect().bottom,
+                previewRinkBottom: document.getElementById('font-preview-rink').getBoundingClientRect().bottom,
+                gripsTop: document.getElementById('panel-grips').getBoundingClientRect().top,
+                gripsBottom: document.getElementById('panel-grips').getBoundingClientRect().bottom,
+                viewportHeight: window.innerHeight,
+                sectionHeightDifference: Math.abs(
+                    document.getElementById('top-font-section').getBoundingClientRect().height -
+                    document.getElementById('bottom-font-section').getBoundingClientRect().height
+                )
             };
         `);
         assert.equal(defaults.topHeading, 'ABeeZee');
@@ -74,6 +100,33 @@ describe('Integration tests', () => {
         assert.equal(defaults.bottomHeading, 'Zilla Slab Highlight');
         assert.equal(defaults.bottomDisplay, 'Zilla Slab Highlight');
         assert.match(defaults.bottomPreviewStyle, /font-family:\s*"Zilla Slab Highlight"/);
+        assert.equal(defaults.topMinHeight, '0px');
+        assert.equal(defaults.bottomMinHeight, '0px');
+        assert.equal(defaults.topOverscrollBehavior, 'contain');
+        assert.equal(defaults.bottomOverscrollBehavior, 'contain');
+        assert.equal(defaults.previewPaintContainment, 'paint');
+        // Three-rectangle flex column: mode-tabs / #font-comparison (flex:1) /
+        // #panel-grips (last row, height includes the gesture strip via
+        // --panel-grips-total). The bar is the intrinsic last row, so it sits at the
+        // bottom and the preview content ends exactly at the bar top — no overlap.
+        assert.equal(defaults.bodyDisplay, 'flex');
+        assert.equal(defaults.comparisonPosition, 'relative');
+        assert.equal(defaults.gripsPosition, 'relative');
+        assert.ok(
+            Math.abs(defaults.gripsBottom - defaults.viewportHeight) < 1,
+            `Face-off bottom bar should sit at the viewport bottom: ${JSON.stringify({
+                gripsBottom: defaults.gripsBottom,
+                viewportHeight: defaults.viewportHeight
+            })}`
+        );
+        assert.ok(
+            Math.abs(defaults.previewRinkBottom - defaults.gripsTop) < 1,
+            `Face-off preview content should end exactly at the bottom bar (no overlap): ${JSON.stringify({
+                previewRinkBottom: defaults.previewRinkBottom,
+                gripsTop: defaults.gripsTop
+            })}`
+        );
+        assert.ok(defaults.sectionHeightDifference < 1, 'Face-off preview halves should share the available height');
 
         // Verify cloned top/bottom control panels have correct elements
         const panels = await popupExec(driver, `
@@ -379,8 +432,13 @@ describe('Integration tests', () => {
                     sourceUrl: location.href,
                     config: {
                         fontName: 'Ephemeral Test Font',
-                        variableAxes: {},
-                        fontFaceRule: '@font-face { font-family: "Ephemeral Test Font"; src: local("Arial"); font-weight: 400; }'
+                        variableAxes: { wght: 500 },
+                        fontFaceRule: '@font-face { font-family: "Ephemeral Test Font"; src: local("Arial"); font-weight: 200 900; }'
+                    },
+                    fontDefinition: {
+                        axes: ['wght'],
+                        defaults: { wght: 400 },
+                        ranges: { wght: [200, 900] }
                     }
                 }
             }).then(() => true);
@@ -390,25 +448,41 @@ describe('Integration tests', () => {
         await driver.sleep(1000);
 
         const state = await popupExec(driver, `
-            return browser.storage.local.get(['affoUIState', 'affoFaceoffPageFontDraft']).then((stored) => ({
-                activeMode: document.querySelector('[data-mode].active')?.dataset?.mode,
-                topFont: document.getElementById('top-font-display')?.textContent.trim(),
-                bottomFont: document.getElementById('bottom-font-display')?.textContent.trim(),
-                topPreviewStyle: document.getElementById('top-font-text')?.getAttribute('style') || '',
-                topApplyDisabled: document.getElementById('apply-top')?.disabled,
-                topSaveDisabled: document.getElementById('top-save-favorite-bar')?.disabled,
-                injectedRule: !!document.getElementById('affo-custom-font-Ephemeral-Test-Font'),
-                draftPresent: !!stored.affoFaceoffPageFontDraft,
-                savedTopFont: stored.affoUIState?.faceoff?.topFont?.fontName
-            }));
+            return browser.storage.local.get(['affoUIState', 'affoFaceoffPageFontDraft']).then((stored) => {
+                const topAxis = {
+                    value: document.getElementById('top-wght')?.value,
+                    min: document.getElementById('top-wght')?.min,
+                    max: document.getElementById('top-wght')?.max,
+                    active: !document.querySelector('#top-font-controls .control-group[data-axis="wght"]')?.classList.contains('unset')
+                };
+                const topPreviewStyle = document.getElementById('top-font-text')?.getAttribute('style') || '';
+                document.querySelector('#top-font-controls .control-group[data-axis="wght"] .axis-reset-btn')?.click();
+                return {
+                    activeMode: document.querySelector('[data-mode].active')?.dataset?.mode,
+                    topFont: document.getElementById('top-font-display')?.textContent.trim(),
+                    bottomFont: document.getElementById('bottom-font-display')?.textContent.trim(),
+                    topPreviewStyle,
+                    topApplyDisabled: document.getElementById('apply-top')?.disabled,
+                    topSaveDisabled: document.getElementById('top-save-favorite-bar')?.disabled,
+                    topAxis,
+                    resetAxisValue: document.getElementById('top-wght')?.value,
+                    injectedRule: !!document.getElementById('affo-custom-font-Ephemeral-Test-Font'),
+                    draftPresent: !!stored.affoFaceoffPageFontDraft,
+                    savedTopFont: stored.affoUIState?.faceoff?.topFont?.fontName
+                };
+            });
         `);
 
         assert.equal(state.activeMode, 'faceoff');
         assert.equal(state.topFont, 'Ephemeral Test Font');
         assert.equal(state.bottomFont, 'Rubik');
         assert.match(state.topPreviewStyle, /Ephemeral Test Font/);
+        assert.doesNotMatch(state.topPreviewStyle, /font-weight/);
+        assert.match(state.topPreviewStyle, /font-variation-settings:\s*"wght" 500/);
         assert.equal(state.topApplyDisabled, true);
         assert.equal(state.topSaveDisabled, true);
+        assert.deepEqual(state.topAxis, { value: '500', min: '200', max: '900', active: true });
+        assert.equal(state.resetAxisValue, '400');
         assert.equal(state.injectedRule, true);
         assert.equal(state.draftPresent, false, 'one-shot page-font draft should be removed after opening');
         assert.equal(state.savedTopFont, 'Lora', 'ephemeral top font should not replace saved Face-off state');
