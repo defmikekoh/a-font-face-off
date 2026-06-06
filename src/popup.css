@@ -25,7 +25,8 @@ body {
     display: flex;
     flex-direction: column;
     font-family: Arial, sans-serif;
-    background: #f5f5f5;
+    background: #ffffff;
+    color: #2c3e50;
     position: relative;
     overflow: hidden;
     overflow-x: hidden; /* avoid scrollbar-width adding to 100vw causing horizontal overflow */
@@ -3126,12 +3127,8 @@ body.view-faceoff .favorites-container {
     transform: scale(0.95);
 }
 
-/* Light theme — always active (was previously gated behind prefers-color-scheme: light) */
-body {
-        background: #ffffff;
-        color: #2c3e50;
-    }
-
+/* Light theme — always active (was previously gated behind prefers-color-scheme: light).
+   The body background/color now live in the main body rule above. */
     .controls-panel {
         background: #f8f9fa;
         color: #2c3e50;

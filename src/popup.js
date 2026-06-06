@@ -129,13 +129,8 @@ function applyViewMode(forceView) {
     const botGripLabel = document.querySelector('#bottom-font-grip .grip-label');
     if (topGripLabel) topGripLabel.textContent = getPanelLabel('top');
     if (botGripLabel) botGripLabel.textContent = getPanelLabel('bottom');
-    // Reset button visibility: only meaningful in Facade view
     try {
-        const rt = document.getElementById('reset-top');
-        const rb = document.getElementById('reset-bottom');
         if (currentViewMode === 'faceoff') {
-            if (rt) rt.style.display = 'none';
-            if (rb) rb.style.display = 'none';
             // Ensure family is never unset in Faceoff: clear any 'Default' placeholders
             const fixFamily = (position, fallback) => {
                 const disp = document.getElementById(`${position}-font-display`);
@@ -153,11 +148,8 @@ function applyViewMode(forceView) {
             };
             fixFamily('top', 'Roboto Flex');
             fixFamily('bottom', 'Rubik');
-        } else {
-            try { syncApplyButtonsForOrigin(); } catch (_) {}
-            if (currentViewMode === 'third-man-in') {
-                try { syncThirdManInButtons(); } catch (_) {}
-            }
+        } else if (currentViewMode === 'third-man-in') {
+            try { syncThirdManInButtons(); } catch (_) {}
         }
     } catch (_) {}
     }).catch(error => {
@@ -2218,13 +2210,6 @@ async function loadFont(position, fontName, options = {}) {
             saveExtensionState();
         }
 
-        // Update Apply/Applied/Update buttons to reflect new UI vs saved state (Face-off mode only)
-        if (currentViewMode === 'faceoff') {
-            try {
-                refreshApplyButtonsDirtyState();
-            } catch (_) {}
-        }
-
         return requestId;
     } catch (error) {
         console.error(`Error loading font ${fontName} for ${position}:`, error);
@@ -2850,37 +2835,6 @@ async function buildPayload(position, providedConfig = null) {
     // Note: styleId is not stored - content.js computes it as 'a-font-face-off-style-' + fontType
 
     return payload;
-}
-
-// Pre-highlight Apply buttons based on saved per-origin settings
-function syncApplyButtonsForOrigin() {
-    const applyTopBtn = document.getElementById('apply-top');
-    const applyBottomBtn = document.getElementById('apply-bottom');
-    if (!applyTopBtn && !applyBottomBtn) return Promise.resolve();
-
-    return getActiveOrigin().then(origin => {
-        if (!origin) return;
-
-        return getApplyMapForOrigin(origin).then(domainData => {
-            const entry = domainData || {};
-
-            if (applyTopBtn) {
-                const on = !!entry.serif;
-                applyTopBtn.classList.toggle('active', on);
-                applyTopBtn.textContent = on ? '✓' : 'Apply';
-                const r = document.getElementById('reset-top');
-                if (r) r.style.display = on ? 'inline-flex' : 'none';
-            }
-
-            if (applyBottomBtn) {
-                const on = !!entry.sans;
-                applyBottomBtn.classList.toggle('active', on);
-                applyBottomBtn.textContent = on ? '✓' : 'Apply';
-                const r = document.getElementById('reset-bottom');
-                if (r) r.style.display = on ? 'inline-flex' : 'none';
-            }
-        });
-    }).catch(() => {});
 }
 
 // Sync Third Man In apply buttons with saved state
@@ -3689,75 +3643,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Mode switching is now handled by the 3-mode tab system in HTML
 
-    // Apply-to-page buttons (Face-off mode)
-    const applyTopBtn = document.getElementById('apply-top');
-    const applyBottomBtn = document.getElementById('apply-bottom');
-    if (applyTopBtn) {
-        applyTopBtn.addEventListener('click', async () => {
-            const config = getCurrentUIConfig('top');
-            if (!config) return;
-
-            // Allow configurations with font properties even without fontName
-            if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
-                if (!hasOtherProperties) return;
-            }
-
-            applyTopBtn.classList.add('loading');
-            applyTopBtn.textContent = 'Loading…';
-            const active = await applyFontToPage('top', config);
-            if (active) {
-                applyTopBtn.classList.add('active');
-                applyTopBtn.textContent = '✓';
-                try { const r = document.getElementById('reset-top'); if (r) r.style.display = 'inline-flex'; } catch (_) {}
-            } else {
-                applyTopBtn.classList.remove('active');
-                applyTopBtn.textContent = 'Apply';
-                try { const r = document.getElementById('reset-top'); if (r) r.style.display = 'none'; } catch (_) {}
-            }
-            applyTopBtn.classList.remove('loading');
-        });
-    }
-    if (applyBottomBtn) {
-        applyBottomBtn.addEventListener('click', async () => {
-            const config = getCurrentUIConfig('bottom');
-            if (!config) return;
-
-            // Allow configurations with font properties even without fontName
-            if (!config.fontName) {
-                const hasOtherProperties = config.fontSize || config.fontSizeScale || config.fontWeight || config.fontStyle || config.lineHeight || config.letterSpacing != null || config.fontColor;
-                if (!hasOtherProperties) return;
-            }
-
-            applyBottomBtn.classList.add('loading');
-            applyBottomBtn.textContent = 'Loading…';
-            const active = await applyFontToPage('bottom', config);
-            if (active) {
-                applyBottomBtn.classList.add('active');
-                applyBottomBtn.textContent = '✓';
-                try { const r = document.getElementById('reset-bottom'); if (r) r.style.display = 'inline-flex'; } catch (_) {}
-            } else {
-                applyBottomBtn.classList.remove('active');
-                applyBottomBtn.textContent = 'Apply';
-                try { const r = document.getElementById('reset-bottom'); if (r) r.style.display = 'none'; } catch (_) {}
-            }
-            applyBottomBtn.classList.remove('loading');
-        });
-    }
-
     // Note: Apply-to-page button (Body mode) event listener is now handled by setupPanelButtons() in setupApplyResetEventListeners()
 
     // Pre-highlight Apply buttons based on saved state for current origin
-    try { syncApplyButtonsForOrigin(); } catch (_) {}
     if (currentViewMode === 'third-man-in') {
         try { syncThirdManInButtons(); } catch (_) {}
-    }
-
-    // Track changes to mark buttons as Update when UI differs from saved (Face-off mode only)
-    if (currentViewMode === 'faceoff') {
-        const debouncedRefresh = debounce(refreshApplyButtonsDirtyState, 200);
-        document.addEventListener('input', debouncedRefresh, true);
-        document.addEventListener('change', debouncedRefresh, true);
     }
 
     // Body family reset button
@@ -4679,47 +4569,6 @@ function resetFontForPosition(position) {
 // Facade mode completely removed
 
 
-// Compare two apply payloads for equality (font + axes + basic controls).
-// Handles backward compat: old stored payloads may have wdthVal/slntVal/italVal
-// instead of (or alongside) variableAxes entries.
-function payloadEquals(a, b) {
-    if (!a || !b) return false;
-    if (a.fontName !== b.fontName) return false;
-    if ((a.fontSource || null) !== (b.fontSource || null)) return false;
-    const numEq = (x, y) => (x == null) && (y == null) ? true : Number(x) === Number(y);
-    if (!numEq(a.fontWeight, b.fontWeight)) return false;
-    if ((a.fontSizeScale != null) !== (b.fontSizeScale != null)) return false;
-    if (!numEq(a.fontSizeScale, b.fontSizeScale)) return false;
-    if (!numEq(a.fontSize, b.fontSize)) return false;
-    if (!numEq(a.lineHeight, b.lineHeight)) return false;
-    if (!numEq(a.letterSpacing, b.letterSpacing)) return false;
-    const styleOf = (obj) => {
-        if (obj.fontStyle === 'italic') return 'italic';
-        if (obj.italVal != null && Number(obj.italVal) >= 1) return 'italic';
-        if (obj.variableAxes && obj.variableAxes.ital != null && Number(obj.variableAxes.ital) >= 1) return 'italic';
-        return null;
-    };
-    if (styleOf(a) !== styleOf(b)) return false;
-    if (a.fontColor !== b.fontColor) return false;
-    // Normalize axes: fold legacy wdthVal/slntVal into variableAxes for comparison.
-    // Italic toggle is normalized through fontStyle/styleOf above.
-    const normalize = (obj) => {
-        const axes = { ...(obj.variableAxes || {}) };
-        if (obj.wdthVal != null && !('wdth' in axes)) axes.wdth = Number(obj.wdthVal);
-        if (obj.slntVal != null && !('slnt' in axes)) axes.slnt = Number(obj.slntVal);
-        if (Number(axes.ital) === 0 || Number(axes.ital) >= 1) delete axes.ital;
-        return axes;
-    };
-    const aAxes = normalize(a);
-    const bAxes = normalize(b);
-    const aKeys = Object.keys(aAxes);
-    const bKeys = Object.keys(bAxes);
-    if (aKeys.length !== bKeys.length) return false;
-    for (const key of aKeys) {
-        if (!(key in bAxes) || Number(aAxes[key]) !== Number(bAxes[key])) return false;
-    }
-    return true;
-}
 
 // New storage structure to support multiple modes per domain
 // cleanOrigin function removed - now using hostname directly
@@ -5095,53 +4944,6 @@ function restoreUIFromDomainStorage() {
 // generateBodyContactCSS, generateThirdManInCSS are in css-generators.js
 // Element walker is handled by content.js via runElementWalkerInTargetTab()
 
-
-// Reflect button labels based on saved vs current (Applied/Update/Apply)
-async function refreshApplyButtonsDirtyState() {
-    try {
-        const origin = await getActiveOrigin();
-        const entry = origin ? (await getApplyMapForOrigin(origin) || {}) : {};
-
-        const btnTop = document.getElementById('apply-top');
-        const btnBottom = document.getElementById('apply-bottom');
-
-        if (btnTop) {
-            const saved = entry.serif || null;
-            if (!saved) {
-                btnTop.classList.remove('active');
-                btnTop.textContent = 'Apply';
-                const r = document.getElementById('reset-top');
-                if (r) r.style.display = 'none';
-            } else {
-                const current = await buildPayload('top');
-                const same = payloadEquals(saved, current);
-                btnTop.classList.toggle('active', same);
-                btnTop.textContent = same ? '✓' : 'Apply';
-                const r = document.getElementById('reset-top');
-                if (r) r.style.display = same ? 'inline-flex' : 'none';
-            }
-        }
-
-        if (btnBottom) {
-            const saved = entry.sans || null;
-            if (!saved) {
-                btnBottom.classList.remove('active');
-                btnBottom.textContent = 'Apply';
-                const r = document.getElementById('reset-bottom');
-                if (r) r.style.display = 'none';
-            } else {
-                const current = await buildPayload('bottom');
-                const same = payloadEquals(saved, current);
-                btnBottom.classList.toggle('active', same);
-                btnBottom.textContent = same ? '✓' : 'Apply';
-                const r = document.getElementById('reset-bottom');
-                if (r) r.style.display = same ? 'inline-flex' : 'none';
-            }
-        }
-    } catch (error) {
-        console.error('Error in refreshApplyButtonsDirtyState:', error);
-    }
-}
 
 // Mode switching functionality
 // Check if a mode has applied settings for the current domain
