@@ -3829,18 +3829,19 @@
 
     // Exclude headings, UI elements, and form controls
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
-    if (element.closest && element.closest('h1, h2, h3, h4, h5, h6')) return null;
 
-    // Exclude descendants of non-body containers: figcaptions, buttons, guards,
-    // post headers, top-bar chrome, and optionally Substack comments on
-    // configured domains. Article decks/standfirsts inside article headers
-    // are handled separately by isInsideArticleDeck(). Interactive subtrees
-    // (dialogs/modals) are intentionally NOT listed here: both the full and
-    // scoped walkers prune them via FILTER_REJECT / root guards before any
-    // element inside one reaches this function, so a .closest() check for them
-    // would be dead weight on every element.
+    // Exclude descendants of headings and non-body containers: figcaptions,
+    // buttons, guards, post headers, top-bar chrome, and optionally Substack
+    // comments on configured domains. Folded into a single .closest() call —
+    // both checks just return null, so combining the selectors avoids a second
+    // O(depth) ancestor walk on every element. Article decks/standfirsts inside
+    // article headers are handled separately by isInsideArticleDeck().
+    // Interactive subtrees (dialogs/modals) are intentionally NOT listed here:
+    // both the full and scoped walkers prune them via FILTER_REJECT / root
+    // guards before any element inside one reaches this function, so a .closest()
+    // check for them would be dead weight on every element.
     if (element.closest) {
-      var closestSelector = 'figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+      var closestSelector = 'h1, h2, h3, h4, h5, h6, figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }

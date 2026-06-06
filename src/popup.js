@@ -3153,12 +3153,23 @@ function getPositionCallbacks(position) {
 }
 
 // Migration: Remove derived font-loading fields from existing domain storage/cache.
+// Bump when migrateRemoveDuplicatedFields() gains new cleanup steps so the
+// one-shot migration runs again. Stored in affoSchemaVersion (local-only).
+const AFFO_SCHEMA_VERSION = 1;
+
 async function migrateRemoveDuplicatedFields() {
     try {
-        const result = await browser.storage.local.get('affoApplyMap');
+        const result = await browser.storage.local.get(['affoApplyMap', 'affoSchemaVersion']);
+        // Already migrated to the current schema — skip the full applyMap scan on
+        // every popup open. After the first run this is just a 2-key storage read.
+        if (Number(result.affoSchemaVersion) >= AFFO_SCHEMA_VERSION) return;
+
         const applyMap = result.affoApplyMap;
         await browser.storage.local.remove('affoCss2UrlCache').catch(() => {});
-        if (!applyMap || typeof applyMap !== 'object') return;
+        if (!applyMap || typeof applyMap !== 'object') {
+            await browser.storage.local.set({ affoSchemaVersion: AFFO_SCHEMA_VERSION });
+            return;
+        }
 
         let modified = false;
         for (const domain in applyMap) {
@@ -3188,7 +3199,12 @@ async function migrateRemoveDuplicatedFields() {
         if (modified) {
             await browser.storage.local.set({ affoApplyMap: applyMap });
             affoDebugLog('✅ Migration: Removed duplicated fields from domain storage');
+        }
 
+        // Mark migration complete so subsequent popup opens skip the full scan.
+        await browser.storage.local.set({ affoSchemaVersion: AFFO_SCHEMA_VERSION });
+
+        if (modified) {
             // Give storage.onChanged listeners time to fire, then wait a bit for auto-sync
             // If auto-sync doesn't happen naturally, the next manual change will trigger it
             await new Promise(resolve => setTimeout(resolve, 500));
