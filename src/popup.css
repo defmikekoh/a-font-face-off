@@ -54,8 +54,6 @@ html.affo-mobile body {
        preview's padding-bottom, the side control panels' bottom, and the bar's
        own height — uses this same value so they always agree. */
     --panel-grips-total: calc(var(--panel-grips-h) + env(safe-area-inset-bottom, 0px));
-    /* Mode tabs total box height (content + borders) */
-    --tabs-h: 64px; /* 60px content + 2px top border + 2px bottom border */
     /* Rink motif styling */
     --rink-border-color: #46b; /* same as outer edge in top tab bar */
     --rink-border-radius: 12px;
@@ -134,12 +132,6 @@ body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: ce
     transform: translateY(-50%) rotate(180deg);
 }
 
-/* Layout containers */
-body {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-}
 
 /* Mode tabs */
 /* Hockey Rink Style Tabs */
