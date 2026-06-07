@@ -42,6 +42,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 - Favorites auto-sync when `affoFavorites` or `affoFavoritesOrder` changes. All other synced settings auto-sync on storage change.
 - Storage change listener compares `oldValue` vs `newValue` before marking modified (avoids unnecessary syncs).
 - Manual sync actions in Advanced Options are `Sync` (normal merge), `Push once to remote` (local wins for one run), and `Pull once to local` (remote wins for one run). The sync source selector can disable sync without deleting stored backend configuration; Google Drive additionally exposes explicit `Authorize` and `Revoke` buttons, while WebDAV is saved/edited through its config form.
+- `Pull once to local` replaces pre-pull item timestamps and remote revisions with the pulled metadata so the next normal sync does not re-upload pulled values. Sync metadata mutations caused by concurrent local edits during the pull are preserved.
 - `self.addEventListener('online', ...)` triggers sync when connectivity returns (covers wake-from-sleep). `gdriveFetch()` throws when offline to prevent futile requests mid-sync.
 - Auto-sync failures emit `affoSyncFailed` runtime messages consumed by the Options page modal. When the stored Google Drive refresh token has been rejected, the modal switches from retry to reconnect.
 

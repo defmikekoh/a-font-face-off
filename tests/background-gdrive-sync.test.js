@@ -1216,6 +1216,105 @@ describe('WebDAV sync revision handling', () => {
         assert.ok(aggressiveMetaPut, 'expected aggressive-domains-meta.json to be pushed after merge');
         assert.equal(aggressiveMetaPut.ifMatch, '"aggressive-meta-v2"');
     });
+
+    it('keeps pulled revisions when remote timestamps are older so the next sync does not push', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    LocalOnly: { fontName: 'LocalOnly', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['LocalOnly'],
+                affoKnownSerif: ['Local Serif'],
+                affoCustomFontAxes: {
+                    LocalOnly: [{ tag: 'TEST', min: 0, max: 1, default: 0 }]
+                },
+                affoSyncMeta: {
+                    lastSync: 600,
+                    items: {
+                        'favorites.json': { modified: 500, remoteRev: 'webdav-etag:"favorites-v1"' },
+                        'known-serif.json': { modified: 500, remoteRev: 'webdav-etag:"known-serif-v1"' },
+                        'custom-font-axes.json': { modified: 500, remoteRev: 'webdav-etag:"custom-font-axes-v1"' }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: {
+                        'favorites.json': { modified: 200 },
+                        'known-serif.json': { modified: 200 },
+                        'custom-font-axes.json': { modified: 200 }
+                    }
+                },
+                'favorites.json': {
+                    affoFavorites: {
+                        RemoteOnly: { fontName: 'RemoteOnly', variableAxes: {} }
+                    },
+                    affoFavoritesOrder: ['RemoteOnly']
+                },
+                'known-serif.json': ['Remote Serif'],
+                'custom-font-axes.json': {
+                    RemoteOnly: [{ tag: 'TEST', min: 0, max: 1, default: 1 }]
+                }
+            },
+            remoteEtags: {
+                'favorites.json': '"favorites-v2"',
+                'known-serif.json': '"known-serif-v2"',
+                'custom-font-axes.json': '"custom-font-axes-v2"',
+                'sync-manifest.json': '"manifest-v2"'
+            }
+        });
+
+        const pullResult = await harness.runSync({ mode: 'pull' });
+        assert.equal(pullResult.ok, true);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].modified, 200);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, 'webdav-etag:"favorites-v2"');
+        assert.equal(harness.storageData.affoSyncMeta.items['known-serif.json'].remoteRev, 'webdav-etag:"known-serif-v2"');
+        assert.equal(harness.storageData.affoSyncMeta.items['custom-font-axes.json'].remoteRev, 'webdav-etag:"custom-font-axes-v2"');
+
+        const syncResult = await harness.runSync();
+        assert.equal(syncResult.ok, true);
+        assert.equal(harness.calls.put.length, 0, 'normal sync after pull should not upload unchanged pulled files');
+    });
+
+    it('clears stale revisions when pull removes a missing remote file', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    LocalOnly: { fontName: 'LocalOnly', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['LocalOnly'],
+                affoSyncMeta: {
+                    lastSync: 600,
+                    items: {
+                        'favorites.json': { modified: 500, remoteRev: 'webdav-etag:"favorites-v1"' }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: {}
+                }
+            },
+            remoteEtags: {
+                'sync-manifest.json': '"manifest-v2"'
+            }
+        });
+
+        const pullResult = await harness.runSync({ mode: 'pull' });
+        assert.equal(pullResult.ok, true);
+        assert.deepEqual(harness.storageData.affoFavorites, {});
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].modified, 0);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, undefined);
+
+        const syncResult = await harness.runSync();
+        assert.equal(syncResult.ok, true);
+        const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.equal(favoritesPut, undefined, 'normal sync should not recreate a file removed by pull');
+    });
 });
 
 describe('Google Drive first-sync behavior', () => {

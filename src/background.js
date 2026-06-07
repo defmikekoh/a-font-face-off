@@ -666,9 +666,22 @@ function queueSyncMetaMutation(mutator) {
   return queued;
 }
 
-async function mergeAndSaveLocalSyncMeta(nextMeta) {
+async function mergeAndSaveLocalSyncMeta(nextMeta, options = {}) {
+  const overwriteBaselineItems = options.overwriteBaselineItems
+    ? sanitizeSyncContainer(options.overwriteBaselineItems)
+    : null;
   await queueSyncMetaMutation((currentMeta) => {
+    const currentItemsBeforeMerge = sanitizeSyncContainer(currentMeta.items);
     const merged = mergeSyncMeta(currentMeta, nextMeta);
+    if (overwriteBaselineItems) {
+      const nextItems = sanitizeSyncContainer(nextMeta && nextMeta.items);
+      for (const [itemKey, nextItem] of Object.entries(nextItems)) {
+        // Pull results replace pre-pull metadata, but not a concurrent local edit.
+        if (jsonEqual(currentItemsBeforeMerge[itemKey], overwriteBaselineItems[itemKey])) {
+          merged.items[itemKey] = nextItem;
+        }
+      }
+    }
     currentMeta.lastSync = merged.lastSync;
     currentMeta.items = merged.items;
   });
@@ -1610,6 +1623,10 @@ async function runSync(options = {}) {
   }
 
   const localMeta = await getLocalSyncMeta();
+  const localMetaBeforeSync = {
+    lastSync: localMeta.lastSync,
+    items: sanitizeSyncContainer(localMeta.items)
+  };
   let manifestChanged = false;
   const errors = [];
   // ── Domain settings (per-domain merge via domains.json + domains-meta.json) ──
@@ -1797,7 +1814,7 @@ async function runSync(options = {}) {
         handled = true;
       } else if (forcePull) {
         await setStorageDuringSync({ [FAVORITES_KEY]: {}, [FAVORITES_ORDER_KEY]: [] });
-        setModified(localMeta.items, favItemKey, now);
+        setModified(localMeta.items, favItemKey, 0, { remoteRev: null });
         handled = true;
       }
     }
@@ -1836,7 +1853,7 @@ async function runSync(options = {}) {
         handled = true;
       } else if (forcePull) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: '' });
-        setModified(localMeta.items, cssItemKey, now);
+        setModified(localMeta.items, cssItemKey, 0, { remoteRev: null });
         handled = true;
       }
     }
@@ -2032,7 +2049,7 @@ async function runSync(options = {}) {
           handled = true;
         } else if (forcePull) {
           await setStorageDuringSync({ [item.key]: [] });
-          setModified(localMeta.items, item.filename, now);
+          setModified(localMeta.items, item.filename, 0, { remoteRev: null });
           handled = true;
         }
       }
@@ -2079,7 +2096,7 @@ async function runSync(options = {}) {
           handled = true;
         } else if (forcePull) {
           await setStorageDuringSync({ [item.key]: {} });
-          setModified(localMeta.items, item.filename, now);
+          setModified(localMeta.items, item.filename, 0, { remoteRev: null });
           handled = true;
         }
       }
@@ -2139,7 +2156,7 @@ async function runSync(options = {}) {
           [SUBSTACK_ROULETTE_SERIF_KEY]: [],
           [SUBSTACK_ROULETTE_SANS_KEY]: []
         });
-        setModified(localMeta.items, rouletteItemKey, now);
+        setModified(localMeta.items, rouletteItemKey, 0, { remoteRev: null });
         handled = true;
       }
     }
@@ -2166,7 +2183,9 @@ async function runSync(options = {}) {
   if (errors.length === 0) {
     localMeta.lastSync = now;
   }
-  await mergeAndSaveLocalSyncMeta(localMeta);
+  await mergeAndSaveLocalSyncMeta(localMeta, {
+    overwriteBaselineItems: forcePull ? localMetaBeforeSync.items : null
+  });
 
   if (errors.length > 0) {
     const msg = errors.map(e => e && e.message ? e.message : String(e)).join('; ');
