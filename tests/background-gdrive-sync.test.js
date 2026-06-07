@@ -11,13 +11,32 @@ function readBackgroundSource(extra = '') {
     return fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(backgroundSourcePath, 'utf8') + extra;
 }
 
-function createStorageStub(seed = {}) {
+function createStorageStub(seed = {}, { asyncOnChanged = false } = {}) {
     const data = { ...seed };
     const onChangedListeners = [];
 
     const clone = (value) => {
         if (value === undefined) return undefined;
         return JSON.parse(JSON.stringify(value));
+    };
+
+    // When asyncOnChanged is set, listeners fire after set()/remove() resolve
+    // (a microtask later) instead of synchronously within the call. This models
+    // the real browser race where the "are we writing?" window has already closed
+    // by the time onChanged is dispatched.
+    const dispatchChanges = (changes) => {
+        const run = async () => {
+            for (const listener of onChangedListeners) {
+                try {
+                    await listener(changes, 'local');
+                } catch (_e) { /* listener errors are non-fatal */ }
+            }
+        };
+        if (asyncOnChanged) {
+            setTimeout(run, 0);
+            return Promise.resolve();
+        }
+        return run();
     };
 
     const local = {
@@ -50,9 +69,7 @@ function createStorageStub(seed = {}) {
                 }
             }
             if (Object.keys(changes).length > 0) {
-                for (const listener of onChangedListeners) {
-                    await listener(changes, 'local');
-                }
+                await dispatchChanges(changes);
             }
         },
         async remove(keys) {
@@ -65,9 +82,7 @@ function createStorageStub(seed = {}) {
                 changes[key] = { oldValue, newValue: undefined };
             }
             if (Object.keys(changes).length > 0) {
-                for (const listener of onChangedListeners) {
-                    await listener(changes, 'local');
-                }
+                await dispatchChanges(changes);
             }
         }
     };
@@ -83,7 +98,7 @@ function createStorageStub(seed = {}) {
     };
 }
 
-function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileInfo }) {
+function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileInfo, asyncOnChanged = false }) {
     // Ensure sync backend is configured for GDrive in all test harnesses
     const seed = {
         affoSyncBackend: 'gdrive',
@@ -91,7 +106,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
         affoLegacySyncDataConsent: true,
         ...localSeed,
     };
-    const storage = createStorageStub(seed);
+    const storage = createStorageStub(seed, { asyncOnChanged });
     const calls = {
         put: [],
         delete: [],
@@ -244,7 +259,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
     };
 }
 
-function createWebDavHarness({ localSeed, remoteFiles, remoteEtags }) {
+function createWebDavHarness({ localSeed, remoteFiles, remoteEtags, onPut, onGet }) {
     const seed = {
         affoSyncBackend: 'webdav',
         affoWebDavConfig: {
@@ -333,6 +348,10 @@ function createWebDavHarness({ localSeed, remoteFiles, remoteEtags }) {
             const name = fileNameFromUrl(url);
             if (method === 'GET') {
                 calls.get.push({ name, url });
+                if (typeof onGet === 'function') {
+                    const override = onGet({ name, remote, response });
+                    if (override) return override;
+                }
                 if (!Object.prototype.hasOwnProperty.call(remote.files, name)) return response(404);
                 return response(200, { body: remote.files[name], etag: remote.etags[name] || null });
             }
@@ -345,6 +364,10 @@ function createWebDavHarness({ localSeed, remoteFiles, remoteEtags }) {
                     contentType: headers['Content-Type'] || headers['content-type'] || null,
                     ifMatch,
                 });
+                if (typeof onPut === 'function') {
+                    const override = onPut({ name, ifMatch, remote, response });
+                    if (override) return override;
+                }
                 const currentEtag = remote.etags[name] || null;
                 if (ifMatch && ifMatch !== currentEtag) return response(412);
 
@@ -1315,6 +1338,124 @@ describe('WebDAV sync revision handling', () => {
         const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
         assert.equal(favoritesPut, undefined, 'normal sync should not recreate a file removed by pull');
     });
+
+    it('merges and retries the manifest write when a concurrent device changes it mid-sync', async () => {
+        let manifestPutAttempts = 0;
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    Local: { fontName: 'Local', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['Local'],
+                affoSyncMeta: {
+                    lastSync: 1000,
+                    // Local favorites are newer than remote, so this sync pushes them
+                    // and must then update the manifest. No remoteRev → favorites push
+                    // is unconditional; the conflict we exercise is on the manifest.
+                    items: { 'favorites.json': { modified: 900 } }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 800,
+                    items: { 'favorites.json': { modified: 800 } }
+                },
+                'favorites.json': {
+                    affoFavorites: { Remote: { fontName: 'Remote', variableAxes: {} } },
+                    affoFavoritesOrder: ['Remote']
+                }
+            },
+            remoteEtags: {
+                'sync-manifest.json': '"manifest-v1"',
+                'favorites.json': '"favorites-v1"'
+            },
+            onPut({ name, remote, response }) {
+                if (name !== 'sync-manifest.json') return null;
+                manifestPutAttempts += 1;
+                if (manifestPutAttempts === 1) {
+                    // Simulate another device updating the manifest between our GET
+                    // and PUT: it added an unrelated item and bumped the ETag.
+                    remote.files['sync-manifest.json'] = {
+                        version: 1,
+                        lastSync: 1500,
+                        items: {
+                            'favorites.json': { modified: 800 },
+                            'other.json': { modified: 1500 }
+                        }
+                    };
+                    remote.etags['sync-manifest.json'] = '"manifest-v2"';
+                    return response(412);
+                }
+                return null;
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        // It should have retried the manifest write after the conflict.
+        assert.equal(manifestPutAttempts, 2);
+
+        // The retried manifest must contain both our pushed entry and the
+        // concurrent device's entry — neither side is clobbered.
+        const finalManifest = harness.remote.files['sync-manifest.json'];
+        assert.equal(finalManifest.items['favorites.json'].modified, 900);
+        assert.equal(finalManifest.items['other.json'].modified, 1500);
+    });
+
+    it('does not clobber a manifest another device creates between our GET and write', async () => {
+        let manifestGets = 0;
+        const manifestPuts = [];
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    Local: { fontName: 'Local', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['Local'],
+                affoSyncMeta: {
+                    lastSync: 1000,
+                    items: { 'favorites.json': { modified: 900 } }
+                },
+            },
+            // No remote manifest at start: this is a first sync for this device.
+            remoteFiles: {},
+            remoteEtags: {},
+            onGet({ name, remote, response }) {
+                if (name !== 'sync-manifest.json') return undefined;
+                manifestGets += 1;
+                if (manifestGets === 1) {
+                    // After our initial (notFound) read, another device creates the
+                    // manifest. Our recheck (the second GET) must then see it.
+                    remote.files['sync-manifest.json'] = {
+                        version: 1,
+                        lastSync: 1500,
+                        items: { 'other.json': { modified: 1500 } }
+                    };
+                    remote.etags['sync-manifest.json'] = '"manifest-created"';
+                    return response(404);
+                }
+                return undefined;
+            },
+            onPut({ name, ifMatch }) {
+                if (name === 'sync-manifest.json') manifestPuts.push(ifMatch);
+                return null;
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        // The manifest write must go through the optimistic path (If-Match the
+        // concurrently-created revision), not an unconditional create.
+        assert.equal(manifestPuts.length, 1);
+        assert.equal(manifestPuts[0], '"manifest-created"');
+
+        // The other device's entry must survive alongside ours.
+        const finalManifest = harness.remote.files['sync-manifest.json'];
+        assert.equal(finalManifest.items['favorites.json'].modified, 900);
+        assert.equal(finalManifest.items['other.json'].modified, 1500);
+    });
 });
 
 describe('Google Drive first-sync behavior', () => {
@@ -1346,6 +1487,40 @@ describe('Google Drive first-sync behavior', () => {
 
         const favoritesPush = harness.calls.put.find((call) => call.name === 'favorites.json');
         assert.equal(favoritesPush, undefined);
+    });
+
+    it('preserves locally modified favorites when the manifest is missing (does not overwrite with remote)', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoFavorites: {
+                    LocalOnly: { fontName: 'LocalOnly', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['LocalOnly'],
+                // Local has tracked modifications, but the remote manifest is gone.
+                affoSyncMeta: { lastSync: 1000, items: { 'favorites.json': { modified: 900 } } },
+            },
+            remoteManifest: null,
+            remoteAppFiles: {
+                'favorites.json': {
+                    affoFavorites: {
+                        RemoteOnly: { fontName: 'RemoteOnly', variableAxes: {} }
+                    },
+                    affoFavoritesOrder: ['RemoteOnly']
+                }
+            }
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        // Local data must survive and be re-pushed, not silently replaced by remote.
+        assert.ok(harness.storageData.affoFavorites.LocalOnly);
+        assert.equal(harness.storageData.affoFavorites.RemoteOnly, undefined);
+        assert.equal(harness.storageData.affoFavoritesOrder[0], 'LocalOnly');
+
+        const favoritesPush = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.ok(favoritesPush);
+        assert.ok(JSON.parse(favoritesPush.content).affoFavorites.LocalOnly);
     });
 
     it('strips legacy fontFaceRule from favorites pulled from remote', async () => {
@@ -1415,6 +1590,42 @@ describe('Google Drive first-sync behavior', () => {
             Object.prototype.hasOwnProperty.call(pushed.affoFavorites.LocalCustom, 'fontFaceRule'),
             false
         );
+    });
+});
+
+describe('Sync write echo suppression', () => {
+    it('does not re-mark items modified when its own writes are observed after the write resolves', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoFavorites: { Old: { fontName: 'Old', variableAxes: {} } },
+                affoFavoritesOrder: ['Old'],
+                affoSyncMeta: { lastSync: 0, items: { 'favorites.json': { modified: 100 } } },
+            },
+            // Remote favorites are newer, so this sync pulls them into local storage.
+            remoteManifest: { version: 1, lastSync: 500, items: { 'favorites.json': { modified: 500 } } },
+            remoteAppFiles: {
+                'favorites.json': {
+                    affoFavorites: { New: { fontName: 'New', variableAxes: {} } },
+                    affoFavoritesOrder: ['New']
+                }
+            },
+            // Fire onChanged after set() resolves — the real-browser race where a
+            // "currently writing" flag would already be cleared.
+            asyncOnChanged: true,
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        assert.ok(harness.storageData.affoFavorites.New);
+
+        // Let the deferred onChanged + any fire-and-forget metadata writes settle.
+        for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0));
+
+        // The pulled write must NOT be echoed back as a user edit: the favorites
+        // metadata should still hold the pulled remote timestamp (500), not a fresh
+        // Date.now() stamp that markLocalItemModified would have written.
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].modified, 500);
     });
 });
 

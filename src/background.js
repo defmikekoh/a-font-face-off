@@ -90,7 +90,11 @@ const WEBDAV_FOLDER_SUFFIX_KEY = 'affoWebDavFolderSuffix';
 
 let syncQueue = Promise.resolve();
 let syncMetaQueue = Promise.resolve();
-let syncWriteDepth = 0;
+// Records the values sync itself writes to storage, so the storage.onChanged
+// listener can tell its own writes apart from genuine user edits. A plain
+// "are we currently writing?" flag is unreliable because the ordering between
+// storage.local.set() resolving and onChanged dispatching is not guaranteed.
+const syncWrittenSignatures = new Map(); // storageKey -> array of JSON value signatures
 
 // Cached folder ID (cleared on background script restart)
 let cachedAppFolderId = null;
@@ -687,12 +691,55 @@ async function mergeAndSaveLocalSyncMeta(nextMeta, options = {}) {
   });
 }
 
+function recordSyncWrite(key, value) {
+  let queue = syncWrittenSignatures.get(key);
+  if (!queue) {
+    queue = [];
+    syncWrittenSignatures.set(key, queue);
+  }
+  queue.push(JSON.stringify(value));
+}
+
+function unrecordSyncWrite(key, value) {
+  const queue = syncWrittenSignatures.get(key);
+  if (!queue) return;
+  const idx = queue.indexOf(JSON.stringify(value));
+  if (idx !== -1) queue.splice(idx, 1);
+  if (!queue.length) syncWrittenSignatures.delete(key);
+}
+
+// Returns true (and consumes the record) when this change matches a value that
+// sync just wrote, so it can be ignored instead of echoed back as a user edit.
+function consumeSyncWrite(key, change) {
+  const queue = syncWrittenSignatures.get(key);
+  if (!queue || !queue.length) return false;
+  const idx = queue.indexOf(JSON.stringify(change && change.newValue));
+  if (idx === -1) return false;
+  queue.splice(idx, 1);
+  if (!queue.length) syncWrittenSignatures.delete(key);
+  return true;
+}
+
 async function setStorageDuringSync(values) {
-  syncWriteDepth += 1;
+  const keys = Object.keys(values);
+  // Only record keys whose value actually changes: those are exactly the ones
+  // that emit onChanged. Recording an unchanged key would leak a signature that
+  // never gets consumed (and could later suppress a genuine user edit). Unchanged
+  // keys are filtered by the storageValueChanged guard in the listener anyway.
+  const existing = await browser.storage.local.get(keys);
+  const recorded = [];
+  for (const [key, value] of Object.entries(values)) {
+    if (JSON.stringify(existing[key]) !== JSON.stringify(value)) {
+      recordSyncWrite(key, value);
+      recorded.push([key, value]);
+    }
+  }
   try {
     await browser.storage.local.set(values);
-  } finally {
-    syncWriteDepth -= 1;
+  } catch (e) {
+    // The write failed, so no onChanged will arrive to consume these records.
+    for (const [key, value] of recorded) unrecordSyncWrite(key, value);
+    throw e;
   }
 }
 
@@ -1586,6 +1633,68 @@ async function syncPush(backend, localState, filename, content, contentType, opt
   return putResult.remoteRev || null;
 }
 
+function isRemoteRevisionConflict(error) {
+  const message = String((error && error.message) || error || '');
+  return /revision changed|precondition failed|\b412\b/i.test(message);
+}
+
+// Folds the latest remote manifest into `remoteManifest` in place (newest entry
+// per item wins) and returns its remote revision, so the next write targets it.
+function foldRemoteManifest(remoteManifest, fetchResult) {
+  if (!fetchResult || fetchResult.notFound) return null;
+  let latestManifest = { version: 1, lastSync: 0, items: {} };
+  try {
+    const parsed = JSON.parse(fetchResult.data);
+    latestManifest = {
+      version: (parsed && parsed.version) ? parsed.version : 1,
+      lastSync: sanitizeTimestamp(parsed && parsed.lastSync),
+      items: sanitizeSyncContainer(parsed && parsed.items)
+    };
+  } catch (_) {
+    affoDebugWarn('[AFFO Background] Concurrent manifest unparseable; overwriting');
+  }
+  const merged = mergeSyncMeta(latestManifest, remoteManifest);
+  remoteManifest.items = merged.items;
+  remoteManifest.lastSync = merged.lastSync;
+  return fetchResult.remoteRev || null;
+}
+
+// Writes the sync manifest with optimistic concurrency. On a revision conflict
+// (another device updated the manifest concurrently) it re-fetches, merges its
+// per-item entries with the latest remote manifest (newest entry wins), and
+// retries — so a concurrent device's manifest updates are not clobbered.
+async function writeRemoteManifest(backend, remoteManifest, expectedRemoteRev, force) {
+  let expected = expectedRemoteRev;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // Create case (no expected revision): a plain PUT would silently clobber a
+    // manifest another device created since our initial GET. Recheck existence
+    // and adopt its revision so the write goes through the optimistic path. This
+    // narrows but does not fully close the window (no atomic create on Drive).
+    if (!force && !expected) {
+      const probe = await backend.get(SYNC_MANIFEST_NAME);
+      if (!probe.notFound) {
+        expected = foldRemoteManifest(remoteManifest, probe);
+      }
+    }
+    try {
+      const payload = JSON.stringify(remoteManifest, null, 2);
+      return await syncPush(
+        backend,
+        { remoteRev: expected },
+        SYNC_MANIFEST_NAME,
+        payload,
+        'application/json',
+        { force }
+      );
+    } catch (e) {
+      if (force || attempt >= 2 || !isRemoteRevisionConflict(e)) throw e;
+      const latest = await backend.get(SYNC_MANIFEST_NAME);
+      expected = latest.notFound ? null : foldRemoteManifest(remoteManifest, latest);
+    }
+  }
+  throw new Error('Manifest write failed after repeated revision conflicts');
+}
+
 async function runSync(options = {}) {
   const syncMode = normalizeSyncMode(options.mode);
   const forcePush = syncMode === SYNC_MODE_PUSH;
@@ -1609,6 +1718,7 @@ async function runSync(options = {}) {
   const manifestResult = await backend.get(SYNC_MANIFEST_NAME);
   let remoteManifest = { version: 1, lastSync: 0, items: {} };
   const firstSync = manifestResult.notFound;
+  const manifestRemoteRev = firstSync ? null : (manifestResult.remoteRev || null);
   if (!firstSync) {
     try {
       const parsed = JSON.parse(manifestResult.data);
@@ -1799,7 +1909,11 @@ async function runSync(options = {}) {
     const remoteModified = ((remoteManifest.items || {})[favItemKey] || {}).modified || 0;
 
     let handled = false;
-    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
+    // firstSync (manifest missing) only pulls remote when local has never been
+    // modified. If the manifest was lost while local data exists (localModified > 0),
+    // we fall through to push so local data is preserved and re-uploaded rather than
+    // silently overwritten by a possibly-stale remote file.
+    if (!forcePush && (forcePull || (firstSync && localModified === 0) || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_FAVORITES_NAME);
       if (!fileResult.notFound) {
         const remoteFav = JSON.parse(fileResult.data);
@@ -1840,7 +1954,7 @@ async function runSync(options = {}) {
     const remoteModified = ((remoteManifest.items || {})[cssItemKey] || {}).modified || 0;
 
     let handled = false;
-    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
+    if (!forcePush && (forcePull || (firstSync && localModified === 0) || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_CUSTOM_FONTS_NAME);
       if (!fileResult.notFound) {
         await setStorageDuringSync({ [CUSTOM_FONTS_CSS_KEY]: fileResult.data });
@@ -2035,7 +2149,7 @@ async function runSync(options = {}) {
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
       let handled = false;
-      if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
+      if (!forcePush && (forcePull || (firstSync && localModified === 0) || remoteModified > localModified)) {
         const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
@@ -2082,7 +2196,7 @@ async function runSync(options = {}) {
       const remoteModified = ((remoteManifest.items || {})[item.filename] || {}).modified || 0;
 
       let handled = false;
-      if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
+      if (!forcePush && (forcePull || (firstSync && localModified === 0) || remoteModified > localModified)) {
         const fileResult = await backend.get(item.filename);
         if (!fileResult.notFound) {
           const parsed = JSON.parse(fileResult.data);
@@ -2134,7 +2248,7 @@ async function runSync(options = {}) {
     };
 
     let handled = false;
-    if (!forcePush && (forcePull || firstSync || remoteModified > localModified)) {
+    if (!forcePush && (forcePull || (firstSync && localModified === 0) || remoteModified > localModified)) {
       const fileResult = await backend.get(SYNC_SUBSTACK_ROULETTE_NAME);
       if (!fileResult.notFound) {
         const remote = JSON.parse(fileResult.data);
@@ -2177,7 +2291,13 @@ async function runSync(options = {}) {
   // ── Update manifests ──
   if (manifestChanged || firstSync) {
     remoteManifest.lastSync = now;
-    await backend.put(SYNC_MANIFEST_NAME, JSON.stringify(remoteManifest, null, 2), 'application/json');
+    try {
+      // Force on explicit push/pull (user chose to overwrite); optimistic + merge-retry otherwise.
+      await writeRemoteManifest(backend, remoteManifest, manifestRemoteRev, forcePush || forcePull);
+    } catch (e) {
+      affoDebugWarn('[AFFO Background] Manifest write error:', e);
+      errors.push(e);
+    }
   }
 
   if (errors.length === 0) {
@@ -2872,7 +2992,13 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   if (changes.gfMetadataCache || changes.gfMetadataTimestamp) {
     AFFOBackgroundFontRuntime.resetGfMetadataCache();
   }
-  const trackSyncManagedChanges = syncWriteDepth === 0;
+  // Consume any sync-originated writes up front so they are not mistaken for
+  // user edits (and re-marked modified, causing sync feedback loops).
+  const syncManagedKeys = new Set();
+  for (const key of Object.keys(changes)) {
+    if (consumeSyncWrite(key, changes[key])) syncManagedKeys.add(key);
+  }
+  const isUserChange = (key) => !syncManagedKeys.has(key);
 
   // Only mark items modified when data actually changed (avoid unnecessary sync cycles)
   const storageValueChanged = (c) =>
@@ -2882,7 +3008,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     updateAffoBrowserActionTitleForActiveTabs();
   }
 
-  if (changes[APPLY_MAP_KEY] && trackSyncManagedChanges && storageValueChanged(changes[APPLY_MAP_KEY])) {
+  if (changes[APPLY_MAP_KEY] && isUserChange(APPLY_MAP_KEY) && storageValueChanged(changes[APPLY_MAP_KEY])) {
     markApplyMapOriginsModified(changes[APPLY_MAP_KEY]).then((changed) => {
       if (changed) scheduleAutoSync();
     }).catch((e) => {
@@ -2890,20 +3016,20 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (trackSyncManagedChanges) {
-    const favChanged = changes[FAVORITES_KEY] && storageValueChanged(changes[FAVORITES_KEY]);
-    const orderChanged = changes[FAVORITES_ORDER_KEY] && storageValueChanged(changes[FAVORITES_ORDER_KEY]);
+  {
+    const favChanged = changes[FAVORITES_KEY] && isUserChange(FAVORITES_KEY) && storageValueChanged(changes[FAVORITES_KEY]);
+    const orderChanged = changes[FAVORITES_ORDER_KEY] && isUserChange(FAVORITES_ORDER_KEY) && storageValueChanged(changes[FAVORITES_ORDER_KEY]);
     if (favChanged || orderChanged) {
       markLocalItemModified(SYNC_FAVORITES_NAME).then(() => scheduleAutoSync());
     }
   }
-  if (changes[KNOWN_SERIF_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SERIF_KEY])) {
+  if (changes[KNOWN_SERIF_KEY] && isUserChange(KNOWN_SERIF_KEY) && storageValueChanged(changes[KNOWN_SERIF_KEY])) {
     markLocalItemModified(SYNC_KNOWN_SERIF_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[KNOWN_SANS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[KNOWN_SANS_KEY])) {
+  if (changes[KNOWN_SANS_KEY] && isUserChange(KNOWN_SANS_KEY) && storageValueChanged(changes[KNOWN_SANS_KEY])) {
     markLocalItemModified(SYNC_KNOWN_SANS_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[FFONLY_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[FFONLY_DOMAINS_KEY])) {
+  if (changes[FFONLY_DOMAINS_KEY] && isUserChange(FFONLY_DOMAINS_KEY) && storageValueChanged(changes[FFONLY_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[FFONLY_DOMAINS_KEY], {
       localMetaStorageKey: FFONLY_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_FFONLY_DOMAINS_NAME,
@@ -2915,7 +3041,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_FFONLY_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[INLINE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
+  if (changes[INLINE_DOMAINS_KEY] && isUserChange(INLINE_DOMAINS_KEY) && storageValueChanged(changes[INLINE_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[INLINE_DOMAINS_KEY], {
       localMetaStorageKey: INLINE_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_INLINE_DOMAINS_NAME,
@@ -2927,10 +3053,10 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_INLINE_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[CUSTOM_FONTS_CSS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONTS_CSS_KEY])) {
+  if (changes[CUSTOM_FONTS_CSS_KEY] && isUserChange(CUSTOM_FONTS_CSS_KEY) && storageValueChanged(changes[CUSTOM_FONTS_CSS_KEY])) {
     markLocalItemModified(SYNC_CUSTOM_FONTS_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[AGGRESSIVE_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[AGGRESSIVE_DOMAINS_KEY])) {
+  if (changes[AGGRESSIVE_DOMAINS_KEY] && isUserChange(AGGRESSIVE_DOMAINS_KEY) && storageValueChanged(changes[AGGRESSIVE_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[AGGRESSIVE_DOMAINS_KEY], {
       localMetaStorageKey: AGGRESSIVE_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_AGGRESSIVE_DOMAINS_NAME,
@@ -2942,7 +3068,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_AGGRESSIVE_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[WAITFORIT_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[WAITFORIT_DOMAINS_KEY])) {
+  if (changes[WAITFORIT_DOMAINS_KEY] && isUserChange(WAITFORIT_DOMAINS_KEY) && storageValueChanged(changes[WAITFORIT_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[WAITFORIT_DOMAINS_KEY], {
       localMetaStorageKey: WAITFORIT_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_WAITFORIT_DOMAINS_NAME,
@@ -2954,7 +3080,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_WAITFORIT_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[IGNORE_COMMENTS_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[IGNORE_COMMENTS_DOMAINS_KEY])) {
+  if (changes[IGNORE_COMMENTS_DOMAINS_KEY] && isUserChange(IGNORE_COMMENTS_DOMAINS_KEY) && storageValueChanged(changes[IGNORE_COMMENTS_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[IGNORE_COMMENTS_DOMAINS_KEY], {
       localMetaStorageKey: IGNORE_COMMENTS_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_IGNORE_COMMENTS_DOMAINS_NAME,
@@ -2966,7 +3092,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY])) {
+  if (changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY] && isUserChange(SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY) && storageValueChanged(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY])) {
     markDomainOriginArrayModified(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY], {
       localMetaStorageKey: SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY,
       syncArrayFilename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME,
@@ -2978,16 +3104,16 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       markLocalItemModified(SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
-  if (changes[PRESERVED_FONTS_KEY] && trackSyncManagedChanges && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
+  if (changes[PRESERVED_FONTS_KEY] && isUserChange(PRESERVED_FONTS_KEY) && storageValueChanged(changes[PRESERVED_FONTS_KEY])) {
     markLocalItemModified(SYNC_PRESERVED_FONTS_NAME).then(() => scheduleAutoSync());
   }
-  if (changes[CUSTOM_FONT_AXES_KEY] && trackSyncManagedChanges && storageValueChanged(changes[CUSTOM_FONT_AXES_KEY])) {
+  if (changes[CUSTOM_FONT_AXES_KEY] && isUserChange(CUSTOM_FONT_AXES_KEY) && storageValueChanged(changes[CUSTOM_FONT_AXES_KEY])) {
     markLocalItemModified(SYNC_CUSTOM_FONT_AXES_NAME).then(() => scheduleAutoSync());
   }
-  if (trackSyncManagedChanges) {
-    const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))
-      || (changes[SUBSTACK_ROULETTE_SERIF_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SERIF_KEY]))
-      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]));
+  {
+    const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && isUserChange(SUBSTACK_ROULETTE_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))
+      || (changes[SUBSTACK_ROULETTE_SERIF_KEY] && isUserChange(SUBSTACK_ROULETTE_SERIF_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_SERIF_KEY]))
+      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && isUserChange(SUBSTACK_ROULETTE_SANS_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]));
     if (rouletteChanged) {
       markLocalItemModified(SYNC_SUBSTACK_ROULETTE_NAME).then(() => scheduleAutoSync());
     }
