@@ -5,6 +5,8 @@ Thumbs.db
 .vscode/
 *.code-workspace
 
+.codex/
+
 # Node
 node_modules/
 npm-debug.log*
