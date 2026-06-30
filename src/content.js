@@ -198,6 +198,10 @@
     AFFOContentSroulette.syncCssTrackingForEntry(entry);
   }
 
+  function shouldSkipDimmingForLinkColor(node) {
+    return AFFOContentSroulette.shouldSkipDimmingForLinkColor(node);
+  }
+
   function resolveSrouletteEntry(entry, data) {
     return AFFOContentSroulette.resolveEntry(entry, data, {
       log: debugLog
@@ -929,6 +933,7 @@
     candidates.forEach(function (node) {
       if (!node || node.nodeType !== 1) return;
       if (!elementHasOwnText(node)) return;
+      if (shouldSkipDimmingForLinkColor(node)) return;
       if (node.closest('[data-affo-substack-dim]')) return;
       try {
         var style = getComputedStyle(node);
@@ -1180,6 +1185,26 @@
       'html body div[data-affo-font-type="' + fontType + '"] :where(em, i)',
       'html body blockquote[data-affo-font-type="' + fontType + '"] :where(em, i)'
     ]);
+  }
+
+  function appendAnchorColorExclude(selector) {
+    return selector + ':not(a):not(a *):not(:has(a))';
+  }
+
+  function getThirdManInColorSelector(fontType) {
+    return [
+      'html body div[data-affo-font-type="' + fontType + '"]',
+      'html body blockquote[data-affo-font-type="' + fontType + '"]',
+      'html body p[data-affo-font-type="' + fontType + '"]',
+      'html body span[data-affo-font-type="' + fontType + '"]',
+      'html body em[data-affo-font-type="' + fontType + '"]',
+      'html body i[data-affo-font-type="' + fontType + '"]',
+      'html body td[data-affo-font-type="' + fontType + '"]',
+      'html body th[data-affo-font-type="' + fontType + '"]',
+      'html body li[data-affo-font-type="' + fontType + '"]'
+    ].map(function (selector) {
+      return appendAnchorColorExclude(appendTmiTextExclude(selector));
+    }).join(', ');
   }
 
   function hasFontSizeScale(fontConfig) {
@@ -1438,8 +1463,10 @@
         matches.forEach(function (el) {
           if (ft === 'body') {
             applyAffoProtection(el, cfg.cssPropsObject);
+            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
           } else {
             applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
             resetHeadingTypographyInMarkedSubtree(el);
           }
           applied++;
@@ -1507,6 +1534,19 @@
     });
     el.setAttribute('data-affo-protected', 'true');
     el.setAttribute('data-affo-font-name', propsObj['font-family']);
+  }
+
+  function canApplyAffoTextColor(el) {
+    if (!el || !el.matches) return false;
+    if (el.matches('a, a *')) return false;
+    return !(el.querySelector && el.querySelector('a'));
+  }
+
+  function applyAffoTextColor(el, colorValue) {
+    if (!colorValue || !canApplyAffoTextColor(el)) return;
+    el.style.setProperty('color', colorValue, 'important');
+    el.style.setProperty('--affo-color', colorValue, 'important');
+    el.setAttribute('data-affo-color', colorValue);
   }
 
   function clearAffoProtection(el) {
@@ -1729,9 +1769,6 @@
     if (fontConfig.letterSpacing != null) {
       cssPropsObject['letter-spacing'] = fontConfig.letterSpacing + 'em';
     }
-    if (fontConfig.fontColor) {
-      cssPropsObject['color'] = fontConfig.fontColor;
-    }
     var inlineEffectiveWdth = getEffectiveWidth(fontConfig);
     if (inlineEffectiveWdth !== null) {
       cssPropsObject['font-stretch'] = inlineEffectiveWdth + '%';
@@ -1760,6 +1797,7 @@
           Object.entries(cssPropsObject).forEach(function ([prop, value]) {
             el.style.setProperty(prop, value, 'important');
           });
+          applyAffoTextColor(el, fontConfig.fontColor);
         });
         // Override bold elements to preserve visual boldness in the custom font
         if (inlineEffectiveWeight !== null) {
@@ -1778,6 +1816,7 @@
         var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
         tmiElements.forEach(function (el) {
           applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
+          applyAffoTextColor(el, fontConfig.fontColor);
           resetHeadingTypographyInMarkedSubtree(el);
         });
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
@@ -1840,8 +1879,10 @@
         elements.forEach(function (el) {
           if (ft === 'body') {
             applyAffoProtection(el, cfg.cssPropsObject);
+            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
           } else {
             applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
             resetHeadingTypographyInMarkedSubtree(el);
           }
         });
@@ -1866,6 +1907,7 @@
             var elements = document.querySelectorAll(getAffoSelector(ft));
             elements.forEach(function (el) {
               applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
+              applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
               resetHeadingTypographyInMarkedSubtree(el);
             });
             applyFontSizeScale(cfg.fontConfig || {}, ft);
@@ -2115,7 +2157,9 @@
 
     if (fontType === 'body') {
       var bodyExclude = getBodyExcludeSelector();
-      var generalSelector = 'body, body ' + bodyExclude + ':not([class*="__whatfont_"])';
+      var bodySelector = 'body ' + bodyExclude + ':not([class*="__whatfont_"])';
+      var generalSelector = 'body, ' + bodySelector;
+      var colorSelector = bodySelector + ':not(a):not(a *):not(:has(a))';
       var weightSelector = 'body, body ' + bodyExclude + ':not(strong):not(b):not([class*="__whatfont_"])';
 
       var cssProps = [];
@@ -2125,7 +2169,6 @@
       if (!hasFontSizeScale(fontConfig) && fontConfig.fontSize) cssProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) cssProps.push('line-height: ' + fontConfig.lineHeight + imp);
       if (fontConfig.letterSpacing != null) cssProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
-      if (fontConfig.fontColor) cssProps.push('color: ' + fontConfig.fontColor + imp);
       // Registered axes → high-level CSS properties
       if (effectiveWdth !== null) cssProps.push('font-stretch: ' + effectiveWdth + '%' + imp);
       if (effectiveItal !== null && effectiveItal >= 1) {
@@ -2139,6 +2182,9 @@
       }
       if (cssProps.length > 0) {
         lines.push(generalSelector + ' { ' + cssProps.join('; ') + '; }');
+      }
+      if (fontConfig.fontColor) {
+        lines.push(colorSelector + ' { color: ' + fontConfig.fontColor + imp + '; }');
       }
 
       if (effectiveWeight) {
@@ -2203,9 +2249,11 @@
       if (!hasFontSizeScale(fontConfig) && fontConfig.fontSize) otherProps.push('font-size: ' + fontConfig.fontSize + 'px' + imp);
       if (fontConfig.lineHeight) otherProps.push('line-height: ' + fontConfig.lineHeight + imp);
       if (fontConfig.letterSpacing != null) otherProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
-      if (fontConfig.fontColor) otherProps.push('color: ' + fontConfig.fontColor + imp);
       if (otherProps.length > 0) {
         lines.push(getThirdManInTextSelector(fontType) + ' { ' + otherProps.join('; ') + '; }');
+      }
+      if (fontConfig.fontColor) {
+        lines.push(getThirdManInColorSelector(fontType) + ' { color: ' + fontConfig.fontColor + imp + '; }');
       }
     }
 

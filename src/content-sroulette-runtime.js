@@ -123,6 +123,17 @@
     if (staleTargets.length) requestCssRemoval(staleTargets);
   }
 
+  function shouldSkipDimmingForLinkColor(node) {
+    if (!node || node.nodeType !== 1) return false;
+    try {
+      if (node.matches && node.matches('a, a *')) return true;
+    } catch (_) {}
+    try {
+      if (node.querySelector && node.querySelector('a')) return true;
+    } catch (_) {}
+    return false;
+  }
+
   function resolveEntry(entry, data, options) {
     if (!entry || !AFFOSroulette.hasIntent(entry)) return Promise.resolve(entry);
     if (data) return Promise.resolve(materializeEntry(entry, data, options));
@@ -147,6 +158,7 @@
     requestCssInsert: requestCssInsert,
     requestCssRemoval: requestCssRemoval,
     resolveEntry: resolveEntry,
+    shouldSkipDimmingForLinkColor: shouldSkipDimmingForLinkColor,
     syncCssTrackingForEntry: syncCssTrackingForEntry
   };
 

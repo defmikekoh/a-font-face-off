@@ -66,6 +66,14 @@ function joinTmiTextExcludedSelectors(selectors) {
     return selectors.map(appendTmiTextExclude).join(', ');
 }
 
+function appendAnchorColorExclude(selector) {
+    return selector + ':not(a):not(a *):not(:has(a))';
+}
+
+function joinAnchorColorExcludedSelectors(selectors) {
+    return selectors.map(appendAnchorColorExclude).join(', ');
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function affoDebugLog() {
@@ -157,6 +165,20 @@ function buildThirdManInTextSelector(fontType) {
     ]);
 }
 
+function buildThirdManInColorSelector(fontType) {
+    return joinAnchorColorExcludedSelectors([
+        `html body div[data-affo-font-type="${fontType}"]`,
+        `html body blockquote[data-affo-font-type="${fontType}"]`,
+        `html body p[data-affo-font-type="${fontType}"]`,
+        `html body span[data-affo-font-type="${fontType}"]`,
+        `html body em[data-affo-font-type="${fontType}"]`,
+        `html body i[data-affo-font-type="${fontType}"]`,
+        `html body td[data-affo-font-type="${fontType}"]`,
+        `html body th[data-affo-font-type="${fontType}"]`,
+        `html body li[data-affo-font-type="${fontType}"]`
+    ].map(appendTmiTextExclude));
+}
+
 // ── Face-off mode CSS (generateBodyCSS) ──────────────────────────────────────
 
 function generateBodyCSS(payload, aggressive, ignoreComments) {
@@ -169,8 +191,9 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
     const articleDeckExclude = getArticleDeckExclude();
-    const sel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const bodySelectorBase = 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const sel = 'body, ' + bodySelectorBase;
+    const colorSel = bodySelectorBase + ':not(a):not(a *):not(:has(a))';
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
     const weightSel = 'body, ' +
         'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
@@ -189,9 +212,6 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
     }
     if (payload.letterSpacing != null && isFinite(payload.letterSpacing)) {
         decl.push(`letter-spacing:${payload.letterSpacing}em${imp}`);
-    }
-    if (payload.fontColor) {
-        decl.push(`color:${payload.fontColor}${imp}`);
     }
     // Registered axes → high-level CSS properties
     const effectiveWdth = getEffectiveWidth(payload);
@@ -212,7 +232,10 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
         decl.push(`font-variation-settings:${allAxes.join(', ')}${imp}`);
     }
 
-    let css = `${sel}{${decl.join('; ')};}`;
+    let css = decl.length > 0 ? `${sel}{${decl.join('; ')};}` : '';
+    if (payload.fontColor) {
+        css += (css ? '\n' : '') + `${colorSel}{color:${payload.fontColor}${imp};}`;
+    }
 
     const effectiveWt = getEffectiveWeight(payload);
     if (effectiveWt !== null) {
@@ -259,7 +282,9 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
 
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
     const articleDeckExclude = getArticleDeckExclude();
-    const selector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const bodyContactSelectorBase = 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const selector = 'body, ' + bodyContactSelectorBase;
+    const colorSelector = bodyContactSelectorBase + ':not(a):not(a *):not(:has(a))';
     const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
     let styleRule = `${selector} {`;
     let hasStyleRuleProps = false;
@@ -281,11 +306,6 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
         styleRule += ` letter-spacing: ${payload.letterSpacing}em${imp};`;
         hasStyleRuleProps = true;
     }
-    if (payload.fontColor) {
-        styleRule += ` color: ${payload.fontColor}${imp};`;
-        hasStyleRuleProps = true;
-    }
-
     const effectiveWdth = getEffectiveWidth(payload);
     if (effectiveWdth !== null) {
         styleRule += ` font-stretch: ${effectiveWdth}%${imp};`;
@@ -309,6 +329,9 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
 
     styleRule += ' }';
     if (hasStyleRuleProps) lines.push(styleRule);
+    if (payload.fontColor) {
+        lines.push(`${colorSelector} { color: ${payload.fontColor}${imp}; }`);
+    }
 
     const effectiveWeight = getEffectiveWeight(payload);
     if (effectiveWeight) {
@@ -427,6 +450,10 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
         if (siteSpecificRules) {
             lines.push(siteSpecificRules);
         }
+    }
+
+    if (payload.fontColor) {
+        lines.push(`${buildThirdManInColorSelector(ft)} { color: ${payload.fontColor}${imp}; }`);
     }
 
     const css = lines.join('\n');

@@ -30,6 +30,7 @@ Options:
   --url <url>              URL to inspect (default: ${DEFAULT_URL})
   --serial <id>            ADB device serial (default: single connected device)
   --package <name>         Android Firefox package to launch (required)
+  --activity <name>        Android activity to launch (default: geckodriver default)
   --allow-clear-package-data
                             Acknowledge that Android geckodriver clears the selected
                             Firefox package data when creating a session
@@ -60,6 +61,7 @@ function parseArgs(argv) {
         url: process.env.AFFO_ANDROID_URL || DEFAULT_URL,
         serial: process.env.AFFO_ANDROID_SERIAL || '',
         packageName: process.env.AFFO_ANDROID_PACKAGE || '',
+        activityName: process.env.AFFO_ANDROID_ACTIVITY || '',
         allowClearPackageData: process.env.AFFO_ANDROID_ALLOW_CLEAR_PACKAGE_DATA === '1',
         xpiPath: process.env.AFFO_ANDROID_XPI || DEFAULT_XPI,
         skipAddon: process.env.AFFO_ANDROID_SKIP_ADDON === '1',
@@ -86,6 +88,8 @@ function parseArgs(argv) {
             args.serial = requireValue(argv, ++i, arg);
         } else if (arg === '--package') {
             args.packageName = requireValue(argv, ++i, arg);
+        } else if (arg === '--activity') {
+            args.activityName = requireValue(argv, ++i, arg);
         } else if (arg === '--allow-clear-package-data') {
             args.allowClearPackageData = true;
         } else if (arg === '--xpi') {
@@ -189,7 +193,7 @@ function findExecutableOnPath(name) {
 
 async function createAndroidFirefoxDriver(args) {
     const options = new firefox.Options()
-        .enableMobile(args.packageName, null, args.serial);
+        .enableMobile(args.packageName, args.activityName || null, args.serial);
     const mozOptions = options.get('moz:firefoxOptions');
     if (mozOptions.deviceSerial) {
         mozOptions.androidDeviceSerial = mozOptions.deviceSerial;
@@ -476,6 +480,7 @@ async function main() {
             url: args.url,
             serial: args.serial,
             packageName: args.packageName,
+            activityName: args.activityName,
             allowClearPackageData: args.allowClearPackageData,
             selectors: args.selectors,
             skipAddon: args.skipAddon,

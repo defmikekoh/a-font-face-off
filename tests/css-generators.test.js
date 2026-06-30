@@ -217,6 +217,53 @@ describe('css-generators third-man-in text sizing', () => {
     });
 });
 
+describe('css-generators link color preservation', () => {
+    it('keeps body color rules from explicitly matching anchors', () => {
+        const css = generateBodyContactCSS({
+            fontName: 'Spectral',
+            fontColor: '#333333',
+            variableAxes: {}
+        }, false, false);
+        const colorRule = css.split('\n').find(line => line.includes('color: #333333'));
+
+        assert.ok(colorRule);
+        assert.match(colorRule, /:not\(a\):not\(a \*\)/);
+        assert.match(colorRule, /:not\(:has\(a\)\)/);
+    });
+
+    it('keeps face-off body color rules from explicitly matching anchors', () => {
+        const css = generateBodyCSS({
+            fontName: 'Spectral',
+            fontColor: '#333333',
+            variableAxes: {}
+        }, false, false);
+        const colorRule = css.split('\n').find(line => line.includes('color:#333333'));
+
+        assert.ok(colorRule);
+        assert.match(colorRule, /:not\(a\):not\(a \*\)/);
+        assert.match(colorRule, /:not\(:has\(a\)\)/);
+    });
+
+    it('keeps third-man-in sizing on links but applies color only through non-anchor selectors', () => {
+        const css = generateThirdManInCSS('serif', {
+            fontName: 'Spectral',
+            fontSize: 19,
+            fontColor: '#333333',
+            variableAxes: {}
+        }, false);
+        const textRule = css.split('\n').find(line => line.includes('font-size: 19px'));
+        const colorRule = css.split('\n').find(line => line.includes('color: #333333'));
+
+        assert.ok(textRule);
+        assert.ok(colorRule);
+        assert.match(textRule, /html body p\[data-affo-font-type="serif"\] a:not\(\.footnote-anchor\)/);
+        assert.match(colorRule, /:not\(a\):not\(a \*\)/);
+        assert.match(colorRule, /:not\(:has\(a\)\)/);
+        assert.doesNotMatch(colorRule, /a\[data-affo-font-type="serif"\]/);
+        assert.doesNotMatch(colorRule, / a:not\(\.footnote-anchor\)/);
+    });
+});
+
 describe('css-generators third-man-in heading preservation', () => {
     it('keeps marked heading descendants out of TMI replacement rules', () => {
         const css = generateThirdManInCSS('sans', {

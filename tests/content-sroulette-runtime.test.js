@@ -153,6 +153,45 @@ describe('content-sroulette-runtime CSS tracking messages', () => {
     });
 });
 
+describe('content-sroulette-runtime Substack Roulette dimming guards', () => {
+    function fakeNode(options) {
+        return {
+            nodeType: 1,
+            matches(selector) {
+                if (options.throwMatches) throw new Error('bad selector');
+                return selector === 'a, a *' && !!options.matchesAnchorSelector;
+            },
+            querySelector(selector) {
+                if (options.throwQuerySelector) throw new Error('bad selector');
+                return selector === 'a' && options.hasAnchorChild ? {} : null;
+            },
+        };
+    }
+
+    it('skips anchors and anchor descendants so link colors are not brightness-filtered', () => {
+        assert.equal(contentSroulette.shouldSkipDimmingForLinkColor(fakeNode({
+            matchesAnchorSelector: true,
+        })), true);
+    });
+
+    it('skips containers with anchors because filters affect descendant link pixels', () => {
+        assert.equal(contentSroulette.shouldSkipDimmingForLinkColor(fakeNode({
+            hasAnchorChild: true,
+        })), true);
+    });
+
+    it('allows non-link text containers to be dimmed', () => {
+        assert.equal(contentSroulette.shouldSkipDimmingForLinkColor(fakeNode({})), false);
+    });
+
+    it('treats selector errors as non-link rather than failing roulette dimming', () => {
+        assert.equal(contentSroulette.shouldSkipDimmingForLinkColor(fakeNode({
+            throwMatches: true,
+            throwQuerySelector: true,
+        })), false);
+    });
+});
+
 describe('content-sroulette-runtime storage resolution', () => {
     it('loads Sroulette pool data from storage when not provided', async () => {
         let requestedKeys = null;
