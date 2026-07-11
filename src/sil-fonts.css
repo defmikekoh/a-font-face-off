@@ -1,8 +1,10 @@
 /*
- * Built-in SIL Open Font License fonts that should bypass Google Fonts
- * delivery. SIL fonts are mirrored here because Google serves subsetted
- * versions that break some composite glyphs. Iosevka Fixed SS05 is included
- * as a pinned custom-family alias backed by the extended webfont files.
+ * Current version 7 SIL Open Font License webfonts, fetched at runtime from a
+ * mirror rather than through Google Fonts. Google Fonts currently delivers
+ * older version 6.101 releases, which lack newer OpenType improvements and can
+ * misrender some IPA tone-letter, bridging-diacritic, and combining-mark
+ * sequences. Iosevka Fixed SS05 is included as a pinned custom-family alias
+ * backed by the extended webfont files.
  */
 
 @font-face {
@@ -191,9 +193,10 @@
 }
 
 /*
- * Use the extended cut as the base family so this custom entry has the wider
- * Fira-like proportions the user wanted, without affecting Google-hosted
- * Iosevka Charon Mono.
+ * Iosevka Fixed SS05 uses the extended-width, fixed-pitch cut. It provides
+ * reliable Unicode box-drawing coverage while retaining the wider, Fira-like
+ * proportions desired here. It is exposed under a separate family name so it
+ * does not affect Google-hosted Iosevka Charon Mono.
  */
 @font-face {
   font-family: "Iosevka Fixed SS05";

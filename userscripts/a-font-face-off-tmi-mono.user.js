@@ -40,7 +40,7 @@
             css2Url: 'https://fonts.googleapis.com/css2?family=Iosevka+Charon+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap',
         },
         'Iosevka Fixed SS05': {
-            source: 'sil',
+            source: 'direct',
             cacheKey: 'iosevka-fixed-ss05',
             baseUrl: IOSEVKA_FIXED_SS05_BASE,
             fontFamily: 'Iosevka Fixed SS05',
@@ -52,7 +52,7 @@
             ],
         },
         'Ioskeley Mono': {
-            source: 'sil',
+            source: 'direct',
             cacheKey: 'ioskeley-mono',
             baseUrl: IOSKELEY_MONO_BASE,
             fontFamily: 'Ioskeley Mono',
@@ -64,7 +64,7 @@
             ],
         },
         'Julia Mono': {
-            source: 'sil',
+            source: 'direct',
             cacheKey: 'julia-mono',
             baseUrl: JULIA_MONO_BASE,
             fontFamily: 'Julia Mono',
@@ -182,7 +182,7 @@
     }
 
     function hydrateEmbeddedFontsFromCache() {
-        if (selectedPreset.source !== 'sil') {
+        if (selectedPreset.source !== 'direct') {
             return;
         }
 
@@ -212,7 +212,7 @@
     }
 
     function ensureEmbeddedFontData() {
-        if (selectedPreset.source !== 'sil') {
+        if (selectedPreset.source !== 'direct') {
             return Promise.resolve();
         }
 

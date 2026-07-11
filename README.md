@@ -33,8 +33,9 @@ I created this extension because looking at the Spectral font on my Android tabl
 
 ## Less Obvious Features
 
-- **Built-in SIL fonts** — Andika (sans), Charis (serif), and Gentium (serif) are bundled as full non-subsetted fonts from [SIL International](https://software.sil.org/). Google Fonts serves broken subsets of these that can't render IPA tone letters and combining diacritical marks correctly. Also, for unicode box-drawing, can use the Iosevka Charon Mono (from Google fonts) or Iosevka Fixed SS05 (github).
+- **Current SIL fonts** — The full version 7 releases of Andika (sans), Charis (serif), and Gentium (serif) from [SIL International](https://software.sil.org/) are preconfigured and fetched at runtime from a GitHub mirror. Google Fonts currently provides older version 6.101 releases (under the names Andika, Charis SIL, and Gentium Plus), which lack newer OpenType improvements and can render some IPA tone-letter and combining-diacritic sequences incorrectly.
   - Just want a simple Violentmonkey/Tampermonkey user.js for the SIL fonts and don't want the full extension? There's one in userscripts/.
+- **Unicode box drawing** — Use Iosevka Charon Mono from Google Fonts or the GitHub-hosted Iosevka Fixed SS05 extended-width build for fixed-pitch box-drawing and ASCII-art layouts.
 - **Quick Pick** — Press the top-most button in the left toolbar (hockey stick and mask icon) to open a favorites panel directly on the page. Apply saved fonts without opening the popup.
 - **Wait For It** — Long-press the WhatFont button to delay font detection until the page finishes loading dynamic content. Configure per-domain in quick pick or options.
 - **Substack Roulette** — Randomly applies a different favorite font each time you visit a Substack page. Configure which favorites participate in options.
