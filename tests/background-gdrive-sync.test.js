@@ -259,7 +259,15 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
     };
 }
 
-function createWebDavHarness({ localSeed, remoteFiles, remoteEtags, onPut, onGet }) {
+function createWebDavHarness({
+    localSeed,
+    remoteFiles,
+    remoteEtags,
+    onPut,
+    onGet,
+    putEtagMode = 'strong',
+    omitPutResponseEtag = false,
+}) {
     const seed = {
         affoSyncBackend: 'webdav',
         affoWebDavConfig: {
@@ -347,9 +355,9 @@ function createWebDavHarness({ localSeed, remoteFiles, remoteEtags, onPut, onGet
 
             const name = fileNameFromUrl(url);
             if (method === 'GET') {
-                calls.get.push({ name, url });
+                calls.get.push({ name, url, cache: options.cache || null });
                 if (typeof onGet === 'function') {
-                    const override = onGet({ name, remote, response });
+                    const override = onGet({ name, remote, response, options });
                     if (override) return override;
                 }
                 if (!Object.prototype.hasOwnProperty.call(remote.files, name)) return response(404);
@@ -365,16 +373,17 @@ function createWebDavHarness({ localSeed, remoteFiles, remoteEtags, onPut, onGet
                     ifMatch,
                 });
                 if (typeof onPut === 'function') {
-                    const override = onPut({ name, ifMatch, remote, response });
+                    const override = onPut({ name, ifMatch, remote, response, options });
                     if (override) return override;
                 }
                 const currentEtag = remote.etags[name] || null;
-                if (ifMatch && ifMatch !== currentEtag) return response(412);
+                if (ifMatch && (/^W\//i.test(ifMatch) || ifMatch !== currentEtag)) return response(412);
 
                 remote.files[name] = parseOrRaw(options.body);
                 putCounter += 1;
-                remote.etags[name] = `"${name}-put-${putCounter}"`;
-                return response(201, { etag: remote.etags[name] });
+                const nextEtag = `"${name}-put-${putCounter}"`;
+                remote.etags[name] = putEtagMode === 'weak' ? `W/${nextEtag}` : nextEtag;
+                return response(201, { etag: omitPutResponseEtag ? null : remote.etags[name] });
             }
             if (method === 'DELETE') {
                 delete remote.files[name];
@@ -1238,6 +1247,177 @@ describe('WebDAV sync revision handling', () => {
         const aggressiveMetaPut = harness.calls.put.find((call) => call.name === 'aggressive-domains-meta.json');
         assert.ok(aggressiveMetaPut, 'expected aggressive-domains-meta.json to be pushed after merge');
         assert.equal(aggressiveMetaPut.ifMatch, '"aggressive-meta-v2"');
+    });
+
+    it('does not send weak ETags with If-Match and bypasses the HTTP cache for DAV reads', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'local.example': { body: { fontName: 'LocalFont', variableAxes: {} } }
+                },
+                affoApplyMapMeta: {
+                    version: 1,
+                    byOrigin: {
+                        'local.example': { modified: 300 }
+                    }
+                },
+                affoSyncMeta: {
+                    lastSync: 300,
+                    items: {
+                        'domains.json': { modified: 300, remoteRev: 'webdav-etag:W/"domains-v1"' },
+                        'domains-meta.json': { modified: 300, remoteRev: 'webdav-etag:W/"domains-meta-v1"' }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: {
+                        'domains.json': { modified: 200 },
+                        'domains-meta.json': { modified: 200 }
+                    }
+                },
+                'domains.json': {
+                    'remote.example': { body: { fontName: 'RemoteFont', variableAxes: {} } }
+                },
+                'domains-meta.json': {
+                    version: 1,
+                    byOrigin: {
+                        'remote.example': { modified: 200 }
+                    }
+                }
+            },
+            remoteEtags: {
+                'domains.json': 'W/"domains-v2"',
+                'domains-meta.json': 'W/"domains-meta-v2"',
+                'sync-manifest.json': 'W/"manifest-v2"'
+            },
+            putEtagMode: 'weak'
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        assert.ok(harness.calls.put.length >= 3, 'expected merged domain files and manifest to be written');
+        assert.ok(harness.calls.put.every((call) => call.ifMatch === null));
+        assert.ok(harness.calls.get.length > 0);
+        assert.ok(harness.calls.get.every((call) => call.cache === 'no-store'));
+        assert.equal(harness.storageData.affoSyncMeta.items['domains.json'].remoteRev, undefined);
+        assert.equal(harness.storageData.affoSyncMeta.items['domains-meta.json'].remoteRev, undefined);
+    });
+
+    it('ignores a previously stored weak ETag when pushing a whole-file setting', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    Local: { fontName: 'Local', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['Local'],
+                affoSyncMeta: {
+                    lastSync: 300,
+                    items: {
+                        'favorites.json': {
+                            modified: 300,
+                            remoteRev: 'webdav-etag:W/"favorites-v1"'
+                        }
+                    }
+                },
+            },
+            remoteFiles: {
+                'sync-manifest.json': {
+                    version: 1,
+                    lastSync: 200,
+                    items: { 'favorites.json': { modified: 200 } }
+                },
+                'favorites.json': {
+                    affoFavorites: { Remote: { fontName: 'Remote', variableAxes: {} } },
+                    affoFavoritesOrder: ['Remote']
+                }
+            },
+            remoteEtags: {
+                'favorites.json': 'W/"favorites-v2"',
+                'sync-manifest.json': 'W/"manifest-v2"'
+            },
+            putEtagMode: 'weak'
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+        const favoritesPut = harness.calls.put.find((call) => call.name === 'favorites.json');
+        assert.ok(favoritesPut);
+        assert.equal(favoritesPut.ifMatch, null);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, undefined);
+    });
+
+    it('keeps normal sync working after push-once when the DAV server only returns weak ETags', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoApplyMap: {
+                    'first.example': { body: { fontName: 'FirstFont', variableAxes: {} } }
+                },
+                affoApplyMapMeta: {
+                    version: 1,
+                    byOrigin: {
+                        'first.example': { modified: 100 }
+                    }
+                },
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: {
+                        'domains.json': { modified: 100 },
+                        'domains-meta.json': { modified: 100 }
+                    }
+                },
+            },
+            remoteFiles: {},
+            remoteEtags: {},
+            putEtagMode: 'weak'
+        });
+
+        const pushResult = await harness.runSync({ mode: 'push' });
+        assert.equal(pushResult.ok, true);
+        const putsAfterPushOnce = harness.calls.put.length;
+
+        const nextModified = Date.now() + 10000;
+        harness.storageData.affoApplyMap['second.example'] = {
+            body: { fontName: 'SecondFont', variableAxes: {} }
+        };
+        harness.storageData.affoApplyMapMeta.byOrigin['second.example'] = { modified: nextModified };
+        harness.storageData.affoSyncMeta.items['domains.json'] = { modified: nextModified };
+        harness.storageData.affoSyncMeta.items['domains-meta.json'] = { modified: nextModified };
+
+        const syncResult = await harness.runSync();
+        assert.equal(syncResult.ok, true);
+        const normalSyncPuts = harness.calls.put.slice(putsAfterPushOnce);
+        assert.ok(normalSyncPuts.some((call) => call.name === 'domains.json'));
+        assert.ok(normalSyncPuts.some((call) => call.name === 'sync-manifest.json'));
+        assert.ok(normalSyncPuts.every((call) => call.ifMatch === null));
+    });
+
+    it('refetches a strong ETag when a successful PUT response omits it', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoFavorites: {
+                    Local: { fontName: 'Local', variableAxes: {} }
+                },
+                affoFavoritesOrder: ['Local'],
+                affoSyncMeta: {
+                    lastSync: 100,
+                    items: { 'favorites.json': { modified: 100 } }
+                },
+            },
+            remoteFiles: {},
+            remoteEtags: {},
+            omitPutResponseEtag: true
+        });
+
+        const result = await harness.runSync({ mode: 'push' });
+        assert.equal(result.ok, true);
+        assert.match(
+            harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev,
+            /^webdav-etag:"favorites\.json-put-/
+        );
+        assert.ok(harness.calls.get.some((call) => call.name === 'favorites.json' && call.cache === 'no-store'));
     });
 
     it('keeps pulled revisions when remote timestamps are older so the next sync does not push', async () => {

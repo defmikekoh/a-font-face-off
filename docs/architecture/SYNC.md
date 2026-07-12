@@ -22,9 +22,10 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 - Basic auth or anonymous, `credentials: 'omit'`, MKCOL for folder
 - Uses `affoWebDavFolderSuffix` to choose the remote folder name independently from Google Drive (`A Font Face-off` or `A Font Face-off {suffix}`)
-- Uses `ETag` as `remoteRev` when server provides it
-- Sends `If-Match` on `PUT` when an existing item has a stored WebDAV ETag (optimistic concurrency)
-- If server omits `ETag`, writes continue without optimistic revision protection for that item
+- Uses a quoted strong `ETag` as `remoteRev` when the server provides one. Weak (`W/`) and malformed ETags are ignored because they cannot satisfy `If-Match` strong comparison.
+- WebDAV GETs use `cache: 'no-store'` so revision checks cannot consume a fresh-but-stale browser cache entry.
+- Sends `If-Match` on `PUT` when an existing item has a stored strong WebDAV ETag (optimistic concurrency).
+- If a successful PUT omits a usable strong ETag, sync performs a cache-bypassing GET to look for one. If the server still provides no strong ETag, later writes continue without optimistic revision protection for that item.
 
 ## Bidirectional Merge
 

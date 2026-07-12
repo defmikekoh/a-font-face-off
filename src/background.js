@@ -1378,7 +1378,10 @@ function webdavHeaders(config) {
 function normalizeWebDavEtag(rawEtag) {
   if (typeof rawEtag !== 'string') return null;
   const etag = rawEtag.trim();
-  return etag ? etag : null;
+  if (!etag || /^W\//i.test(etag)) return null;
+  // If-Match requires strong comparison. Only retain a quoted strong entity
+  // tag; weak or malformed validators would make a compliant server return 412.
+  return /^"[\x21\x23-\x7E\x80-\uFFFF]*"$/.test(etag) ? etag : null;
 }
 
 function buildWebDavRemoteRevision(etag) {
@@ -1441,7 +1444,9 @@ const webdavBackend = {
   async isConfigured() { return isWebDavConfigured(); },
   async get(name) {
     const res = await fetch(this._baseUrl + encodeURIComponent(name), {
-      headers: this._headers, credentials: 'omit'
+      headers: this._headers,
+      credentials: 'omit',
+      cache: 'no-store'
     });
     if (res.status === 404) return { notFound: true };
     if (!res.ok) throw new Error('WebDAV GET failed: ' + res.status);
@@ -1462,10 +1467,23 @@ const webdavBackend = {
       credentials: 'omit'
     });
     if (res.status === 412) {
-      throw new Error(`Remote revision changed for ${name}; WebDAV If-Match precondition failed`);
+      const detail = expected
+        ? 'WebDAV If-Match precondition failed'
+        : 'WebDAV precondition failed without If-Match';
+      throw new Error(`Remote revision changed for ${name}; ${detail}`);
     }
     if (!res.ok) throw new Error('WebDAV PUT failed: ' + res.status);
-    const remoteRev = buildWebDavRemoteRevision(res.headers.get('ETag'));
+    let remoteRev = buildWebDavRemoteRevision(res.headers.get('ETag'));
+    // Some DAV servers expose their usable ETag only on GET, not on the PUT
+    // response. Confirm it without cache before giving up revision protection.
+    if (!remoteRev) {
+      try {
+        const confirmed = await this.get(name);
+        remoteRev = confirmed.notFound ? null : (confirmed.remoteRev || null);
+      } catch (e) {
+        affoDebugWarn(`[AFFO Background] Could not confirm WebDAV revision for ${name}:`, e);
+      }
+    }
     return { remoteRev };
   },
   async remove(name) {

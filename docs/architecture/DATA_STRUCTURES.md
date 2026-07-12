@@ -149,7 +149,7 @@ The cache keeps the existing 1-year TTL and 80MB cap. The legacy `browser.storag
   "items": {
     "domains.json": {
       "modified": 1700000000000,
-      "remoteRev": "app-folder:domains.json:v3"  // GDrive example (WebDAV uses webdav-etag:<etag> when available)
+      "remoteRev": "app-folder:domains.json:v3"  // GDrive example (WebDAV uses webdav-etag:<strong-etag> when available)
     },
     "favorites.json": {
       "modified": 1700002000000,
@@ -160,7 +160,7 @@ The cache keeps the existing 1-year TTL and 80MB cap. The legacy `browser.storag
 ```
 
 - `modified`: last known write time for the item
-- `remoteRev` (optional): backend-specific revision fingerprint used for optimistic concurrency checks before overwriting remote files (`<fileId>:v<version>` for Google Drive, `webdav-etag:<etag>` for WebDAV when server provides ETag)
+- `remoteRev` (optional): backend-specific revision fingerprint used for optimistic concurrency checks before overwriting remote files (`<fileId>:v<version>` for Google Drive, `webdav-etag:<strong-etag>` for WebDAV when the server provides a quoted strong ETag; weak `W/` validators are not stored)
 
 ### Cloud Sync Remote File Mapping
 
