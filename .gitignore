@@ -13,6 +13,11 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Python development tools
+.venv/
+__pycache__/
+*.py[cod]
+
 # Web-ext build/sign artifacts
 web-ext-artifacts/
 signed/
@@ -25,4 +30,3 @@ qrcode.png
 
 # Google Drive OAuth config (generated from secrets in CI)
 src/gdrive-config.js
-

@@ -1,0 +1,2 @@
+# Python dependencies used by repository development and validation tools.
+PyYAML==6.0.3

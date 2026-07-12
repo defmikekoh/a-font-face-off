@@ -48,9 +48,10 @@ jobs:
       - name: Locate build ZIP
         id: findzip
         run: |
-          ls -1 web-ext-artifacts/*.zip | sort | tail -n 1 > /tmp/zip_path
-          ZIP=$(cat /tmp/zip_path)
-          if [ ! -s /tmp/zip_path ]; then
+          mkdir -p ztemp
+          ls -1 web-ext-artifacts/*.zip | sort | tail -n 1 > ztemp/zip_path
+          ZIP=$(cat ztemp/zip_path)
+          if [ ! -s ztemp/zip_path ]; then
             echo "No ZIP found in web-ext-artifacts/" >&2
             exit 1
           fi

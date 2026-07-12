@@ -9,6 +9,11 @@ const path = require('node:path');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_URL = 'https://en.wikipedia.org/wiki/Typography';
 const DEFAULT_XPI = path.join(ROOT_DIR, 'web-ext-artifacts', 'latest.xpi');
+const APPROVED_ANDROID_TARGET = Object.freeze({
+    serial: 'RF8M81WSL1V',
+    packageName: 'org.mozilla.fenix',
+});
+const ADB_COMMAND_TIMEOUT_MS = 10000;
 const DEFAULT_SEED_SERIF = 'Lora';
 const DEFAULT_SEED_SANS = 'Inter';
 const DEFAULT_SELECTORS = [
@@ -34,6 +39,10 @@ Options:
   --allow-clear-package-data
                             Acknowledge that Android geckodriver clears the selected
                             Firefox package data when creating a session
+  --allow-unapproved-target Permit a device/package other than the repo-approved Note10
+                            Nightly target; requires fresh explicit user approval
+  --preflight-only         Check device/package/wake/forward/socket state, then exit
+                            without starting geckodriver or clearing Firefox data
   --xpi <path>             Extension XPI to install (default: web-ext-artifacts/latest.xpi)
   --skip-addon             Do not install an extension before navigating
   --allow-addon-failure    Continue inspection if addon installation fails
@@ -46,7 +55,8 @@ Options:
   --timeout <ms>           Page/script timeout in milliseconds (default: 30000)
   --settle <ms>            Wait after document readiness before inspecting (default: 1000)
   --geckodriver <path>     geckodriver binary path (default: PATH)
-  --verbose-geckodriver    Enable geckodriver trace logging
+  --geckodriver-log <path> Trace log path (default: timestamped file under ztemp/)
+  --verbose-geckodriver    Compatibility flag; trace logging is always enabled
   --help                   Show this help
 
 Examples:
@@ -63,6 +73,8 @@ function parseArgs(argv) {
         packageName: process.env.AFFO_ANDROID_PACKAGE || '',
         activityName: process.env.AFFO_ANDROID_ACTIVITY || '',
         allowClearPackageData: process.env.AFFO_ANDROID_ALLOW_CLEAR_PACKAGE_DATA === '1',
+        allowUnapprovedTarget: process.env.AFFO_ANDROID_ALLOW_UNAPPROVED_TARGET === '1',
+        preflightOnly: process.env.AFFO_ANDROID_PREFLIGHT_ONLY === '1',
         xpiPath: process.env.AFFO_ANDROID_XPI || DEFAULT_XPI,
         skipAddon: process.env.AFFO_ANDROID_SKIP_ADDON === '1',
         allowAddonFailure: process.env.AFFO_ANDROID_ALLOW_ADDON_FAILURE === '1',
@@ -75,6 +87,7 @@ function parseArgs(argv) {
         timeoutMs: Number(process.env.AFFO_ANDROID_TIMEOUT || 30000),
         settleMs: Number(process.env.AFFO_ANDROID_SETTLE || 1000),
         geckodriverPath: process.env.GECKODRIVER_PATH || '',
+        geckodriverLogPath: process.env.AFFO_ANDROID_GECKODRIVER_LOG || '',
         verboseGeckodriver: process.env.AFFO_ANDROID_GECKODRIVER_VERBOSE === '1',
     };
 
@@ -92,6 +105,10 @@ function parseArgs(argv) {
             args.activityName = requireValue(argv, ++i, arg);
         } else if (arg === '--allow-clear-package-data') {
             args.allowClearPackageData = true;
+        } else if (arg === '--allow-unapproved-target') {
+            args.allowUnapprovedTarget = true;
+        } else if (arg === '--preflight-only') {
+            args.preflightOnly = true;
         } else if (arg === '--xpi') {
             args.xpiPath = path.resolve(requireValue(argv, ++i, arg));
         } else if (arg === '--skip-addon') {
@@ -116,6 +133,8 @@ function parseArgs(argv) {
             args.settleMs = Number(requireValue(argv, ++i, arg));
         } else if (arg === '--geckodriver') {
             args.geckodriverPath = path.resolve(requireValue(argv, ++i, arg));
+        } else if (arg === '--geckodriver-log') {
+            args.geckodriverLogPath = path.resolve(requireValue(argv, ++i, arg));
         } else if (arg === '--verbose-geckodriver') {
             args.verboseGeckodriver = true;
         } else {
@@ -134,7 +153,7 @@ function parseArgs(argv) {
     if (!args.packageName.trim()) {
         throw new Error('--package is required. Use a dedicated Firefox Android installation/profile reserved for automation.');
     }
-    if (!args.allowClearPackageData) {
+    if (!args.preflightOnly && !args.allowClearPackageData) {
         throw new Error([
             'Refusing to launch Firefox Android without --allow-clear-package-data.',
             'Android geckodriver clears the selected app package data during session creation.',
@@ -149,6 +168,10 @@ function parseArgs(argv) {
     }
     if (args.selectors.length === 0) {
         args.selectors = DEFAULT_SELECTORS.slice();
+    }
+    if (!args.geckodriverLogPath) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        args.geckodriverLogPath = path.join(ROOT_DIR, 'ztemp', `geckodriver-android-${timestamp}.log`);
     }
     return args;
 }
@@ -191,6 +214,88 @@ function findExecutableOnPath(name) {
     return '';
 }
 
+function validateAndroidTarget(args) {
+    const isApprovedTarget = args.serial === APPROVED_ANDROID_TARGET.serial
+        && args.packageName === APPROVED_ANDROID_TARGET.packageName;
+    if (!isApprovedTarget && !args.allowUnapprovedTarget) {
+        throw new Error([
+            `Refusing unapproved Android Firefox target ${args.serial}/${args.packageName}.`,
+            `The repo-approved target is ${APPROVED_ANDROID_TARGET.serial}/${APPROVED_ANDROID_TARGET.packageName}.`,
+            'After obtaining fresh explicit user approval, pass --allow-unapproved-target.'
+        ].join(' '));
+    }
+}
+
+function runAdb(serial, adbArgs, options = {}) {
+    return childProcess.execFileSync('adb', ['-s', serial, ...adbArgs], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: options.timeoutMs || ADB_COMMAND_TIMEOUT_MS,
+    }).trim();
+}
+
+function collectDevicePreflight(args) {
+    const state = runAdb(args.serial, ['get-state']);
+    if (state !== 'device') {
+        throw new Error(`ADB target ${args.serial} is in state ${state || 'unknown'}; expected device.`);
+    }
+
+    const packagePath = runAdb(args.serial, ['shell', 'pm', 'path', args.packageName]);
+    if (!packagePath.startsWith('package:')) {
+        throw new Error(`Firefox package ${args.packageName} is not installed on ${args.serial}.`);
+    }
+
+    runAdb(args.serial, ['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP']);
+    try {
+        runAdb(args.serial, ['shell', 'wm', 'dismiss-keyguard']);
+    } catch (error) {
+        // Secure keyguards cannot be dismissed by ADB; the later session error and
+        // captured trace remain the authoritative failure evidence.
+    }
+
+    const packageDetails = runAdb(args.serial, ['shell', 'dumpsys', 'package', args.packageName]);
+    const versionMatch = packageDetails.match(/^\s*versionName=(.+)$/m);
+    const forwards = runAdb(args.serial, ['forward', '--list'])
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith(`${args.serial} `));
+    let debuggerSockets = [];
+    try {
+        debuggerSockets = runAdb(args.serial, ['shell', 'cat', '/proc/net/unix'])
+            .split(/\r?\n/)
+            .filter((line) => line.includes('firefox-debugger-socket'));
+    } catch (error) {
+        debuggerSockets = [`unavailable: ${error.message}`];
+    }
+
+    const warnings = [];
+    if (forwards.length > 1) {
+        warnings.push(`Multiple ADB forwards already exist for ${args.serial}; inspect stale RDP/CDP forwards before retrying a failed launch.`);
+    }
+    if (debuggerSockets.length > 1) {
+        warnings.push(`Multiple Firefox debugger sockets already exist for ${args.packageName}; force-stop only the approved package before retrying.`);
+    }
+
+    return {
+        state,
+        model: runAdb(args.serial, ['shell', 'getprop', 'ro.product.model']),
+        androidVersion: runAdb(args.serial, ['shell', 'getprop', 'ro.build.version.release']),
+        packagePath,
+        firefoxVersion: versionMatch ? versionMatch[1].trim() : '',
+        existingForwards: forwards,
+        debuggerSockets,
+        warnings,
+    };
+}
+
+function readLogTail(logPath, maxLines = 120) {
+    try {
+        const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/);
+        return lines.slice(-maxLines).join('\n').trim();
+    } catch (error) {
+        return `Unable to read geckodriver log: ${error.message}`;
+    }
+}
+
 async function createAndroidFirefoxDriver(args) {
     const options = new firefox.Options()
         .enableMobile(args.packageName, args.activityName || null, args.serial);
@@ -205,24 +310,36 @@ async function createAndroidFirefoxDriver(args) {
     if (!geckodriverPath) {
         throw new Error('geckodriver was not found on PATH. Install it or pass --geckodriver.');
     }
-    const service = new firefox.ServiceBuilder(geckodriverPath);
+    fs.mkdirSync(path.dirname(args.geckodriverLogPath), { recursive: true });
+    const geckodriverLogFd = fs.openSync(args.geckodriverLogPath, 'w');
+    const service = new firefox.ServiceBuilder(geckodriverPath)
+        .enableVerboseLogging(true)
+        .setStdio(['ignore', geckodriverLogFd, geckodriverLogFd]);
 
-    if (args.verboseGeckodriver) {
-        service.enableVerboseLogging(true);
+    let driver;
+    try {
+        driver = await new Builder()
+            .forBrowser('firefox')
+            .setFirefoxOptions(options)
+            .setFirefoxService(service)
+            .build();
+        await driver.manage().setTimeouts({
+            pageLoad: args.timeoutMs,
+            script: args.timeoutMs,
+        });
+    } catch (error) {
+        if (driver) {
+            try {
+                await driver.quit();
+            } catch (_quitError) {
+                // Preserve the original startup/configuration failure.
+            }
+        }
+        fs.closeSync(geckodriverLogFd);
+        throw error;
     }
 
-    const driver = await new Builder()
-        .forBrowser('firefox')
-        .setFirefoxOptions(options)
-        .setFirefoxService(service)
-        .build();
-
-    await driver.manage().setTimeouts({
-        pageLoad: args.timeoutMs,
-        script: args.timeoutMs,
-    });
-
-    return driver;
+    return { driver, geckodriverLogFd };
 }
 
 async function installAddonIfRequested(driver, args, report) {
@@ -482,6 +599,8 @@ async function main() {
             packageName: args.packageName,
             activityName: args.activityName,
             allowClearPackageData: args.allowClearPackageData,
+            allowUnapprovedTarget: args.allowUnapprovedTarget,
+            preflightOnly: args.preflightOnly,
             selectors: args.selectors,
             skipAddon: args.skipAddon,
             expectAffo: args.expectAffo,
@@ -489,27 +608,37 @@ async function main() {
             seedSerif: args.seedSerif,
             seedSans: args.seedSans,
             settleMs: args.settleMs,
+            geckodriverLogPath: args.geckodriverLogPath,
         },
     };
 
     let driver;
+    let geckodriverLogFd;
     try {
-        driver = await createAndroidFirefoxDriver(args);
-        await installAddonIfRequested(driver, args, report);
-        await driver.get(args.url);
-        report.documentReadyState = await waitForDocument(driver, args.timeoutMs);
-        if (await seedSubstackRouletteIfRequested(driver, args, report)) {
+        validateAndroidTarget(args);
+        report.devicePreflight = collectDevicePreflight(args);
+        if (args.preflightOnly) {
+            report.preflightOnly = true;
+        } else {
+            const driverContext = await createAndroidFirefoxDriver(args);
+            driver = driverContext.driver;
+            geckodriverLogFd = driverContext.geckodriverLogFd;
+            await installAddonIfRequested(driver, args, report);
             await driver.get(args.url);
-            report.documentReadyStateAfterSeed = await waitForDocument(driver, args.timeoutMs);
-        }
-        if (args.settleMs > 0) {
-            await driver.sleep(args.settleMs);
-        }
-        report.inspection = await collectDomAndCss(driver, args.selectors);
+            report.documentReadyState = await waitForDocument(driver, args.timeoutMs);
+            if (await seedSubstackRouletteIfRequested(driver, args, report)) {
+                await driver.get(args.url);
+                report.documentReadyStateAfterSeed = await waitForDocument(driver, args.timeoutMs);
+            }
+            if (args.settleMs > 0) {
+                await driver.sleep(args.settleMs);
+            }
+            report.inspection = await collectDomAndCss(driver, args.selectors);
 
-        if (args.expectAffo && !report.inspection.affo.htmlDataAffoBase) {
-            report.expectAffoFailure = 'Missing documentElement[data-affo-base]; AFFO content script was not observed.';
-            throw new Error(report.expectAffoFailure);
+            if (args.expectAffo && !report.inspection.affo.htmlDataAffoBase) {
+                report.expectAffoFailure = 'Missing documentElement[data-affo-base]; AFFO content script was not observed.';
+                throw new Error(report.expectAffoFailure);
+            }
         }
     } catch (error) {
         report.error = error.message;
@@ -523,6 +652,13 @@ async function main() {
                 report.quitError = error.message;
             }
         }
+        if (geckodriverLogFd != null) {
+            fs.closeSync(geckodriverLogFd);
+        }
+    }
+
+    if (report.error && fs.existsSync(args.geckodriverLogPath)) {
+        report.geckodriverLogTail = readLogTail(args.geckodriverLogPath);
     }
 
     const json = JSON.stringify(report, null, 2);

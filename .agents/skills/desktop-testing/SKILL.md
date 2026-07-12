@@ -189,6 +189,8 @@ The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO
 
 Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
+The harness enforces the approved serial/package pair. Only after fresh explicit approval for a different target may you pass `--allow-unapproved-target`; `--allow-clear-package-data` alone is not sufficient.
+
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
 
 For real Android Firefox DOM and computed-style inspection on the approved target, use:
@@ -200,7 +202,16 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; this approval applies only to Nightly on the Note10 identified above.
 
-The script installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
+Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
+
+Run the same checks without clearing Firefox data:
+
+```bash
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix \
+  --preflight-only --out ztemp/android-firefox-preflight.json
+```
+
+Every run writes a timestamped trace log under `ztemp/geckodriver-android-*.log`; failed JSON reports include the last trace lines. Use `--geckodriver-log ztemp/<name>.log` when a stable filename is useful. Preserve the JSON and trace together when diagnosing `Process unexpectedly closed`, Marionette decode errors, or session-creation failures.
 
 For toolbar visibility or page-overlay investigations, explicitly select the toolbar iframe and any suspected blocking overlay. The report includes `display`, `visibility`, `opacity`, positioning, z-index, size, bounding rectangle, and inline style, so it can distinguish a hidden toolbar from a visible toolbar covered by unrelated page UI:
 
@@ -256,7 +267,7 @@ await driver.installAddon('web-ext-artifacts/latest.xpi', true);
 - **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
 - **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
 - **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
-- **Device asleep → `Failed to decode response from marionette`.** Wake it first: `adb -s RF8M81WSL1V shell input keyevent KEYCODE_WAKEUP`.
+- **Device asleep → `Failed to decode response from marionette`.** The harness now wakes the device during preflight; for manual workflows use `adb -s RF8M81WSL1V shell input keyevent KEYCODE_WAKEUP`.
 - **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.
 
 ## Edge Canary Android MV3 Prototype
@@ -368,7 +379,7 @@ If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple 
 adb -s DEVICE_ID forward --list
 adb -s DEVICE_ID forward --remove tcp:PORT
 adb -s RF8M81WSL1V shell am force-stop org.mozilla.fenix
-adb -s RF8M81WSL1V shell grep org.mozilla.fenix /proc/net/unix
+adb -s RF8M81WSL1V shell cat /proc/net/unix | rg 'org\.mozilla\.fenix/.*firefox-debugger-socket'
 ```
 
-The final `grep` should print no duplicate `firefox-debugger-socket` rows before retrying. If sockets remain after force-stop, a device reboot is the blunt recovery.
+The final socket search should print no duplicate `firefox-debugger-socket` rows before retrying. If sockets remain after force-stop, a device reboot is the blunt recovery.
