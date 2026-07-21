@@ -99,11 +99,14 @@ jobs:
       - name: Pack CRX
         run: npm run pack:edge-crx
 
+      - name: Add version to CRX filename
+        run: cp web-ext-artifacts/a-font-face-off-edge-mv3.crx "web-ext-artifacts/a-font-face-off-edge-mv3-${{ steps.ver.outputs.v }}.crx"
+
       - name: Upload CRX artifact
         uses: actions/upload-artifact@v4
         with:
           name: edge-crx-${{ steps.ver.outputs.v }}
-          path: web-ext-artifacts/a-font-face-off-edge-mv3.crx
+          path: web-ext-artifacts/a-font-face-off-edge-mv3-${{ steps.ver.outputs.v }}.crx
 
       - name: Move edge-test-latest tag to this commit
         run: |
@@ -126,7 +129,7 @@ jobs:
           draft: false
           prerelease: true
           make_latest: false
-          files: web-ext-artifacts/a-font-face-off-edge-mv3.crx
+          files: web-ext-artifacts/a-font-face-off-edge-mv3-${{ steps.ver.outputs.v }}.crx
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -162,7 +165,7 @@ jobs:
           attempt=1
           while [ $attempt -le $attempts ]; do
             echo "Attempt $attempt/$attempts: Checking for CRX release asset..."
-            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r '.assets[] | select(.name | endswith(".crx")) | .browser_download_url' | head -n 1)
+            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r --arg name "a-font-face-off-edge-mv3-${{ steps.ver.outputs.v }}.crx" '.assets[] | select(.name == $name) | .browser_download_url' | head -n 1)
             if [ -n "$DOWNLOAD_URL" ]; then
               echo "Asset found!"
               break
