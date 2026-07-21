@@ -82,8 +82,8 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 
 ### Key Functions
 - **`ensureSharedInlineObserver()`** — Creates the shared MutationObserver on first call. Callback loops `addedNodes` once, then iterates `Object.keys(inlineConfigs)` to match selectors and apply per-type protection.
-- **`ensureSharedInlinePolling()`** — Creates shared polling timers (frequency ramp: fast → slow → stop) on first call. Each tick iterates all active types.
-- **`reapplyAllInlineStyles()`** — Shared SPA/focus handler that re-applies inline styles for all active types.
+- **`ensureSharedInlinePolling()`** — Creates shared polling timers (frequency ramp: fast → slow → stop) on first call. Each tick verifies sentinel elements for all active types before requesting any full rewrite.
+- **`reapplyAllInlineStyles()`** — Shared SPA/focus handler that re-applies inline styles for all active types. Its polling mode skips types whose sampled protected values are intact.
 - **`checkExpiredInlineTypes()`** — Removes types whose `expiresAt` has passed from `inlineConfigs`. Calls `cleanupSharedInlineInfra()` when no types remain.
 - **`cleanupSharedInlineInfra()`** — Disconnects the shared observer and clears all shared timers.
 
@@ -92,10 +92,11 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 - **`isXCom`** — Boolean: whether the current origin is x.com or twitter.com. Controls hybrid selector routing.
 - **`getAffoSelector(fontType)`** — Central dispatch: Body mode uses `BODY_EXCLUDE`; TMI mode uses `getHybridSelector()` on x.com or `[data-affo-font-type]` elsewhere.
 - **`getHybridSelector(fontType)`** — Returns broad, x.com-specific CSS selectors matching elements by semantic structure (`data-testid`, `div[role]`, tweet patterns) rather than walker-placed marks. See `XCOM.md` for details.
+- **`usesHybridInlineTmiSelectors()`** — Makes x.com hybrid targeting the sole TMI classifier during inline apply, so walkers are skipped for initial apply, mutations, SPA navigation, scaling, and font-loaded reapply.
 - **`HYBRID_GUARD`** — Constant: `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to every hybrid selector term via `addHybridGuard(sel)`.
 
 ### Style Application
-- **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience.
+- **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience. Existing matching values are left untouched to avoid redundant style/attribute mutations.
 - **`applyTmiProtection(el, propsObj, effectiveWeight)`** — Wraps `applyAffoProtection` with bold detection. Checks tag name, `data-affo-was-bold` marker, or computed `fontWeight >= 700` before applying, then restores weight to 700 for bold elements.
 
 ## Bold Override Strategy

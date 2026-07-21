@@ -307,7 +307,7 @@ async function loadModeSettings(options = {}) {
                             applyPromises.push(applyFontConfig(type, config));
 
                             // Re-apply CSS to page - coordinate with font loading
-                            if (!skipPageReapply) {
+                            if (!skipPageReapply && !shouldUseInlineApply(origin)) {
                                 cssPromises.push(
                                     (async () => {
                                         // Wait for font loading to stabilize
@@ -322,7 +322,7 @@ async function loadModeSettings(options = {}) {
                     }
 
                     await Promise.all(applyPromises);
-                    if (skipPageReapply) {
+                    if (skipPageReapply || shouldUseInlineApply(origin)) {
                         affoDebugLog('DOMAIN-FIRST: Skipping page-side Third Man In reapply during popup initialization');
                     } else {
                         await Promise.all(cssPromises);
@@ -672,6 +672,11 @@ function isCurrentFontLoadRequest(position, requestId) {
 // Re-apply Third Man In CSS when popup reopens (since context is reset)
 async function reapplyThirdManInCSS(fontType, fontConfig) {
     try {
+        const origin = await getActiveOrigin();
+        if (shouldUseInlineApply(origin)) {
+            affoDebugLog(`reapplyThirdManInCSS: Content script owns ${fontType} on ${origin}; skipping popup reapply`);
+            return true;
+        }
         affoDebugLog(`reapplyThirdManInCSS: Re-applying ${fontType} font`, fontConfig);
         console.trace(`reapplyThirdManInCSS: Call stack for ${fontType}`);
 
@@ -2492,7 +2497,7 @@ try {
 } catch (e) {}
 
 function shouldUseInlineApply(origin) {
-    return inlineApplyDomains.includes(origin);
+    return AFFOPopupPanelUtils.shouldContentOwnPageApply(origin, inlineApplyDomains);
 }
 
 // Domain detection for aggressive override domains
@@ -2668,23 +2673,26 @@ async function applyThirdManInFont(fontType, config) {
 
         // Build clean payload for domain storage.
         const payload = await buildPayload(fontType, config);
-        const css2Url = payload && payload.fontName ? await buildCss2Url(payload.fontName, config) : '';
 
         if (appliedCssActive[fontType]) {
             await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
         }
 
-        // For inline apply domains (x.com), content script handles font loading
-        // No preloading needed - content script already downloads via background script with progressive loading
+        // For inline apply domains (x.com), content.js owns page styling and
+        // the document-start toolbar owns background cache warming.
 
         // Save payload to storage; content.js resolves font resources at runtime.
-        return saveApplyMapForOrigin(origin, fontType, payload).then(() => {
+        return saveApplyMapForOrigin(origin, fontType, payload).then(async () => {
             // For inline apply domains, return early - content script handles font loading
             if (shouldUseInlineApply(origin)) {
                 affoDebugLog(`applyThirdManInFont: Storage written - content script will load fonts progressively`);
                 return true;
             }
+
+            const css2Url = payload && payload.fontName
+                ? await buildCss2Url(payload.fontName, config)
+                : '';
 
             // First, inject Google Fonts CSS link if needed (only for non-inline domains)
             const fontName = payload.fontName;
@@ -5525,8 +5533,6 @@ function handleApply(panelId) {
         // Third Man In mode: Apply All strategy
         applyPromise = (async () => {
             await applyAllThirdManInFonts();
-            // Small delay to allow storage operations to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
             // Update button states for all Third Man In panels
             return await updateAllThirdManInButtons();
         })();
@@ -5612,6 +5618,11 @@ function applyAllThirdManInFonts() {
                 affoDebugLog('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
                 return saveBatchApplyStateForOrigin(origin, payloadConfigs);
             }).then(() => {
+                if (shouldUseInlineApply(origin)) {
+                    affoDebugLog(`applyAllThirdManInFonts: Content script owns page apply for ${origin}; skipping popup CSS/walkers`);
+                    return [];
+                }
+
                 // Step 4: Apply CSS and font loading in parallel for all fonts (only for non-inline domains)
                 affoDebugLog('applyAllThirdManInFonts: Applying CSS and font loading for all fonts in parallel');
 

@@ -210,7 +210,7 @@ function createStorage(seed = {}) {
     };
 }
 
-function loadRuntime({ fetchImpl, indexedDB, storageSeed } = {}) {
+function loadRuntime({ fetchImpl, indexedDB, storageSeed, buildCss2UrlImpl } = {}) {
     const storage = createStorage(storageSeed);
     const context = vm.createContext({
         console,
@@ -230,8 +230,9 @@ function loadRuntime({ fetchImpl, indexedDB, storageSeed } = {}) {
         Date,
         AFFO_DEBUG: false,
         affoParseGfMetadataText: () => ({}),
-        affoGetMetadataFamilies: () => [],
-        affoBuildCss2UrlFromMetadata: () => ''
+        affoGetMetadataFamilies: metadata => metadata && metadata.familyMetadataList || [],
+        affoBuildCss2UrlFromMetadata: buildCss2UrlImpl || (() => ''),
+        AFFOFontFaceUtils: require('../src/font-face-utils.js')
     });
 
     const sourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
@@ -240,6 +241,56 @@ function loadRuntime({ fetchImpl, indexedDB, storageSeed } = {}) {
 }
 
 describe('background font runtime cache', () => {
+    it('warms the configured Google FontFace subset without returning the binary', async () => {
+        const cssUrl = 'https://fonts.googleapis.com/css2?family=Test';
+        const regularUrl = 'https://fonts.gstatic.com/test-400-latin.woff2';
+        const boldUrl = 'https://fonts.gstatic.com/test-700-latin.woff2';
+        const cssText = [
+            `@font-face { font-family: "Test"; font-style: normal; font-weight: 700; src: url("${boldUrl}") format("woff2"); unicode-range: U+0000-00FF; }`,
+            `@font-face { font-family: "Test"; font-style: normal; font-weight: 400; src: url("${regularUrl}") format("woff2"); unicode-range: U+0000-00FF; }`,
+        ].join('\n');
+        const fetchedUrls = [];
+        const { runtime } = loadRuntime({
+            indexedDB: createFakeIndexedDB(),
+            storageSeed: { gfMetadataCache: { familyMetadataList: [{ family: 'Test' }] } },
+            buildCss2UrlImpl: () => cssUrl,
+            fetchImpl: async (url) => {
+                fetchedUrls.push(url);
+                return {
+                    ok: true,
+                    text: async () => cssText,
+                    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+                };
+            },
+        });
+
+        const result = await runtime.warmFontFace({
+            fontName: 'Test',
+            fontConfig: { fontWeight: 400, variableAxes: {} },
+        });
+
+        assert.deepEqual(fetchedUrls, [cssUrl, regularUrl]);
+        assert.equal(result.ok, true);
+        assert.equal(result.warmedUrl, regularUrl);
+        assert.equal(Object.prototype.hasOwnProperty.call(result, 'data'), false);
+
+        const cached = await runtime.handleFetchMessage({ url: regularUrl, binary: true });
+        assert.equal(cached.cached, true);
+        assert.deepEqual(Array.from(new Uint8Array(cached.data)), [1, 2, 3]);
+    });
+
+    it('skips cache maintenance when it ran recently', async () => {
+        const recent = Date.now();
+        const { runtime } = loadRuntime({
+            indexedDB: createFakeIndexedDB(),
+            storageSeed: { affoFontCacheLastMaintenance: recent },
+        });
+
+        const result = await runtime.runCacheMaintenance();
+        assert.equal(result.skipped, true);
+        assert.equal(result.lastMaintenance, recent);
+    });
+
     it('stores binary font responses in IndexedDB and returns cache hits as ArrayBuffers', async () => {
         let fetchCount = 0;
         const { runtime } = loadRuntime({

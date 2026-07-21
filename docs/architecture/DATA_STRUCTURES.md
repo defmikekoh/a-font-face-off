@@ -98,6 +98,7 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 | `affoInlineApplyDomainsMeta` | Per-origin sync metadata for inline-apply domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
+| `affoFontCacheLastMaintenance` | Local timestamp of the last background IndexedDB expiry scan; throttles maintenance to once per 24 hours and is not synced | `1700000000000` |
 | `gfMetadataCache` | Cached Google Fonts metadata (from remote/local fetch) | `{ familyMetadataList: [...] }` |
 | `gfMetadataTimestamp` | Timestamp for metadata cache age checks | `1699999999999` |
 | `gfFamilyListCache` | Cached Google Fonts family names for popup picker hydration without loading full axis metadata | `["Inter", "Roboto"]` |
@@ -137,7 +138,7 @@ Google/custom WOFF2 files fetched by `background-font-runtime.js` for FontFace-o
 }
 ```
 
-The cache keeps the existing 1-year TTL and 80MB cap. The legacy `browser.storage.local.affoFontCache` byte-array cache is no longer used and is removed by cache startup/clear paths.
+The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is deferred after startup, throttled by `affoFontCacheLastMaintenance`, and uses the store's `timestamp` index. The legacy `browser.storage.local.affoFontCache` byte-array cache is no longer used and is removed by cache startup/clear paths.
 
 ### Cloud Sync Metadata (`affoSyncMeta`)
 **Purpose**: Tracks per-item change timestamps for bidirectional cloud sync (Google Drive or WebDAV). Each synced item is a single file in the remote folder.

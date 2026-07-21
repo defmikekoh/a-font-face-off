@@ -375,6 +375,7 @@ export default [
                 affoParseGfMetadataText: "readonly",
                 affoGetMetadataFamilies: "readonly",
                 affoBuildCss2UrlFromMetadata: "readonly",
+                AFFOFontFaceUtils: "readonly",
             },
         },
         rules: {

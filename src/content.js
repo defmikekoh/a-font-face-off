@@ -1134,6 +1134,9 @@
   }
 
   var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
+  function usesHybridInlineTmiSelectors() {
+    return isXCom && shouldUseInlineApply();
+  }
   function getBodyExcludeSelector() {
     return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector() + DROP_CAP_EXCLUDE;
   }
@@ -1358,7 +1361,7 @@
     var activeTypes = getActiveFontSizeScaleTypes();
     if (activeTypes.length === 0) return;
     var tmiTypes = activeTypes.filter(function (ft) { return ft !== 'body'; });
-    if (tmiTypes.length > 0) {
+    if (tmiTypes.length > 0 && !usesHybridInlineTmiSelectors()) {
       rewalkTmiTypes(tmiTypes, function () { reapplyActiveFontSizeScales(activeTypes); });
     } else {
       reapplyActiveFontSizeScales(activeTypes);
@@ -1445,6 +1448,7 @@
   function applyInlineStylesInRoots(roots) {
     var types = Object.keys(inlineConfigs);
     if (types.length === 0) return;
+    var headingResetRoots = new Set();
     types.forEach(function (ft) {
       var cfg = inlineConfigs[ft];
       if (!cfg) return;
@@ -1467,7 +1471,7 @@
           } else {
             applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
             applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-            resetHeadingTypographyInMarkedSubtree(el);
+            headingResetRoots.add(root);
           }
           applied++;
         });
@@ -1475,6 +1479,7 @@
       applyFontSizeScale(cfg.fontConfig || {}, ft);
       if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
     });
+    headingResetRoots.forEach(resetHeadingTypographyInMarkedSubtree);
   }
 
   // Dispatch debounced, scoped work to the active consumers for the meaningful
@@ -1493,7 +1498,7 @@
     // inline styles within them.
     if (inlineObserverWanted && Object.keys(inlineConfigs).length > 0) {
       var tmiInline = ['serif', 'sans', 'mono'].filter(function (ft) { return !!inlineConfigs[ft]; });
-      if (tmiInline.length > 0) markTypesInRoots(topRoots, tmiInline);
+      if (tmiInline.length > 0 && !usesHybridInlineTmiSelectors()) markTypesInRoots(topRoots, tmiInline);
       applyInlineStylesInRoots(topRoots);
     }
 
@@ -1511,7 +1516,7 @@
     var scaleTypes = getActiveFontSizeScaleTypes();
     if (scaleTypes.length > 0) {
       var tmiScale = scaleTypes.filter(function (ft) { return ft !== 'body'; });
-      if (tmiScale.length > 0) markTypesInRoots(topRoots, tmiScale);
+      if (tmiScale.length > 0 && !usesHybridInlineTmiSelectors()) markTypesInRoots(topRoots, tmiScale);
       reapplyActiveFontSizeScales(scaleTypes);
     }
   }
@@ -1526,14 +1531,32 @@
     maybeCleanupSharedDomObserver();
   }
 
+  function setImportantStyleIfChanged(el, prop, value) {
+    var normalized = String(value);
+    if (el.style.getPropertyValue(prop) === normalized && el.style.getPropertyPriority(prop) === 'important') {
+      return false;
+    }
+    el.style.setProperty(prop, normalized, 'important');
+    return true;
+  }
+
+  function setAttributeIfChanged(el, name, value) {
+    var normalized = String(value);
+    if (el.getAttribute(name) === normalized) return false;
+    el.setAttribute(name, normalized);
+    return true;
+  }
+
   function applyAffoProtection(el, propsObj) {
     Object.entries(propsObj).forEach(function ([prop, value]) {
-      el.style.setProperty(prop, value, 'important');
-      el.style.setProperty('--affo-' + prop, value, 'important');
-      el.setAttribute('data-affo-' + prop, value);
+      setImportantStyleIfChanged(el, prop, value);
+      setImportantStyleIfChanged(el, '--affo-' + prop, value);
+      setAttributeIfChanged(el, 'data-affo-' + prop, value);
     });
-    el.setAttribute('data-affo-protected', 'true');
-    el.setAttribute('data-affo-font-name', propsObj['font-family']);
+    setAttributeIfChanged(el, 'data-affo-protected', 'true');
+    if (propsObj['font-family'] != null) {
+      setAttributeIfChanged(el, 'data-affo-font-name', propsObj['font-family']);
+    }
   }
 
   function canApplyAffoTextColor(el) {
@@ -1544,9 +1567,9 @@
 
   function applyAffoTextColor(el, colorValue) {
     if (!colorValue || !canApplyAffoTextColor(el)) return;
-    el.style.setProperty('color', colorValue, 'important');
-    el.style.setProperty('--affo-color', colorValue, 'important');
-    el.setAttribute('data-affo-color', colorValue);
+    setImportantStyleIfChanged(el, 'color', colorValue);
+    setImportantStyleIfChanged(el, '--affo-color', colorValue);
+    setAttributeIfChanged(el, 'data-affo-color', colorValue);
   }
 
   function clearAffoProtection(el) {
@@ -1602,15 +1625,15 @@
 
     // Restore bold weight so it isn't flattened to the custom weight
     if (isBold && effectiveWeight !== null) {
-      el.style.setProperty('font-weight', '700', 'important');
-      el.style.setProperty('--affo-font-weight', '700', 'important');
-      el.setAttribute('data-affo-font-weight', '700');
-      el.setAttribute('data-affo-was-bold', 'true');
+      setImportantStyleIfChanged(el, 'font-weight', '700');
+      setImportantStyleIfChanged(el, '--affo-font-weight', '700');
+      setAttributeIfChanged(el, 'data-affo-font-weight', '700');
+      setAttributeIfChanged(el, 'data-affo-was-bold', 'true');
       var boldAxes = buildBoldAxisSettings({ variableAxes: extractVariationAxes(propsObj['font-variation-settings']) }, 700);
       if (boldAxes.length > 0) {
-        el.style.setProperty('font-variation-settings', boldAxes.join(', '), 'important');
-        el.style.setProperty('--affo-font-variation-settings', boldAxes.join(', '), 'important');
-        el.setAttribute('data-affo-font-variation-settings', boldAxes.join(', '));
+        setImportantStyleIfChanged(el, 'font-variation-settings', boldAxes.join(', '));
+        setImportantStyleIfChanged(el, '--affo-font-variation-settings', boldAxes.join(', '));
+        setAttributeIfChanged(el, 'data-affo-font-variation-settings', boldAxes.join(', '));
       } else {
         el.style.removeProperty('font-variation-settings');
         el.style.removeProperty('--affo-font-variation-settings');
@@ -1623,11 +1646,11 @@
     if (!root || !root.querySelectorAll) return;
     try {
       root.querySelectorAll('h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *').forEach(function (heading) {
-        heading.style.setProperty('font-family', 'revert', 'important');
-        heading.style.setProperty('font-weight', 'revert', 'important');
-        heading.style.setProperty('font-stretch', 'revert', 'important');
-        heading.style.setProperty('font-style', 'revert', 'important');
-        heading.style.setProperty('font-variation-settings', 'normal', 'important');
+        setImportantStyleIfChanged(heading, 'font-family', 'revert');
+        setImportantStyleIfChanged(heading, 'font-weight', 'revert');
+        setImportantStyleIfChanged(heading, 'font-stretch', 'revert');
+        setImportantStyleIfChanged(heading, 'font-style', 'revert');
+        setImportantStyleIfChanged(heading, 'font-variation-settings', 'normal');
       });
     } catch (_) { }
   }
@@ -1794,18 +1817,16 @@
         // Apply to body and most descendants (excluding headers for Third Man In mode)
         var bodyElements = document.querySelectorAll('body, ' + getAffoSelector('body'));
         bodyElements.forEach(function (el) {
-          Object.entries(cssPropsObject).forEach(function ([prop, value]) {
-            el.style.setProperty(prop, value, 'important');
-          });
+          applyAffoProtection(el, cssPropsObject);
           applyAffoTextColor(el, fontConfig.fontColor);
         });
         // Override bold elements to preserve visual boldness in the custom font
         if (inlineEffectiveWeight !== null) {
           var boldElements = document.querySelectorAll('body strong, body b');
           boldElements.forEach(function (el) {
-            el.style.setProperty('font-weight', '700', 'important');
+            setImportantStyleIfChanged(el, 'font-weight', '700');
             if (inlineBoldAxes.length > 0) {
-              el.style.setProperty('font-variation-settings', inlineBoldAxes.join(', '), 'important');
+              setImportantStyleIfChanged(el, 'font-variation-settings', inlineBoldAxes.join(', '));
             } else {
               el.style.removeProperty('font-variation-settings');
             }
@@ -1817,8 +1838,8 @@
         tmiElements.forEach(function (el) {
           applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
           applyAffoTextColor(el, fontConfig.fontColor);
-          resetHeadingTypographyInMarkedSubtree(el);
         });
+        resetHeadingTypographyInMarkedSubtree(document.body);
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
       }
     } catch (e) {
@@ -1858,20 +1879,85 @@
     inlineTimer.end();
   }
 
+  function getInlineVerificationElements(fontType) {
+    var selector = getAffoSelector(fontType);
+    var samples = [];
+    function addSample(el) {
+      if (!el || !el.style || samples.indexOf(el) !== -1) return;
+      if (fontType !== 'body' && el.closest && el.closest('h1, h2, h3, h4, h5, h6')) return;
+      samples.push(el);
+    }
+    try {
+      if (fontType === 'body') addSample(document.body);
+      addSample(document.querySelector(selector));
+      if (document.elementFromPoint) {
+        var viewportElement = document.elementFromPoint(
+          Math.max(0, Math.floor(window.innerWidth / 2)),
+          Math.max(0, Math.floor(window.innerHeight / 2))
+        );
+        if (viewportElement) {
+          if (viewportElement.matches && viewportElement.matches(selector)) addSample(viewportElement);
+          if (viewportElement.closest) addSample(viewportElement.closest(selector));
+        }
+      }
+    } catch (_) { }
+    return samples;
+  }
+
+  function inlineElementNeedsRepair(el, cfg, fontType) {
+    var wasBold = fontType !== 'body' && el.getAttribute('data-affo-was-bold') === 'true';
+    var props = cfg.cssPropsObject || {};
+    var propNames = Object.keys(props);
+    for (var i = 0; i < propNames.length; i++) {
+      var prop = propNames[i];
+      var expected = String(props[prop]);
+      if (wasBold && prop === 'font-weight') expected = '700';
+      if (wasBold && prop === 'font-variation-settings') continue;
+      if (el.style.getPropertyValue(prop) !== expected || el.style.getPropertyPriority(prop) !== 'important') {
+        return true;
+      }
+    }
+
+    var color = cfg.fontConfig && cfg.fontConfig.fontColor;
+    if (color && canApplyAffoTextColor(el) &&
+      (el.style.getPropertyValue('color') !== String(color) || el.style.getPropertyPriority('color') !== 'important')) {
+      return true;
+    }
+
+    if (hasFontSizeScale(cfg.fontConfig)) {
+      var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
+      var originalAttr = getFontSizeScaleAttr(fontType, 'original-computed');
+      var originalSize = Number(el.getAttribute(originalAttr));
+      if (!el.hasAttribute(scaledAttr) || !isFinite(originalSize) || originalSize <= 0) return true;
+      var expectedSize = +(originalSize * Number(cfg.fontConfig.fontSizeScale) / 100).toFixed(3) + 'px';
+      if (el.style.getPropertyValue('font-size') !== expectedSize) return true;
+    }
+    return false;
+  }
+
+  function inlineTypeNeedsRepair(fontType, cfg) {
+    var samples = getInlineVerificationElements(fontType);
+    return samples.some(function (el) {
+      return inlineElementNeedsRepair(el, cfg, fontType);
+    });
+  }
+
   // Re-apply inline styles for all active types (shared SPA/focus handler).
-  // For TMI types, if no marked elements are found, re-run the element walker
-  // to re-mark new DOM nodes (e.g. after SPA navigation or React re-renders)
-  // then apply inline styles to the freshly marked elements.
-  function reapplyAllInlineStyles() {
+  // Polling uses a small sentinel sample first; full queries and writes happen
+  // only when x.com has actually replaced or modified protected styles.
+  function reapplyAllInlineStyles(options) {
+    var verifyFirst = !!(options && options.verifyFirst);
     var types = Object.keys(inlineConfigs);
     if (types.length === 0) return;
     var tmiTypesToRewalk = [];
+    var shouldResetHeadings = false;
     types.forEach(function (ft) {
       try {
         var cfg = inlineConfigs[ft];
         if (!cfg) return;
+        if (verifyFirst && !inlineTypeNeedsRepair(ft, cfg)) return;
         var elements = document.querySelectorAll(getAffoSelector(ft));
-        if (elements.length === 0 && ft !== 'body') {
+        if (elements.length === 0 && ft !== 'body' && !usesHybridInlineTmiSelectors()) {
           // No marked elements — DOM was likely replaced; queue a re-walk
           tmiTypesToRewalk.push(ft);
           return;
@@ -1883,7 +1969,7 @@
           } else {
             applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
             applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-            resetHeadingTypographyInMarkedSubtree(el);
+            shouldResetHeadings = true;
           }
         });
         applyFontSizeScale(cfg.fontConfig || {}, ft);
@@ -1892,6 +1978,7 @@
         debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
       }
     });
+    if (shouldResetHeadings) resetHeadingTypographyInMarkedSubtree(document.body);
     // Re-walk any TMI types that lost their markers, then apply inline styles
     if (tmiTypesToRewalk.length > 0) {
       debugLog('[AFFO Content] Re-walking for inline types with 0 marked elements: ' + tmiTypesToRewalk.join(', '));
@@ -1900,6 +1987,7 @@
         elementWalkerRechecksScheduled[ft] = false;
       });
       runElementWalkerAll(tmiTypesToRewalk).then(function () {
+        var shouldResetAfterRewalk = false;
         tmiTypesToRewalk.forEach(function (ft) {
           try {
             var cfg = inlineConfigs[ft];
@@ -1908,12 +1996,13 @@
             elements.forEach(function (el) {
               applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
               applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-              resetHeadingTypographyInMarkedSubtree(el);
+              shouldResetAfterRewalk = true;
             });
             applyFontSizeScale(cfg.fontConfig || {}, ft);
             elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
           } catch (_) { }
         });
+        if (shouldResetAfterRewalk) resetHeadingTypographyInMarkedSubtree(document.body);
       });
     }
   }
@@ -2002,7 +2091,7 @@
             if (Object.keys(inlineConfigs).length === 0) return;
             if (maybeStopSharedInlinePollingForQuietPage()) return;
             checkCount++;
-            reapplyAllInlineStyles();
+            reapplyAllInlineStyles({ verifyFirst: true });
             if (checkCount % 10 === 0) {
               debugLog('[AFFO Content] Performed ' + checkCount + ' shared style checks (' + Object.keys(inlineConfigs).length + ' types)');
             }
@@ -2023,15 +2112,7 @@
               if (Object.keys(inlineConfigs).length === 0) return;
               if (maybeStopSharedInlinePollingForQuietPage()) return;
               checkCount++;
-              reapplyAllInlineStyles();
-
-              // Additional protection on inline-apply domains
-              if (isInline) {
-                Object.keys(inlineConfigs).forEach(function (ft) {
-                  var cfg = inlineConfigs[ft];
-                  if (cfg) restoreManipulatedStyles(ft, cfg.cssPropsObject);
-                });
-              }
+              reapplyAllInlineStyles({ verifyFirst: true });
             } catch (e) {
               debugLog('[AFFO Content] Error in shared periodic style check:', e);
             }
@@ -2281,37 +2362,6 @@
 
     // Fallback to marked elements
     return `[data-affo-font-type="${fontType}"]`;
-  }
-
-  function restoreManipulatedStyles(fontType, cssPropsObject) {
-    try {
-      var elements = document.querySelectorAll(getAffoSelector(fontType));
-      var restoredCount = 0;
-
-      elements.forEach(function (el) {
-        var currentFontFamily = window.getComputedStyle(el).fontFamily;
-
-        // If the font doesn't match what we expect, restore it
-        if (!currentFontFamily.includes(cssPropsObject['font-family'].split(',')[0].replace(/"/g, ''))) {
-          applyAffoProtection(el, cssPropsObject);
-
-          // Preserve bold weight for elements marked as bold by applyTmiProtection
-          if (el.getAttribute('data-affo-was-bold') === 'true') {
-            el.style.setProperty('font-weight', '700', 'important');
-            el.style.setProperty('--affo-font-weight', '700', 'important');
-            el.setAttribute('data-affo-font-weight', '700');
-          }
-
-          restoredCount++;
-        }
-      });
-
-      if (restoredCount > 0) {
-        elementLog(`Restored manipulated styles on ${restoredCount} ${fontType} elements`);
-      }
-    } catch (e) {
-      debugLog(`[AFFO Content] Error restoring manipulated styles:`, e);
-    }
   }
 
   // Track fonts currently being loaded to prevent duplicate concurrent loads
@@ -2952,52 +3002,12 @@
 
   // Parse @font-face blocks in a CSS sheet to map WOFF2 URLs to their unicode ranges
   function extractFontFaceEntries(cssText) {
-    var entries = [];
     try {
-      var faceRegex = /@font-face\s*{[^}]*}/gi;
-      var match;
-      while ((match = faceRegex.exec(cssText)) !== null) {
-        var block = match[0];
-        var urlMatch = block.match(/url\((['"]?)([^'")]+\.woff2[^'")]*)\1\)/i);
-        if (!urlMatch) continue;
-        var unicodeMatch = block.match(/unicode-range\s*:\s*([^;]+);/i);
-        var unicodeRange = unicodeMatch ? unicodeMatch[1].trim() : '';
-        entries.push({
-          url: urlMatch[2],
-          ranges: parseUnicodeRanges(unicodeRange),
-          unicodeRange: unicodeRange,
-          weightInfo: parseFontFaceWeightDescriptor(block),
-          style: parseFontFaceStyleDescriptor(block),
-          stretch: parseFontFaceSimpleDescriptor(block, 'font-stretch')
-        });
-      }
+      return AFFOFontFaceUtils.extractFontFaceEntries(cssText);
     } catch (e) {
       debugLog('[AFFO Content] Failed to parse font-face entries for unicode ranges:', e);
+      return [];
     }
-    return entries;
-  }
-
-  // Turn a unicode-range string into numeric ranges
-  function parseUnicodeRanges(rangeStr) {
-    if (!rangeStr) return [];
-    return rangeStr.split(',')
-      .map(function (part) { return part.trim(); })
-      .filter(Boolean)
-      .map(function (part) {
-        var cleaned = part.replace(/u\+/i, '');
-        if (cleaned.indexOf('?') !== -1 && cleaned.indexOf('-') === -1) {
-          var startWildcard = cleaned.replace(/\?/g, '0');
-          var endWildcard = cleaned.replace(/\?/g, 'F');
-          return [parseInt(startWildcard, 16), parseInt(endWildcard, 16)];
-        }
-        if (cleaned.indexOf('-') !== -1) {
-          var pieces = cleaned.split('-');
-          return [parseInt(pieces[0], 16), parseInt(pieces[1], 16)];
-        }
-        var val = parseInt(cleaned, 16);
-        return [val, val];
-      })
-      .filter(function (pair) { return isFinite(pair[0]) && isFinite(pair[1]); });
   }
 
   var FONTFACE_SUBSET_SAMPLE_LIMIT = 20000;
@@ -3010,11 +3020,14 @@
   var FONTFACE_PARSED_CSS_CACHE_LIMIT = 32;
   var FONTFACE_LAZY_SUBSET_OBSERVER_MS = 30000;
   var FONTFACE_LAZY_SUBSET_DEBOUNCE_MS = 600;
+  var FONTFACE_CODEPOINT_SNAPSHOT_TTL_MS = 2000;
   var FONTFACE_FULL_SUBSET_FONTS = [
     'Charis SIL', 'Gentium Plus', 'Gentium Book Plus', 'Noto Sans Mono'
   ];
   var parsedFontFaceCssCache = {};
   var parsedFontFaceCssCacheOrder = [];
+  var neededCodePointSnapshot = null;
+  var neededCodePointSnapshotAt = 0;
 
   function getParsedFontFaceCssCacheKey(cssText, cacheKey) {
     if (cacheKey) return String(cacheKey);
@@ -3158,9 +3171,15 @@
       return visibilityCache.get(element);
     }
     var el = element;
+    var visited = [];
     var depth = 0;
     var hidden = false;
     while (el && el.nodeType === 1 && depth < 12) {
+      if (visibilityCache && visibilityCache.has(el)) {
+        hidden = visibilityCache.get(el);
+        break;
+      }
+      visited.push(el);
       var tagName = el.tagName;
       if (INLINE_MEANINGFUL_IGNORE_TAGS[tagName] || tagName === 'SVG' || tagName === 'CANVAS') {
         hidden = true;
@@ -3186,7 +3205,11 @@
       el = el.parentElement;
       depth++;
     }
-    if (visibilityCache) visibilityCache.set(element, hidden);
+    if (visibilityCache) {
+      visited.forEach(function (visitedElement) {
+        visibilityCache.set(visitedElement, hidden);
+      });
+    }
     return hidden;
   }
 
@@ -3214,7 +3237,7 @@
   }
 
   // Collect a snapshot of code points in the current document to choose subsets
-  function collectNeededCodePoints() {
+  function scanNeededCodePoints() {
     var needed = new Set();
     var stats = {
       sampledCodeUnits: 0,
@@ -3257,6 +3280,18 @@
       debugLog('[AFFO Content] Failed to collect needed code points:', e);
     }
     return needed;
+  }
+
+  function collectNeededCodePoints(options) {
+    var forceFresh = !!(options && options.fresh);
+    var now = Date.now();
+    if (!forceFresh && neededCodePointSnapshot && now - neededCodePointSnapshotAt < FONTFACE_CODEPOINT_SNAPSHOT_TTL_MS) {
+      debugLog('[AFFO Content] Reusing recent visible code-point snapshot');
+      return neededCodePointSnapshot;
+    }
+    neededCodePointSnapshot = scanNeededCodePoints();
+    neededCodePointSnapshotAt = now;
+    return neededCodePointSnapshot;
   }
 
   // Select only the font files whose unicode-range overlaps the page content
@@ -3454,9 +3489,21 @@
             // Prioritize Latin subsets for faster initial render. Google Fonts
             // WOFF2 URLs are opaque, so classify by parsed unicode-range.
             var urlGroups = classifyFontFaceUrlsByUnicodeRange(filteredUrls, fontFaceEntriesForSelection);
-            var latinUrls = urlGroups.latinUrls;
-            var latinExtUrls = urlGroups.latinExtUrls;
-            var otherUrls = urlGroups.otherUrls;
+            var latinUrls = AFFOFontFaceUtils.sortFontFaceUrlsForConfig(
+              urlGroups.latinUrls,
+              fontFaceEntriesForSelection,
+              fontConfig
+            );
+            var latinExtUrls = AFFOFontFaceUtils.sortFontFaceUrlsForConfig(
+              urlGroups.latinExtUrls,
+              fontFaceEntriesForSelection,
+              fontConfig
+            );
+            var otherUrls = AFFOFontFaceUtils.sortFontFaceUrlsForConfig(
+              urlGroups.otherUrls,
+              fontFaceEntriesForSelection,
+              fontConfig
+            );
 
             debugLog(`[AFFO Content] Prioritizing font loading after unicode filtering: ${latinUrls.length} Latin, ${latinExtUrls.length} Latin-ext, ${otherUrls.length} other subsets for ${fontName}`);
 
@@ -3693,7 +3740,7 @@
                   return;
                 }
 
-                var neededCodePoints = collectNeededCodePoints();
+                var neededCodePoints = collectNeededCodePoints({ fresh: true });
                 var matchedUrls = selectUrlsByUnicodeRange(remainingLazyUrls, fontFaceEntriesForSelection, neededCodePoints, {
                   maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS,
                   fallbackWhenNoMatch: false
@@ -4067,6 +4114,10 @@
   // Uses chunked processing to avoid blocking the main thread on large pages
   // Returns a Promise that resolves with markedCounts when the walk finishes
   function runElementWalkerAll(fontTypes) {
+    if (usesHybridInlineTmiSelectors()) {
+      debugLog('[AFFO Content] Skipping element walker because hybrid inline selectors own x.com targeting');
+      return Promise.resolve({});
+    }
     // Filter to types not already completed
     var typesToWalk = fontTypes.filter(function (ft) {
       return !elementWalkerCompleted[ft];
@@ -4200,6 +4251,10 @@
 
   function createTmiWalkerPromiseForEntry(entry) {
     var activeTmiTypes = getActiveTmiFontTypes(entry);
+    if (usesHybridInlineTmiSelectors()) {
+      debugLog('[AFFO Content] Hybrid inline selectors own x.com TMI targeting; skipping element walker');
+      return null;
+    }
     return activeTmiTypes.length > 0 ? runElementWalkerAll(activeTmiTypes) : null;
   }
 
@@ -4302,7 +4357,7 @@
 
             if (shouldUseInlineApply()) {
               // For Third Man In mode, run element walker first if needed
-              if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
+              if (!usesHybridInlineTmiSelectors() && (fontType === 'serif' || fontType === 'sans' || fontType === 'mono')) {
                 runElementWalker(fontType);
               }
               applyInlineStyles(fontConfig, fontType);
@@ -4753,7 +4808,7 @@
           var cssText = typeof message.cssText === 'string' ? message.cssText : '';
           var urls = Array.isArray(message.urls) ? message.urls.filter(function (url) { return typeof url === 'string'; }) : [];
           var entries = extractFontFaceEntries(cssText);
-          var neededCodePoints = collectNeededCodePoints();
+          var neededCodePoints = collectNeededCodePoints({ fresh: true });
           var maxUrls = (typeof message.maxUrls === 'number') ? message.maxUrls : undefined;
           var filteredUrls = selectUrlsByUnicodeRange(urls, entries, neededCodePoints, { maxUrls: maxUrls });
           sendResponse({ ok: true, urls: filteredUrls, total: urls.length });

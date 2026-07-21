@@ -2669,6 +2669,13 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    if (msg.type === 'affoWarmFontFace') {
+      return AFFOBackgroundFontRuntime.warmFontFace({
+        fontName: msg.fontName,
+        fontConfig: msg.fontConfig || {}
+      });
+    }
+
     if (msg.type === 'affoPrepareFaceoffPageFont') {
       try {
         return await prepareFaceoffPageFontDraft(msg, sender);

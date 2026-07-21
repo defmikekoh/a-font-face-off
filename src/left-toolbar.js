@@ -102,6 +102,42 @@
         return !!(fontConfig && fontConfig.fontName && localFonts.indexOf(fontConfig.fontName) !== -1);
     }
 
+    function warmFontFaceOnlyConfigs(entry, localFonts) {
+        const seen = new Set();
+        ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
+            const fontConfig = entry[fontType];
+            if (!fontConfig || !fontConfig.fontName || isLocalFontConfig(fontConfig, localFonts)) return;
+            const warmKey = JSON.stringify([
+                fontConfig.fontName,
+                fontConfig.fontWeight == null ? '' : fontConfig.fontWeight,
+                fontConfig.fontStyle || '',
+                fontConfig.italVal == null ? '' : fontConfig.italVal,
+                fontConfig.variableAxes && fontConfig.variableAxes.wght,
+                fontConfig.variableAxes && fontConfig.variableAxes.ital
+            ]);
+            if (seen.has(warmKey)) return;
+            seen.add(warmKey);
+
+            // FontFace-only pages cannot use a page-level stylesheet, but the
+            // background cache can still start the primary Latin WOFF2 fetch at
+            // document_start while content.js waits for the DOM.
+            sendRuntimeMessageWithRetry({
+                type: 'affoWarmFontFace',
+                fontName: fontConfig.fontName,
+                fontConfig
+            }, {
+                retryMs: 1500,
+                retryDelayMs: 100
+            }).then(result => {
+                if (result && result.ok && !result.skipped) {
+                    affoDebugLog(`[AFFO Toolbar] Warmed ${fontConfig.fontName}: ${result.warmedUrl}`);
+                }
+            }).catch(error => {
+                affoDebugWarn(`[AFFO Toolbar] FontFace warm failed for ${fontConfig.fontName}:`, error);
+            });
+        });
+    }
+
     function isWaitForItConfiguredForCurrentDomain(data) {
         const host = location.hostname;
         const waitForItDomains = data && data.affoWaitForItDomains ? data.affoWaitForItDomains : [];
@@ -392,14 +428,18 @@
                 const waitForItDomains = data.affoWaitForItDomains || [];
                 if (waitForItDomains.includes(origin)) return;
 
+                const localFonts = normalizeLocalFontsValue(data.affoLocalFonts || []);
+
                 // FontFace-only domains intentionally avoid page-level Google Fonts
-                // stylesheets; content.js loads WOFF2 files through the background page.
+                // stylesheets. Warm their background cache instead, without exposing
+                // the generated family to page CSS before content.js owns the load.
                 const fontFaceOnlyDomains = Array.isArray(data.affoFontFaceOnlyDomains)
                     ? data.affoFontFaceOnlyDomains
                     : ['x.com'];
-                if (fontFaceOnlyDomains.includes(origin)) return;
-
-                const localFonts = normalizeLocalFontsValue(data.affoLocalFonts || []);
+                if (fontFaceOnlyDomains.includes(origin)) {
+                    warmFontFaceOnlyConfigs(entry, localFonts);
+                    return;
+                }
 
                 // Wait for document.head to be available
                 function injectWhenReady() {

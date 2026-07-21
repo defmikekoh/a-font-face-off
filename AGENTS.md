@@ -53,7 +53,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 
 ## Storage Keys (browser.storage.local)
 
-Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCache` (WOFF2 cache), `affoAggressiveDomains` (domains using `!important`), `affoPreservedFonts` (icon font families never replaced). See `docs/architecture/DATA_STRUCTURES.md` for full details.
+Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state per mode), `affoCurrentMode`, `affoFavorites`, `affoFavoritesOrder`, `affoFontCacheLastMaintenance` (IndexedDB cache-maintenance timestamp), `affoAggressiveDomains` (domains using `!important`), `affoPreservedFonts` (icon font families never replaced). WOFF2 binaries live in IndexedDB, not `storage.local`. See `docs/architecture/DATA_STRUCTURES.md` for full details.
 
 ## Font Config "No Key" Architecture
 
@@ -64,7 +64,7 @@ Only store properties with actual values — no nulls, no defaults. `fontName` i
 - `getCurrentUIConfig(position)` — reads current UI state into canonical config
 - `normalizeConfig(raw)` — converts external data (favorites, domain storage, legacy formats) into canonical config
 - `buildPayload(position, config?)` — builds payload for domain storage; does NOT include `fontFaceRule` or `css2Url`
-- `storeCss2UrlInCache(fontName, css2Url)` — stores Google Fonts URL in global `affoCss2UrlCache`
+- `resolveCss2Url(fontName, options?)` — asks the background runtime to derive Google Fonts CSS2 URLs; only short-lived in-memory memoization is used
 
 ## Debug Flag
 

@@ -12,7 +12,10 @@
   const FONT_CACHE_DB_NAME = 'affo-font-cache';
   const FONT_CACHE_DB_VERSION = 1;
   const FONT_CACHE_STORE = 'fonts';
+  const FONT_CACHE_MAINTENANCE_KEY = 'affoFontCacheLastMaintenance';
   const CACHE_TTL = 365 * 24 * 60 * 60 * 1000; // 1 year
+  const CACHE_MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  const CACHE_MAINTENANCE_STARTUP_DELAY_MS = 5000;
   const MAX_CACHE_SIZE_BYTES = 80 * 1024 * 1024; // 80MB maximum cache size for Firefox
   const AFFO_FETCH_TIMEOUT_MS = 15000; // 15s timeout for remote CSS/font fetches
   const CACHE_WRITE_DEBOUNCE = 100; // Wait 100ms for more writes
@@ -388,7 +391,11 @@
       const store = transaction.objectStore(FONT_CACHE_STORE);
 
       await new Promise((resolve, reject) => {
-        const request = store.openCursor();
+        const cutoff = now - CACHE_TTL;
+        const canUseTimestampIndex = root.IDBKeyRange && typeof store.index === 'function';
+        const request = canUseTimestampIndex
+          ? store.index('timestamp').openCursor(root.IDBKeyRange.upperBound(cutoff))
+          : store.openCursor();
         request.onsuccess = function(event) {
           const cursor = event.target.result;
           if (!cursor) {
@@ -396,7 +403,7 @@
             return;
           }
           const entry = cursor.value || {};
-          if (now - entry.timestamp >= CACHE_TTL) {
+          if (canUseTimestampIndex || now - entry.timestamp >= CACHE_TTL) {
             cursor.delete();
             cleaned++;
           }
@@ -479,14 +486,40 @@
   }
 
   async function logStartupCacheStatus() {
+    if (root.AFFO_DEBUG !== true) return;
     const info = await getCacheInfo();
     if (info.ok) {
       debugLog(`[AFFO Background] Startup IndexedDB font cache status: ${info.count} fonts cached, ${(info.totalSize / (1024 * 1024)).toFixed(2)}MB`);
     }
   }
 
+  async function runCacheMaintenance(options = {}) {
+    const force = !!options.force;
+    const now = Date.now();
+    const stored = await browser.storage.local.get(FONT_CACHE_MAINTENANCE_KEY).catch(() => ({}));
+    const lastMaintenance = Number(stored && stored[FONT_CACHE_MAINTENANCE_KEY]) || 0;
+    if (!force && lastMaintenance && now - lastMaintenance < CACHE_MAINTENANCE_INTERVAL_MS) {
+      debugLog('[AFFO Background] Skipping recent font cache maintenance');
+      return { ok: true, skipped: true, lastMaintenance };
+    }
+
+    // Claim the maintenance window before scanning. If the non-persistent
+    // background is restarted mid-scan, delaying the next cleanup is harmless
+    // and avoids multiple cold-start scans competing with font cache reads.
+    await browser.storage.local.set({ [FONT_CACHE_MAINTENANCE_KEY]: now }).catch(() => { });
+    await clearExpiredCache();
+    await logStartupCacheStatus();
+    return { ok: true, skipped: false, lastMaintenance: now };
+  }
+
   function startup() {
-    clearExpiredCache().then(logStartupCacheStatus);
+    const maintenanceTimer = setTimeout(function() {
+      runCacheMaintenance().catch(e => {
+        debugWarn('[AFFO Background] Deferred font cache maintenance failed:', e);
+      });
+    }, CACHE_MAINTENANCE_STARTUP_DELAY_MS);
+    // Node test timers expose unref(); browser timer IDs do not.
+    if (maintenanceTimer && typeof maintenanceTimer.unref === 'function') maintenanceTimer.unref();
   }
 
   async function handleFetchMessage(msg) {
@@ -546,6 +579,51 @@
     }
   }
 
+  async function warmFontFace(request) {
+    const fontName = String(request && request.fontName || '').trim();
+    if (!fontName) return { ok: false, skipped: true, error: 'Missing fontName' };
+
+    try {
+      const css2Url = await resolveCss2Url(fontName, { fallbackWhenMissing: false });
+      if (!css2Url) {
+        return { ok: true, skipped: true, reason: 'not-google-font' };
+      }
+
+      const cssResponse = await handleFetchMessage({ url: css2Url, binary: false });
+      if (!cssResponse || !cssResponse.ok || cssResponse.binary || !cssResponse.data) {
+        return { ok: false, skipped: true, css2Url, error: 'Google Fonts CSS unavailable' };
+      }
+
+      const selection = root.AFFOFontFaceUtils.selectFontFaceWarmUrl(
+        cssResponse.data,
+        request.fontConfig || {}
+      );
+      if (!selection || !selection.url) {
+        return { ok: true, skipped: true, css2Url, reason: 'no-warmable-subset' };
+      }
+
+      const binaryResponse = await handleFetchMessage({ url: selection.url, binary: true });
+      if (!binaryResponse || !binaryResponse.ok || !binaryResponse.binary || !binaryResponse.data) {
+        return { ok: false, skipped: true, css2Url, warmedUrl: selection.url, error: 'WOFF2 warm failed' };
+      }
+
+      return {
+        ok: true,
+        skipped: false,
+        css2Url,
+        cssCached: !!cssResponse.cached,
+        fontCached: !!binaryResponse.cached,
+        warmedUrl: selection.url,
+        byteLength: binaryResponse.data.byteLength || 0,
+        weight: selection.weight || '',
+        style: selection.style || ''
+      };
+    } catch (e) {
+      debugWarn('[AFFO Background] FontFace warm failed for ' + fontName + ':', e);
+      return { ok: false, skipped: true, error: e && e.message ? e.message : String(e) };
+    }
+  }
+
   root.AFFOBackgroundFontRuntime = {
     clearCache: clearCache,
     clearExpiredCache: clearExpiredCache,
@@ -554,6 +632,8 @@
     handleFetchMessage: handleFetchMessage,
     resetGfMetadataCache: resetGfMetadataCache,
     resolveCss2Url: resolveCss2Url,
+    runCacheMaintenance: runCacheMaintenance,
+    warmFontFace: warmFontFace,
     startup: startup
   };
 

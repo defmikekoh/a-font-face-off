@@ -19,8 +19,11 @@ For automated Android Firefox verification, use the authorized Firefox Nightly t
 
 ```bash
 brew install geckodriver
+geckodriver --version
 npm install  # selenium-webdriver is a devDependency
 ```
+
+Use geckodriver 0.37.1 or later for Firefox Android automation. If an older Homebrew version is installed, run `brew update && brew upgrade geckodriver`, then verify the version again. This minimum does not apply to desktop-only testing.
 
 Firefox Developer Edition must be installed at `/Applications/Firefox Developer Edition.app`.
 
@@ -196,6 +199,7 @@ The harness enforces the approved serial/package pair. Only after fresh explicit
 For real Android Firefox DOM and computed-style inspection on the approved target, use:
 
 ```bash
+geckodriver --version  # require 0.37.1 or later for Android
 npm run build:latest
 npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --expect-affo --out ztemp/android-firefox-inspect.json
 ```
@@ -368,6 +372,29 @@ Recommended recovery:
 4. If the prompt still repeats, reinstall Firefox Developer Edition before debugging the test harness further.
 
 This issue can break Selenium launches even when the test code and skill are otherwise fine.
+
+### Firefox Android exits before Marionette
+
+If session creation fails with `Process (pid=...) unexpectedly closed with unknown status` before add-on installation or navigation, inspect the geckodriver trace before blaming Nightly, AFFO, or the target page.
+
+The geckodriver 0.37.0 false-exit signature on an unrooted Android device is:
+
+```text
+shell:kill -0 PID 2>/dev/null; echo $?
+... << "1\n"
+Android package org.mozilla.fenix has exited
+Force stopping Android package: org.mozilla.fenix
+```
+
+In this case geckodriver mistakes a denied `kill -0` probe for process exit and force-stops a still-running Firefox process. Update and verify before retrying the data-clearing session:
+
+```bash
+brew update
+brew upgrade geckodriver
+geckodriver --version  # require 0.37.1 or later
+```
+
+A corrected 0.37.1 trace checks `test -d /proc/PID` and can proceed to `Connection to Marionette established`. Apply this diagnosis only when the old trace signature is present; otherwise continue with the captured trace and Android logs.
 
 ### Firefox Android `web-ext run` duplicate RDP sockets
 

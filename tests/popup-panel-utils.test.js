@@ -110,6 +110,12 @@ describe('popup-panel-utils Sroulette helpers', () => {
 });
 
 describe('popup-panel-utils Apply All planning', () => {
+    it('routes inline domains exclusively through the content-managed apply path', () => {
+        assert.equal(popupPanelUtils.shouldContentOwnPageApply('x.com', ['x.com']), true);
+        assert.equal(popupPanelUtils.shouldContentOwnPageApply('www.x.com', ['x.com']), false);
+        assert.equal(popupPanelUtils.shouldContentOwnPageApply('example.com', ['x.com']), false);
+    });
+
     it('plans changed font payloads, changed Sroulette intents, and unsets', () => {
         const config = {
             fontName: 'Lora',

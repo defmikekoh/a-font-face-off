@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 
 const {
     extractFontFaceSrcUrl,
+    extractFontFaceEntries,
     getDescriptorValue,
+    selectFontFaceWarmUrl,
+    sortFontFaceUrlsForConfig,
 } = require('../src/font-face-utils.js');
 
 describe('font-face-utils getDescriptorValue', () => {
@@ -52,5 +55,59 @@ describe('font-face-utils extractFontFaceSrcUrl', () => {
     it('does not use urls outside the src descriptor', () => {
         const block = '@font-face { font-family: "A"; background: url("https://example.com/not-a-font.woff2"); }';
         assert.equal(extractFontFaceSrcUrl(block), '');
+    });
+});
+
+describe('font-face-utils Google FontFace selection', () => {
+    const cssText = [
+        '@font-face { font-family: "Test"; font-style: normal; font-weight: 700; src: url("https://fonts.gstatic.com/test-700-latin.woff2") format("woff2"); unicode-range: U+0000-00FF; }',
+        '@font-face { font-family: "Test"; font-style: normal; font-weight: 900; src: url("https://fonts.gstatic.com/test-900-cyrillic.woff2") format("woff2"); unicode-range: U+0400-04FF; }',
+        '@font-face { font-family: "Test"; font-style: normal; font-weight: 900; src: url("https://fonts.gstatic.com/test-900-latin.woff2") format("woff2"); unicode-range: U+0000-00FF; }',
+        '@font-face { font-family: "Test"; font-style: italic; font-weight: 900; src: url("https://fonts.gstatic.com/test-900-italic-latin.woff2") format("woff2"); unicode-range: U+0000-00FF; }',
+    ].join('\n');
+
+    it('parses descriptors needed by background warming and content loading', () => {
+        const entries = extractFontFaceEntries(cssText);
+        assert.equal(entries.length, 4);
+        assert.deepEqual(entries[0].weightInfo, { descriptor: '700', min: 700, max: 700 });
+        assert.equal(entries[0].style, 'normal');
+        assert.deepEqual(entries[0].ranges, [[0, 255]]);
+    });
+
+    it('warms the configured Latin weight before the supplemental bold face', () => {
+        const selected = selectFontFaceWarmUrl(cssText, {
+            fontWeight: 900,
+            variableAxes: {},
+        });
+        assert.equal(selected.url, 'https://fonts.gstatic.com/test-900-latin.woff2');
+        assert.equal(selected.weight, '900');
+        assert.equal(selected.style, 'normal');
+    });
+
+    it('selects the configured italic face', () => {
+        const selected = selectFontFaceWarmUrl(cssText, {
+            fontWeight: 900,
+            fontStyle: 'italic',
+            variableAxes: {},
+        });
+        assert.equal(selected.url, 'https://fonts.gstatic.com/test-900-italic-latin.woff2');
+        assert.equal(selected.style, 'italic');
+    });
+
+    it('sorts the configured weight before bold while preserving subset order', () => {
+        const entries = extractFontFaceEntries(cssText);
+        const urls = [
+            'https://fonts.gstatic.com/test-700-latin.woff2',
+            'https://fonts.gstatic.com/test-900-latin.woff2',
+            'https://fonts.gstatic.com/test-900-cyrillic.woff2',
+        ];
+        assert.deepEqual(sortFontFaceUrlsForConfig(urls, entries, {
+            fontWeight: 900,
+            variableAxes: {},
+        }), [
+            'https://fonts.gstatic.com/test-900-latin.woff2',
+            'https://fonts.gstatic.com/test-900-cyrillic.woff2',
+            'https://fonts.gstatic.com/test-700-latin.woff2',
+        ]);
     });
 });

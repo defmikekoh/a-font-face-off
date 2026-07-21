@@ -103,6 +103,10 @@
     ));
   }
 
+  function shouldContentOwnPageApply(origin, inlineDomains) {
+    return Array.isArray(inlineDomains) && inlineDomains.indexOf(origin) !== -1;
+  }
+
   function buildAppliedComparisonConfig(appliedConfig) {
     if (!appliedConfig) return null;
     var comparisonConfig = {
@@ -321,7 +325,8 @@
     isSrouletteBatchIntent: isSrouletteBatchIntent,
     isSroulettePool: isSroulettePool,
     isSrouletteTarget: isSrouletteTarget,
-    setSrouletteIntentOnEntry: setSrouletteIntentOnEntry
+    setSrouletteIntentOnEntry: setSrouletteIntentOnEntry,
+    shouldContentOwnPageApply: shouldContentOwnPageApply
   };
 
   if (typeof module !== 'undefined' && module.exports) {
