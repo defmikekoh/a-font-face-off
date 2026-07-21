@@ -412,7 +412,9 @@ function writeBrowserPolyfillLite() {
     },
     runtime: {
       getURL: chromeApi.runtime.getURL.bind(chromeApi.runtime),
-      openOptionsPage: wrapMethod(chromeApi.runtime, 'openOptionsPage'),
+      // Edge Canary Android exposes openOptionsPage(), but its callback may
+      // never settle. Leave it absent so popup.js uses its tabs.create()
+      // fallback to open options.html directly.
       sendMessage: wrapMethod(chromeApi.runtime, 'sendMessage'),
       onMessage: wrapOnMessage(chromeApi.runtime.onMessage),
       onInstalled: chromeApi.runtime.onInstalled,
@@ -420,14 +422,20 @@ function writeBrowserPolyfillLite() {
     },
     tabs: {
       query: wrapMethod(chromeApi.tabs, 'query'),
+      get: wrapMethod(chromeApi.tabs, 'get'),
       create: wrapMethod(chromeApi.tabs, 'create'),
       remove: wrapMethod(chromeApi.tabs, 'remove'),
       sendMessage: wrapMethod(chromeApi.tabs, 'sendMessage'),
       executeScript: executeScript,
       insertCSS: insertCSS,
       removeCSS: removeCSS,
-      onUpdated: chromeApi.tabs.onUpdated
+      onUpdated: chromeApi.tabs.onUpdated,
+      onActivated: chromeApi.tabs.onActivated,
+      onRemoved: chromeApi.tabs.onRemoved
     },
+    windows: chromeApi.windows ? {
+      onFocusChanged: chromeApi.windows.onFocusChanged
+    } : undefined,
     alarms: {
       create: function() {
         return noCallbackPromise(chromeApi.alarms.create, chromeApi.alarms, Array.prototype.slice.call(arguments));
