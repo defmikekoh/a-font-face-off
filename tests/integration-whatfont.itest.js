@@ -82,13 +82,17 @@ describe('WhatFont toolbar integration', () => {
             return {
                 hasControl: !!document.querySelector('.__whatfont_control'),
                 hasTip: !!document.querySelector('.__whatfont_tip'),
-                whatfontClassCount: document.querySelectorAll('[class*="__whatfont_"]').length
+                whatfontClassCount: document.querySelectorAll('[class*="__whatfont_"]').length,
+                guardedControl: !!document.querySelector('.__whatfont_control[data-affo-guard]'),
+                guardedTip: !!document.querySelector('.__whatfont_tip[data-affo-guard]')
             };
         `);
 
         assert.equal(overlayState.hasControl, true, 'WhatFont control should be visible after one toolbar click');
         assert.equal(overlayState.hasTip, true, 'WhatFont tooltip should be initialized after one toolbar click');
         assert.ok(overlayState.whatfontClassCount >= 2, 'WhatFont should add its overlay elements to the page');
+        assert.equal(overlayState.guardedControl, true, 'WhatFont control should be excluded from AFFO font application');
+        assert.equal(overlayState.guardedTip, true, 'WhatFont tooltip should be excluded from AFFO font application');
     });
 
     it('shows a Face-off action on pinned WhatFont cards', async () => {
@@ -102,11 +106,17 @@ describe('WhatFont toolbar integration', () => {
 
         const action = await driver.executeScript(`
             const link = document.querySelector('.__whatfont_faceoff_compare');
-            return link ? { text: link.textContent.trim(), title: link.title } : null;
+            const panel = link && link.closest('.__whatfont_panel');
+            return link ? {
+                text: link.textContent.trim(),
+                title: link.title,
+                guardedPanel: !!(panel && panel.hasAttribute('data-affo-guard'))
+            } : null;
         `);
         assert.deepEqual(action, {
             text: 'Face-off',
-            title: 'Compare this page font in Face-off'
+            title: 'Compare this page font in Face-off',
+            guardedPanel: true
         });
     });
 });

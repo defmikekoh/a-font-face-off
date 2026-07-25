@@ -56,7 +56,7 @@ node --test tests/integration-popup.itest.js
 ### Key concepts
 
 - **In-process extensions**: `extensions.webextensions.remote=false` runs extension code in the parent process so `contentWindow` is accessible for `Cu.Sandbox`
-- **Chrome context**: `driver.setContext(firefox.Context.CHROME)` switches to browser chrome for toolbar/panel interaction; requires `-remote-allow-system-access` flag
+- **Chrome context**: `driver.setContext(firefox.Context.CHROME)` switches to browser chrome for toolbar/panel interaction; requires geckodriver's `--allow-system-access` server flag. Do not pass Firefox's former `-remote-allow-system-access` argument through `moz:firefoxOptions`; current Firefox rejects it when set via capabilities.
 - **Fresh temp profiles (desktop only)**: Each desktop test run creates a new profile via `fs.mkdtempSync`, avoiding conflicts with existing Firefox sessions. This isolation does not apply to Firefox Android/Fenix.
 - **No UUID discovery needed**: We click the real toolbar button, no need to find `moz-extension://` URLs
 
@@ -330,7 +330,7 @@ This writes to `A Font Face-off Chrome/`. Browser GETs to paths like `/chrome/` 
 ## Limitations
 
 - Some sites detect Selenium and show CAPTCHA (Wikipedia works fine)
-- Requires Firefox Developer Edition (geckodriver needs it for `-remote-allow-system-access`)
+- Requires Firefox Developer Edition and geckodriver started with `--allow-system-access`
 - `popupExec` only works with `extensions.webextensions.remote=false` (in-process mode)
 
 ### Computer Use Boundary

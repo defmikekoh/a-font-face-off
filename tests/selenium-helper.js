@@ -132,6 +132,7 @@ function buildFirefoxService() {
         throw new Error('geckodriver was not found on PATH. Install it with `brew install geckodriver` or set GECKODRIVER_PATH.');
     }
     return new FixedPortFirefoxServiceBuilder(geckodriverPath)
+        .addArguments('--allow-system-access')
         .setPort(Number(process.env.AFFO_GECKODRIVER_PORT) || getDefaultWebDriverPort(0))
         .setWebSocketPort(Number(process.env.AFFO_FIREFOX_WEBSOCKET_PORT) || getDefaultWebDriverPort(1));
 }
@@ -177,7 +178,6 @@ async function setup(setupOptions = {}) {
         options.setPageLoadStrategy(setupOptions.pageLoadStrategy);
     }
     options.addArguments('-profile', profileDir);
-    options.addArguments('-remote-allow-system-access');
 
     const driver = await new Builder()
         .forBrowser('firefox')

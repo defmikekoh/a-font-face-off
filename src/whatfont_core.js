@@ -539,6 +539,7 @@ function _whatFont() {
         this.currentCacheId = -1;
         this.el = $.wfElem('div', ['tip', 'elem'], '');
         this.$el = $(this.el);
+        this.$el.attr('data-affo-guard', '');
 
         this.init();
     };
@@ -1051,6 +1052,7 @@ function _whatFont() {
             var p = panel.tmpl(),
                 typeInfo = new TypeInfo(elem);
 
+            p.attr('data-affo-guard', '');
             panel.panelTitle(typeInfo, p);
             panel.panelContent(typeInfo, p);
             panel.convertClassName(p);
@@ -1130,7 +1132,7 @@ function _whatFont() {
         init: function() {
             var exit = $.wfElem('div', "exit", "Exit WhatFont");
 
-            toolbar.TOOLBAR = $("<div>").addClass(css.getClassName(["elem", "control"])).append(exit).appendTo('body');
+            toolbar.TOOLBAR = $("<div>").attr('data-affo-guard', '').addClass(css.getClassName(["elem", "control"])).append(exit).appendTo('body');
 
             $(exit).click(function() {
                 ctrl.restore();
