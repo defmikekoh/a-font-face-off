@@ -2,7 +2,7 @@
  *
  * Loaded as a plain script in the background context and exported for Node tests.
  */
-/* global module, require */
+/* global module, require, DecompressionStream */
 (function(root) {
   'use strict';
 
@@ -79,6 +79,272 @@
 
   function clamp(value, range) {
     return Math.max(range[0], Math.min(range[1], value));
+  }
+
+  var EMPTY_AXIS_DEFINITION = { axes: [], defaults: {}, ranges: {} };
+  var MAX_FONT_TABLES = 4096;
+  var MAX_WOFF2_DECOMPRESSED_SIZE = 64 * 1024 * 1024;
+  var WOFF2_KNOWN_TAGS = [
+    'cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'OS/2', 'post',
+    'cvt ', 'fpgm', 'glyf', 'loca', 'prep', 'CFF ', 'VORG', 'EBDT',
+    'EBLC', 'gasp', 'hdmx', 'kern', 'LTSH', 'PCLT', 'VDMX', 'vhea',
+    'vmtx', 'BASE', 'GDEF', 'GPOS', 'GSUB', 'EBSC', 'JSTF', 'MATH',
+    'CBDT', 'CBLC', 'COLR', 'CPAL', 'SVG ', 'sbix', 'acnt', 'avar',
+    'bdat', 'bloc', 'bsln', 'cvar', 'fdsc', 'feat', 'fmtx', 'fvar',
+    'gvar', 'hsty', 'just', 'lcar', 'mort', 'morx', 'opbd', 'prop',
+    'trak', 'Zapf', 'Silf', 'Glat', 'Gloc', 'Feat', 'Sill'
+  ];
+
+  function emptyAxisDefinition() {
+    return {
+      axes: EMPTY_AXIS_DEFINITION.axes.slice(),
+      defaults: {},
+      ranges: {}
+    };
+  }
+
+  function toUint8Array(value) {
+    if (value instanceof Uint8Array) return value;
+    if (value instanceof ArrayBuffer) return new Uint8Array(value);
+    if (ArrayBuffer.isView(value)) {
+      return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    }
+    return new Uint8Array(0);
+  }
+
+  function requireBytes(bytes, offset, length) {
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) ||
+        offset < 0 || length < 0 || offset + length > bytes.byteLength) {
+      throw new Error('Font metadata extends beyond the available data');
+    }
+  }
+
+  function readUint16(bytes, offset) {
+    requireBytes(bytes, offset, 2);
+    return (bytes[offset] << 8) | bytes[offset + 1];
+  }
+
+  function readUint32(bytes, offset) {
+    requireBytes(bytes, offset, 4);
+    return ((bytes[offset] * 0x1000000) +
+      (bytes[offset + 1] << 16) +
+      (bytes[offset + 2] << 8) +
+      bytes[offset + 3]) >>> 0;
+  }
+
+  function readFixed(bytes, offset) {
+    var unsigned = readUint32(bytes, offset);
+    var signed = unsigned >= 0x80000000 ? unsigned - 0x100000000 : unsigned;
+    return signed / 65536;
+  }
+
+  function readTag(bytes, offset) {
+    requireBytes(bytes, offset, 4);
+    return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+  }
+
+  function readUIntBase128(bytes, cursor) {
+    var value = 0;
+    for (var i = 0; i < 5; i++) {
+      requireBytes(bytes, cursor.offset, 1);
+      var current = bytes[cursor.offset++];
+      if (i === 0 && current === 0x80) throw new Error('Invalid UIntBase128 leading zero');
+      if (value & 0xfe000000) throw new Error('UIntBase128 overflow');
+      value = (value * 128) + (current & 0x7f);
+      if ((current & 0x80) === 0) return value;
+    }
+    throw new Error('UIntBase128 exceeds five bytes');
+  }
+
+  function parseFvarTable(bytes, tableOffset, tableLength) {
+    requireBytes(bytes, tableOffset, tableLength);
+    if (tableLength < 16 || readUint16(bytes, tableOffset) !== 1) {
+      return emptyAxisDefinition();
+    }
+
+    var axesArrayOffset = readUint16(bytes, tableOffset + 4);
+    var axisCount = readUint16(bytes, tableOffset + 8);
+    var axisSize = readUint16(bytes, tableOffset + 10);
+    if (axisCount === 0 || axisCount > 64 || axisSize < 20) return emptyAxisDefinition();
+
+    var axesStart = tableOffset + axesArrayOffset;
+    var axesLength = axisCount * axisSize;
+    if (axesArrayOffset < 16 || axesLength > tableLength - axesArrayOffset) {
+      throw new Error('Invalid fvar axis array');
+    }
+
+    var definition = emptyAxisDefinition();
+    var seen = {};
+    for (var i = 0; i < axisCount; i++) {
+      var axisOffset = axesStart + (i * axisSize);
+      var tag = readTag(bytes, axisOffset);
+      var minimum = readFixed(bytes, axisOffset + 4);
+      var defaultValue = readFixed(bytes, axisOffset + 8);
+      var maximum = readFixed(bytes, axisOffset + 12);
+      if (!/^[\x20-\x7e]{4}$/.test(tag) || seen[tag] ||
+          !Number.isFinite(minimum) || !Number.isFinite(defaultValue) || !Number.isFinite(maximum) ||
+          minimum >= maximum || defaultValue < minimum || defaultValue > maximum) {
+        continue;
+      }
+      seen[tag] = true;
+      definition.axes.push(tag);
+      definition.ranges[tag] = [minimum, maximum];
+      definition.defaults[tag] = defaultValue;
+    }
+    return definition;
+  }
+
+  function parseSfntAxisDefinition(bytes) {
+    if (bytes.byteLength < 12) return emptyAxisDefinition();
+    var signature = readTag(bytes, 0);
+    if (signature !== '\x00\x01\x00\x00' && signature !== 'OTTO' &&
+        signature !== 'true' && signature !== 'typ1') {
+      return emptyAxisDefinition();
+    }
+
+    var numTables = readUint16(bytes, 4);
+    if (numTables === 0 || numTables > MAX_FONT_TABLES) return emptyAxisDefinition();
+    requireBytes(bytes, 12, numTables * 16);
+    for (var i = 0; i < numTables; i++) {
+      var recordOffset = 12 + (i * 16);
+      if (readTag(bytes, recordOffset) !== 'fvar') continue;
+      var tableOffset = readUint32(bytes, recordOffset + 8);
+      var tableLength = readUint32(bytes, recordOffset + 12);
+      return parseFvarTable(bytes, tableOffset, tableLength);
+    }
+    return emptyAxisDefinition();
+  }
+
+  async function decompressWoff2Data(compressedBytes, expectedLength, decompressBrotli) {
+    var decompressed;
+    if (typeof decompressBrotli === 'function') {
+      decompressed = await decompressBrotli(compressedBytes, expectedLength);
+    } else {
+      if (typeof DecompressionStream !== 'function' ||
+          typeof Blob !== 'function' || typeof Response !== 'function') {
+        return new Uint8Array(0);
+      }
+      var stream;
+      try {
+        stream = new Blob([compressedBytes]).stream()
+          .pipeThrough(new DecompressionStream('brotli'));
+      } catch (_) {
+        return new Uint8Array(0);
+      }
+      decompressed = await new Response(stream).arrayBuffer();
+    }
+
+    var bytes = toUint8Array(decompressed);
+    if (bytes.byteLength !== expectedLength ||
+        bytes.byteLength > MAX_WOFF2_DECOMPRESSED_SIZE) {
+      throw new Error('Unexpected WOFF2 decompressed size');
+    }
+    return bytes;
+  }
+
+  async function parseWoff2AxisDefinition(bytes, decompressBrotli) {
+    if (bytes.byteLength < 48 || readTag(bytes, 0) !== 'wOF2') {
+      return emptyAxisDefinition();
+    }
+
+    var flavor = readUint32(bytes, 4);
+    if (flavor === 0x74746366) return emptyAxisDefinition(); // Font collections are not needed for page fonts.
+    var declaredLength = readUint32(bytes, 8);
+    var numTables = readUint16(bytes, 12);
+    var totalCompressedSize = readUint32(bytes, 20);
+    if (declaredLength !== bytes.byteLength ||
+        numTables === 0 || numTables > MAX_FONT_TABLES ||
+        totalCompressedSize === 0) {
+      throw new Error('Invalid WOFF2 header');
+    }
+
+    var cursor = { offset: 48 };
+    var entries = [];
+    var decompressedLength = 0;
+    for (var i = 0; i < numTables; i++) {
+      requireBytes(bytes, cursor.offset, 1);
+      var flags = bytes[cursor.offset++];
+      var tagIndex = flags & 0x3f;
+      var tag;
+      if (tagIndex === 0x3f) {
+        tag = readTag(bytes, cursor.offset);
+        cursor.offset += 4;
+      } else {
+        tag = WOFF2_KNOWN_TAGS[tagIndex];
+      }
+
+      var originalLength = readUIntBase128(bytes, cursor);
+      var transformVersion = flags >>> 6;
+      var transformed = (tag === 'glyf' || tag === 'loca')
+        ? transformVersion !== 3
+        : transformVersion !== 0;
+      var storedLength = transformed ? readUIntBase128(bytes, cursor) : originalLength;
+      if (decompressedLength + storedLength > MAX_WOFF2_DECOMPRESSED_SIZE) {
+        throw new Error('WOFF2 table data is too large');
+      }
+      entries.push({
+        tag: tag,
+        offset: decompressedLength,
+        length: storedLength,
+        transformed: transformed
+      });
+      decompressedLength += storedLength;
+    }
+
+    requireBytes(bytes, cursor.offset, totalCompressedSize);
+    var compressedBytes = bytes.subarray(cursor.offset, cursor.offset + totalCompressedSize);
+    var tableData = await decompressWoff2Data(
+      compressedBytes,
+      decompressedLength,
+      decompressBrotli
+    );
+    if (tableData.byteLength === 0) return emptyAxisDefinition();
+
+    for (var j = 0; j < entries.length; j++) {
+      var entry = entries[j];
+      if (entry.tag === 'fvar' && !entry.transformed) {
+        return parseFvarTable(tableData, entry.offset, entry.length);
+      }
+    }
+    return emptyAxisDefinition();
+  }
+
+  async function buildFontBinaryAxisDefinition(fontData, options) {
+    var bytes = toUint8Array(fontData);
+    if (bytes.byteLength < 4) return emptyAxisDefinition();
+    try {
+      if (readTag(bytes, 0) === 'wOF2') {
+        return await parseWoff2AxisDefinition(
+          bytes,
+          options && options.decompressBrotli
+        );
+      }
+      return parseSfntAxisDefinition(bytes);
+    } catch (_) {
+      return emptyAxisDefinition();
+    }
+  }
+
+  function mergeAxisDefinitions(primary, fallback) {
+    var definition = emptyAxisDefinition();
+    [primary, fallback].forEach(function(source) {
+      if (!source || !Array.isArray(source.axes)) return;
+      source.axes.forEach(function(axis) {
+        var range = source.ranges && source.ranges[axis];
+        var defaultValue = Number(source.defaults && source.defaults[axis]);
+        if (definition.axes.indexOf(axis) !== -1 ||
+            !Array.isArray(range) || range.length !== 2 ||
+            !Number.isFinite(Number(range[0])) || !Number.isFinite(Number(range[1])) ||
+            Number(range[0]) >= Number(range[1]) ||
+            !Number.isFinite(defaultValue)) {
+          return;
+        }
+        definition.axes.push(axis);
+        definition.ranges[axis] = [Number(range[0]), Number(range[1])];
+        definition.defaults[axis] = clamp(defaultValue, definition.ranges[axis]);
+      });
+    });
+    return definition;
   }
 
   function buildFontFaceAxisDefinition(block) {
@@ -176,6 +442,7 @@
   }
 
   var api = {
+    buildFontBinaryAxisDefinition: buildFontBinaryAxisDefinition,
     cleanFontFamilyName: cleanFontFamilyName,
     buildFontFaceAxisDefinition: buildFontFaceAxisDefinition,
     extractFontFaceBlocks: extractFontFaceBlocks,
@@ -183,6 +450,7 @@
     extractRemoteFontUrls: extractRemoteFontUrls,
     normalizeFontFamilyName: normalizeFontFamilyName,
     rankStylesheetUrls: rankStylesheetUrls,
+    mergeAxisDefinitions: mergeAxisDefinitions,
     replaceFontFaceUrl: replaceFontFaceUrl,
     resolveFontFaceUrls: resolveFontFaceUrls,
     selectBestFontFaceRule: selectBestFontFaceRule

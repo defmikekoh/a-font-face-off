@@ -432,6 +432,8 @@ describe('Integration tests', () => {
                     sourceUrl: location.href,
                     config: {
                         fontName: 'Ephemeral Test Font',
+                        fontSize: 17,
+                        lineHeight: 1.45,
                         variableAxes: { wght: 500 },
                         fontFaceRule: '@font-face { font-family: "Ephemeral Test Font"; src: local("Arial"); font-weight: 200 900; }'
                     },
@@ -461,6 +463,8 @@ describe('Integration tests', () => {
                     activeMode: document.querySelector('[data-mode].active')?.dataset?.mode,
                     topFont: document.getElementById('top-font-display')?.textContent.trim(),
                     bottomFont: document.getElementById('bottom-font-display')?.textContent.trim(),
+                    topFontSize: document.getElementById('top-font-size-text')?.value,
+                    topLineHeight: document.getElementById('top-line-height-text')?.value,
                     topPreviewStyle,
                     topApplyDisabled: document.getElementById('apply-top')?.disabled,
                     topSaveDisabled: document.getElementById('top-save-favorite-bar')?.disabled,
@@ -476,6 +480,8 @@ describe('Integration tests', () => {
         assert.equal(state.activeMode, 'faceoff');
         assert.equal(state.topFont, 'Ephemeral Test Font');
         assert.equal(state.bottomFont, 'Rubik');
+        assert.equal(state.topFontSize, '17');
+        assert.equal(state.topLineHeight, '1.45');
         assert.match(state.topPreviewStyle, /Ephemeral Test Font/);
         assert.doesNotMatch(state.topPreviewStyle, /font-weight/);
         assert.match(state.topPreviewStyle, /font-variation-settings:\s*"wght" 500/);

@@ -15,3 +15,5 @@ WhatFont (`whatfont_core.js`) detects registered axes by reading their high-leve
 - `detectVariableAxes()` checks both `font-variation-settings` (custom axes) AND high-level CSS properties (registered axes)
 - Only reports non-default values (wght≠400, wdth≠100%, slnt with oblique angle)
 - CSS property check skipped if axis already found in `font-variation-settings` (no double-reporting)
+- The one-shot WhatFont → Face-off handoff fetches the selected page-font binary and reads its OpenType `fvar` axis records. For WOFF2 files, `page-font-utils.js` parses the table directory and uses the browser's native Brotli `DecompressionStream`; it does not reconstruct unrelated transformed glyph tables.
+- Binary `fvar` metadata is authoritative for axis tags, ranges, and defaults. Descriptor-derived `wght`, `wdth`, and `slnt` ranges remain as a fallback and can supplement axes not present in the parsed binary metadata.

@@ -2455,13 +2455,20 @@ async function embedPageFontSource(rule) {
     try {
       const response = await AFFOBackgroundFontRuntime.handleFetchMessage({ url, binary: true });
       if (!response || !response.ok || !response.data) continue;
+      const fontDefinition = await AFFOPageFontUtils.buildFontBinaryAxisDefinition(response.data);
       const dataUrl = arrayBufferToPageFontDataUrl(response.data, url);
-      return AFFOPageFontUtils.replaceFontFaceUrl(rule, url, dataUrl);
+      return {
+        rule: AFFOPageFontUtils.replaceFontFaceUrl(rule, url, dataUrl),
+        fontDefinition
+      };
     } catch (e) {
       affoDebugWarn('[AFFO Background] Page font binary fetch failed:', url, e);
     }
   }
-  return rule;
+  return {
+    rule,
+    fontDefinition: { axes: [], defaults: {}, ranges: {} }
+  };
 }
 
 async function prepareFaceoffPageFontDraft(msg, sender) {
@@ -2504,8 +2511,11 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
   }
 
   const selectedRule = AFFOPageFontUtils.selectBestFontFaceRule(rules, msg.fontWeight, msg.fontStyle);
-  const embeddedRule = await embedPageFontSource(selectedRule);
-  const fontDefinition = AFFOPageFontUtils.buildFontFaceAxisDefinition(selectedRule);
+  const embedded = await embedPageFontSource(selectedRule);
+  const fontDefinition = AFFOPageFontUtils.mergeAxisDefinitions(
+    embedded.fontDefinition,
+    AFFOPageFontUtils.buildFontFaceAxisDefinition(selectedRule)
+  );
   const variableAxes = {};
   fontDefinition.axes.forEach(axis => {
     const value = Number(msg.variableAxes && msg.variableAxes[axis]);
@@ -2513,8 +2523,10 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
   });
   const config = {
     fontName,
+    fontSize: 17,
+    lineHeight: 1.45,
     variableAxes,
-    fontFaceRule: embeddedRule
+    fontFaceRule: embedded.rule
   };
   const fontWeight = Number(msg.fontWeight);
   if (Number.isFinite(fontWeight) && !Object.prototype.hasOwnProperty.call(variableAxes, 'wght')) {

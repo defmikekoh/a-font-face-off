@@ -1,7 +1,9 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const zlib = require('node:zlib');
 
 const {
+    buildFontBinaryAxisDefinition,
     buildFontFaceAxisDefinition,
     cleanFontFamilyName,
     extractMatchingFontFaceRules,
@@ -9,8 +11,64 @@ const {
     normalizeFontFamilyName,
     rankStylesheetUrls,
     replaceFontFaceUrl,
+    mergeAxisDefinitions,
     selectBestFontFaceRule,
 } = require('../src/page-font-utils.js');
+
+function writeFixed(buffer, offset, value) {
+    buffer.writeInt32BE(Math.round(value * 65536), offset);
+}
+
+function buildTestFvarTable() {
+    const table = Buffer.alloc(56);
+    table.writeUInt16BE(1, 0);
+    table.writeUInt16BE(0, 2);
+    table.writeUInt16BE(16, 4);
+    table.writeUInt16BE(2, 6);
+    table.writeUInt16BE(2, 8);
+    table.writeUInt16BE(20, 10);
+    table.writeUInt16BE(0, 12);
+    table.writeUInt16BE(0, 14);
+
+    table.write('wght', 16, 'ascii');
+    writeFixed(table, 20, 100);
+    writeFixed(table, 24, 300);
+    writeFixed(table, 28, 1000);
+
+    table.write('opsz', 36, 'ascii');
+    writeFixed(table, 40, 9);
+    writeFixed(table, 44, 100);
+    writeFixed(table, 48, 100);
+    return table;
+}
+
+function buildTestSfnt() {
+    const fvar = buildTestFvarTable();
+    const font = Buffer.alloc(28 + fvar.length);
+    font.writeUInt32BE(0x00010000, 0);
+    font.writeUInt16BE(1, 4);
+    font.write('fvar', 12, 'ascii');
+    font.writeUInt32BE(28, 20);
+    font.writeUInt32BE(fvar.length, 24);
+    fvar.copy(font, 28);
+    return font;
+}
+
+function buildTestWoff2() {
+    const fvar = buildTestFvarTable();
+    const compressed = zlib.brotliCompressSync(fvar);
+    const font = Buffer.alloc(50 + compressed.length);
+    font.write('wOF2', 0, 'ascii');
+    font.writeUInt32BE(0x00010000, 4);
+    font.writeUInt32BE(font.length, 8);
+    font.writeUInt16BE(1, 12);
+    font.writeUInt32BE(28 + fvar.length, 16);
+    font.writeUInt32BE(compressed.length, 20);
+    font[48] = 47; // Known fvar tag, null transform.
+    font[49] = fvar.length;
+    compressed.copy(font, 50);
+    return font;
+}
 
 describe('page-font-utils', () => {
     it('normalizes quoted family names', () => {
@@ -78,6 +136,54 @@ describe('page-font-utils', () => {
         assert.deepEqual(
             buildFontFaceAxisDefinition('@font-face { font-weight: 500; }'),
             { axes: [], defaults: {}, ranges: {} }
+        );
+    });
+
+    it('reads variable axes from an uncompressed OpenType fvar table', async () => {
+        assert.deepEqual(
+            await buildFontBinaryAxisDefinition(buildTestSfnt()),
+            {
+                axes: ['wght', 'opsz'],
+                defaults: { wght: 300, opsz: 100 },
+                ranges: { wght: [100, 1000], opsz: [9, 100] }
+            }
+        );
+    });
+
+    it('reads variable axes from a WOFF2 fvar table', async () => {
+        assert.deepEqual(
+            await buildFontBinaryAxisDefinition(buildTestWoff2(), {
+                decompressBrotli(compressed) {
+                    return zlib.brotliDecompressSync(compressed);
+                }
+            }),
+            {
+                axes: ['wght', 'opsz'],
+                defaults: { wght: 300, opsz: 100 },
+                ranges: { wght: [100, 1000], opsz: [9, 100] }
+            }
+        );
+    });
+
+    it('prefers binary axis metadata while retaining descriptor-only axes', () => {
+        assert.deepEqual(
+            mergeAxisDefinitions(
+                {
+                    axes: ['wght', 'opsz'],
+                    defaults: { wght: 300, opsz: 100 },
+                    ranges: { wght: [100, 1000], opsz: [9, 100] }
+                },
+                {
+                    axes: ['wght', 'wdth'],
+                    defaults: { wght: 400, wdth: 100 },
+                    ranges: { wght: [200, 900], wdth: [75, 125] }
+                }
+            ),
+            {
+                axes: ['wght', 'opsz', 'wdth'],
+                defaults: { wght: 300, opsz: 100, wdth: 100 },
+                ranges: { wght: [100, 1000], opsz: [9, 100], wdth: [75, 125] }
+            }
         );
     });
 

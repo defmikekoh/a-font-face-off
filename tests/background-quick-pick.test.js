@@ -4,10 +4,37 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const AFFOSroulette = require('../src/sroulette-utils.js');
+const AFFOPageFontUtils = require('../src/page-font-utils.js');
 
 function clone(value) {
     if (value === undefined) return undefined;
     return JSON.parse(JSON.stringify(value));
+}
+
+function buildVariableTestFont() {
+    const fvar = Buffer.alloc(56);
+    fvar.writeUInt16BE(1, 0);
+    fvar.writeUInt16BE(16, 4);
+    fvar.writeUInt16BE(2, 6);
+    fvar.writeUInt16BE(2, 8);
+    fvar.writeUInt16BE(20, 10);
+    fvar.write('wght', 16, 'ascii');
+    fvar.writeInt32BE(100 * 65536, 20);
+    fvar.writeInt32BE(300 * 65536, 24);
+    fvar.writeInt32BE(1000 * 65536, 28);
+    fvar.write('opsz', 36, 'ascii');
+    fvar.writeInt32BE(9 * 65536, 40);
+    fvar.writeInt32BE(100 * 65536, 44);
+    fvar.writeInt32BE(100 * 65536, 48);
+
+    const font = Buffer.alloc(28 + fvar.length);
+    font.writeUInt32BE(0x00010000, 0);
+    font.writeUInt16BE(1, 4);
+    font.write('fvar', 12, 'ascii');
+    font.writeUInt32BE(28, 20);
+    font.writeUInt32BE(fvar.length, 24);
+    fvar.copy(font, 28);
+    return font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength);
 }
 
 function createStorage(seed = {}) {
@@ -106,10 +133,11 @@ function loadBackground(seed = {}, options = {}) {
         browser: browserStub,
         self: { addEventListener() {} },
         navigator: { onLine: true, userAgent: 'node-test' },
-        fetch: async () => ({ ok: true, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) }),
+        fetch: options.fetch || (async () => ({ ok: true, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) })),
         performance: { now: () => 0 },
         crypto: globalThis.crypto,
         TextEncoder: globalThis.TextEncoder,
+        AbortController: globalThis.AbortController,
         URL: globalThis.URL,
         URLSearchParams,
         btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
@@ -118,6 +146,7 @@ function loadBackground(seed = {}, options = {}) {
         Promise,
         Date,
         AFFOSroulette,
+        AFFOPageFontUtils,
         affoParseGfMetadataText: () => ({}),
         affoGetMetadataFamilies: () => [],
         buildCss2UrlForFamily: () => '',
@@ -132,6 +161,69 @@ function loadBackground(seed = {}, options = {}) {
 
     return { context, storage, cssOps, titleOps };
 }
+
+describe('background WhatFont Face-off draft', () => {
+    it('sets the top font size and line height for the one-shot Face-off', async () => {
+        const { context, storage } = loadBackground();
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoPrepareFaceoffPageFont',
+            fontName: 'Detected Font',
+            fontWeight: 400,
+            fontStyle: 'normal',
+            variableAxes: {},
+            fontFaceRules: [{
+                cssText: '@font-face { font-family: "Detected Font"; src: local("Arial"); font-weight: 400; }',
+                baseUrl: 'https://example.com/styles.css'
+            }],
+            stylesheetUrls: [],
+            pageUrl: 'https://example.com/article'
+        }, {
+            tab: { id: 123, url: 'https://example.com/article' }
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(storage.data.affoFaceoffPageFontDraft.config.fontSize, 17);
+        assert.equal(storage.data.affoFaceoffPageFontDraft.config.lineHeight, 1.45);
+    });
+
+    it('retains computed axes proven by the downloaded font fvar table', async () => {
+        const fontData = buildVariableTestFont();
+        const { context, storage } = loadBackground({}, {
+            fetch: async () => ({
+                ok: true,
+                arrayBuffer: async () => fontData
+            })
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoPrepareFaceoffPageFont',
+            fontName: 'Austin News',
+            fontWeight: 300,
+            fontStyle: 'normal',
+            variableAxes: { opsz: 9, wght: 300 },
+            fontFaceRules: [{
+                cssText: '@font-face { font-family: "Austin News"; src: url("https://example.com/austin.woff2"); font-weight: 300; }',
+                baseUrl: 'https://example.com/styles.css'
+            }],
+            stylesheetUrls: [],
+            pageUrl: 'https://example.com/article'
+        }, {
+            tab: { id: 123, url: 'https://example.com/article' }
+        });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(storage.data.affoFaceoffPageFontDraft.config.variableAxes, {
+            wght: 300,
+            opsz: 9
+        });
+        assert.deepEqual(storage.data.affoFaceoffPageFontDraft.fontDefinition, {
+            axes: ['wght', 'opsz'],
+            defaults: { wght: 300, opsz: 100 },
+            ranges: { wght: [100, 1000], opsz: [9, 100] }
+        });
+    });
+});
 
 describe('background quick-pick Sroulette', () => {
     it('stores synced Sroulette intent without a resolved font', async () => {
