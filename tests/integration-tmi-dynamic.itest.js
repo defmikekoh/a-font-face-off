@@ -15,6 +15,7 @@ const FIXTURE_HTML = `<!DOCTYPE html>
   <style>
     .serif-text { font-family: Georgia, "Times New Roman", serif; }
     .sans-text { font-family: Arial, Helvetica, sans-serif; }
+    .site-overlay { position: fixed; inset: 1rem; }
   </style>
 </head>
 <body>
@@ -22,6 +23,11 @@ const FIXTURE_HTML = `<!DOCTYPE html>
     <p id="s1" class="serif-text">Initial serif paragraph with more than enough text to qualify as body content.</p>
     <p id="n1" class="sans-text">Initial sans paragraph with more than enough text to qualify as body content.</p>
   </main>
+  <section id="fixed-overlay" class="site-overlay">
+    <div>
+      <p id="fixed-overlay-text" class="sans-text">Fixed overlay text should retain the website typography and size.</p>
+    </div>
+  </section>
 </body>
 </html>`;
 
@@ -84,7 +90,7 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             affoApplyMap: {
                 [ORIGIN]: {
                     serif: { fontName: 'Lora', variableAxes: {} },
-                    sans: { fontName: 'Inter', variableAxes: {} }
+                    sans: { fontName: 'Sora', fontSize: 20, variableAxes: {} }
                 }
             }
         });
@@ -94,6 +100,17 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
 
         assert.equal(await getMarker('s1'), 'serif', 'initial serif paragraph should be marked serif');
         assert.equal(await getMarker('n1'), 'sans', 'initial sans paragraph should be marked sans');
+        assert.equal(await getMarker('fixed-overlay-text'), null,
+            'text nested below a fixed-position UI ancestor should not be marked');
+
+        const overlayTypography = await driver.executeScript(`
+            const cs = getComputedStyle(document.getElementById('fixed-overlay-text'));
+            return { fontFamily: cs.fontFamily, fontSize: cs.fontSize };
+        `);
+        assert.match(overlayTypography.fontFamily, /Arial/i,
+            'fixed overlay text should retain the website font family');
+        assert.equal(overlayTypography.fontSize, '16px',
+            'fixed overlay text should retain the website font size');
     });
 
     it('incrementally marks dynamically added content via the unified observer', async () => {
@@ -117,6 +134,16 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             sans.textContent = 'Dynamically added sans paragraph with sufficient text length to qualify.';
             wrapper.appendChild(sans);
             main.appendChild(wrapper);
+
+            const fixedOverlay = document.createElement('section');
+            fixedOverlay.id = 'dyn-fixed-overlay';
+            fixedOverlay.className = 'site-overlay';
+            const fixedText = document.createElement('p');
+            fixedText.id = 'dyn-fixed-text';
+            fixedText.className = 'sans-text';
+            fixedText.textContent = 'Dynamically added fixed overlay text should not be marked.';
+            fixedOverlay.appendChild(fixedText);
+            document.body.appendChild(fixedOverlay);
         `);
 
         // The shared observer debounces ~250ms before scoped-marking the added
@@ -126,5 +153,7 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
 
         assert.equal(await getMarker('dyn-serif'), 'serif', 'dynamic serif paragraph should be marked serif');
         assert.equal(await getMarker('dyn-sans'), 'sans', 'nested dynamic sans paragraph should be marked sans');
+        assert.equal(await getMarker('dyn-fixed-text'), null,
+            'dynamic text below a fixed-position UI ancestor should not be marked');
     });
 });

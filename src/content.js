@@ -140,6 +140,11 @@
     TEMPLATE: true
   };
   var INTERACTIVE_SUBTREE_ROOT_SELECTOR = '[role="dialog"], [role="alertdialog"], [aria-modal="true"]';
+  // TMI should not restyle fixed page chrome such as signup overlays, banners,
+  // and other controls that sites do not consistently expose as ARIA dialogs.
+  // Replaced for each walk so computed-position results cannot become stale
+  // across delayed rechecks or dynamically inserted content.
+  var fixedPositionUiCache = new WeakMap();
   var DUPLICATE_ENTRY_REAPPLY_SUPPRESS_MS = 1000;
   var lastEntryReapplySignature = '';
   var lastEntryReapplyStartedAt = 0;
@@ -686,6 +691,44 @@
     } catch (_) {
       return false;
     }
+  }
+
+  function resetFixedPositionUiCache() {
+    fixedPositionUiCache = new WeakMap();
+  }
+
+  function isInsideFixedPositionUi(element, computedStyle) {
+    if (!element || element.nodeType !== 1) return false;
+
+    var chain = [];
+    var current = element;
+    var isFixedUi = false;
+
+    while (current && current.nodeType === 1 && current !== document.body && current !== document.documentElement) {
+      if (fixedPositionUiCache.has(current)) {
+        isFixedUi = fixedPositionUiCache.get(current);
+        break;
+      }
+
+      var cs;
+      try {
+        cs = current === element && computedStyle ? computedStyle : window.getComputedStyle(current);
+      } catch (_) {
+        cs = null;
+      }
+
+      chain.push(current);
+      if (cs && cs.position === 'fixed') {
+        isFixedUi = true;
+        break;
+      }
+      current = current.parentElement;
+    }
+
+    chain.forEach(function (node) {
+      fixedPositionUiCache.set(node, isFixedUi);
+    });
+    return isFixedUi;
   }
 
   var BLOCK_TEXT_CONTAINER_TAGS = {
@@ -3875,6 +3918,7 @@
   // are identical to a full re-walk over just that subtree.
   function markTypesInRoots(roots, types) {
     if (!roots || roots.length === 0 || !types || types.length === 0) return;
+    resetFixedPositionUiCache();
     var typeSet = {};
     types.forEach(function (ft) { typeSet[ft] = true; });
 
@@ -3921,6 +3965,11 @@
     var tagName = element.tagName.toLowerCase();
     var className = element.className || '';
     var style = element.style.fontFamily || '';
+
+    // Fixed-position subtrees are page UI rather than reading content. This
+    // catches overlays whose markup lacks role="dialog" / aria-modal, including
+    // fixed ancestors with several static-position descendants.
+    if (isInsideFixedPositionUi(element, computedStyle)) return null;
 
     // Exclude headings, UI elements, and form controls
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
@@ -4136,6 +4185,7 @@
 
     var promise = new Promise(function (resolve) {
       try {
+        resetFixedPositionUiCache();
         var typeSet = {};
         typesToWalk.forEach(function (ft) { typeSet[ft] = true; });
 
