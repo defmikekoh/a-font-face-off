@@ -462,8 +462,9 @@
     '[data-testid*="drop-cap" i]',
     '[data-testid*="dropcap" i]'
   ].join(', ');
-  var DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + ')';
-  var DROP_CAP_EXCLUDE = ':not(' + DROP_CAP_SELECTOR + '):not(' + DROP_CAP_SELECTOR + ' *)';
+  var DROP_CAP_TEXT_HOST_SELECTOR = ':is(p, li, blockquote)';
+  var PROTECTED_DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + '):not(' + DROP_CAP_TEXT_HOST_SELECTOR + ')';
+  var DROP_CAP_EXCLUDE = ':not(' + PROTECTED_DROP_CAP_SELECTOR + '):not(' + PROTECTED_DROP_CAP_SELECTOR + ' *)';
   var HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
   var HEADING_TREE_EXCLUDE = ':not(' + HEADING_SELECTOR + '):not(' + HEADING_SELECTOR + ' *)';
 
@@ -485,7 +486,7 @@
 
   function isDropCapElement(element) {
     try {
-      return !!(element && element.matches && element.matches(DROP_CAP_MATCH_SELECTOR));
+      return !!(element && element.matches && element.matches(PROTECTED_DROP_CAP_SELECTOR));
     } catch (_) {
       return false;
     }
@@ -493,7 +494,7 @@
 
   function isInsideDropCap(element) {
     try {
-      return !!(element && element.closest && element.closest(DROP_CAP_MATCH_SELECTOR));
+      return !!(element && element.closest && element.closest(PROTECTED_DROP_CAP_SELECTOR));
     } catch (_) {
       return false;
     }

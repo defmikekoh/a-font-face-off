@@ -24,8 +24,9 @@ const DROP_CAP_MATCH_SELECTOR = [
     '[data-testid*="drop-cap" i]',
     '[data-testid*="dropcap" i]'
 ].join(', ');
-const DROP_CAP_SELECTOR = `:is(${DROP_CAP_MATCH_SELECTOR})`;
-const DROP_CAP_EXCLUDE = `:not(${DROP_CAP_SELECTOR}):not(${DROP_CAP_SELECTOR} *)`;
+const DROP_CAP_TEXT_HOST_SELECTOR = ':is(p, li, blockquote)';
+const PROTECTED_DROP_CAP_SELECTOR = `:is(${DROP_CAP_MATCH_SELECTOR}):not(${DROP_CAP_TEXT_HOST_SELECTOR})`;
+const DROP_CAP_EXCLUDE = `:not(${PROTECTED_DROP_CAP_SELECTOR}):not(${PROTECTED_DROP_CAP_SELECTOR} *)`;
 const HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
 const HEADING_TREE_EXCLUDE = `:not(${HEADING_SELECTOR}):not(${HEADING_SELECTOR} *)`;
 

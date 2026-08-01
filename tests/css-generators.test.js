@@ -309,12 +309,13 @@ describe('css-generators drop cap preservation', () => {
     };
 
     function assertDropCapExclusion(css) {
-        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\)\)/);
-        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\) \*\)/);
+        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\)\)/);
+        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\) \*\)/);
         assert.match(css, /\[style\*="initial-letter" i\]/);
         assert.match(css, /\[class~="dropcap" i\]/);
         assert.doesNotMatch(css, /\[class\*="dropcap" i\]/);
         assert.match(css, /\[data-drop-cap\]/);
+        assert.doesNotMatch(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\)\):not\(:is\(p, li, blockquote\)\)/);
     }
 
     it('keeps drop-cap elements out of body-contact replacement selectors', () => {
@@ -327,6 +328,14 @@ describe('css-generators drop cap preservation', () => {
 
     it('keeps drop-cap elements out of third-man-in replacement selectors', () => {
         assertDropCapExclusion(generateThirdManInCSS('serif', payload, false));
+    });
+
+    it('allows semantic prose hosts while protecting dedicated drop-cap descendants', () => {
+        const css = generateThirdManInCSS('serif', payload, false);
+        const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not([data-affo-was-bold="true"])'));
+
+        assert.ok(nonBoldRule);
+        assert.match(nonBoldRule, /:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\)/);
     });
 });
 

@@ -5,7 +5,7 @@ Shared CSS generation functions used by popup.js and content.js (each has its ow
 ## Constants
 
 - **`GUARD_EXCLUDE`** — `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to all broad CSS selectors (Body mode `sel`/`weightSel`, Body Contact `selector`/`weightSelector`) to prevent the extension's own injected CSS from matching guarded overlays (e.g. quick pick panel).
-- **`DROP_CAP_EXCLUDE`** — `:not(:is(...)):not(:is(...) *)` using semantic drop-cap hints in `style` (`var(--drop-cap)` or `initial-letter`), exact `class` tokens, `data-drop-cap`, `data-dropcap`, and `data-testid`. Exact class-token matching avoids treating generated container classes such as `dropCap-hash` as drop-cap elements. Appended to broad Body/Body Contact selectors plus TMI text/bold/italic selectors so site-styled drop caps, including Guardian spans using `var(--drop-cap)`, keep their original presentation.
+- **`DROP_CAP_EXCLUDE`** — Protects elements with semantic drop-cap hints in `style` (`var(--drop-cap)` or `initial-letter`), exact `class` tokens, `data-drop-cap`, `data-dropcap`, and `data-testid`, plus their descendants. Semantic prose hosts (`p`, `li`, and `blockquote`) are deliberately not protected: sites such as The New Yorker put a `dropcap` class on the whole paragraph and style only its `::first-letter`, so AFFO can replace the paragraph font while the explicitly styled initial remains intact. Dedicated glyph elements such as Guardian drop-cap spans remain excluded. Exact class-token matching avoids treating generated container classes such as `dropCap-hash` as drop-cap elements.
 
 ## Registered vs Custom Axes
 
