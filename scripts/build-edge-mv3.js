@@ -85,8 +85,8 @@ function patchCssGenerators() {
   const filePath = path.join(OUT_DIR, 'css-generators.js');
   let text = fs.readFileSync(filePath, 'utf8');
   const patches = [
-    'function generateBodyCSS(payload, aggressive, ignoreComments) {',
-    'function generateBodyContactCSS(payload, aggressive, ignoreComments) {',
+    'function generateBodyCSS(payload, aggressive, ignoreComments, hostname) {',
+    'function generateBodyContactCSS(payload, aggressive, ignoreComments, hostname) {',
     'function generateThirdManInCSS(fontType, payload, aggressive) {'
   ];
 

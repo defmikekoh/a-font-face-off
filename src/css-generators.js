@@ -29,6 +29,9 @@ const PROTECTED_DROP_CAP_SELECTOR = `:is(${DROP_CAP_MATCH_SELECTOR}):not(${DROP_
 const DROP_CAP_EXCLUDE = `:not(${PROTECTED_DROP_CAP_SELECTOR}):not(${PROTECTED_DROP_CAP_SELECTOR} *)`;
 const HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
 const HEADING_TREE_EXCLUDE = `:not(${HEADING_SELECTOR}):not(${HEADING_SELECTOR} *)`;
+const UI_SUBTREE_EXCLUDE = ':not(nav):not(nav *):not(footer):not(footer *):not(aside):not(aside *):not(form):not(form *):not([role="navigation"]):not([role="navigation"] *):not([role="banner"]):not([role="banner"] *):not([role="contentinfo"]):not([role="contentinfo"] *):not([role="complementary"]):not([role="complementary"] *)';
+const BODY_CODE_EXCLUDE = ':not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *):not(tt):not(tt *)';
+const CHATGPT_MESSAGE_SELECTOR = 'body [data-message-author-role]';
 
 function getIgnoreCommentsExclude(ignoreComments) {
     if (!ignoreComments) return '';
@@ -73,6 +76,38 @@ function appendAnchorColorExclude(selector) {
 
 function joinAnchorColorExcludedSelectors(selectors) {
     return selectors.map(appendAnchorColorExclude).join(', ');
+}
+
+function isHostOrSubdomain(hostname, root) {
+    const host = String(hostname || '').toLowerCase();
+    const normalizedRoot = String(root || '').toLowerCase();
+    return host === normalizedRoot || host.endsWith(`.${normalizedRoot}`);
+}
+
+function getGeneratorHostname(explicitHostname) {
+    if (explicitHostname) return explicitHostname;
+    return (typeof window !== 'undefined' && window.currentTabHostname) || '';
+}
+
+function isChatGptHostname(hostname) {
+    return isHostOrSubdomain(getGeneratorHostname(hostname), 'chatgpt.com');
+}
+
+function buildBodyScopedSelector(exclude, hostname) {
+    if (isChatGptHostname(hostname)) {
+        return `${CHATGPT_MESSAGE_SELECTOR}${exclude}, ${CHATGPT_MESSAGE_SELECTOR} *${exclude}`;
+    }
+    return `body ${exclude}`;
+}
+
+function buildBodyGeneralSelector(scopedSelector, hostname) {
+    return isChatGptHostname(hostname) ? scopedSelector : `body, ${scopedSelector}`;
+}
+
+function buildBodySemanticSelector(selector, hostname) {
+    return isChatGptHostname(hostname)
+        ? `${CHATGPT_MESSAGE_SELECTOR} ${selector}`
+        : `body ${selector}`;
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────
@@ -182,7 +217,7 @@ function buildThirdManInColorSelector(fontType) {
 
 // ── Face-off mode CSS (generateBodyCSS) ──────────────────────────────────────
 
-function generateBodyCSS(payload, aggressive, ignoreComments) {
+function generateBodyCSS(payload, aggressive, ignoreComments, hostname) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
@@ -192,12 +227,13 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
     // Body Contact CSS selector (broad selector targeting all body text, including bold elements for font-family)
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
     const articleDeckExclude = getArticleDeckExclude();
-    const bodySelectorBase = 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
-    const sel = 'body, ' + bodySelectorBase;
-    const colorSel = bodySelectorBase + ':not(a):not(a *):not(:has(a))';
+    const bodyExclude = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(button):not(button *):not(input):not(select):not(textarea):not(header):not(label):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + BODY_CODE_EXCLUDE + UI_SUBTREE_EXCLUDE + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const bodySelectorBase = buildBodyScopedSelector(bodyExclude, hostname);
+    const sel = buildBodyGeneralSelector(bodySelectorBase, hostname);
+    const colorSel = buildBodyScopedSelector(bodyExclude + ':not(a):not(a *):not(:has(a))', hostname);
     // Weight-specific selector excludes bold elements so their weight can be overridden separately
-    const weightSel = 'body, ' +
-        'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(pre):not(code):not(kbd):not(samp):not(tt):not(button):not(input):not(select):not(textarea):not(header):not(nav):not(footer):not(aside):not(label):not(strong):not(b):not([role="navigation"]):not([role="banner"]):not([role="contentinfo"]):not([role="complementary"]):not(.code):not(.hljs):not(.token):not(.monospace):not(.mono):not(.terminal):not([class^="language-"]):not([class*=" language-"]):not(.prettyprint):not(.prettyprinted):not(.sourceCode):not(.wp-block-code):not(.wp-block-preformatted):not(.small-caps):not(.smallcaps):not(.smcp):not(.sc):not(.site-header):not(.sidebar):not(.toc):not([class*="byline"]):not([class*="author"]):not([class*="widget"]):not([class*="whatfont"]):not([id*="whatfont"])' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const weightExclude = bodyExclude + ':not(strong):not(b)';
+    const weightSel = buildBodyGeneralSelector(buildBodyScopedSelector(weightExclude, hostname), hostname);
 
     const decl = [];
 
@@ -253,17 +289,20 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
         if (boldAxes.length > 0) {
             boldRule += `; font-variation-settings: ${boldAxes.join(', ')}${imp}`;
         }
-        const boldSelector = joinDropCapExcludedSelectors(['body strong', 'body b', 'html body strong', 'html body b']);
+        const boldSelector = joinDropCapExcludedSelectors([
+            buildBodySemanticSelector('strong', hostname),
+            buildBodySemanticSelector('b', hostname)
+        ]);
         css += `\n${boldSelector} { ${boldRule}; }`;
     }
 
     // Italic rule — ensure <em>/<i> render true italic with correct axis values
     if (payload.fontName) {
         const italicProps = buildItalicProps(payload, imp);
-        css += `\n${appendDropCapExclude('body :where(em, i)')} { ${italicProps.join('; ')}; }`;
+        css += `\n${appendDropCapExclude(buildBodySemanticSelector(':where(em, i)', hostname))} { ${italicProps.join('; ')}; }`;
         // Bold-italic rule
         const boldItalicProps = buildItalicProps(payload, imp, 700);
-        css += `\n${appendDropCapExclude('body :where(strong, b) :where(em, i)')} { ${boldItalicProps.join('; ')}; }`;
+        css += `\n${appendDropCapExclude(buildBodySemanticSelector(':where(strong, b) :where(em, i)', hostname))} { ${boldItalicProps.join('; ')}; }`;
     }
 
     return css;
@@ -271,7 +310,7 @@ function generateBodyCSS(payload, aggressive, ignoreComments) {
 
 // ── Body Contact mode CSS ────────────────────────────────────────────────────
 
-function generateBodyContactCSS(payload, aggressive, ignoreComments) {
+function generateBodyContactCSS(payload, aggressive, ignoreComments, hostname) {
     if (!payload) return '';
 
     const imp = aggressive ? ' !important' : '';
@@ -283,10 +322,12 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
 
     const commentExclude = getIgnoreCommentsExclude(ignoreComments);
     const articleDeckExclude = getArticleDeckExclude();
-    const bodyContactSelectorBase = 'body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
-    const selector = 'body, ' + bodyContactSelectorBase;
-    const colorSelector = bodyContactSelectorBase + ':not(a):not(a *):not(:has(a))';
-    const weightSelector = 'body, body :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(strong):not(b):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const bodyContactExclude = ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([class*="byline"]):not([class*="subtitle"]):not([role="dialog"]):not([role="dialog"] *):not(button):not(button *)' + BODY_CODE_EXCLUDE + UI_SUBTREE_EXCLUDE + POST_HEADER_EXCLUDE + commentExclude + articleDeckExclude + DROP_CAP_EXCLUDE + GUARD_EXCLUDE;
+    const bodyContactSelectorBase = buildBodyScopedSelector(bodyContactExclude, hostname);
+    const selector = buildBodyGeneralSelector(bodyContactSelectorBase, hostname);
+    const colorSelector = buildBodyScopedSelector(bodyContactExclude + ':not(a):not(a *):not(:has(a))', hostname);
+    const weightExclude = bodyContactExclude + ':not(strong):not(b)';
+    const weightSelector = buildBodyGeneralSelector(buildBodyScopedSelector(weightExclude, hostname), hostname);
     let styleRule = `${selector} {`;
     let hasStyleRuleProps = false;
 
@@ -345,16 +386,19 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments) {
         if (boldAxes.length > 0) {
             boldProps += `; font-variation-settings: ${boldAxes.join(', ')}${imp}`;
         }
-        lines.push(`${joinDropCapExcludedSelectors(['body strong', 'body b'])} { ${boldProps}; }`);
+        lines.push(`${joinDropCapExcludedSelectors([
+            buildBodySemanticSelector('strong', hostname),
+            buildBodySemanticSelector('b', hostname)
+        ])} { ${boldProps}; }`);
     }
 
     // Italic rule — ensure <em>/<i> render true italic with correct axis values
     if (payload.fontName) {
         const italicProps = buildItalicProps(payload, imp);
-        lines.push(`${appendDropCapExclude('body :where(em, i)')} { ${italicProps.join('; ')}; }`);
+        lines.push(`${appendDropCapExclude(buildBodySemanticSelector(':where(em, i)', hostname))} { ${italicProps.join('; ')}; }`);
         // Bold-italic rule
         const boldItalicProps = buildItalicProps(payload, imp, 700);
-        lines.push(`${appendDropCapExclude('body :where(strong, b) :where(em, i)')} { ${boldItalicProps.join('; ')}; }`);
+        lines.push(`${appendDropCapExclude(buildBodySemanticSelector(':where(strong, b) :where(em, i)', hostname))} { ${boldItalicProps.join('; ')}; }`);
     }
 
     return lines.join('\n');

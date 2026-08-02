@@ -70,6 +70,36 @@ describe('css-generators ignore comments selectors', () => {
     });
 });
 
+describe('css-generators application chrome and ChatGPT scoping', () => {
+    const payload = {
+        fontName: 'Spectral',
+        fontWeight: 420,
+        variableAxes: { wght: 420 },
+    };
+
+    it('excludes navigation, form, and code subtrees from body-contact CSS', () => {
+        const css = generateBodyContactCSS(payload, false, false);
+        assert.match(css, /:not\(nav \*\)/);
+        assert.match(css, /:not\(form \*\)/);
+        assert.match(css, /:not\(code \*\)/);
+        assert.match(css, /:not\(\[role="navigation"\] \*\)/);
+    });
+
+    it('scopes body-contact CSS to stable ChatGPT message roots', () => {
+        const css = generateBodyContactCSS(payload, false, false, 'chatgpt.com');
+        assert.match(css, /body \[data-message-author-role\]/);
+        assert.doesNotMatch(css, /^body, body /);
+        assert.doesNotMatch(css, /#prompt-textarea/);
+        assert.match(css, /body \[data-message-author-role\] strong/);
+    });
+
+    it('applies the same ChatGPT scope to face-off body CSS and subdomains', () => {
+        const css = generateBodyCSS(payload, false, false, 'team.chatgpt.com');
+        assert.match(css, /body \[data-message-author-role\]/);
+        assert.doesNotMatch(css, /^body, body /);
+    });
+});
+
 describe('css-generators bold variable-axis overrides', () => {
     const payload = {
         fontName: 'Roboto Slab',

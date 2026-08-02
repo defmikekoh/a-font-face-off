@@ -5,6 +5,9 @@ Shared CSS generation functions used by popup.js and content.js (each has its ow
 ## Constants
 
 - **`GUARD_EXCLUDE`** — `:not([data-affo-guard]):not([data-affo-guard] *)`. Appended to all broad CSS selectors (Body mode `sel`/`weightSel`, Body Contact `selector`/`weightSelector`) to prevent the extension's own injected CSS from matching guarded overlays (e.g. quick pick panel).
+- **`UI_SUBTREE_EXCLUDE`** — Excludes navigation, footer, aside, form, and ARIA landmark roots plus descendants from broad Body/Body Contact selectors.
+- **`BODY_CODE_EXCLUDE`** — Excludes `pre`/`code`/`kbd`/`samp`/`tt` roots and descendants so Body Contact does not flatten code typography.
+- **`CHATGPT_MESSAGE_SELECTOR`** — `body [data-message-author-role]`. On ChatGPT hosts, Body and Body Contact rules are generated against this stable conversation scope instead of `body`, keeping sidebar history, application controls, and `#prompt-textarea` outside style invalidation.
 - **`DROP_CAP_EXCLUDE`** — Protects elements with semantic drop-cap hints in `style` (`var(--drop-cap)` or `initial-letter`), exact `class` tokens, `data-drop-cap`, `data-dropcap`, and `data-testid`, plus their descendants. Semantic prose hosts (`p`, `li`, and `blockquote`) are deliberately not protected: sites such as The New Yorker put a `dropcap` class on the whole paragraph and style only its `::first-letter`, so AFFO can replace the paragraph font while the explicitly styled initial remains intact. Dedicated glyph elements such as Guardian drop-cap spans remain excluded. Exact class-token matching avoids treating generated container classes such as `dropCap-hash` as drop-cap elements.
 
 ## Registered vs Custom Axes
@@ -36,6 +39,7 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 - TMI replacement selectors exclude heading subtrees (`h1`-`h6` and descendants), so inline emphasis inside headings, such as `h2 > strong`, keeps the site's original heading family instead of receiving the TMI bold replacement.
 - TMI text selectors append the drop-cap exclusion to each selector term, and the content walker also skips matching drop-cap elements so direct marker-based font replacement does not flatten decorative initials.
 - `fontSizeScale` intentionally does not emit CSS `font-size:%` rules; content.js computes scaled px sizes per matched element to avoid nested percentage compounding.
+- Body/Body Contact generators accept an optional hostname. `chatgpt.com` and its subdomains use message-root selectors for normal, weight, color, bold, italic, and bold-italic rules; popup.js passes the active origin explicitly.
 - **`getArticleDeckSelector()`** — Builds the broad-but-scoped deck selector: `article header :is(p, div)` whose `id`, `class`, `data-testid`, `itemprop`, or `name` contains hints like `summary`, `subtitle`, `dek`, `deck`, `standfirst`, `subheadline`, or `excerpt`.
 - **`getArticleDeckExclude()`** — Returns `:not(...)` exclusions for the article-deck selector and its descendants. Appended to the broad Body/Body Contact selectors so AFFO leaves likely standfirst/deck text alone without excluding every `article header` paragraph wholesale.
 

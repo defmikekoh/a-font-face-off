@@ -694,6 +694,24 @@
     }
   }
 
+  var TMI_PRUNED_SUBTREE_SELECTOR = 'nav, footer, aside, form, button, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+
+  function isTmiPrunedSubtreeRoot(node) {
+    return isInteractiveSubtreeRoot(node) ||
+      elementMatchesSelector(node, TMI_PRUNED_SUBTREE_SELECTOR) ||
+      isDropCapElement(node);
+  }
+
+  function isInsideTmiPrunedSubtree(node) {
+    var element = closestElementForNode(node);
+    if (!element || !element.closest) return false;
+    try {
+      return !!element.closest(INTERACTIVE_SUBTREE_ROOT_SELECTOR + ', ' + TMI_PRUNED_SUBTREE_SELECTOR + ', ' + PROTECTED_DROP_CAP_SELECTOR);
+    } catch (_) {
+      return false;
+    }
+  }
+
   function resetFixedPositionUiCache() {
     fixedPositionUiCache = new WeakMap();
   }
@@ -1178,22 +1196,72 @@
   }
 
   var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
+  var isChatGpt = isHostOrSubdomain(currentOrigin, 'chatgpt.com');
+  var CHATGPT_MESSAGE_ROOT_SELECTOR = '[data-message-author-role]';
+  var BODY_UI_SUBTREE_EXCLUDE = ':not(nav):not(nav *):not(footer):not(footer *):not(aside):not(aside *):not(form):not(form *):not([role="navigation"]):not([role="navigation"] *):not([role="banner"]):not([role="banner"] *):not([role="contentinfo"]):not([role="contentinfo"] *):not([role="complementary"]):not([role="complementary"] *)';
+  var BODY_CODE_EXCLUDE = ':not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *):not(tt):not(tt *)';
   function usesHybridInlineTmiSelectors() {
     return isXCom && shouldUseInlineApply();
   }
   function getBodyExcludeSelector() {
-    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector() + DROP_CAP_EXCLUDE;
+    return ':not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(button):not(button *):not([role="dialog"]):not([role="dialog"] *):not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + BODY_CODE_EXCLUDE + BODY_UI_SUBTREE_EXCLUDE + getPostHeaderExcludeSelector() + getCommentExcludeSelector() + getArticleDeckExcludeSelector() + DROP_CAP_EXCLUDE;
+  }
+
+  function getBodyTargetSelector(extraExclude) {
+    var exclude = getBodyExcludeSelector() + (extraExclude || '');
+    if (isChatGpt) {
+      var root = 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR;
+      return root + exclude + ', ' + root + ' *' + exclude;
+    }
+    return 'body ' + exclude;
+  }
+
+  function getBodyGeneralSelector() {
+    var target = getBodyTargetSelector();
+    return isChatGpt ? target : 'body, ' + target;
+  }
+
+  function getBodySemanticSelector(selector) {
+    return isChatGpt
+      ? 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR + ' ' + selector
+      : 'body ' + selector;
+  }
+
+  function isInOrContainsChatGptMessage(node) {
+    if (!isChatGpt) return true;
+    var element = closestElementForNode(node);
+    if (!element) return false;
+    try {
+      if (element.matches && element.matches(CHATGPT_MESSAGE_ROOT_SELECTOR)) return true;
+      if (element.closest && element.closest(CHATGPT_MESSAGE_ROOT_SELECTOR)) return true;
+      return !!(element.querySelector && element.querySelector(CHATGPT_MESSAGE_ROOT_SELECTOR));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isInsideChatGptMessage(node) {
+    if (!isChatGpt) return true;
+    var element = closestElementForNode(node);
+    try {
+      return !!(element && element.closest && element.closest(CHATGPT_MESSAGE_ROOT_SELECTOR));
+    } catch (_) {
+      return false;
+    }
   }
 
   function getAffoSelector(ft) {
     if (ft === 'body') {
-      return 'body ' + getBodyExcludeSelector();
+      return getBodyTargetSelector();
     }
     return isXCom ? getHybridSelector(ft) : '[data-affo-font-type="' + ft + '"]' + getArticleDeckExcludeSelector();
   }
 
   function getBodyFontSizeScaleExtraSelector() {
     var guard = ':not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector() + DROP_CAP_EXCLUDE;
+    if (isChatGpt) {
+      return 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR + ' :is(h1, h2, h3, h4, h5, h6)' + guard;
+    }
     var nonChrome = ':not(nav *):not(footer *):not(aside *):not(button *):not(form *):not([role="navigation"] *):not([role="contentinfo"] *):not([role="complementary"] *):not([role="dialog"] *):not(.site-header *):not(.sidebar *):not(.toc *):not([class*="widget"]):not([class*="widget"] *)';
     var contentScope = ':is(main, article, [role="main"], .post, .post-content, .entry-content, .article, .story, .content, .markup, .available-content)';
     var headings = 'body ' + contentScope + ' :is(h1, h2, h3, h4, h5, h6)' + guard + nonChrome;
@@ -1262,14 +1330,52 @@
     return 'data-affo-' + suffix + '-font-size-' + fontType;
   }
 
-  function getFontSizeScaleTargets(fontType) {
+  function getFontSizeScaleSelector(fontType) {
     if (fontType === 'body') {
-      return document.querySelectorAll('body, ' + getAffoSelector('body') + ', ' + getBodyFontSizeScaleExtraSelector());
+      var bodySelectors = [getAffoSelector('body'), getBodyFontSizeScaleExtraSelector()];
+      return bodySelectors.filter(function (selector) { return !!selector; }).join(', ');
     }
     if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-      return document.querySelectorAll(isXCom ? getAffoSelector(fontType) : getThirdManInTextSelector(fontType));
+      return isXCom ? getAffoSelector(fontType) : getThirdManInTextSelector(fontType);
     }
-    return [];
+    return '';
+  }
+
+  function isBodyFontSizeScaleTarget(element) {
+    if (!element || element.nodeType !== 1) return false;
+    var tagName = String(element.tagName || '').toUpperCase();
+    if (/^H[1-6]$/.test(tagName)) return true;
+    if (elementOwnsTmiText(element)) return true;
+    if (isInsideArticleDeck(element)) return true;
+    if (isXCom && element.matches && element.matches('[data-testid="User-Name"]')) return true;
+    return false;
+  }
+
+  function filterFontSizeScaleTargets(fontType, targets) {
+    var list = Array.prototype.slice.call(targets || []);
+    return fontType === 'body' ? list.filter(isBodyFontSizeScaleTarget) : list;
+  }
+
+  function getFontSizeScaleTargets(fontType) {
+    var selector = getFontSizeScaleSelector(fontType);
+    return selector ? filterFontSizeScaleTargets(fontType, document.querySelectorAll(selector)) : [];
+  }
+
+  function getFontSizeScaleTargetsInRoots(fontType, roots) {
+    var selector = getFontSizeScaleSelector(fontType);
+    if (!selector || !roots || roots.length === 0) return [];
+
+    var targets = new Set();
+    roots.forEach(function (root) {
+      if (!root || root.nodeType !== 1) return;
+      try {
+        if (root.matches && root.matches(selector)) targets.add(root);
+        if (root.querySelectorAll) {
+          root.querySelectorAll(selector).forEach(function (element) { targets.add(element); });
+        }
+      } catch (_) { }
+    });
+    return filterFontSizeScaleTargets(fontType, Array.from(targets));
   }
 
   function restoreScaledFontSizeElement(el, fontType) {
@@ -1312,15 +1418,8 @@
     ['body', 'serif', 'sans', 'mono'].forEach(clearFontSizeScale);
   }
 
-  function applyFontSizeScale(fontConfig, fontType) {
-    if (!hasFontSizeScale(fontConfig)) {
-      clearFontSizeScale(fontType);
-      return;
-    }
-
+  function applyFontSizeScaleToTargets(fontConfig, fontType, targets) {
     var scale = Number(fontConfig.fontSizeScale);
-    fontSizeScaleConfigs[fontType] = fontConfig;
-
     var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
     var computedAttr = getFontSizeScaleAttr(fontType, 'original-computed');
     var inlineAttr = getFontSizeScaleAttr(fontType, 'original-inline');
@@ -1329,13 +1428,6 @@
     var count = 0;
 
     try {
-      var targets = Array.prototype.slice.call(getFontSizeScaleTargets(fontType));
-      targets.forEach(function (el) {
-        if (el && el.hasAttribute && el.hasAttribute(scaledAttr)) {
-          restoreScaledFontSizeElementStyle(el, fontType);
-        }
-      });
-
       targets.forEach(function (el) {
         if (!el || !el.style) return;
 
@@ -1344,6 +1436,15 @@
           var computed = window.getComputedStyle(el);
           originalSize = parseFloat(computed.getPropertyValue('font-size'));
           if (!isFinite(originalSize) || originalSize <= 0) return;
+
+          // A late-added inline descendant may already inherit the scaled px
+          // size of a text-owning ancestor. In that case no direct write is
+          // needed; scaling it again would compound the percentage.
+          var scaledAncestor = el.parentElement && el.parentElement.closest('[' + scaledAttr + ']');
+          if (scaledAncestor) {
+            var ancestorSize = parseFloat(window.getComputedStyle(scaledAncestor).getPropertyValue('font-size'));
+            if (isFinite(ancestorSize) && Math.abs(ancestorSize - originalSize) < 0.05) return;
+          }
 
           var originalInline = el.style.getPropertyValue('font-size');
           var originalPriority = el.style.getPropertyPriority('font-size');
@@ -1361,15 +1462,41 @@
         if (!isFinite(originalSize) || originalSize <= 0) return;
 
         var scaledSize = +(originalSize * scale / 100).toFixed(3);
-        el.style.setProperty('font-size', scaledSize + 'px', priority);
-        count++;
+        var scaledValue = scaledSize + 'px';
+        if (el.style.getPropertyValue('font-size') !== scaledValue ||
+          el.style.getPropertyPriority('font-size') !== priority) {
+          el.style.setProperty('font-size', scaledValue, priority);
+          count++;
+        }
       });
     } catch (e) {
       debugLog('[AFFO Content] Error applying font size scale for ' + fontType + ':', e);
     }
 
+    return count;
+  }
+
+  function applyFontSizeScale(fontConfig, fontType) {
+    if (!hasFontSizeScale(fontConfig)) {
+      clearFontSizeScale(fontType);
+      return;
+    }
+
+    fontSizeScaleConfigs[fontType] = fontConfig;
+    var targets = Array.prototype.slice.call(getFontSizeScaleTargets(fontType));
+    var count = applyFontSizeScaleToTargets(fontConfig, fontType, targets);
+
     refreshFontSizeScaleObserver();
-    elementLog('[AFFO Content] Applied font size scale ' + scale + '% to ' + count + ' ' + fontType + ' elements');
+    elementLog('[AFFO Content] Applied font size scale ' + Number(fontConfig.fontSizeScale) + '% to ' + count + ' changed ' + fontType + ' elements');
+  }
+
+  function applyFontSizeScaleInRoots(fontConfig, fontType, roots) {
+    if (!hasFontSizeScale(fontConfig)) return;
+    var targets = getFontSizeScaleTargetsInRoots(fontType, roots);
+    var count = applyFontSizeScaleToTargets(fontConfig, fontType, targets);
+    if (count > 0) {
+      elementLog('[AFFO Content] Incrementally scaled ' + count + ' new ' + fontType + ' elements');
+    }
   }
 
   function clearFontSizeScalesNotInEntry(entry) {
@@ -1520,7 +1647,6 @@
           applied++;
         });
       });
-      applyFontSizeScale(cfg.fontConfig || {}, ft);
       if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
     });
     headingResetRoots.forEach(resetHeadingTypographyInMarkedSubtree);
@@ -1554,14 +1680,16 @@
       markTypesInRoots(topRoots, tmiCssTypes);
     }
 
-    // Font-size scale consumer: mark new TMI subtrees, then reapply scales
-    // (applyFontSizeScale skips already-scaled elements, so only the freshly
-    // marked nodes incur work).
+    // Font-size scale consumer: mark new TMI subtrees, then scale only targets
+    // inside the newly added roots. Full-document passes are reserved for the
+    // initial apply, configuration changes, navigation, and focus recovery.
     var scaleTypes = getActiveFontSizeScaleTypes();
     if (scaleTypes.length > 0) {
       var tmiScale = scaleTypes.filter(function (ft) { return ft !== 'body'; });
       if (tmiScale.length > 0 && !usesHybridInlineTmiSelectors()) markTypesInRoots(topRoots, tmiScale);
-      reapplyActiveFontSizeScales(scaleTypes);
+      scaleTypes.forEach(function (fontType) {
+        applyFontSizeScaleInRoots(fontSizeScaleConfigs[fontType], fontType, topRoots);
+      });
     }
   }
 
@@ -1858,15 +1986,18 @@
     // Apply styles to elements based on font type
     try {
       if (fontType === 'body') {
-        // Apply to body and most descendants (excluding headers for Third Man In mode)
-        var bodyElements = document.querySelectorAll('body, ' + getAffoSelector('body'));
+        // Apply to the body scope and eligible descendants. ChatGPT uses its
+        // stable message roots so application chrome and the composer stay out.
+        var bodyElements = document.querySelectorAll(getBodyGeneralSelector());
         bodyElements.forEach(function (el) {
           applyAffoProtection(el, cssPropsObject);
           applyAffoTextColor(el, fontConfig.fontColor);
         });
         // Override bold elements to preserve visual boldness in the custom font
         if (inlineEffectiveWeight !== null) {
-          var boldElements = document.querySelectorAll('body strong, body b');
+          var boldElements = document.querySelectorAll(
+            getBodySemanticSelector('strong') + ', ' + getBodySemanticSelector('b')
+          );
           boldElements.forEach(function (el) {
             setImportantStyleIfChanged(el, 'font-weight', '700');
             if (inlineBoldAxes.length > 0) {
@@ -1932,7 +2063,7 @@
       samples.push(el);
     }
     try {
-      if (fontType === 'body') addSample(document.body);
+      if (fontType === 'body' && !isChatGpt) addSample(document.body);
       addSample(document.querySelector(selector));
       if (document.elementFromPoint) {
         var viewportElement = document.elementFromPoint(
@@ -2054,7 +2185,8 @@
   function isMeaningfulInlineAddedNode(node) {
     if (!node || node.nodeType !== 1) return false;
     if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
-    if (isInsideInteractiveSubtree(node)) return false;
+    if (isInsideTmiPrunedSubtree(node)) return false;
+    if (!isInOrContainsChatGptMessage(node)) return false;
 
     // Ignore pure SVG tree additions (icon swaps, etc.) to avoid noisy re-applies.
     if (node.namespaceURI === 'http://www.w3.org/2000/svg') return false;
@@ -2281,11 +2413,11 @@
     var effectiveItal = getEffectiveItalic(fontConfig);
 
     if (fontType === 'body') {
-      var bodyExclude = getBodyExcludeSelector();
-      var bodySelector = 'body ' + bodyExclude + ':not([class*="__whatfont_"])';
-      var generalSelector = 'body, ' + bodySelector;
-      var colorSelector = bodySelector + ':not(a):not(a *):not(:has(a))';
-      var weightSelector = 'body, body ' + bodyExclude + ':not(strong):not(b):not([class*="__whatfont_"])';
+      var bodySelector = getBodyTargetSelector(':not([class*="__whatfont_"])');
+      var generalSelector = isChatGpt ? bodySelector : 'body, ' + bodySelector;
+      var colorSelector = getBodyTargetSelector(':not([class*="__whatfont_"]):not(a):not(a *):not(:has(a))');
+      var weightTarget = getBodyTargetSelector(':not(strong):not(b):not([class*="__whatfont_"])');
+      var weightSelector = isChatGpt ? weightTarget : 'body, ' + weightTarget;
 
       var cssProps = [];
       if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
@@ -2323,7 +2455,10 @@
         if (boldAxes.length > 0) {
           boldRule += '; font-variation-settings: ' + boldAxes.join(', ') + imp;
         }
-        lines.push(joinDropCapExcludedSelectors(['body strong', 'body b']) + ' { ' + boldRule + '; }');
+        lines.push(joinDropCapExcludedSelectors([
+          getBodySemanticSelector('strong'),
+          getBodySemanticSelector('b')
+        ]) + ' { ' + boldRule + '; }');
       }
     } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
       var generic = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
@@ -3936,8 +4071,8 @@
     roots.forEach(function (root) {
       if (!root || root.nodeType !== 1) return;
       try {
-        if (isInteractiveSubtreeRoot(root) || isInsideInteractiveSubtree(root)) return;
-        if (isInsideDropCap(root)) return;
+        if (isTmiPrunedSubtreeRoot(root) || isInsideTmiPrunedSubtree(root)) return;
+        if (!isInOrContainsChatGptMessage(root)) return;
       } catch (_) { return; }
 
       if (elementMayOwnTmiText(root)) markOne(root);
@@ -3947,8 +4082,7 @@
         NodeFilter.SHOW_ELEMENT,
         {
           acceptNode: function (node) {
-            if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
-            if (isDropCapElement(node)) return NodeFilter.FILTER_REJECT;
+            if (isTmiPrunedSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
             return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
           }
         }
@@ -3967,13 +4101,15 @@
     var className = element.className || '';
     var style = element.style.fontFamily || '';
 
+    if (!isInsideChatGptMessage(element)) return null;
+
     // Fixed-position subtrees are page UI rather than reading content. This
     // catches overlays whose markup lacks role="dialog" / aria-modal, including
     // fixed ancestors with several static-position descendants.
     if (isInsideFixedPositionUi(element, computedStyle)) return null;
 
     // Exclude headings, UI elements, and form controls
-    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
+    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'nav', 'header', 'footer', 'aside', 'form', 'figcaption', 'button', 'input', 'select', 'textarea', 'label'].indexOf(tagName) !== -1) return null;
 
     // Exclude descendants of headings and non-body containers: figcaptions,
     // buttons, guards, post headers, top-bar chrome, and optionally Substack
@@ -3986,7 +4122,7 @@
     // guards before any element inside one reaches this function, so a .closest()
     // check for them would be dead weight on every element.
     if (element.closest) {
-      var closestSelector = 'h1, h2, h3, h4, h5, h6, figcaption, button, .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+      var closestSelector = 'h1, h2, h3, h4, h5, h6, figcaption, nav, footer, aside, form, button, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
@@ -4128,9 +4264,16 @@
   var lastWalkElementCount = 0;
   // Threshold above which we skip timed rechecks (only keep document.fonts.ready)
   var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;
-  // Elements to process per chunk before yielding to main thread
-  // Increased from 500 to 4000 for faster completion on heavy pages like Forbes
-  var WALKER_CHUNK_SIZE = 4000;
+  // Yield after a short wall-clock budget rather than allowing thousands of
+  // synchronous getComputedStyle calls in one task on long, dynamic pages.
+  var WALKER_YIELD_BUDGET_MS = 8;
+
+  function getElementWalkerRoot() {
+    if (isChatGpt) {
+      return document.querySelector('main') || document.body;
+    }
+    return document.body;
+  }
 
   // Schedule delayed rechecks after initial walker completes
   // Catches lazy-loaded content and elements that appear after fonts finish loading
@@ -4147,15 +4290,17 @@
       runElementWalkerAll(toSchedule);
     }
 
-    // On large pages, skip timed rechecks — only recheck after fonts finish loading
-    if (lastWalkElementCount < LARGE_PAGE_ELEMENT_THRESHOLD) {
+    // ChatGPT's scoped mutation observer covers streamed/lazy turns. Other
+    // small pages retain one delayed safety pass instead of two full rescans.
+    if (!isChatGpt && lastWalkElementCount < LARGE_PAGE_ELEMENT_THRESHOLD) {
       setTimeout(recheck, 700);
-      setTimeout(recheck, 1600);
     } else {
-      debugLog('[AFFO Content] Large page (' + lastWalkElementCount + ' elements), skipping timed rechecks');
+      debugLog('[AFFO Content] Skipping timed walker rechecks for ' + currentOrigin + ' (' + lastWalkElementCount + ' elements)');
     }
 
-    if (document.fonts && document.fonts.ready) {
+    // An already-resolved FontFaceSet.ready promise would immediately trigger a
+    // redundant second full walk. Recheck only while page fonts are still loading.
+    if (document.fonts && document.fonts.status === 'loading' && document.fonts.ready) {
       document.fonts.ready.then(recheck).catch(function () { });
     }
   }
@@ -4201,12 +4346,11 @@
         // here; reading full subtrees in TreeWalker.acceptNode is expensive on
         // large pages because it happens for every element.
         var walker = document.createTreeWalker(
-          document.body,
+          getElementWalkerRoot(),
           NodeFilter.SHOW_ELEMENT,
           {
             acceptNode: function (node) {
-              if (isInteractiveSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
-              if (isDropCapElement(node)) return NodeFilter.FILTER_REJECT;
+              if (isTmiPrunedSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
               return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
           }
@@ -4217,24 +4361,27 @@
         typesToWalk.forEach(function (ft) { markedCounts[ft] = 0; });
 
         function processChunk() {
-          var chunkCount = 0;
+          var chunkStartedAt = getAffoNow();
           var element;
 
-          while ((element = walker.nextNode()) && chunkCount < WALKER_CHUNK_SIZE) {
+          while ((element = walker.nextNode())) {
             // Single getComputedStyle call per element — used for both visibility check and font type detection
             var cs;
+            var shouldMark = true;
             if (element.tagName !== 'BODY') {
               try {
                 cs = window.getComputedStyle(element);
-                if (cs.display === 'none' || cs.visibility === 'hidden') continue;
-              } catch (_) { continue; }
+                if (cs.display === 'none' || cs.visibility === 'hidden') shouldMark = false;
+              } catch (_) { shouldMark = false; }
             } else {
-              try { cs = window.getComputedStyle(element); } catch (_) { continue; }
+              try { cs = window.getComputedStyle(element); } catch (_) { shouldMark = false; }
             }
 
-            totalElements++;
-            chunkCount++;
-            markElementForTypes(element, cs, typeSet, markedCounts);
+            if (shouldMark) {
+              totalElements++;
+              markElementForTypes(element, cs, typeSet, markedCounts);
+            }
+            if (getAffoNow() - chunkStartedAt >= WALKER_YIELD_BUDGET_MS) break;
           }
 
           if (element) {

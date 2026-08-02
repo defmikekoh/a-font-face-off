@@ -2581,10 +2581,10 @@ async function applyFontToPage(position, config) {
             let css;
             if (position === 'body') {
                 // Use Body Contact CSS generation
-                css = generateBodyContactCSS(payload, aggressive, ignoreComments);
+                css = generateBodyContactCSS(payload, aggressive, ignoreComments, origin);
             } else {
                 // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload, aggressive, ignoreComments);
+                css = generateBodyCSS(payload, aggressive, ignoreComments, origin);
             }
 
             if (css) {

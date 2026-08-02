@@ -19,10 +19,16 @@ const FIXTURE_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
+  <nav id="site-nav">
+    <span id="nav-text" class="sans-text">Navigation text should retain the website typography.</span>
+  </nav>
   <main id="content">
     <p id="s1" class="serif-text">Initial serif paragraph with more than enough text to qualify as body content.</p>
     <p id="n1" class="sans-text">Initial sans paragraph with more than enough text to qualify as body content.</p>
   </main>
+  <form id="composer">
+    <p id="composer-text" class="sans-text">Composer text should retain the website typography.</p>
+  </form>
   <section id="fixed-overlay" class="site-overlay">
     <div>
       <p id="fixed-overlay-text" class="sans-text">Fixed overlay text should retain the website typography and size.</p>
@@ -102,6 +108,10 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
         assert.equal(await getMarker('n1'), 'sans', 'initial sans paragraph should be marked sans');
         assert.equal(await getMarker('fixed-overlay-text'), null,
             'text nested below a fixed-position UI ancestor should not be marked');
+        assert.equal(await getMarker('nav-text'), null,
+            'text nested below a navigation landmark should not be marked');
+        assert.equal(await getMarker('composer-text'), null,
+            'text nested below a form should not be marked');
 
         const overlayTypography = await driver.executeScript(`
             const cs = getComputedStyle(document.getElementById('fixed-overlay-text'));
@@ -144,6 +154,12 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             fixedText.textContent = 'Dynamically added fixed overlay text should not be marked.';
             fixedOverlay.appendChild(fixedText);
             document.body.appendChild(fixedOverlay);
+
+            const dynamicNav = document.createElement('span');
+            dynamicNav.id = 'dyn-nav-text';
+            dynamicNav.className = 'sans-text';
+            dynamicNav.textContent = 'Dynamically added navigation text should not be marked.';
+            document.getElementById('site-nav').appendChild(dynamicNav);
         `);
 
         // The shared observer debounces ~250ms before scoped-marking the added
@@ -155,5 +171,70 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
         assert.equal(await getMarker('dyn-sans'), 'sans', 'nested dynamic sans paragraph should be marked sans');
         assert.equal(await getMarker('dyn-fixed-text'), null,
             'dynamic text below a fixed-position UI ancestor should not be marked');
+        assert.equal(await getMarker('dyn-nav-text'), null,
+            'dynamic text below a navigation landmark should not be marked');
+    });
+
+    it('scales only newly added roots during dynamic body updates', async () => {
+        await writeExtensionStorage({
+            affoApplyMap: {
+                [ORIGIN]: {
+                    body: { fontSizeScale: 110, variableAxes: {} }
+                }
+            }
+        });
+
+        await driver.get(baseUrl);
+        await driver.wait(async () => driver.executeScript(
+            `return document.getElementById('s1')?.hasAttribute('data-affo-scaled-font-size-body') || false;`
+        ), 5000, 'initial body scale should be applied');
+
+        const initialTypography = await driver.executeScript(`
+            const initial = document.getElementById('s1');
+            const nav = document.getElementById('nav-text');
+            const composer = document.getElementById('composer-text');
+            return {
+                initialSize: getComputedStyle(initial).fontSize,
+                navScaled: nav.hasAttribute('data-affo-scaled-font-size-body'),
+                composerScaled: composer.hasAttribute('data-affo-scaled-font-size-body')
+            };
+        `);
+        assert.ok(Math.abs(parseFloat(initialTypography.initialSize) - 17.6) < 0.05,
+            `initial body size should be approximately 17.6px, got ${initialTypography.initialSize}`);
+        assert.equal(initialTypography.navScaled, false, 'body scaling should exclude navigation subtrees');
+        assert.equal(initialTypography.composerScaled, false, 'body scaling should exclude form subtrees');
+
+        await driver.executeScript(`
+            window.__affoExistingScaleStyleMutations = 0;
+            window.__affoExistingScaleObserver = new MutationObserver((records) => {
+                window.__affoExistingScaleStyleMutations += records.length;
+            });
+            window.__affoExistingScaleObserver.observe(document.getElementById('s1'), {
+                attributes: true,
+                attributeFilter: ['style']
+            });
+
+            const dynamic = document.createElement('p');
+            dynamic.id = 'dyn-scale';
+            dynamic.className = 'sans-text';
+            dynamic.textContent = 'Dynamically added text should be scaled without rewriting existing text.';
+            document.getElementById('content').appendChild(dynamic);
+        `);
+
+        await driver.wait(async () => driver.executeScript(
+            `return document.getElementById('dyn-scale')?.hasAttribute('data-affo-scaled-font-size-body') || false;`
+        ), 5000, 'dynamic body text should be scaled by the shared observer');
+
+        const dynamicTypography = await driver.executeScript(`
+            window.__affoExistingScaleObserver.disconnect();
+            return {
+                dynamicSize: getComputedStyle(document.getElementById('dyn-scale')).fontSize,
+                existingStyleMutations: window.__affoExistingScaleStyleMutations
+            };
+        `);
+        assert.ok(Math.abs(parseFloat(dynamicTypography.dynamicSize) - 17.6) < 0.05,
+            `dynamic body size should be approximately 17.6px, got ${dynamicTypography.dynamicSize}`);
+        assert.equal(dynamicTypography.existingStyleMutations, 0,
+            'dynamic scaling should not rewrite existing scaled elements');
     });
 });
