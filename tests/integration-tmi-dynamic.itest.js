@@ -36,6 +36,16 @@ const FIXTURE_HTML = `<!DOCTYPE html>
       <span id="dedicated-dropcap-glyph" class="serif-text">A</span>
     </div>
   </main>
+  <article id="comment-article">
+    <footer id="entry-footer">
+      <section id="comments">
+        <p id="comment-text" class="serif-text">Article footer comment prose should receive the configured reading font.</p>
+      </section>
+    </footer>
+  </article>
+  <footer id="site-footer">
+    <p id="site-footer-text" class="sans-text">Page footer chrome should retain the website typography.</p>
+  </footer>
   <form id="composer">
     <p id="composer-text" class="sans-text">Composer text should retain the website typography.</p>
   </form>
@@ -120,6 +130,10 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             'first paragraph in a structural drop-cap story container should be marked serif');
         assert.equal(await getMarker('story-dropcap-second'), 'serif',
             'later paragraphs in a structural drop-cap story container should be marked serif');
+        assert.equal(await getMarker('comment-text'), 'serif',
+            'comment prose nested in an article footer should be marked serif');
+        assert.equal(await getMarker('site-footer-text'), null,
+            'text nested in a page footer should not be marked');
         assert.equal(await getMarker('single-dropcap-text'), null,
             'a single-paragraph drop-cap wrapper should remain protected');
         assert.equal(await getMarker('dedicated-dropcap-glyph'), null,
@@ -184,6 +198,18 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             dynamicNav.className = 'sans-text';
             dynamicNav.textContent = 'Dynamically added navigation text should not be marked.';
             document.getElementById('site-nav').appendChild(dynamicNav);
+
+            const dynamicComment = document.createElement('p');
+            dynamicComment.id = 'dyn-comment-text';
+            dynamicComment.className = 'serif-text';
+            dynamicComment.textContent = 'Dynamically added article footer comment prose should be marked.';
+            document.getElementById('comments').appendChild(dynamicComment);
+
+            const dynamicSiteFooter = document.createElement('p');
+            dynamicSiteFooter.id = 'dyn-site-footer-text';
+            dynamicSiteFooter.className = 'sans-text';
+            dynamicSiteFooter.textContent = 'Dynamically added page footer chrome should not be marked.';
+            document.getElementById('site-footer').appendChild(dynamicSiteFooter);
         `);
 
         // The shared observer debounces ~250ms before scoped-marking the added
@@ -197,6 +223,10 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             'dynamic text below a fixed-position UI ancestor should not be marked');
         assert.equal(await getMarker('dyn-nav-text'), null,
             'dynamic text below a navigation landmark should not be marked');
+        assert.equal(await getMarker('dyn-comment-text'), 'serif',
+            'dynamic comment prose nested in an article footer should be marked serif');
+        assert.equal(await getMarker('dyn-site-footer-text'), null,
+            'dynamic text below a page footer should not be marked');
     });
 
     it('scales only newly added roots during dynamic body updates', async () => {

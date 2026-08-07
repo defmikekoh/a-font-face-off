@@ -700,11 +700,20 @@
     }
   }
 
-  var TMI_PRUNED_SUBTREE_SELECTOR = 'nav, footer, aside, form, button, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+  // Article footers can contain reading content such as comment threads.
+  // Continue pruning page-level footers, while letting the walker descend
+  // through an article footer to classify its eligible prose descendants.
+  var TMI_PRUNED_SUBTREE_SELECTOR = 'nav, footer:not(article footer), aside, form, button, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+  var TMI_CHATGPT_PRUNED_SUBTREE_SELECTOR = TMI_PRUNED_SUBTREE_SELECTOR.replace('footer:not(article footer)', 'footer');
+
+  function getTmiPrunedSubtreeSelector() {
+    // Preserve ChatGPT's original broad footer pruning in its hot walker path.
+    return isChatGpt ? TMI_CHATGPT_PRUNED_SUBTREE_SELECTOR : TMI_PRUNED_SUBTREE_SELECTOR;
+  }
 
   function isTmiPrunedSubtreeRoot(node) {
     return isInteractiveSubtreeRoot(node) ||
-      elementMatchesSelector(node, TMI_PRUNED_SUBTREE_SELECTOR) ||
+      elementMatchesSelector(node, getTmiPrunedSubtreeSelector()) ||
       isDropCapElement(node);
   }
 
@@ -712,7 +721,7 @@
     var element = closestElementForNode(node);
     if (!element || !element.closest) return false;
     try {
-      return !!element.closest(INTERACTIVE_SUBTREE_ROOT_SELECTOR + ', ' + TMI_PRUNED_SUBTREE_SELECTOR + ', ' + PROTECTED_DROP_CAP_SELECTOR);
+      return !!element.closest(INTERACTIVE_SUBTREE_ROOT_SELECTOR + ', ' + getTmiPrunedSubtreeSelector() + ', ' + PROTECTED_DROP_CAP_SELECTOR);
     } catch (_) {
       return false;
     }
@@ -4128,7 +4137,7 @@
     // guards before any element inside one reaches this function, so a .closest()
     // check for them would be dead weight on every element.
     if (element.closest) {
-      var closestSelector = 'h1, h2, h3, h4, h5, h6, figcaption, nav, footer, aside, form, button, [role="navigation"], [role="banner"], [role="contentinfo"], [role="complementary"], .no-affo, [data-affo-guard], .post-header, .main-menu, [class*="topBar"]';
+      var closestSelector = 'h1, h2, h3, h4, h5, h6, figcaption, ' + getTmiPrunedSubtreeSelector();
       if (shouldIgnoreComments()) closestSelector += ', .comments-page';
       if (element.closest(closestSelector)) return null;
     }
