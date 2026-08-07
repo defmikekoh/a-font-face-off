@@ -163,6 +163,44 @@ function loadBackground(seed = {}, options = {}) {
 }
 
 describe('background WhatFont Face-off draft', () => {
+    it('follows stylesheet imports to find a reusable page font', async () => {
+        const fetchedUrls = [];
+        const { context, storage } = loadBackground({}, {
+            fetch: async url => {
+                fetchedUrls.push(url);
+                const css = url === 'https://example.com/theme.css'
+                    ? '@import url("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text"); .article { font-family: "Libre Caslon Text"; }'
+                    : '@font-face { font-family: "Libre Caslon Text"; src: local("Arial"); font-weight: 400; }';
+                return {
+                    ok: true,
+                    status: 200,
+                    text: async () => css,
+                    arrayBuffer: async () => new ArrayBuffer(0)
+                };
+            }
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoPrepareFaceoffPageFont',
+            fontName: 'Libre Caslon Text',
+            fontWeight: 400,
+            fontStyle: 'normal',
+            variableAxes: {},
+            fontFaceRules: [],
+            stylesheetUrls: ['https://example.com/theme.css'],
+            pageUrl: 'https://example.com/article'
+        }, {
+            tab: { id: 123, url: 'https://example.com/article' }
+        });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(fetchedUrls, [
+            'https://example.com/theme.css',
+            'https://fonts.googleapis.com/css2?family=Libre+Caslon+Text'
+        ]);
+        assert.match(storage.data.affoFaceoffPageFontDraft.config.fontFaceRule, /Libre Caslon Text/);
+    });
+
     it('sets the top font size and line height for the one-shot Face-off', async () => {
         const { context, storage } = loadBackground();
 

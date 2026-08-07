@@ -2485,10 +2485,16 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
   });
 
   if (rules.length === 0) {
-    const stylesheetUrls = AFFOPageFontUtils.rankStylesheetUrls(msg.stylesheetUrls, fontName)
+    const stylesheetQueue = AFFOPageFontUtils.rankStylesheetUrls(msg.stylesheetUrls, fontName)
       .slice(0, PAGE_FONT_STYLESHEET_FETCH_LIMIT);
+    const queuedStylesheets = new Set(stylesheetQueue);
+    let stylesheetIndex = 0;
+    let stylesheetFetchCount = 0;
 
-    for (const url of stylesheetUrls) {
+    while (stylesheetIndex < stylesheetQueue.length &&
+        stylesheetFetchCount < PAGE_FONT_STYLESHEET_FETCH_LIMIT) {
+      const url = stylesheetQueue[stylesheetIndex++];
+      stylesheetFetchCount += 1;
       try {
         const response = await AFFOBackgroundFontRuntime.handleFetchMessage({ url, binary: false });
         if (!response || !response.ok || typeof response.data !== 'string') continue;
@@ -2497,6 +2503,11 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
           AFFOPageFontUtils.extractMatchingFontFaceRules(response.data, fontName, url)
         );
         if (rules.length > 0) break;
+
+        const importedUrls = AFFOPageFontUtils.extractStylesheetImportUrls(response.data, url)
+          .filter(importedUrl => !queuedStylesheets.has(importedUrl));
+        importedUrls.forEach(importedUrl => queuedStylesheets.add(importedUrl));
+        stylesheetQueue.splice(stylesheetIndex, 0, ...importedUrls);
       } catch (e) {
         affoDebugWarn('[AFFO Background] Page font stylesheet fetch failed:', url, e);
       }

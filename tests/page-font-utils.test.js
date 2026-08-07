@@ -8,6 +8,7 @@ const {
     cleanFontFamilyName,
     extractMatchingFontFaceRules,
     extractRemoteFontUrls,
+    extractStylesheetImportUrls,
     normalizeFontFamilyName,
     rankStylesheetUrls,
     replaceFontFaceUrl,
@@ -109,6 +110,19 @@ describe('page-font-utils', () => {
         assert.equal(ranked[0], 'https://cdn.example.com/fonts/yahooSans.css');
     });
 
+    it('extracts and resolves imported stylesheet URLs', () => {
+        const imports = extractStylesheetImportUrls(`
+            @import url("fonts/type.css") screen;
+            @import 'https://fonts.googleapis.com/css2?family=Libre+Caslon+Text';
+            @import url(fonts/type.css);
+        `, 'https://example.com/css/theme.css');
+
+        assert.deepEqual(imports, [
+            'https://example.com/css/fonts/type.css',
+            'https://fonts.googleapis.com/css2?family=Libre+Caslon+Text'
+        ]);
+    });
+
     it('selects the rule matching detected style and weight', () => {
         const rules = [
             '@font-face { font-family: Test; src: url(regular.woff2); font-weight: 400; }',
@@ -118,6 +132,15 @@ describe('page-font-utils', () => {
 
         assert.match(selectBestFontFaceRule(rules, 700, 'normal'), /variable\.woff2/);
         assert.match(selectBestFontFaceRule(rules, 400, 'italic'), /italic\.woff2/);
+    });
+
+    it('prefers the matching Basic Latin subset', () => {
+        const rules = [
+            '@font-face { font-family: Test; src: url(latin-ext.woff2); font-weight: 400; unicode-range: U+0100-02FF; }',
+            '@font-face { font-family: Test; src: url(latin.woff2); font-weight: 400; unicode-range: U+0000-00FF; }',
+        ];
+
+        assert.match(selectBestFontFaceRule(rules, 400, 'normal'), /url\(latin\.woff2\)/);
     });
 
     it('derives only variable axes proven by font-face descriptor ranges', () => {

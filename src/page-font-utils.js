@@ -56,6 +56,28 @@
     });
   }
 
+  function extractStylesheetImportUrls(cssText, baseUrl) {
+    var urls = [];
+    var seen = {};
+    var importPattern = /@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)|"([^"]*)"|'([^']*)')/gi;
+    String(cssText || '').replace(
+      importPattern,
+      function(match, doubleQuotedUrl, singleQuotedUrl, unquotedUrl, doubleQuoted, singleQuoted) {
+        var raw = String(doubleQuotedUrl || singleQuotedUrl || unquotedUrl || doubleQuoted || singleQuoted || '').trim();
+        if (!raw) return match;
+        try {
+          var url = new URL(raw, baseUrl).href;
+          if (/^https?:\/\//i.test(url) && !seen[url]) {
+            seen[url] = true;
+            urls.push(url);
+          }
+        } catch (_) { }
+        return match;
+      }
+    );
+    return urls;
+  }
+
   function getFontWeightRange(block) {
     var descriptor = String(fontFaceUtils.getDescriptorValue(block, 'font-weight') || '400').trim().toLowerCase();
     if (descriptor === 'normal') return [400, 400];
@@ -376,12 +398,19 @@
     return candidates.map(function(rule, index) {
       var style = String(fontFaceUtils.getDescriptorValue(rule, 'font-style') || 'normal').trim().toLowerCase();
       var range = getFontWeightRange(rule);
+      var unicodeRange = fontFaceUtils.getDescriptorValue(rule, 'unicode-range');
+      var unicodeRanges = fontFaceUtils.parseUnicodeRanges(unicodeRange);
+      var coversBasicLatin = !unicodeRange || unicodeRanges.some(function(candidateRange) {
+        return candidateRange[0] <= 0x007e && candidateRange[1] >= 0x0020;
+      });
       var distance = targetWeight < range[0]
         ? range[0] - targetWeight
         : targetWeight > range[1] ? targetWeight - range[1] : 0;
       return {
         rule: rule,
-        score: (style === targetStyle ? 10000 : 0) + (distance === 0 ? 1000 : 0) - distance,
+        score: (style === targetStyle ? 10000 : 0) +
+          (distance === 0 ? 1000 : 0) +
+          (coversBasicLatin ? 100 : 0) - distance,
         index: index
       };
     }).sort(function(a, b) {
@@ -448,6 +477,7 @@
     extractFontFaceBlocks: extractFontFaceBlocks,
     extractMatchingFontFaceRules: extractMatchingFontFaceRules,
     extractRemoteFontUrls: extractRemoteFontUrls,
+    extractStylesheetImportUrls: extractStylesheetImportUrls,
     normalizeFontFamilyName: normalizeFontFamilyName,
     rankStylesheetUrls: rankStylesheetUrls,
     mergeAxisDefinitions: mergeAxisDefinitions,
