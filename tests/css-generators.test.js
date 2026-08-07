@@ -339,8 +339,11 @@ describe('css-generators drop cap preservation', () => {
     };
 
     function assertDropCapExclusion(css) {
-        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\)\)/);
-        assert.match(css, /:not\(:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\) \*\)/);
+        const layoutContainerException = ':not(:is([data-drop-cap], [data-dropcap]):has(> :is(p, li, blockquote) ~ :is(p, li, blockquote)))';
+
+        assert.ok(css.includes(':not(:is(p, li, blockquote))'));
+        assert.ok(css.includes(layoutContainerException));
+        assert.ok(css.includes(`${layoutContainerException} *)`));
         assert.match(css, /\[style\*="initial-letter" i\]/);
         assert.match(css, /\[class~="dropcap" i\]/);
         assert.doesNotMatch(css, /\[class\*="dropcap" i\]/);
@@ -365,7 +368,8 @@ describe('css-generators drop cap preservation', () => {
         const nonBoldRule = css.split('\n').find(line => line.startsWith('[data-affo-font-type="serif"]:not([data-affo-was-bold="true"])'));
 
         assert.ok(nonBoldRule);
-        assert.match(nonBoldRule, /:is\(\[style\*="var\(--drop-cap" i\][^)]*\):not\(:is\(p, li, blockquote\)\)/);
+        assert.ok(nonBoldRule.includes(':not(:is(p, li, blockquote))'));
+        assert.ok(nonBoldRule.includes(':not(:is([data-drop-cap], [data-dropcap]):has(> :is(p, li, blockquote) ~ :is(p, li, blockquote)))'));
     });
 });
 

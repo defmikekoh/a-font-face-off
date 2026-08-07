@@ -463,7 +463,13 @@
     '[data-testid*="dropcap" i]'
   ].join(', ');
   var DROP_CAP_TEXT_HOST_SELECTOR = ':is(p, li, blockquote)';
-  var PROTECTED_DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + '):not(' + DROP_CAP_TEXT_HOST_SELECTOR + ')';
+  // Some publishers put data-dropcap on the entire story-body wrapper rather
+  // than on the decorative initial itself. Two direct prose siblings are a
+  // strong signal that the matched node is a content container, while a
+  // dedicated drop-cap wrapper (including one around a single paragraph)
+  // stays protected.
+  var DROP_CAP_LAYOUT_CONTAINER_SELECTOR = ':is([data-drop-cap], [data-dropcap]):has(> :is(p, li, blockquote) ~ :is(p, li, blockquote))';
+  var PROTECTED_DROP_CAP_SELECTOR = ':is(' + DROP_CAP_MATCH_SELECTOR + '):not(' + DROP_CAP_TEXT_HOST_SELECTOR + '):not(' + DROP_CAP_LAYOUT_CONTAINER_SELECTOR + ')';
   var DROP_CAP_EXCLUDE = ':not(' + PROTECTED_DROP_CAP_SELECTOR + '):not(' + PROTECTED_DROP_CAP_SELECTOR + ' *)';
   var HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
   var HEADING_TREE_EXCLUDE = ':not(' + HEADING_SELECTOR + '):not(' + HEADING_SELECTOR + ' *)';

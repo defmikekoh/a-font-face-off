@@ -25,6 +25,16 @@ const FIXTURE_HTML = `<!DOCTYPE html>
   <main id="content">
     <p id="s1" class="serif-text">Initial serif paragraph with more than enough text to qualify as body content.</p>
     <p id="n1" class="sans-text">Initial sans paragraph with more than enough text to qualify as body content.</p>
+    <div id="story-dropcap-container" data-dropcap>
+      <p id="story-dropcap-first" class="serif-text" data-has-dropcap>First article paragraph with a site-styled drop cap and enough text to qualify.</p>
+      <p id="story-dropcap-second" class="serif-text">Second article paragraph proves this is a story container rather than a drop-cap glyph.</p>
+    </div>
+    <div id="single-dropcap-wrapper" data-dropcap>
+      <p id="single-dropcap-text" class="serif-text">A dedicated single-paragraph drop-cap wrapper should remain protected.</p>
+    </div>
+    <div id="dedicated-dropcap" data-dropcap>
+      <span id="dedicated-dropcap-glyph" class="serif-text">A</span>
+    </div>
   </main>
   <form id="composer">
     <p id="composer-text" class="sans-text">Composer text should retain the website typography.</p>
@@ -106,6 +116,14 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
 
         assert.equal(await getMarker('s1'), 'serif', 'initial serif paragraph should be marked serif');
         assert.equal(await getMarker('n1'), 'sans', 'initial sans paragraph should be marked sans');
+        assert.equal(await getMarker('story-dropcap-first'), 'serif',
+            'first paragraph in a structural drop-cap story container should be marked serif');
+        assert.equal(await getMarker('story-dropcap-second'), 'serif',
+            'later paragraphs in a structural drop-cap story container should be marked serif');
+        assert.equal(await getMarker('single-dropcap-text'), null,
+            'a single-paragraph drop-cap wrapper should remain protected');
+        assert.equal(await getMarker('dedicated-dropcap-glyph'), null,
+            'a dedicated drop-cap glyph should remain protected');
         assert.equal(await getMarker('fixed-overlay-text'), null,
             'text nested below a fixed-position UI ancestor should not be marked');
         assert.equal(await getMarker('nav-text'), null,
@@ -121,6 +139,12 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
             'fixed overlay text should retain the website font family');
         assert.equal(overlayTypography.fontSize, '16px',
             'fixed overlay text should retain the website font size');
+
+        const storyTypography = await driver.executeScript(`
+            return getComputedStyle(document.getElementById('story-dropcap-second')).fontFamily;
+        `);
+        assert.match(storyTypography, /Lora/i,
+            'TMI CSS should not exclude marked paragraphs below a structural drop-cap container');
     });
 
     it('incrementally marks dynamically added content via the unified observer', async () => {
