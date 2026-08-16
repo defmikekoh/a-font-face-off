@@ -2,8 +2,11 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    extractFontFaceSources,
     extractFontFaceSrcUrl,
     extractFontFaceEntries,
+    getFontFormat,
+    getFontMimeType,
     getDescriptorValue,
     selectFontFaceWarmUrl,
     sortFontFaceUrlsForConfig,
@@ -56,6 +59,39 @@ describe('font-face-utils extractFontFaceSrcUrl', () => {
         const block = '@font-face { font-family: "A"; background: url("https://example.com/not-a-font.woff2"); }';
         assert.equal(extractFontFaceSrcUrl(block), '');
     });
+
+    it('uses the final src descriptor and skips legacy EOT and SVG sources', () => {
+        const block = `@font-face {
+            src: url("font.eot");
+            src: url("font.eot?#iefix") format("embedded-opentype"),
+                 url("font.woff2") format("woff2"),
+                 url("font.woff") format("woff"),
+                 url("font.ttf") format("truetype"),
+                 url("font.otf") format("opentype"),
+                 url("font.svg#Test") format("svg");
+        }`;
+
+        assert.equal(extractFontFaceSrcUrl(block), 'font.woff2');
+        assert.deepEqual(
+            extractFontFaceSources(block).map(source => [source.format, source.supported]),
+            [
+                ['eot', false],
+                ['woff2', true],
+                ['woff', true],
+                ['ttf', true],
+                ['otf', true],
+                ['svg', false],
+            ]
+        );
+    });
+
+    it('recognizes supported URL, format-hint, and data URL formats', () => {
+        assert.equal(getFontFormat('https://example.com/font.WOFF?version=2'), 'woff');
+        assert.equal(getFontFormat('https://example.com/download?id=1', 'truetype'), 'ttf');
+        assert.equal(getFontFormat('data:font/otf;base64,T1RUTw=='), 'otf');
+        assert.equal(getFontMimeType('ttf'), 'font/ttf');
+        assert.equal(getFontMimeType('opentype'), 'font/otf');
+    });
 });
 
 describe('font-face-utils Google FontFace selection', () => {
@@ -72,6 +108,15 @@ describe('font-face-utils Google FontFace selection', () => {
         assert.deepEqual(entries[0].weightInfo, { descriptor: '700', min: 700, max: 700 });
         assert.equal(entries[0].style, 'normal');
         assert.deepEqual(entries[0].ranges, [[0, 255]]);
+    });
+
+    it('parses WOFF, TTF, and OTF entries as loadable font faces', () => {
+        const entries = extractFontFaceEntries([
+            '@font-face { src: url(test.woff) format("woff"); }',
+            '@font-face { src: url(test.ttf) format("truetype"); }',
+            '@font-face { src: url(download?id=3) format("opentype"); }',
+        ].join('\n'));
+        assert.deepEqual(entries.map(entry => entry.format), ['woff', 'ttf', 'otf']);
     });
 
     it('warms the configured Latin weight before the supplemental bold face', () => {

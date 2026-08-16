@@ -237,6 +237,66 @@
     return emptyAxisDefinition();
   }
 
+  async function decompressWoffTable(compressedBytes, expectedLength, decompressDeflate) {
+    var decompressed;
+    if (typeof decompressDeflate === 'function') {
+      decompressed = await decompressDeflate(compressedBytes, expectedLength);
+    } else {
+      if (typeof DecompressionStream !== 'function' ||
+          typeof Blob !== 'function' || typeof Response !== 'function') {
+        return new Uint8Array(0);
+      }
+      var stream;
+      try {
+        stream = new Blob([compressedBytes]).stream()
+          .pipeThrough(new DecompressionStream('deflate'));
+      } catch (_) {
+        return new Uint8Array(0);
+      }
+      decompressed = await new Response(stream).arrayBuffer();
+    }
+
+    var bytes = toUint8Array(decompressed);
+    if (bytes.byteLength !== expectedLength ||
+        bytes.byteLength > MAX_WOFF2_DECOMPRESSED_SIZE) {
+      throw new Error('Unexpected WOFF table size');
+    }
+    return bytes;
+  }
+
+  async function parseWoffAxisDefinition(bytes, decompressDeflate) {
+    if (bytes.byteLength < 44 || readTag(bytes, 0) !== 'wOFF') {
+      return emptyAxisDefinition();
+    }
+    var declaredLength = readUint32(bytes, 8);
+    var numTables = readUint16(bytes, 12);
+    if (declaredLength !== bytes.byteLength || numTables === 0 || numTables > MAX_FONT_TABLES) {
+      throw new Error('Invalid WOFF header');
+    }
+    requireBytes(bytes, 44, numTables * 20);
+    for (var i = 0; i < numTables; i++) {
+      var recordOffset = 44 + (i * 20);
+      if (readTag(bytes, recordOffset) !== 'fvar') continue;
+      var tableOffset = readUint32(bytes, recordOffset + 4);
+      var compressedLength = readUint32(bytes, recordOffset + 8);
+      var originalLength = readUint32(bytes, recordOffset + 12);
+      requireBytes(bytes, tableOffset, compressedLength);
+      if (originalLength > MAX_WOFF2_DECOMPRESSED_SIZE || compressedLength > originalLength) {
+        throw new Error('Invalid WOFF table length');
+      }
+      if (compressedLength === originalLength) {
+        return parseFvarTable(bytes, tableOffset, originalLength);
+      }
+      var table = await decompressWoffTable(
+        bytes.subarray(tableOffset, tableOffset + compressedLength),
+        originalLength,
+        decompressDeflate
+      );
+      return table.byteLength ? parseFvarTable(table, 0, table.byteLength) : emptyAxisDefinition();
+    }
+    return emptyAxisDefinition();
+  }
+
   async function decompressWoff2Data(compressedBytes, expectedLength, decompressBrotli) {
     var decompressed;
     if (typeof decompressBrotli === 'function') {
@@ -341,6 +401,12 @@
           options && options.decompressBrotli
         );
       }
+      if (readTag(bytes, 0) === 'wOFF') {
+        return await parseWoffAxisDefinition(
+          bytes,
+          options && options.decompressDeflate
+        );
+      }
       return parseSfntAxisDefinition(bytes);
     } catch (_) {
       return emptyAxisDefinition();
@@ -420,15 +486,23 @@
 
   function extractRemoteFontUrls(block) {
     var urls = [];
-    String(block || '').replace(
-      /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi,
-      function(match, doubleQuoted, singleQuoted, unquoted) {
-        var value = String(doubleQuoted || singleQuoted || unquoted || '').trim();
-        if (/^https?:\/\//i.test(value) && urls.indexOf(value) === -1) urls.push(value);
-        return match;
+    fontFaceUtils.extractFontFaceSources(block).forEach(function(source) {
+      if (source.supported && /^https?:\/\//i.test(source.url) && urls.indexOf(source.url) === -1) {
+        urls.push(source.url);
       }
-    );
+    });
     return urls;
+  }
+
+  function detectFontBinaryFormat(fontData) {
+    var bytes = toUint8Array(fontData);
+    if (bytes.byteLength < 4) return '';
+    var signature = readTag(bytes, 0);
+    if (signature === 'wOF2') return 'woff2';
+    if (signature === 'wOFF') return 'woff';
+    if (signature === 'OTTO') return 'otf';
+    if (signature === '\x00\x01\x00\x00' || signature === 'true' || signature === 'typ1') return 'ttf';
+    return '';
   }
 
   function replaceFontFaceUrl(block, targetUrl, replacementUrl) {
@@ -472,12 +546,15 @@
 
   var api = {
     buildFontBinaryAxisDefinition: buildFontBinaryAxisDefinition,
+    detectFontBinaryFormat: detectFontBinaryFormat,
     cleanFontFamilyName: cleanFontFamilyName,
     buildFontFaceAxisDefinition: buildFontFaceAxisDefinition,
     extractFontFaceBlocks: extractFontFaceBlocks,
     extractMatchingFontFaceRules: extractMatchingFontFaceRules,
     extractRemoteFontUrls: extractRemoteFontUrls,
     extractStylesheetImportUrls: extractStylesheetImportUrls,
+    getFontFormat: fontFaceUtils.getFontFormat,
+    getFontMimeType: fontFaceUtils.getFontMimeType,
     normalizeFontFamilyName: normalizeFontFamilyName,
     rankStylesheetUrls: rankStylesheetUrls,
     mergeAxisDefinitions: mergeAxisDefinitions,

@@ -6,64 +6,165 @@
 function getDescriptorValue(cssText, descriptorName) {
     var source = String(cssText || '');
     var pattern = new RegExp('(^|[;{\\s])' + descriptorName + '\\s*:', 'i');
-    var match = pattern.exec(source);
-    if (!match) return '';
+    var searchOffset = 0;
+    var value = '';
+    var match;
 
-    var index = match.index + match[0].length;
-    var start = index;
+    // The last declaration wins inside an @font-face block. This matters for
+    // legacy rules that declare an EOT-only src first, followed by a modern
+    // comma-separated src declaration.
+    while ((match = pattern.exec(source.slice(searchOffset)))) {
+        var matchStart = searchOffset + match.index;
+        var index = matchStart + match[0].length;
+        var start = index;
+        var quote = '';
+        var parenDepth = 0;
+        var escaped = false;
+
+        for (; index < source.length; index++) {
+            var ch = source[index];
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (ch === '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (quote) {
+                if (ch === quote) quote = '';
+                continue;
+            }
+
+            if (ch === '"' || ch === "'") {
+                quote = ch;
+                continue;
+            }
+
+            if (ch === '(') {
+                parenDepth++;
+                continue;
+            }
+
+            if (ch === ')' && parenDepth > 0) {
+                parenDepth--;
+                continue;
+            }
+
+            if (ch === ';' && parenDepth === 0) break;
+        }
+
+        value = source.slice(start, index).trim();
+        searchOffset = index + 1;
+    }
+
+    return value;
+}
+
+function normalizeFontFormat(value) {
+    var normalized = String(value || '').trim().toLowerCase().replace(/^['"]|['"]$/g, '');
+    if (normalized === 'woff2') return 'woff2';
+    if (normalized === 'woff') return 'woff';
+    if (normalized === 'opentype' || normalized === 'otf') return 'otf';
+    if (normalized === 'truetype' || normalized === 'ttf') return 'ttf';
+    if (normalized === 'embedded-opentype' || normalized === 'eot') return 'eot';
+    if (normalized === 'svg') return 'svg';
+    return '';
+}
+
+function getFontFormat(value, formatHint) {
+    var hinted = normalizeFontFormat(formatHint);
+    if (hinted) return hinted;
+
+    var source = String(value || '').trim();
+    var dataHeader = /^data:([^;,]*)/i.exec(source);
+    if (dataHeader) {
+        var mime = dataHeader[1].toLowerCase();
+        if (/woff2/.test(mime)) return 'woff2';
+        if (/woff/.test(mime)) return 'woff';
+        if (/opentype|\botf\b/.test(mime)) return 'otf';
+        if (/truetype|\bttf\b/.test(mime)) return 'ttf';
+        if (/embedded-opentype|eot/.test(mime)) return 'eot';
+        if (/svg/.test(mime)) return 'svg';
+    }
+
+    var path = source.split(/[?#]/, 1)[0].toLowerCase();
+    var extension = /\.([a-z0-9]+)$/.exec(path);
+    return extension ? normalizeFontFormat(extension[1]) : '';
+}
+
+function getFontMimeType(format) {
+    var normalized = normalizeFontFormat(format);
+    if (normalized === 'woff2') return 'font/woff2';
+    if (normalized === 'woff') return 'font/woff';
+    if (normalized === 'otf') return 'font/otf';
+    if (normalized === 'ttf') return 'font/ttf';
+    return 'application/octet-stream';
+}
+
+function splitCssSourceList(value) {
+    var source = String(value || '');
+    var parts = [];
+    var start = 0;
     var quote = '';
     var parenDepth = 0;
     var escaped = false;
-
-    for (; index < source.length; index++) {
+    for (var index = 0; index < source.length; index++) {
         var ch = source[index];
-
         if (escaped) {
             escaped = false;
-            continue;
-        }
-
-        if (ch === '\\') {
+        } else if (ch === '\\') {
             escaped = true;
-            continue;
-        }
-
-        if (quote) {
+        } else if (quote) {
             if (ch === quote) quote = '';
-            continue;
-        }
-
-        if (ch === '"' || ch === "'") {
+        } else if (ch === '"' || ch === "'") {
             quote = ch;
-            continue;
-        }
-
-        if (ch === '(') {
+        } else if (ch === '(') {
             parenDepth++;
-            continue;
-        }
-
-        if (ch === ')' && parenDepth > 0) {
+        } else if (ch === ')' && parenDepth > 0) {
             parenDepth--;
-            continue;
-        }
-
-        if (ch === ';' && parenDepth === 0) {
-            break;
+        } else if (ch === ',' && parenDepth === 0) {
+            parts.push(source.slice(start, index).trim());
+            start = index + 1;
         }
     }
+    parts.push(source.slice(start).trim());
+    return parts.filter(Boolean);
+}
 
-    return source.slice(start, index).trim();
+function extractFontFaceSources(block) {
+    var src = getDescriptorValue(block, 'src');
+    if (!src) return [];
+
+    return splitCssSourceList(src).map(function(part) {
+        var urlMatch = part.match(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/i);
+        if (!urlMatch) return null;
+        var url = (urlMatch[1] || urlMatch[2] || urlMatch[3] || '').trim();
+        if (!url) return null;
+        var formatMatch = part.match(/format\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/i);
+        var formatHint = formatMatch && (formatMatch[1] || formatMatch[2] || formatMatch[3] || '');
+        var format = getFontFormat(url, formatHint);
+        return {
+            url: url,
+            format: format,
+            mimeType: getFontMimeType(format),
+            supported: format !== 'eot' && format !== 'svg'
+        };
+    }).filter(Boolean);
 }
 
 function extractFontFaceSrcUrl(block) {
-    var src = getDescriptorValue(block, 'src');
-    if (!src) return '';
+    var sources = extractFontFaceSources(block);
+    var selected = sources.find(function(source) { return source.supported; });
+    return selected ? selected.url : '';
+}
 
-    var urlMatch = src.match(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/i);
-    if (!urlMatch) return '';
-
-    return (urlMatch[1] || urlMatch[2] || urlMatch[3] || '').trim();
+function getFontFaceSource(block) {
+    var sources = extractFontFaceSources(block);
+    return sources.find(function(source) { return source.supported; }) || null;
 }
 
 function parseFontFaceWeightDescriptor(block) {
@@ -122,11 +223,13 @@ function extractFontFaceEntries(cssText) {
     var match;
     while ((match = faceRegex.exec(String(cssText || ''))) !== null) {
         var block = match[0];
-        var url = extractFontFaceSrcUrl(block);
-        if (!/\.woff2(?:[?#]|$)/i.test(url)) continue;
+        var source = getFontFaceSource(block);
+        if (!source) continue;
         var unicodeRange = getDescriptorValue(block, 'unicode-range');
         entries.push({
-            url: url,
+            url: source.url,
+            format: source.format,
+            mimeType: source.mimeType,
             ranges: parseUnicodeRanges(unicodeRange),
             unicodeRange: unicodeRange,
             weightInfo: parseFontFaceWeightDescriptor(block),
@@ -239,8 +342,12 @@ function selectFontFaceWarmUrl(cssText, fontConfig) {
 
 var AFFOFontFaceUtils = {
     extractFontFaceEntries: extractFontFaceEntries,
+    extractFontFaceSources: extractFontFaceSources,
     getDescriptorValue: getDescriptorValue,
     extractFontFaceSrcUrl: extractFontFaceSrcUrl,
+    getFontFaceSource: getFontFaceSource,
+    getFontFormat: getFontFormat,
+    getFontMimeType: getFontMimeType,
     getConfiguredFontFaceStyle: getConfiguredFontFaceStyle,
     getConfiguredFontFaceWeight: getConfiguredFontFaceWeight,
     parseFontFaceWeightDescriptor: parseFontFaceWeightDescriptor,

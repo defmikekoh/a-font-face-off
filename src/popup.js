@@ -3033,15 +3033,24 @@ function ensureCustomFontInjected(fontName) {
 
     let css = def.fontFaceRule;
     // Convert data: URLs to blob: URLs for Firefox CSP compatibility
-    if (css.includes('data:font/')) {
+    if (/data:[^;,]+;base64,/i.test(css)) {
         css = css.replace(
-            /url\("data:font\/woff2?;base64,([^"]+)"\)/g,
-            (_match, b64) => {
-                const binary = atob(b64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                const blob = new Blob([bytes], { type: 'font/woff2' });
-                return `url("${URL.createObjectURL(blob)}")`;
+            /url\(\s*(["']?)(data:[^)]*?)\1\s*\)/gi,
+            (match, _quote, dataUrl) => {
+                const parsed = /^data:([^;,]+);base64,([\s\S]*)$/i.exec(dataUrl);
+                if (!parsed || !/(?:woff2?|ttf|truetype|otf|opentype|font-sfnt)/i.test(parsed[1])) {
+                    return match;
+                }
+                try {
+                    const binary = atob(parsed[2].replace(/\s+/g, ''));
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const blob = new Blob([bytes], { type: parsed[1].toLowerCase() });
+                    return `url("${URL.createObjectURL(blob)}")`;
+                } catch (error) {
+                    affoDebugWarn('Failed to convert embedded custom font to a blob URL:', error);
+                    return match;
+                }
             }
         );
     }

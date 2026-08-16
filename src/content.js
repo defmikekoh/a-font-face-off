@@ -2874,10 +2874,6 @@
     return getGoogleFontFaceLoadKey(fontName, descriptors) + '|' + index;
   }
 
-  function getFontFaceSrcUrl(block) {
-    return AFFOFontFaceUtils.extractFontFaceSrcUrl(block);
-  }
-
   function buildCustomFontFaceDescriptors(block) {
     var unicodeRange = parseFontFaceSimpleDescriptor(block, 'unicode-range');
     return buildFontFaceDescriptors({
@@ -2889,12 +2885,8 @@
   }
 
   function getDataUrlFontFormat(fontUrl) {
-    var header = String(fontUrl || '').split(',')[0].toLowerCase();
-    if (header.indexOf('woff2') !== -1) return 'WOFF2';
-    if (header.indexOf('woff') !== -1) return 'WOFF';
-    if (header.indexOf('opentype') !== -1 || header.indexOf('otf') !== -1) return 'OTF';
-    if (header.indexOf('truetype') !== -1 || header.indexOf('ttf') !== -1) return 'TTF';
-    return 'font';
+    var format = AFFOFontFaceUtils.getFontFormat(fontUrl);
+    return format ? format.toUpperCase() : 'font';
   }
 
   function decodeBase64DataUrl(fontUrl) {
@@ -2939,8 +2931,11 @@
       customTimer.mark('parse', selectedFontFaceBlocks.length + '/' + fontFaceBlocks.length + ' blocks selected');
 
       var customFontFaceJobs = selectedFontFaceBlocks.map(function (block, index) {
-        var fontUrl = getFontFaceSrcUrl(block);
-        if (!fontUrl) {
+        var sources = AFFOFontFaceUtils.extractFontFaceSources(block).filter(function (candidate) {
+          return candidate.supported;
+        });
+        var source = sources[0];
+        if (!source) {
           debugLog(`[AFFO Content] No URL found in @font-face block ${index + 1} for ${fontName}`);
           return null;
         }
@@ -2949,7 +2944,10 @@
         var loadKey = getCustomFontFaceLoadKey(fontName, descriptors, index);
         return {
           index: index,
-          fontUrl: fontUrl,
+          fontUrl: source.url,
+          fontFormat: source.format,
+          fontSources: sources,
+          sourceIndex: 0,
           descriptors: descriptors,
           loadKey: loadKey
         };
@@ -3012,7 +3010,14 @@
 
       function loadCustomFontFaceJob(job) {
         var index = job.index;
-        var fontUrl = job.fontUrl;
+        var sourceIndex = Number(job.sourceIndex) || 0;
+        var fontSources = Array.isArray(job.fontSources) ? job.fontSources : [];
+        var source = fontSources[sourceIndex] || {
+          url: job.fontUrl,
+          format: job.fontFormat
+        };
+        var fontUrl = source.url;
+        var declaredFontFormat = source.format;
         var descriptors = job.descriptors;
         var loadKey = job.loadKey;
         var variantLabel = (index + 1) + '/' + customFontFaceJobs.length;
@@ -3031,6 +3036,18 @@
         delete queuedCustomFontFaceKeys[loadKey];
         loadingCustomFontFaceKeys[loadKey] = true;
 
+        function finishCustomFontSource(result) {
+          delete loadingCustomFontFaceKeys[loadKey];
+          if ((result && result.ok) || sourceIndex + 1 >= fontSources.length) return result;
+          var nextSource = fontSources[sourceIndex + 1];
+          debugLog(`[AFFO Content] Trying fallback ${nextSource.format || 'font'} source for ${fontName} variant ${index + 1}: ${nextSource.url}`);
+          return loadCustomFontFaceJob(Object.assign({}, job, {
+            fontUrl: nextSource.url,
+            fontFormat: nextSource.format,
+            sourceIndex: sourceIndex + 1
+          }));
+        }
+
         debugLog(`[AFFO Content] Font descriptors ${index + 1}:`, descriptors);
 
         // Handle data: URLs (for AP fonts and other base64-embedded fonts)
@@ -3043,8 +3060,7 @@
             if (!arrayBuffer) {
               debugLog(`[AFFO Content] Invalid data: URL format for ${fontName} variant ${index + 1}`);
               variantTimer.end('(invalid data URL)');
-              delete loadingCustomFontFaceKeys[loadKey];
-              return Promise.resolve({ ok: false, byteLength: 0 });
+              return Promise.resolve(finishCustomFontSource({ ok: false, byteLength: 0 }));
             }
 
             debugLog(`[AFFO Content] Decoded data: URL for ${fontName} variant ${index + 1} (${arrayBuffer.byteLength} bytes)`);
@@ -3064,19 +3080,18 @@
               variantTimer.end('(data URL failed)');
               return { ok: false, byteLength: arrayBuffer.byteLength };
             }).then(function (result) {
-              delete loadingCustomFontFaceKeys[loadKey];
-              return result;
+              return finishCustomFontSource(result);
             });
           } catch (e) {
             debugLog(`[AFFO Content] Error decoding data: URL for ${fontName} variant ${index + 1}:`, e);
             variantTimer.end('(decode exception)');
-            delete loadingCustomFontFaceKeys[loadKey];
-            return Promise.resolve({ ok: false, byteLength: 0 });
+            return Promise.resolve(finishCustomFontSource({ ok: false, byteLength: 0 }));
           }
         }
 
         // Handle HTTP/HTTPS URLs - download via background script
-        var httpFontFormat = fontUrl.toLowerCase().endsWith('.woff2') ? 'WOFF2' : 'WOFF';
+        var httpFontFormat = declaredFontFormat || AFFOFontFaceUtils.getFontFormat(fontUrl);
+        httpFontFormat = httpFontFormat ? httpFontFormat.toUpperCase() : 'font';
         debugLog(`[AFFO Content] Found ${httpFontFormat} HTTP URL ${variantLabel}: ${fontUrl}`);
 
         return sendBackgroundMessage({
@@ -3118,8 +3133,7 @@
           variantTimer.end('(download exception)');
           return { ok: false, byteLength: 0 };
         }).then(function (result) {
-          delete loadingCustomFontFaceKeys[loadKey];
-          return result;
+          return finishCustomFontSource(result);
         });
       }
 

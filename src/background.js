@@ -2445,7 +2445,9 @@ function arrayBufferToPageFontDataUrl(buffer, fontUrl) {
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
     parts.push(String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize)));
   }
-  const mimeType = /\.woff2(?:[?#]|$)/i.test(fontUrl) ? 'font/woff2' : 'font/woff';
+  const binaryFormat = AFFOPageFontUtils.detectFontBinaryFormat(buffer);
+  const format = binaryFormat || AFFOPageFontUtils.getFontFormat(fontUrl);
+  const mimeType = AFFOPageFontUtils.getFontMimeType(format);
   return `data:${mimeType};base64,${btoa(parts.join(''))}`;
 }
 
@@ -2455,6 +2457,10 @@ async function embedPageFontSource(rule) {
     try {
       const response = await AFFOBackgroundFontRuntime.handleFetchMessage({ url, binary: true });
       if (!response || !response.ok || !response.data) continue;
+      if (!AFFOPageFontUtils.detectFontBinaryFormat(response.data)) {
+        affoDebugWarn('[AFFO Background] Page font response has an unsupported binary signature:', url);
+        continue;
+      }
       const fontDefinition = await AFFOPageFontUtils.buildFontBinaryAxisDefinition(response.data);
       const dataUrl = arrayBufferToPageFontDataUrl(response.data, url);
       return {

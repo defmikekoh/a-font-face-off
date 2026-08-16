@@ -6,6 +6,7 @@ const {
     buildFontBinaryAxisDefinition,
     buildFontFaceAxisDefinition,
     cleanFontFamilyName,
+    detectFontBinaryFormat,
     extractMatchingFontFaceRules,
     extractRemoteFontUrls,
     extractStylesheetImportUrls,
@@ -68,6 +69,22 @@ function buildTestWoff2() {
     font[48] = 47; // Known fvar tag, null transform.
     font[49] = fvar.length;
     compressed.copy(font, 50);
+    return font;
+}
+
+function buildTestWoff() {
+    const fvar = buildTestFvarTable();
+    const compressed = zlib.deflateSync(fvar);
+    const font = Buffer.alloc(64 + compressed.length);
+    font.write('wOFF', 0, 'ascii');
+    font.writeUInt32BE(0x00010000, 4);
+    font.writeUInt32BE(font.length, 8);
+    font.writeUInt16BE(1, 12);
+    font.write('fvar', 44, 'ascii');
+    font.writeUInt32BE(64, 48);
+    font.writeUInt32BE(compressed.length, 52);
+    font.writeUInt32BE(fvar.length, 56);
+    compressed.copy(font, 64);
     return font;
 }
 
@@ -188,6 +205,28 @@ describe('page-font-utils', () => {
         );
     });
 
+    it('reads variable axes from a WOFF fvar table', async () => {
+        assert.deepEqual(
+            await buildFontBinaryAxisDefinition(buildTestWoff(), {
+                decompressDeflate(compressed) {
+                    return zlib.inflateSync(compressed);
+                }
+            }),
+            {
+                axes: ['wght', 'opsz'],
+                defaults: { wght: 300, opsz: 100 },
+                ranges: { wght: [100, 1000], opsz: [9, 100] }
+            }
+        );
+    });
+
+    it('detects WOFF2, WOFF, TTF, and OTF binaries by signature', () => {
+        assert.equal(detectFontBinaryFormat(buildTestWoff2()), 'woff2');
+        assert.equal(detectFontBinaryFormat(buildTestWoff()), 'woff');
+        assert.equal(detectFontBinaryFormat(buildTestSfnt()), 'ttf');
+        assert.equal(detectFontBinaryFormat(Buffer.from('OTTO')), 'otf');
+    });
+
     it('prefers binary axis metadata while retaining descriptor-only axes', () => {
         assert.deepEqual(
             mergeAxisDefinitions(
@@ -217,5 +256,19 @@ describe('page-font-utils', () => {
 
         assert.deepEqual(urls, ['https://cdn.example.com/test.woff2']);
         assert.ok(replaced.includes('url("data:font/woff2;base64,AAAA")'));
+    });
+
+    it('extracts only supported remote font sources in declaration order', () => {
+        const rule = `@font-face { src:
+            url("test.eot") format("embedded-opentype"),
+            url("https://cdn.example.com/test.woff") format("woff"),
+            url("https://cdn.example.com/test.ttf") format("truetype"),
+            url("https://cdn.example.com/test.otf") format("opentype"),
+            url("https://cdn.example.com/test.svg") format("svg"); }`;
+        assert.deepEqual(extractRemoteFontUrls(rule), [
+            'https://cdn.example.com/test.woff',
+            'https://cdn.example.com/test.ttf',
+            'https://cdn.example.com/test.otf',
+        ]);
     });
 });

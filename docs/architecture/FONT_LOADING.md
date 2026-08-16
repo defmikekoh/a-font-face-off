@@ -33,7 +33,7 @@ A pinned WhatFont card exposes a `Face-off` action for comparing the detected pa
 
 1. `whatfont_core.js` collects same-origin-accessible matching `@font-face` rules plus candidate stylesheet URLs.
 2. `background.js` uses `page-font-utils.js` to extract matching rules, resolve relative font URLs, select the rule matching the detected weight/style, derive variable-axis ranges proven by the selected `@font-face` descriptors, and fetch candidate stylesheets when page CSSOM access is blocked.
-3. Background fetches the selected font binary through `background-font-runtime.js` and replaces its remote source with a temporary data URL. This avoids cross-origin font restrictions when the rule moves from the source page to the extension popup.
+3. Background fetches the selected WOFF2, WOFF, TTF, or OTF binary through `background-font-runtime.js`, detects its container from the binary signature, and replaces its remote source with a correctly typed temporary data URL. This avoids cross-origin font restrictions when the rule moves from the source page to the extension popup.
 4. Background writes a short-lived `affoFaceoffPageFontDraft` and opens the popup.
 5. `popup.js` removes the draft immediately, registers its `fontFaceRule` and proven axis definition in memory, converts the embedded source to a popup-safe blob URL, forces Face-off mode, and loads it into the top preview.
 
@@ -51,7 +51,9 @@ Before requesting Google WOFF2 files, `content.js` samples visible text nodes fr
 
 Expired-cache maintenance is deferred five seconds after a background wake, runs at most once per 24 hours (tracked by `affoFontCacheLastMaintenance`), and uses the IndexedDB `timestamp` index to visit only expired rows. Full cache status scans are debug-only.
 
-Custom font `@font-face` blocks use the same initial byte-budget and idle serial-defer model on FontFace-only domains. This prevents multi-variant custom families from decoding every selected variant in parallel during first apply.
+Custom font `@font-face` blocks support WOFF2, WOFF, TrueType (TTF), and OpenType (OTF) sources over HTTP(S) or base64 `data:` URLs. Source parsing follows the effective final `src` descriptor, skips obsolete EOT/SVG sources, recognizes both `format()` hints and URL/data-MIME formats, and tries the remaining supported sources in declaration order when decoding or fetching one fails. They use the same initial byte-budget and idle serial-defer model on FontFace-only domains, preventing multi-variant custom families from decoding every selected variant in parallel during first apply.
+
+Variable-axis metadata is read from WOFF2, WOFF, TTF, and OTF binaries when an `fvar` table is present.
 
 ## Custom Font Architecture
 
@@ -60,13 +62,13 @@ Custom font `@font-face` blocks use the same initial byte-budget and idle serial
 - **Domain storage (affoApplyMap)**: Does NOT store `fontFaceRule` (eliminated duplication)
 - **UI state**: May include `fontFaceRule` from `getCurrentUIConfig` for in-popup behavior
 - **Favorites storage/sync**: Strips `fontFaceRule` to avoid duplicating multi-KB custom `@font-face` blocks in `affoFavorites`/`favorites.json`
-- AP fonts use `data:font/woff2;base64,...` URLs in `ap-fonts.css`. On FontFace-only domains (x.com), `tryCustomFontFaceAPI` detects data: URLs, decodes base64 → ArrayBuffer → FontFace
+- Embedded custom fonts may use WOFF2, WOFF, TTF, or OTF base64 data URLs. On FontFace-only domains (x.com), `tryCustomFontFaceAPI` detects the data MIME, decodes base64 → ArrayBuffer → FontFace.
 - On FontFace-only domains, custom families only load `@font-face` blocks whose `font-weight` range overlaps the current config weight or 700 (for bold descendants). Variable custom fonts preserve range descriptors like `font-weight: 100 900` when creating `FontFace` objects.
 
 ## Firefox Popup Embedded Font Handling
 
-The extension popup converts embedded AP/APVar font URLs from `data:font/woff2;base64,...` to `blob:` URLs before injecting their `@font-face` rules. The manifest allows both `data:` and `blob:` in `font-src`, but Firefox extension popups have not rendered the raw `data:` font rules reliably. This is an extension-popup compatibility workaround, not a general claim that Firefox cannot load `data:` fonts.
+The extension popup converts embedded WOFF2, WOFF, TTF, and OTF base64 font URLs from `data:` to correctly typed `blob:` URLs before injecting their `@font-face` rules. The manifest allows both `data:` and `blob:` in `font-src`, but Firefox extension popups have not rendered the raw `data:` font rules reliably. This is an extension-popup compatibility workaround, not a general claim that Firefox cannot load `data:` fonts.
 
-Popup path: `atob` → `Uint8Array` → `Blob` → `URL.createObjectURL`, handled by `injectApFonts()` in `popup.js`.
+Popup path: `atob` → `Uint8Array` → typed `Blob` → `URL.createObjectURL`, handled by `ensureCustomFontInjected()` in `popup.js`.
 
 FontFace-only page path: avoids CSS font URLs entirely. `tryCustomFontFaceAPI()` decodes the same base64 payload to an ArrayBuffer and passes it to `new FontFace(...)`.
