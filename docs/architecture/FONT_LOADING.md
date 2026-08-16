@@ -37,6 +37,8 @@ A pinned WhatFont card exposes a `Face-off` action for comparing the detected pa
 4. Background writes a short-lived `affoFaceoffPageFontDraft` and opens the popup.
 5. `popup.js` removes the draft immediately, registers its `fontFaceRule` and proven axis definition in memory, converts the embedded source to a popup-safe blob URL, forces Face-off mode, and loads it into the top preview.
 
+Adobe Fonts specimen pages are a special dynamic-source case: their internal families (for example `jyts-n5`) are loaded through `use.typekit.net/pf/tk/...` XHR resources and may have no stylesheet `@font-face` rule. WhatFont collects only a resource whose Adobe family/style path exactly matches the detected internal family. The background then synthesizes a temporary `@font-face` rule and passes its response through the same font-signature validation and data-URL embedding pipeline as stylesheet-discovered fonts.
+
 The temporary family is preview-only. It is not added to custom CSS, favorites, domain storage, or saved Face-off UI state. Face-off Apply and Save Favorite are disabled until the top panel switches to a normal font. No CSS or font source is injected into the source page.
 
 ## WOFF2 Binary Cache

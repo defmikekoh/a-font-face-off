@@ -968,6 +968,35 @@ function _whatFont() {
                 return urls;
             }
 
+            function collectFontResourceUrls(fontName) {
+                var familyMatch = normalizeFamily(fontName).match(/^([a-z0-9]+)-([ni]\d+)$/),
+                    urls = [],
+                    seen = {};
+                if (!familyMatch || !window.performance ||
+                    typeof window.performance.getEntriesByType !== 'function') {
+                    return urls;
+                }
+
+                window.performance.getEntriesByType('resource').forEach(function(entry) {
+                    var value = String(entry && entry.name || '').trim(),
+                        parsed;
+                    if (!value || seen[value]) { return; }
+                    try {
+                        parsed = new window.URL(value, document.baseURI);
+                    } catch (_) {
+                        return;
+                    }
+                    if (parsed.protocol !== 'https:' || parsed.hostname !== 'use.typekit.net') { return; }
+                    if (parsed.pathname.toLowerCase() !==
+                        '/pf/tk/' + familyMatch[1] + '/' + familyMatch[2] + '/m') {
+                        return;
+                    }
+                    seen[value] = true;
+                    urls.push(value);
+                });
+                return urls;
+            }
+
             function openFaceoff(response) {
                 var isMobileFirefox = window.navigator.userAgent.indexOf('Mobile') !== -1 &&
                     window.navigator.userAgent.indexOf('Firefox') !== -1;
@@ -1004,6 +1033,7 @@ function _whatFont() {
                     variableAxes: typeInfo.variableAxes || {},
                     fontFaceRules: collectFontFaceRules(typeInfo.current),
                     stylesheetUrls: collectStylesheetUrls(),
+                    fontResourceUrls: collectFontResourceUrls(typeInfo.current),
                     pageUrl: window.location.href
                 }).then(function(response) {
                     if (!response || !response.success) {

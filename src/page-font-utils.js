@@ -544,7 +544,32 @@
     });
   }
 
+  function buildAdobeDynamicFontFaceRule(fontName, resourceUrls) {
+    var family = cleanFontFamilyName(fontName);
+    var familyMatch = normalizeFontFamilyName(family).match(/^([a-z0-9]+)-([ni])(\d)$/);
+    if (!familyMatch) return '';
+
+    var expectedPath = '/pf/tk/' + familyMatch[1] + '/' + familyMatch[2] + familyMatch[3] + '/m';
+    var matchingUrl = uniqueStrings(resourceUrls).find(function(value) {
+      try {
+        var parsed = new URL(value);
+        return parsed.protocol === 'https:' && parsed.hostname === 'use.typekit.net' &&
+          parsed.pathname.toLowerCase() === expectedPath;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (!matchingUrl) return '';
+
+    var weight = Number(familyMatch[3]) * 100;
+    var style = familyMatch[2] === 'i' ? 'italic' : 'normal';
+    var escapedUrl = matchingUrl.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return '@font-face { font-family: "' + family + '"; src: url("' + escapedUrl + '"); ' +
+      'font-weight: ' + weight + '; font-style: ' + style + '; }';
+  }
+
   var api = {
+    buildAdobeDynamicFontFaceRule: buildAdobeDynamicFontFaceRule,
     buildFontBinaryAxisDefinition: buildFontBinaryAxisDefinition,
     detectFontBinaryFormat: detectFontBinaryFormat,
     cleanFontFamilyName: cleanFontFamilyName,

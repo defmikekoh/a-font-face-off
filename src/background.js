@@ -2521,6 +2521,14 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
   }
 
   if (rules.length === 0) {
+    const dynamicRule = AFFOPageFontUtils.buildAdobeDynamicFontFaceRule(
+      fontName,
+      msg.fontResourceUrls
+    );
+    if (dynamicRule) rules.push(dynamicRule);
+  }
+
+  if (rules.length === 0) {
     return {
       success: false,
       error: `Could not find a reusable @font-face rule for ${fontName}`

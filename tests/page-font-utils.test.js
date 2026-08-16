@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const zlib = require('node:zlib');
 
 const {
+    buildAdobeDynamicFontFaceRule,
     buildFontBinaryAxisDefinition,
     buildFontFaceAxisDefinition,
     cleanFontFamilyName,
@@ -125,6 +126,35 @@ describe('page-font-utils', () => {
         ], 'YahooSans VF');
 
         assert.equal(ranked[0], 'https://cdn.example.com/fonts/yahooSans.css');
+    });
+
+    it('builds a font-face rule for a matching Adobe dynamic font resource', () => {
+        const resourceUrl = 'https://use.typekit.net/pf/tk/jyts/n5/m?unicode=abc&token=secret';
+        const rule = buildAdobeDynamicFontFaceRule('jyts-n5', [
+            'https://use.typekit.net/pf/tk/jyts/n4/m?unicode=abc',
+            resourceUrl
+        ]);
+
+        assert.match(rule, /font-family: "jyts-n5"/);
+        assert.match(rule, /font-weight: 500/);
+        assert.match(rule, /font-style: normal/);
+        assert.ok(rule.includes(resourceUrl));
+    });
+
+    it('rejects unrelated dynamic resource URLs', () => {
+        assert.equal(
+            buildAdobeDynamicFontFaceRule('jyts-n5', [
+                'https://example.com/pf/tk/jyts/n5/m',
+                'https://use.typekit.net/pf/tk/other/n5/m'
+            ]),
+            ''
+        );
+        assert.equal(
+            buildAdobeDynamicFontFaceRule('Macha', [
+                'https://use.typekit.net/pf/tk/jyts/n5/m'
+            ]),
+            ''
+        );
     });
 
     it('extracts and resolves imported stylesheet URLs', () => {

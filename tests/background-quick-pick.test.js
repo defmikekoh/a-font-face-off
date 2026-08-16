@@ -225,6 +225,43 @@ describe('background WhatFont Face-off draft', () => {
         assert.equal(storage.data.affoFaceoffPageFontDraft.config.lineHeight, 1.45);
     });
 
+    it('prepares Adobe fonts loaded dynamically without a stylesheet font-face rule', async () => {
+        const fontData = buildVariableTestFont();
+        const resourceUrl = 'https://use.typekit.net/pf/tk/jyts/n5/m?unicode=abc&token=secret';
+        const fetchedUrls = [];
+        const { context, storage } = loadBackground({}, {
+            fetch: async url => {
+                fetchedUrls.push(url);
+                return {
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                    arrayBuffer: async () => fontData
+                };
+            }
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoPrepareFaceoffPageFont',
+            fontName: 'jyts-n5',
+            fontWeight: 500,
+            fontStyle: 'normal',
+            variableAxes: {},
+            fontFaceRules: [],
+            stylesheetUrls: [],
+            fontResourceUrls: [resourceUrl],
+            pageUrl: 'https://fonts.adobe.com/fonts/macha'
+        }, {
+            tab: { id: 123, url: 'https://fonts.adobe.com/fonts/macha' }
+        });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(fetchedUrls, [resourceUrl]);
+        assert.match(storage.data.affoFaceoffPageFontDraft.config.fontFaceRule, /font-family: "jyts-n5"/);
+        assert.match(storage.data.affoFaceoffPageFontDraft.config.fontFaceRule, /data:font\/ttf;base64/);
+        assert.equal(storage.data.affoFaceoffPageFontDraft.config.fontWeight, 500);
+    });
+
     it('retains computed axes proven by the downloaded font fvar table', async () => {
         const fontData = buildVariableTestFont();
         const { context, storage } = loadBackground({}, {

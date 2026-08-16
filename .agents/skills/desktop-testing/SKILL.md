@@ -23,6 +23,23 @@ geckodriver --version
 npm install  # selenium-webdriver is a devDependency
 ```
 
+Keep Python development dependencies local to the repository. The asdf-managed
+Python version comes from `.tool-versions`; install the pinned dependencies into
+the ignored `.venv/` rather than the shared asdf interpreter:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Run Python-backed skill tooling through `.venv/bin/python`. For example, validate
+this skill with the validator bundled with Codex:
+
+```bash
+SKILL_VALIDATOR="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
+.venv/bin/python "$SKILL_VALIDATOR" .agents/skills/desktop-testing
+```
+
 Use geckodriver 0.37.1 or later for Firefox Android automation. If an older Homebrew version is installed, run `brew update && brew upgrade geckodriver`, then verify the version again. This minimum does not apply to desktop-only testing.
 
 Firefox Developer Edition must be installed at `/Applications/Firefox Developer Edition.app`.
@@ -58,7 +75,7 @@ node --test tests/integration-popup.itest.js
 - **In-process extensions**: `extensions.webextensions.remote=false` runs extension code in the parent process so `contentWindow` is accessible for `Cu.Sandbox`
 - **Chrome context**: `driver.setContext(firefox.Context.CHROME)` switches to browser chrome for toolbar/panel interaction; requires geckodriver's `--allow-system-access` server flag. Do not pass Firefox's former `-remote-allow-system-access` argument through `moz:firefoxOptions`; current Firefox rejects it when set via capabilities.
 - **Fresh temp profiles (desktop only)**: Each desktop test run creates a new profile via `fs.mkdtempSync`, avoiding conflicts with existing Firefox sessions. This isolation does not apply to Firefox Android/Fenix.
-- **No UUID discovery needed**: We click the real toolbar button, no need to find `moz-extension://` URLs
+- **No UUID discovery needed for standard desktop popup tests**: Click the real toolbar button instead of finding a `moz-extension://` URL. Pin an Android add-on UUID only when deterministic extension-tab origins or blob URLs help an assertion.
 
 ### Toolbar button IDs
 
@@ -96,6 +113,8 @@ await popupExec(driver, 'togglePanel("body")');
 ```
 
 Scripts are wrapped in an IIFE internally (`(function(){ ... })()`) because `Cu.evalInSandbox` runs as script-level code where bare `return` isn't valid.
+
+For popup openings triggered asynchronously from page UI, do not call `popupExec` immediately after the click. `waitForPopupReady` proves that a loaded `popup.html` browser exists, but Firefox can retain that document after its panel closes. First wait for the source action to reach its success state (for example, WhatFont `Loading...` → `Opening...`; treat `Unavailable` as failure), then confirm `customizationui-widget-panel.state === 'open'` in chrome context before reading popup state. Otherwise `popupExec` may return the defaults from a stale, closed popup document.
 
 ### Integration tests (`tests/integration-popup.itest.js`)
 
@@ -253,17 +272,34 @@ Use a seed font that differs from the site default when proving font application
 - **Desktop**: a browser-action PANEL (sizes-to-content; CSS gives it a fixed `400x600`).
 - **Firefox Android**: a FULL-VIEWPORT surface. Opening the extension normally and the one-shot page-font Face-off (WhatFont card → Face-off, or long-press the top icon in the left toolbar) both open `popup.html` as a TAB via `openPopupFallback` → `browser.tabs.create('popup.html?domain=…&sourceTabId=…')`. `popup-context.js` keys mobile sizing off `/Android/i` in the UA → `html.affo-mobile`.
 
-To drive/inspect that popup tab with geckodriver, pin the add-on UUID so you can reach the moz-extension URL, then either navigate to it or trigger the real flow:
+To drive/inspect that popup tab with geckodriver, pin the add-on UUID to make extension origins and blob URLs deterministic, then trigger the real page flow and switch to its new window handle. Do not depend on direct WebDriver navigation to `moz-extension://`; current Fenix/geckodriver can reject it with `Navigation to ... is not allowed in this context`.
 
 ```js
 const UUID = '11111111-2222-3333-4444-555555555555';
 options.setPreference('extensions.webextensions.uuids',
   JSON.stringify({ 'a-font-face-off@example.com': UUID }));
 await driver.installAddon('web-ext-artifacts/latest.xpi', true);
-// A) direct: await driver.get(`moz-extension://${UUID}/popup.html?domain=x.com&sourceTabId=1`)
-// B) real long-press flow: on the page, window.postMessage({type:'openPopup'}, '*');
-//    then switch to the new window handle.
+
+const handlesBefore = await driver.getAllWindowHandles();
+// Trigger the actual WhatFont Face-off or toolbar openPopup flow here.
+const popupHandle = await driver.wait(async () => {
+  const handles = await driver.getAllWindowHandles();
+  return handles.find(handle => !handlesBefore.includes(handle)) || false;
+}, 10000);
+await driver.switchTo().window(popupHandle);
 ```
+
+Fenix may classify the resulting extension tab as a privileged browsing context. In that context, `executeScript` and `executeAsyncScript` can fail with `not supported for privileged browsing contexts`. Read it with native WebDriver element commands instead:
+
+```js
+const { By, until } = require('selenium-webdriver');
+const topDisplay = await driver.wait(until.elementLocated(By.id('top-font-display')), 15000);
+const topFont = ((await topDisplay.getProperty('textContent')) || '').trim();
+const previewStyle = await driver.findElement(By.id('top-font-text')).getDomAttribute('style');
+const activeMode = await driver.findElement(By.css('[data-mode].active')).getDomAttribute('data-mode');
+```
+
+Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()` returns an empty string for elements hidden by the current panel layout. Prefer `getDomAttribute(...)` for literal attributes and `getProperty(...)` for DOM properties; avoid helpers that fall back to injected JavaScript in the privileged tab.
 
 **Note10 measurement gotchas (learned the hard way):**
 

@@ -65,6 +65,30 @@ Built on the shoulders of:
 - [WhatFont Bookmarklet](https://github.com/chengyin/WhatFont-Bookmarklet) by @chengyin — packaged for font detection
 - [Essential Buttons Toolbar](https://github.com/KristhianX/essential-buttons-toolbar) by @KristhianX — toolbar and options page UI
 
+## Development
+
+The repository pins its Node.js and Python versions in `.tool-versions`. With
+[asdf](https://asdf-vm.com/) installed, set up the JavaScript and repo-local
+Python dependencies with:
+
+```bash
+asdf install
+npm install
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Keep Python packages in `.venv/`; do not install the development requirements
+into the shared asdf Python. Run Python-based repository tools with
+`.venv/bin/python`, or activate the environment with `source .venv/bin/activate`.
+
+Run the standard checks with:
+
+```bash
+npm test
+npm run lint
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
