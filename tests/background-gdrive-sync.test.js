@@ -6,9 +6,10 @@ const vm = require('node:vm');
 const AFFOSroulette = require('../src/sroulette-utils.js');
 
 function readBackgroundSource(extra = '') {
+    const blockJavascriptUtilsPath = path.join(__dirname, '..', 'src', 'block-javascript-utils.js');
     const runtimeSourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
     const backgroundSourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    return fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(backgroundSourcePath, 'utf8') + extra;
+    return fs.readFileSync(blockJavascriptUtilsPath, 'utf8') + '\n' + fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(backgroundSourcePath, 'utf8') + extra;
 }
 
 function createStorageStub(seed = {}, { asyncOnChanged = false } = {}) {
@@ -809,6 +810,23 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         assert.ok(domainPut, 'expected domains.json to be pushed');
         const pushed = JSON.parse(domainPut.content);
         assert.equal(pushed['local.example'].body.fontName, 'Inter');
+    });
+
+    it('syncs the Deep View JavaScript-blocking default when the setting is absent', async () => {
+        const harness = createHarness({
+            localSeed: {
+                affoApplyMap: {},
+                affoSyncMeta: { lastSync: 0, items: {} },
+            },
+            remoteManifest: null,
+        });
+
+        const result = await harness.runSync();
+        assert.equal(result.ok, true);
+
+        const listPut = harness.calls.put.find((call) => call.name === 'block-javascript-domains.json');
+        assert.ok(listPut, 'expected the absent-setting default to be pushed');
+        assert.deepEqual(JSON.parse(listPut.content), ['thedeepview.com']);
     });
 
     it('merges remote domains when remote is newer instead of clobbering local-only domains', async () => {

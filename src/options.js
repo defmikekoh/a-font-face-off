@@ -216,6 +216,7 @@
   const DEFAULT_AGGRESSIVE = [];
   const DEFAULT_WAITFORIT = [];
   const DEFAULT_IGNORE_COMMENTS = [];
+  const DEFAULT_BLOCK_JAVASCRIPT = AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
   const DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED = [];
   const DEFAULT_TOOLBAR_WIDTH = 36;
   const DEFAULT_TOOLBAR_HEIGHT = 50;
@@ -1208,6 +1209,7 @@
         'affoAggressiveDomains',
         'affoWaitForItDomains',
         'affoIgnoreCommentsDomains',
+        'affoBlockJavaScriptDomains',
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
@@ -1242,6 +1244,8 @@
       document.getElementById('waitforit-domains').value = toTextarea(waitforit);
       const ignoreComments = Array.isArray(data.affoIgnoreCommentsDomains) ? data.affoIgnoreCommentsDomains : DEFAULT_IGNORE_COMMENTS.slice();
       document.getElementById('ignore-comments-domains').value = toTextarea(ignoreComments);
+      const blockJavaScript = Array.isArray(data.affoBlockJavaScriptDomains) ? data.affoBlockJavaScriptDomains : DEFAULT_BLOCK_JAVASCRIPT.slice();
+      document.getElementById('block-javascript-domains').value = toTextarea(blockJavaScript);
       const substackRouletteBeigeDisabled = Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains) ? data.affoSubstackRouletteBeigeDisabledDomains : DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED.slice();
       document.getElementById('substack-roulette-beige-disabled-domains').value = toTextarea(substackRouletteBeigeDisabled);
 
@@ -1439,6 +1443,24 @@
     } catch (e) {}
   }
 
+  async function saveBlockJavaScript(){
+    try {
+      const raw = document.getElementById('block-javascript-domains').value;
+      const list = AFFOBlockJavascriptUtils.normalizeDomains(fromTextarea(raw));
+      await browser.storage.local.set({ affoBlockJavaScriptDomains: list });
+      document.getElementById('block-javascript-domains').value = toTextarea(list);
+      const s = document.getElementById('status-block-javascript'); s.textContent = 'Saved — reload affected pages'; setTimeout(() => { s.textContent = ''; }, 2500);
+    } catch (e) {}
+  }
+
+  async function resetBlockJavaScript(){
+    try {
+      await browser.storage.local.set({ affoBlockJavaScriptDomains: DEFAULT_BLOCK_JAVASCRIPT.slice() });
+      document.getElementById('block-javascript-domains').value = toTextarea(DEFAULT_BLOCK_JAVASCRIPT);
+      const s = document.getElementById('status-block-javascript'); s.textContent = 'Reset — reload affected pages'; setTimeout(() => { s.textContent = ''; }, 2500);
+    } catch (e) {}
+  }
+
   async function clearFontCache(){
     try {
       const statusEl = document.getElementById('status-cache');
@@ -1586,7 +1608,7 @@
         '• All saved font configurations\n' +
         '• Local desktop font names\n' +
         '• Known serif/sans family lists\n' +
-        '• FontFace-only domains list\n' +
+        '• Advanced domain behavior lists\n' +
         '• Toolbar settings\n' +
         '• Google Drive connection\n' +
         '• Extension state and preferences\n\n' +
@@ -1611,6 +1633,7 @@
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
       document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
       document.getElementById('ignore-comments-domains').value = toTextarea(DEFAULT_IGNORE_COMMENTS);
+      document.getElementById('block-javascript-domains').value = toTextarea(DEFAULT_BLOCK_JAVASCRIPT);
       document.getElementById('substack-roulette-beige-disabled-domains').value = toTextarea(DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED);
 
       // Reset toolbar settings to defaults
@@ -1683,6 +1706,8 @@
     document.getElementById('reset-waitforit').addEventListener('click', resetWaitForIt);
     document.getElementById('save-ignore-comments').addEventListener('click', saveIgnoreComments);
     document.getElementById('reset-ignore-comments').addEventListener('click', resetIgnoreComments);
+    document.getElementById('save-block-javascript').addEventListener('click', saveBlockJavaScript);
+    document.getElementById('reset-block-javascript').addEventListener('click', resetBlockJavaScript);
     document.getElementById('save-substack-roulette').addEventListener('click', saveSubstackRoulette);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();

@@ -154,9 +154,10 @@ function loadBackground(seed = {}, options = {}) {
     });
 
     const configSourcePath = path.join(__dirname, '..', 'src', 'config-utils.js');
+    const blockJavascriptUtilsPath = path.join(__dirname, '..', 'src', 'block-javascript-utils.js');
     const runtimeSourcePath = path.join(__dirname, '..', 'src', 'background-font-runtime.js');
     const sourcePath = path.join(__dirname, '..', 'src', 'background.js');
-    const source = fs.readFileSync(configSourcePath, 'utf8') + '\n' + fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(sourcePath, 'utf8');
+    const source = fs.readFileSync(configSourcePath, 'utf8') + '\n' + fs.readFileSync(blockJavascriptUtilsPath, 'utf8') + '\n' + fs.readFileSync(runtimeSourcePath, 'utf8') + '\n' + fs.readFileSync(sourcePath, 'utf8');
     vm.runInContext(source, context, { filename: 'background.js' });
 
     return { context, storage, cssOps, titleOps };

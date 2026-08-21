@@ -37,6 +37,8 @@ const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_NAME = 'ignore-comments-domains.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_META_NAME = 'ignore-comments-domains-meta.json';
+const SYNC_BLOCK_JAVASCRIPT_DOMAINS_NAME = 'block-javascript-domains.json';
+const SYNC_BLOCK_JAVASCRIPT_DOMAINS_META_NAME = 'block-javascript-domains-meta.json';
 const SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME = 'substack-beige-disabled-domains.json';
 const SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_META_NAME = 'substack-beige-disabled-domains-meta.json';
 const SYNC_PRESERVED_FONTS_NAME = 'preserved-fonts.json';
@@ -57,6 +59,8 @@ const WAITFORIT_DOMAINS_KEY = 'affoWaitForItDomains';
 const WAITFORIT_DOMAINS_META_KEY = 'affoWaitForItDomainsMeta';
 const IGNORE_COMMENTS_DOMAINS_KEY = 'affoIgnoreCommentsDomains';
 const IGNORE_COMMENTS_DOMAINS_META_KEY = 'affoIgnoreCommentsDomainsMeta';
+const BLOCK_JAVASCRIPT_DOMAINS_KEY = 'affoBlockJavaScriptDomains';
+const BLOCK_JAVASCRIPT_DOMAINS_META_KEY = 'affoBlockJavaScriptDomainsMeta';
 const SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY = 'affoSubstackRouletteBeigeDisabledDomains';
 const SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY = 'affoSubstackRouletteBeigeDisabledDomainsMeta';
 const PRESERVED_FONTS_KEY = 'affoPreservedFonts';
@@ -100,6 +104,48 @@ const syncWrittenSignatures = new Map(); // storageKey -> array of JSON value si
 let cachedAppFolderId = null;
 
 const srouletteInsertedCssByTab = new Map();
+
+let blockJavaScriptDomains = AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
+const blockJavaScriptDomainsReady = browser.storage.local.get(BLOCK_JAVASCRIPT_DOMAINS_KEY).then((data) => {
+  blockJavaScriptDomains = Array.isArray(data[BLOCK_JAVASCRIPT_DOMAINS_KEY])
+    ? AFFOBlockJavascriptUtils.normalizeDomains(data[BLOCK_JAVASCRIPT_DOMAINS_KEY])
+    : AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
+}).catch((error) => {
+  affoDebugWarn('[AFFO Background] Failed to load Block JavaScript domains:', error);
+});
+
+async function applyBlockJavaScriptPolicy(details) {
+  await blockJavaScriptDomainsReady;
+  const response = AFFOBlockJavascriptUtils.buildBlockingResponse(details, blockJavaScriptDomains);
+  if (response.responseHeaders) {
+    affoDebugLog('[AFFO Background] Blocking page JavaScript on:', details.url);
+  }
+  return response;
+}
+
+async function updateBlockJavaScriptDynamicRule() {
+  if (!browser.declarativeNetRequest || !browser.declarativeNetRequest.updateDynamicRules) return;
+  const rule = AFFOBlockJavascriptUtils.buildDynamicRule(blockJavaScriptDomains);
+  await browser.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [AFFOBlockJavascriptUtils.DNR_RULE_ID],
+    addRules: rule ? [rule] : []
+  });
+}
+
+const manifest = browser.runtime.getManifest ? browser.runtime.getManifest() : { manifest_version: 2 };
+if (manifest.manifest_version === 2) {
+  if (browser.webRequest && browser.webRequest.onHeadersReceived) {
+    browser.webRequest.onHeadersReceived.addListener(
+      applyBlockJavaScriptPolicy,
+      { urls: ['http://*/*', 'https://*/*'], types: ['main_frame'] },
+      ['blocking', 'responseHeaders']
+    );
+  }
+} else {
+  blockJavaScriptDomainsReady.then(updateBlockJavaScriptDynamicRule).catch((error) => {
+    affoDebugWarn('[AFFO Background] Failed to update Block JavaScript dynamic rule:', error);
+  });
+}
 
 function sanitizeTimestamp(value) {
   const n = Number(value);
@@ -2011,7 +2057,7 @@ async function runSync(options = {}) {
     errors.push(e);
   }
 
-  // ── Per-origin domain array settings (FF-only / inline / aggressive / waitforit / ignore-comments) ──
+  // ── Per-origin domain array settings ──
   const domainArrayItems = [
     {
       key: FFONLY_DOMAINS_KEY,
@@ -2049,6 +2095,14 @@ async function runSync(options = {}) {
       label: 'Ignore comments domains'
     },
     {
+      key: BLOCK_JAVASCRIPT_DOMAINS_KEY,
+      localMetaStorageKey: BLOCK_JAVASCRIPT_DOMAINS_META_KEY,
+      filename: SYNC_BLOCK_JAVASCRIPT_DOMAINS_NAME,
+      metaFilename: SYNC_BLOCK_JAVASCRIPT_DOMAINS_META_NAME,
+      label: 'Block JavaScript domains',
+      defaultOrigins: AFFOBlockJavascriptUtils.DEFAULT_DOMAINS
+    },
+    {
       key: SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY,
       localMetaStorageKey: SUBSTACK_BEIGE_DISABLED_DOMAINS_META_KEY,
       filename: SYNC_SUBSTACK_BEIGE_DISABLED_DOMAINS_NAME,
@@ -2069,7 +2123,9 @@ async function runSync(options = {}) {
         backend.get(item.metaFilename)
       ]);
 
-      const localOrigins = sanitizeDomainOriginArray(localData[item.key]);
+      const localOrigins = sanitizeDomainOriginArray(
+        Array.isArray(localData[item.key]) ? localData[item.key] : item.defaultOrigins
+      );
       const remoteOrigins = (!remoteArrayResult.notFound)
         ? sanitizeDomainOriginArray(JSON.parse(remoteArrayResult.data))
         : [];
@@ -3048,6 +3104,17 @@ browser.runtime.onMessage.addListener((msg, sender) => handleAffoRuntimeMessage(
 // Listen for toolbar option changes and notify content scripts
 browser.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
+  if (changes[BLOCK_JAVASCRIPT_DOMAINS_KEY]) {
+    const nextValue = changes[BLOCK_JAVASCRIPT_DOMAINS_KEY].newValue;
+    blockJavaScriptDomains = Array.isArray(nextValue)
+      ? AFFOBlockJavascriptUtils.normalizeDomains(nextValue)
+      : AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
+    try {
+      await updateBlockJavaScriptDynamicRule();
+    } catch (error) {
+      affoDebugWarn('[AFFO Background] Failed to update Block JavaScript dynamic rule:', error);
+    }
+  }
   if (changes[GDRIVE_FOLDER_SUFFIX_KEY]) {
     cachedAppFolderId = null;
   }
@@ -3152,6 +3219,27 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).catch((e) => {
       affoDebugWarn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
       markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
+  }
+  if (changes[BLOCK_JAVASCRIPT_DOMAINS_KEY] && isUserChange(BLOCK_JAVASCRIPT_DOMAINS_KEY) && storageValueChanged(changes[BLOCK_JAVASCRIPT_DOMAINS_KEY])) {
+    const blockJavaScriptChange = changes[BLOCK_JAVASCRIPT_DOMAINS_KEY];
+    const normalizedChange = {
+      oldValue: Array.isArray(blockJavaScriptChange.oldValue)
+        ? blockJavaScriptChange.oldValue
+        : AFFOBlockJavascriptUtils.DEFAULT_DOMAINS,
+      newValue: Array.isArray(blockJavaScriptChange.newValue)
+        ? blockJavaScriptChange.newValue
+        : AFFOBlockJavascriptUtils.DEFAULT_DOMAINS
+    };
+    markDomainOriginArrayModified(normalizedChange, {
+      localMetaStorageKey: BLOCK_JAVASCRIPT_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_BLOCK_JAVASCRIPT_DOMAINS_NAME,
+      syncMetaFilename: SYNC_BLOCK_JAVASCRIPT_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      affoDebugWarn('[AFFO Background] Failed to update Block JavaScript domains metadata:', e);
+      markLocalItemModified(SYNC_BLOCK_JAVASCRIPT_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
   if (changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY] && isUserChange(SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY) && storageValueChanged(changes[SUBSTACK_BEIGE_DISABLED_DOMAINS_KEY])) {

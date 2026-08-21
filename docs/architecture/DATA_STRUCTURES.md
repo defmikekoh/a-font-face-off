@@ -111,6 +111,8 @@ The extension uses `browser.storage.local` for configuration, sync metadata, fav
 | `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoIgnoreCommentsDomains` | Domains where AFFO skips comment threads | `["example.com"]` |
 | `affoIgnoreCommentsDomainsMeta` | Per-origin sync metadata for Ignore Comments domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
+| `affoBlockJavaScriptDomains` | Domains and subdomains whose top-level HTML responses receive `Content-Security-Policy: script-src 'none'`; absent-setting default is `thedeepview.com` | `["thedeepview.com"]` |
+| `affoBlockJavaScriptDomainsMeta` | Per-origin sync metadata for Block JavaScript domains | `{ version: 1, byOrigin: { "thedeepview.com": { modified: 1700000000000 } } }` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
@@ -184,6 +186,8 @@ The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is defe
 | `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
 | `ignore-comments-domains.json` | `affoIgnoreCommentsDomains` | Ignore Comments domain list |
 | `ignore-comments-domains-meta.json` | `affoIgnoreCommentsDomainsMeta` | Per-origin merge metadata for Ignore Comments domain list |
+| `block-javascript-domains.json` | `affoBlockJavaScriptDomains` | Block JavaScript domain list |
+| `block-javascript-domains-meta.json` | `affoBlockJavaScriptDomainsMeta` | Per-origin merge metadata for Block JavaScript domain list |
 | `substack-beige-disabled-domains.json` | `affoSubstackRouletteBeigeDisabledDomains` | Substack Roulette beige disabled domain list |
 | `substack-beige-disabled-domains-meta.json` | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin merge metadata for Substack Roulette beige disabled domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |

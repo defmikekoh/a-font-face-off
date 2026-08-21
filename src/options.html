@@ -934,6 +934,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Block JavaScript Domains</div>
+      <textarea id="block-javascript-domains" placeholder="One domain per line (e.g., thedeepview.com)"></textarea>
+      <div class="row">
+        <button id="reset-block-javascript">Reset to Default</button>
+        <button id="save-block-javascript">Save Domains</button>
+        <span id="status-block-javascript" class="status"></span>
+      </div>
+      <div class="hint">On these domains and their subdomains, AFFO adds <code>Content-Security-Policy: script-src 'none'</code> to top-level pages. This disables page JavaScript and may break interactive features. Reload the page after changing this list. Default: thedeepview.com.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Substack Roulette</div>
       <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
         <input id="substack-roulette-enabled" type="checkbox" checked>
@@ -1007,6 +1018,7 @@
     </div>
   </div>
 
+  <script src="block-javascript-utils.js"></script>
   <script src="messaging-utils.js"></script>
   <script src="local-font-utils.js"></script>
   <script src="options.js"></script>

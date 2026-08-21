@@ -38,6 +38,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `src/css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) |
 | `src/background.js` | Non-persistent background script; cloud sync, runtime message routing, Quick Pick handlers |
 | `src/background-font-runtime.js` | Background font fetch/cache service and Google Fonts CSS2 URL resolution |
+| `src/block-javascript-utils.js` | Shared MV2 response-header and MV3 dynamic-rule helpers for per-domain page JavaScript blocking |
 | `src/left-toolbar.js` | Toolbar overlay injected at `document_start`; early font preloading, Quick Pick panel |
 | `src/left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `src/options.js` / `src/options.html` | Settings page for domain configs and cache management |

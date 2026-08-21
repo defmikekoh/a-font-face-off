@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-origin metadata, including per-domain Sroulette on/off intent), favorites (`affoFavorites`, `affoFavoritesOrder`), aggressive domains, ignore-comments domains, Substack Roulette beige disabled domains, preserved fonts, and Substack roulette settings (enabled flag, serif/sans pools, brightness/beige behavior).
+Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-origin metadata, including per-domain Sroulette on/off intent), favorites (`affoFavorites`, `affoFavoritesOrder`), aggressive domains, ignore-comments domains, Block JavaScript domains, Substack Roulette beige disabled domains, preserved fonts, and Substack roulette settings (enabled flag, serif/sans pools, brightness/beige behavior).
 
 ## Backend Interface
 
@@ -15,7 +15,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 - OAuth via tab-based flow with PKCE (opens tab + intercepts redirect via webRequest; works on both desktop and Android Firefox). Tokens stored in `affoGDriveTokens`.
 - If Google rejects the refresh token with `invalid_grant`, the extension clears local tokens, preserves `affoSyncBackend = 'gdrive'`, and stores a local-only reconnect-required state in `affoGDriveAuthStatus` so the Options UI can offer an explicit reconnect flow instead of looking fully disconnected.
-- Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive. All synced items are single files in the root folder (no subfolders): `domains.json`, `domains-meta.json`, `favorites.json`, `custom-fonts.css`, `known-serif.json`, `known-sans.json`, `fontface-only-domains.json`, `fontface-only-domains-meta.json`, `inline-apply-domains.json`, `inline-apply-domains-meta.json`, `aggressive-domains.json`, `aggressive-domains-meta.json`, `waitforit-domains.json`, `waitforit-domains-meta.json`, `ignore-comments-domains.json`, `ignore-comments-domains-meta.json`, `substack-beige-disabled-domains.json`, `substack-beige-disabled-domains-meta.json`, `preserved-fonts.json`, `substack-roulette.json`.
+- Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive. All synced items are single files in the root folder (no subfolders): `domains.json`, `domains-meta.json`, `favorites.json`, `custom-fonts.css`, `known-serif.json`, `known-sans.json`, `fontface-only-domains.json`, `fontface-only-domains-meta.json`, `inline-apply-domains.json`, `inline-apply-domains-meta.json`, `aggressive-domains.json`, `aggressive-domains-meta.json`, `waitforit-domains.json`, `waitforit-domains-meta.json`, `ignore-comments-domains.json`, `ignore-comments-domains-meta.json`, `block-javascript-domains.json`, `block-javascript-domains-meta.json`, `substack-beige-disabled-domains.json`, `substack-beige-disabled-domains-meta.json`, `preserved-fonts.json`, `substack-roulette.json`.
 - `remoteRev` optimistic concurrency via `ensureRemoteRevisionUnchanged`
 
 ## WebDAV
@@ -34,7 +34,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 - If the manifest is missing (`firstSync`), the non-merged "simple" items (favorites, custom-fonts CSS, known serif/sans, preserved fonts, custom-font axes, Substack roulette) only pull remote when local has never been modified (`localModified === 0`). If local has tracked modifications, local is preserved and re-pushed instead of being silently overwritten by a possibly-stale remote file. (Domains and per-origin domain-array settings always merge, so they are unaffected.)
 - Domain settings are merged per origin using `domains.json` + `domains-meta.json`. Explicit Sroulette stores only the target (`body`, `serif`, `sans`, or `mono`) and source pool in `affoApplyMap[origin].sroulette`; the random resolved font is intentionally not synced. On Substack, any saved Sroulette intent is a domain setting and suppresses the automatic serif/sans/background/brightness Roulette path.
 - `domains-meta.json` stores per-origin `modified` timestamps and deletion tombstones (`deletedAt`); newer origin entry wins.
-- Domain-list settings (`fontface-only-domains`, `inline-apply-domains`, `aggressive-domains`, `waitforit-domains`, `ignore-comments-domains`, `substack-beige-disabled-domains`) also use per-origin metadata sidecar files with the same tombstone merge strategy.
+- Domain-list settings (`fontface-only-domains`, `inline-apply-domains`, `aggressive-domains`, `waitforit-domains`, `ignore-comments-domains`, `block-javascript-domains`, `substack-beige-disabled-domains`) also use per-origin metadata sidecar files with the same tombstone merge strategy.
 - Tie-breaker for equal per-origin timestamps prefers remote state to ensure deterministic convergence across devices.
 
 ## Auto-Sync Triggers

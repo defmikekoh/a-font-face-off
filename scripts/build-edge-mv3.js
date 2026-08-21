@@ -133,7 +133,8 @@ function buildManifest(sourceManifest) {
       'storage',
       'alarms',
       'scripting',
-      'webRequest'
+      'webRequest',
+      'declarativeNetRequestWithHostAccess'
     ],
     host_permissions: [
       'http://*/*',
@@ -412,6 +413,7 @@ function writeBrowserPolyfillLite() {
     },
     runtime: {
       getURL: chromeApi.runtime.getURL.bind(chromeApi.runtime),
+      getManifest: chromeApi.runtime.getManifest.bind(chromeApi.runtime),
       // Edge Canary Android exposes openOptionsPage(), but its callback may
       // never settle. Leave it absent so popup.js uses its tabs.create()
       // fallback to open options.html directly.
@@ -447,6 +449,10 @@ function writeBrowserPolyfillLite() {
       getAll: wrapMethod(chromeApi.permissions, 'getAll'),
       contains: wrapMethod(chromeApi.permissions, 'contains'),
       request: wrapMethod(chromeApi.permissions, 'request')
+    } : undefined,
+    declarativeNetRequest: chromeApi.declarativeNetRequest ? {
+      getDynamicRules: wrapMethod(chromeApi.declarativeNetRequest, 'getDynamicRules'),
+      updateDynamicRules: wrapMethod(chromeApi.declarativeNetRequest, 'updateDynamicRules')
     } : undefined,
     webRequest: chromeApi.webRequest,
     action: chromeApi.action,
