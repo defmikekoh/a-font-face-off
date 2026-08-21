@@ -380,6 +380,14 @@ Do not use Computer Use for repeatable popup/content-script regression checks, r
 
 ## Troubleshooting
 
+### Firefox Developer Edition updates
+
+Whenever desktop testing indicates that Firefox Developer Edition needs an update—because it is outdated, has a pending or stuck update, lacks compatibility required by the current tooling, or shows symptoms plausibly caused by updater state—pause testing and prompt the user to update FDE, quit it completely, and restart it. Do not perform the application update on the user's behalf, silently work around the required update, or continue drawing conclusions from the affected FDE run.
+
+Relevant symptoms include repeated helper prompts, browser/Selenium startup failures attributable to the installed FDE version, and page loads or reloads that appear to hang while the expected AFFO left toolbar is absent. These symptoms are diagnostic triggers, not proof by themselves; check available version/update evidence before declaring that an update is required.
+
+Resume desktop testing after the user confirms the update/restart. If FDE is already current and the behavior persists, continue with normal page, extension, and geckodriver diagnostics. This rule is specific to desktop Firefox Developer Edition; do not use it to redirect Android Firefox Nightly failures.
+
 ### Repeated macOS "Install Helper" prompts
 
 If Firefox Developer Edition asks to install its helper every time Selenium launches it, treat that as a Firefox updater state problem first, not a `geckodriver` bug.
