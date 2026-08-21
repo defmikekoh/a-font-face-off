@@ -68,7 +68,7 @@ Both Body Contact and TMI walkers exclude elements that should not have their fo
 
 ## Aggressive Mode (`affoAggressiveDomains`)
 
-By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOrigin: 'user'` for priority). Domains listed in `affoAggressiveDomains` get `!important` on all font declarations for sites with very strong style rules. Configurable via Options page textarea (one domain per line, defaults to empty). On page reload, `affoAggressiveDomains` is loaded in the same `storage.local.get()` call as `affoApplyMap` to avoid a race condition where aggressive mode CSS would be generated without `!important`. CSS is injected immediately on reapply (before font file loads) to prevent flash of original fonts; the font file loads in parallel and the browser swaps it in via `font-display: swap`.
+By default, CSS declarations are applied WITHOUT `!important` (relying on `cssOrigin: 'user'` for priority). Domains listed in `affoAggressiveDomains` get `!important` on all font declarations for sites with very strong style rules. Configurable via Options page textarea (one domain per line, defaults to empty). On page reload, `affoAggressiveDomains` is loaded in the same `storage.local.get()` call as `affoApplyMap` to avoid a race condition where aggressive mode CSS would be generated without `!important`. Reapply starts font fetching immediately but delays the visible CSS change until the configured face is ready. Immediately before that change, the content script captures a readable viewport anchor and restores its offset after layout, avoiding a late fallback-to-webfont reflow that can displace or reset a scrolled article.
 
 ## Inline-Apply Infrastructure
 

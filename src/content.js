@@ -1,6 +1,6 @@
-/* global AFFOMessaging, AFFOFontFaceUtils */
-// Content script: cleanup and storage monitoring only
-// All font injection is now handled by popup.js using insertCSS
+/* global AFFOMessaging, AFFOFontFaceUtils, AFFOFontSwapUtils */
+// Content script: persisted font loading/application, cleanup, and storage monitoring.
+// Popup applies user-origin CSS after coordinating readiness with this script.
 
 (function () {
   // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
@@ -2698,24 +2698,152 @@
     debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
   }
 
-  function injectGoogleFontLinkForConfig(fontConfig) {
+  var configuredFontReadyPromises = {};
+  var preparedFontSwapAnchors = {};
+  var FONT_STYLESHEET_TIMEOUT_MS = 20000;
+  var FONT_FACE_READY_TIMEOUT_MS = 20000;
+  var PREPARED_FONT_SWAP_TTL_MS = 30000;
+
+  function getGoogleFontLinkId(fontName) {
+    return 'a-font-face-off-style-' + String(fontName || '').replace(/\s+/g, '-').toLowerCase() + '-link';
+  }
+
+  function waitForFontStylesheet(link, fontName) {
+    if (!link) return Promise.reject(new Error('No stylesheet was resolved for ' + fontName));
+    if (link.sheet) return Promise.resolve();
+
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timeoutId = setTimeout(function () {
+        finish(new Error('Timed out loading stylesheet for ' + fontName));
+      }, FONT_STYLESHEET_TIMEOUT_MS);
+
+      function finish(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        link.removeEventListener('load', onLoad);
+        link.removeEventListener('error', onError);
+        if (error) reject(error);
+        else resolve();
+      }
+      function onLoad() { finish(); }
+      function onError() { finish(new Error('Failed to load stylesheet for ' + fontName)); }
+
+      link.addEventListener('load', onLoad);
+      link.addEventListener('error', onError);
+      if (link.sheet) finish();
+    });
+  }
+
+  function getFontReadinessSample() {
     try {
-      var fontName = fontConfig && fontConfig.fontName;
-      if (!fontName || shouldUseFontFaceOnly() || shouldTreatFontConfigAsLocal(fontConfig)) return Promise.resolve(false);
-      var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-      if (document.getElementById(linkId)) return Promise.resolve(true);
-      ensureGoogleFontsPreconnect();
-      return resolveCss2Url(fontName).then(function (css2Url) {
-        if (!css2Url) return false;
-        if (document.getElementById(linkId)) return true;
-        injectGoogleFontLink(linkId, fontName, css2Url);
-        return true;
-      }).catch(function () {
-        return false;
-      });
-    } catch (_) {
-      return Promise.resolve(false);
+      var codePoints = Array.from(collectNeededCodePoints()).slice(0, 512);
+      if (codePoints.length > 0) {
+        return 'BESbswy 0123456789 ' + codePoints.map(function (codePoint) {
+          return String.fromCodePoint(codePoint);
+        }).join('');
+      }
+    } catch (_) { }
+    return 'BESbswy 0123456789';
+  }
+
+  function waitForDocumentFontFaces(fontConfig) {
+    if (!fontConfig || !fontConfig.fontName || shouldTreatFontConfigAsLocal(fontConfig)) {
+      return Promise.resolve();
     }
+    if (!document.fonts || typeof document.fonts.load !== 'function') {
+      return Promise.reject(new Error('CSS Font Loading API is unavailable'));
+    }
+
+    var descriptors = AFFOFontSwapUtils.buildFontLoadDescriptors(fontConfig);
+    var sample = getFontReadinessSample();
+    var loadPromise = Promise.all(descriptors.map(function (descriptor) {
+      return document.fonts.load(descriptor, sample);
+    })).then(function (loadedFaces) {
+      if (!loadedFaces[0] || loadedFaces[0].length === 0) {
+        throw new Error('Configured font face was not available for ' + fontConfig.fontName);
+      }
+    });
+
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timeoutId = setTimeout(function () {
+        finish(new Error('Timed out loading font faces for ' + fontConfig.fontName));
+      }, FONT_FACE_READY_TIMEOUT_MS);
+
+      function finish(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        if (error) reject(error);
+        else resolve();
+      }
+
+      loadPromise.then(function () { finish(); }).catch(finish);
+    });
+  }
+
+  function getConfiguredFontReadyKey(fontConfig, fontType) {
+    var descriptors = AFFOFontSwapUtils.buildFontLoadDescriptors(fontConfig);
+    return [
+      fontType,
+      fontConfig && fontConfig.fontName,
+      descriptors.join('|'),
+      shouldUseFontFaceOnly() ? 'fontface' : 'stylesheet',
+      shouldTreatFontConfigAsLocal(fontConfig) ? 'local' : 'remote'
+    ].join('::');
+  }
+
+  function waitForConfiguredFontReady(fontConfig, fontType) {
+    if (!fontConfig || !fontConfig.fontName || String(fontConfig.fontName).toLowerCase() === 'default') {
+      return Promise.resolve();
+    }
+    if (shouldTreatFontConfigAsLocal(fontConfig)) return Promise.resolve();
+
+    var key = getConfiguredFontReadyKey(fontConfig, fontType);
+    if (configuredFontReadyPromises[key]) return configuredFontReadyPromises[key];
+
+    var readyPromise = loadFont(fontConfig, fontType).then(function () {
+      if (shouldUseFontFaceOnly() || getFontFaceRule(fontConfig.fontName)) return;
+      var link = document.getElementById(getGoogleFontLinkId(fontConfig.fontName));
+      return waitForFontStylesheet(link, fontConfig.fontName);
+    }).then(function () {
+      return waitForDocumentFontFaces(fontConfig);
+    }).then(function () {
+      debugLog('[AFFO Content] Font ready for stable swap:', fontConfig.fontName, fontType);
+    }).catch(function (error) {
+      delete configuredFontReadyPromises[key];
+      throw error;
+    });
+
+    configuredFontReadyPromises[key] = readyPromise;
+    return readyPromise;
+  }
+
+  function capturePreparedFontSwapAnchor(fontType) {
+    var snapshot = AFFOFontSwapUtils.captureViewportAnchor(document, window);
+    preparedFontSwapAnchors[fontType] = {
+      snapshot: snapshot,
+      createdAt: Date.now()
+    };
+    return snapshot;
+  }
+
+  function getPreparedFontSwapAnchor(fontType) {
+    var prepared = preparedFontSwapAnchors[fontType];
+    if (!prepared) return null;
+    if (Date.now() - prepared.createdAt > PREPARED_FONT_SWAP_TTL_MS) {
+      delete preparedFontSwapAnchors[fontType];
+      return null;
+    }
+    return prepared.snapshot;
+  }
+
+  function restorePreparedFontSwapAnchor(fontType) {
+    var snapshot = getPreparedFontSwapAnchor(fontType);
+    delete preparedFontSwapAnchors[fontType];
+    return AFFOFontSwapUtils.restoreViewportAnchorAfterLayout(snapshot, window);
   }
 
   function parseFontFaceWeightDescriptor(block) {
@@ -4485,6 +4613,48 @@
     return activeTmiTypes.length > 0 ? runElementWalkerAll(activeTmiTypes) : null;
   }
 
+  function applyReadyFontConfig(entry, fontConfig, fontType, css, walkerPromise) {
+    var readinessPromise = fontConfig.fontName
+      ? waitForConfiguredFontReady(fontConfig, fontType)
+      : Promise.resolve();
+    var prerequisites = walkerPromise
+      ? Promise.all([readinessPromise, walkerPromise])
+      : readinessPromise;
+
+    return prerequisites.then(function () {
+      var viewportAnchor = getPreparedFontSwapAnchor(fontType) ||
+        AFFOFontSwapUtils.captureViewportAnchor(document, window);
+
+      if (css) {
+        if (shouldUseInlineApply()) {
+          applyInlineStyles(fontConfig, fontType);
+        } else if (isResolvedSrouletteCssTarget(entry, fontType)) {
+          requestSrouletteCssInsert(fontType, css);
+          applyFontSizeScale(fontConfig, fontType);
+        } else {
+          var styleId = 'a-font-face-off-style-' + fontType;
+          var existingStyle = document.getElementById(styleId);
+          if (existingStyle) existingStyle.remove();
+
+          var styleEl = document.createElement('style');
+          styleEl.id = styleId;
+          styleEl.textContent = css;
+          document.head.appendChild(styleEl);
+          ensureNonAggressiveStyleOrderChaser();
+          applyFontSizeScale(fontConfig, fontType);
+          debugLog(`[AFFO Content] Applied ready CSS for ${fontType}:`, css);
+        }
+      } else {
+        applyFontSizeScale(fontConfig, fontType);
+      }
+
+      return AFFOFontSwapUtils.restoreViewportAnchorAfterLayout(viewportAnchor, window);
+    }).catch(function (error) {
+      debugWarn(`[AFFO Content] Stable ${fontType} font apply failed; keeping the current page font:`, error);
+      return false;
+    });
+  }
+
   // Helper function to reapply fonts from a given entry (used by storage listener and page load)
   function reapplyStoredFontsFromEntry(entry, options) {
     try {
@@ -4503,66 +4673,13 @@
           var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
           var walkerPromise = isTmi ? tmiWalkerPromise : null;
 
-          // Inject CSS immediately (before font loads) to prevent flash of original font
           var lines = [];
           if (fontConfig.fontFaceRule) {
             lines.push(fontConfig.fontFaceRule);
           }
           lines = lines.concat(generateCSSLines(fontConfig, fontType));
           var css = lines.join('\n');
-
-          if (css) {
-            if (shouldUseInlineApply()) {
-              // For TMI types, wait for walker to mark elements before applying inline styles
-              if (isTmi && walkerPromise) {
-                walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
-              } else {
-                applyInlineStyles(fontConfig, fontType);
-              }
-            } else if (isResolvedSrouletteCssTarget(entry, fontType)) {
-              if (isTmi && walkerPromise) {
-                walkerPromise.then(function () {
-                  requestSrouletteCssInsert(fontType, css);
-                  applyFontSizeScale(fontConfig, fontType);
-                });
-              } else {
-                requestSrouletteCssInsert(fontType, css);
-                applyFontSizeScale(fontConfig, fontType);
-              }
-            } else {
-              var styleId = 'a-font-face-off-style-' + fontType;
-              var existingStyle = document.getElementById(styleId);
-              if (existingStyle) existingStyle.remove();
-
-              var styleEl = document.createElement('style');
-              styleEl.id = styleId;
-              styleEl.textContent = css;
-              document.head.appendChild(styleEl);
-              ensureNonAggressiveStyleOrderChaser();
-              if (isTmi && walkerPromise) {
-                walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
-              } else {
-                applyFontSizeScale(fontConfig, fontType);
-              }
-              debugLog(`[AFFO Content] Applied CSS for ${fontType} from storage change:`, css);
-            }
-          } else {
-            if (isTmi && walkerPromise) {
-              walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
-            } else {
-              applyFontSizeScale(fontConfig, fontType);
-            }
-          }
-
-          // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
-          if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly() && !shouldTreatFontConfigAsLocal(fontConfig)) {
-            injectGoogleFontLinkForConfig(fontConfig);
-          }
-
-          // Load font file (handles custom fonts, FontFace-only domains, etc.)
-          loadFont(fontConfig, fontType).catch(function (e) {
-            debugWarn(`[AFFO Content] Error loading font after storage change:`, e);
-          });
+          applyReadyFontConfig(entry, fontConfig, fontType, css, walkerPromise);
         }
       });
     } catch (e) {
@@ -4739,91 +4856,14 @@
       // Reapply stored fonts on page load - wait for DOM to be ready
       function reapplyStoredFonts() {
         try {
-          if (shouldSkipDuplicateEntryReapply(effectiveEntry, 'page-init entry')) return;
-          lastReappliedEntry = effectiveEntry || null;
-          syncSrouletteCssTrackingForEntry(effectiveEntry);
-          syncObservedTmiCssTypesFromEntry(effectiveEntry);
-          clearFontSizeScalesNotInEntry(effectiveEntry);
-          var tmiWalkerPromise = createTmiWalkerPromiseForEntry(effectiveEntry);
-          ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
-            var fontConfig = effectiveEntry[fontType];
-            if (hasMeaningfulFontConfig(fontConfig)) {
-              debugLog(`[AFFO Content] Reapplying ${fontType} font:`, fontConfig.fontName);
-
-              // Run element walker for Third Man In mode
-              var isTmi = fontType === 'serif' || fontType === 'sans' || fontType === 'mono';
-              var walkerPromise = isTmi ? tmiWalkerPromise : null;
-
-              // Inject CSS immediately (before font loads) to prevent flash of original font.
-              // The browser will show a fallback until the font file loads, then swap in.
-              var lines = [];
-              if (fontConfig.fontFaceRule) {
-                lines.push(fontConfig.fontFaceRule);
-              }
-              lines = lines.concat(generateCSSLines(fontConfig, fontType));
-              var css = lines.join('\n');
-
-              if (css) {
-                if (shouldUseInlineApply()) {
-                  // For TMI types, wait for walker to mark elements before applying inline styles
-                  if (isTmi && walkerPromise) {
-                    walkerPromise.then(function () { applyInlineStyles(fontConfig, fontType); });
-                  } else {
-                    applyInlineStyles(fontConfig, fontType);
-                  }
-                } else if (isResolvedSrouletteCssTarget(effectiveEntry, fontType)) {
-                  if (isTmi && walkerPromise) {
-                    walkerPromise.then(function () {
-                      requestSrouletteCssInsert(fontType, css);
-                      applyFontSizeScale(fontConfig, fontType);
-                    });
-                  } else {
-                    requestSrouletteCssInsert(fontType, css);
-                    applyFontSizeScale(fontConfig, fontType);
-                  }
-                } else {
-                  var styleId = 'a-font-face-off-style-' + fontType;
-                  var existingStyle = document.getElementById(styleId);
-                  if (existingStyle) existingStyle.remove();
-
-                  var styleEl = document.createElement('style');
-                  styleEl.id = styleId;
-                  styleEl.textContent = css;
-                  document.head.appendChild(styleEl);
-                  ensureNonAggressiveStyleOrderChaser();
-                  if (isTmi && walkerPromise) {
-                    walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
-                  } else {
-                    applyFontSizeScale(fontConfig, fontType);
-                  }
-                  elementLog(`Applied CSS for ${fontType}:`, css);
-                }
-              } else {
-                if (isTmi && walkerPromise) {
-                  walkerPromise.then(function () { applyFontSizeScale(fontConfig, fontType); });
-                } else {
-                  applyFontSizeScale(fontConfig, fontType);
-                }
-              }
-
-              // Resolve and inject Google Fonts <link> without waiting for loadFont's async chain.
-              if (fontConfig.fontName && !fontConfig.fontFaceRule && !shouldUseFontFaceOnly() && !shouldTreatFontConfigAsLocal(fontConfig)) {
-                injectGoogleFontLinkForConfig(fontConfig);
-              }
-
-              // Load font file (handles custom fonts, FontFace-only domains, etc.)
-              loadFont(fontConfig, fontType).catch(function (e) {
-                debugWarn(`[AFFO Content] Error loading font on page init:`, e);
-              });
-            }
-          });
+          reapplyStoredFontsFromEntry(effectiveEntry);
         } catch (e) {
           console.error('[AFFO Content] Error reapplying fonts:', e);
         }
       }
 
-      // Reapply immediately — content script runs at document_end so DOM is already parsed.
-      // No delay needed; earlier injection reduces flash of original fonts.
+      // Reapply immediately — font fetching continues from the document-start preload,
+      // while the visible CSS swap waits until the configured face is ready.
       // Wait For It domains skip auto-reapply; fonts applied on demand via toolbar long-press.
       if (!waitForItDomains.includes(currentOrigin)) {
         reapplyStoredFonts();
@@ -4977,8 +5017,10 @@
 
         debugLog(`[AFFO Content] Storage changed for origin ${origin}`);
 
-        function removeExistingAffoStylesForStorageChange() {
-          ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
+        function removeExistingAffoStylesForStorageChange(nextEntry) {
+          ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
+            if (hasMeaningfulFontConfig(nextEntry && nextEntry[fontType])) return;
+            var id = 'a-font-face-off-style-' + fontType;
             try {
               var n = document.getElementById(id);
               if (n) {
@@ -4997,7 +5039,9 @@
           debugLog(`[AFFO Content] Entry found - reapplying fonts:`, entry);
           resolveSrouletteEntry(entry).then(function (effectiveEntry) {
             if (shouldSkipDuplicateEntryReapply(effectiveEntry, 'storage-change entry')) return;
-            removeExistingAffoStylesForStorageChange();
+            // Keep each currently visible AFFO face in place until its replacement
+            // is ready; remove only font types that disappeared from the entry.
+            removeExistingAffoStylesForStorageChange(effectiveEntry);
             reapplyStoredFontsFromEntry(effectiveEntry, { skipDuplicateCheck: true });
           });
         } else {
@@ -5018,7 +5062,7 @@
     console.error(`[AFFO Content] Error setting up storage listener:`, e);
   }
 
-  // Message listener - handles cleanup, fonts applied by popup insertCSS
+  // Message listener - handles cleanup, readiness coordination, and walker requests.
   try {
     browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       if (message.type === 'affoGetPageInfo') {
@@ -5043,6 +5087,24 @@
           console.error('[AFFO Content] Error filtering font subsets:', error);
           sendResponse({ ok: false, error: error.message });
         }
+      } else if (message.type === 'affoPrepareFontSwap') {
+        var preparedType = message.fontType;
+        if (['body', 'serif', 'sans', 'mono'].indexOf(preparedType) === -1) {
+          sendResponse({ success: false, error: 'Invalid fontType: ' + preparedType });
+        } else {
+          waitForConfiguredFontReady(message.fontConfig || {}, preparedType).then(function () {
+            capturePreparedFontSwapAnchor(preparedType);
+            sendResponse({ success: true });
+          }).catch(function (error) {
+            sendResponse({ success: false, error: error.message });
+          });
+          return true;
+        }
+      } else if (message.type === 'affoRestoreFontSwap') {
+        restorePreparedFontSwapAnchor(message.fontType).then(function (restored) {
+          sendResponse({ success: true, restored: restored });
+        });
+        return true;
       } else if (message.type === 'applyFonts') {
         // All font application is now handled by popup insertCSS
         debugLog('Content script received applyFonts message - fonts applied by popup insertCSS');
@@ -5152,6 +5214,37 @@
         window.__affoWalkerDone[ft] = { done: true, count: 0 };
       });
     }
+  });
+
+  // Stable font-swap bridge for popup.js. Like the walker bridge above, this
+  // uses a DOM event plus a small result registry because direct popup-to-tab
+  // messaging is not reliable in every Firefox popup context.
+  window.__affoFontSwapDone = {};
+  document.addEventListener('affo-prepare-font-swap', function (evt) {
+    var detail = evt.detail || {};
+    var fontType = detail.fontType;
+    if (['body', 'serif', 'sans', 'mono'].indexOf(fontType) === -1) return;
+    window.__affoFontSwapDone[fontType] = false;
+    waitForConfiguredFontReady(detail.fontConfig || {}, fontType).then(function () {
+      capturePreparedFontSwapAnchor(fontType);
+      window.__affoFontSwapDone[fontType] = { done: true, success: true };
+    }).catch(function (error) {
+      window.__affoFontSwapDone[fontType] = {
+        done: true,
+        success: false,
+        error: error && error.message ? error.message : String(error)
+      };
+    });
+  });
+
+  document.addEventListener('affo-restore-font-swap', function (evt) {
+    var detail = evt.detail || {};
+    var fontType = detail.fontType;
+    var resultKey = 'restore-' + fontType;
+    window.__affoFontSwapDone[resultKey] = false;
+    restorePreparedFontSwapAnchor(fontType).then(function (restored) {
+      window.__affoFontSwapDone[resultKey] = { done: true, success: true, restored: restored };
+    });
   });
 
   // Wait For It: listen for custom event from left-toolbar.js to manually apply fonts

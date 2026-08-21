@@ -10,10 +10,10 @@ A 4-stage pipeline ensures fonts load as early as possible:
 
 1. **Early preloading from `left-toolbar.js`** (`document_start`): Reads `affoApplyMap` from storage. Normal domains ask background.js to resolve Google Fonts css2 URLs and inject preconnect hints + Google Fonts `<link>` tags as soon as `document.head` is available. FontFace-only domains such as x.com instead send `affoWarmFontFace`; the background resolves/fetches the CSS and warms the configured current-weight Latin WOFF2 in IndexedDB without returning the binary or injecting page CSS.
 2. **Eager custom font reads in `content.js`** (module load): `ensureCustomFontsLoaded()` is kicked off immediately when the script loads, not lazily when first needed.
-3. **Early font link injection in reapply path**: The Google Fonts `<link>` tag is resolved and injected alongside the CSS `<style>` element, before or in parallel with the `loadFont()` chain.
-4. **CSS injection before font loads**: CSS rules targeting `[data-affo-font-type="..."]` are injected immediately, before font files load. The browser shows fallback fonts until the font file loads, then swaps in via `font-display: swap`.
+3. **Explicit face readiness in `content.js`**: The reapply path waits for the Google Fonts stylesheet and then calls `document.fonts.load()` for the configured face plus the supplemental bold face. Custom/FontFace-only paths wait for their `FontFace.load()` work before the same readiness check. It does not wait on `document.fonts.ready`, which could be delayed by unrelated site fonts.
+4. **Stable visible swap**: AFFO keeps the page's current font styling until the configured face is ready, captures a readable element near the top of the viewport, applies the complete CSS change once, and restores that element's viewport offset over the next layout frames. Popup-triggered applies use the same content-script preparation/anchor bridge before injecting user-origin CSS.
 
-Result: Font loading starts at `document_start` (earliest possible), eliminating sequential async waits from the critical path.
+Result: fetching still starts at `document_start`, but a slow first fetch no longer exposes an intermediate fallback-font layout or loses the reader's position when the selected face becomes visible.
 
 ## css2Url Resolution
 

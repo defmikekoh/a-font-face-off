@@ -582,6 +582,62 @@ function runElementWalkerInTargetTab(fontType) {
     });
 }
 
+function pollFontSwapBridgeResult(resultKey, timeoutMs) {
+    const startedAt = Date.now();
+    return new Promise((resolve) => {
+        function poll() {
+            executeScriptInTargetTab({
+                code: `window.__affoFontSwapDone && window.__affoFontSwapDone[${JSON.stringify(resultKey)}]`
+            }).then(result => {
+                const value = result && result[0];
+                if (value && value.done) {
+                    resolve(value);
+                } else if (Date.now() - startedAt >= timeoutMs) {
+                    resolve({ done: true, success: false, error: 'Timed out waiting for stable font swap' });
+                } else {
+                    setTimeout(poll, 100);
+                }
+            }).catch(error => {
+                resolve({ done: true, success: false, error: error.message });
+            });
+        }
+        setTimeout(poll, 50);
+    });
+}
+
+async function prepareFontSwapInTargetTab(fontType, fontConfig) {
+    const detail = JSON.stringify({ fontType, fontConfig: fontConfig || {} });
+    try {
+        const dispatchResult = await executeScriptInTargetTab({
+            code: `(function(){ if (!window.__affoFontSwapDone) return false; window.__affoFontSwapDone[${JSON.stringify(fontType)}] = false; document.dispatchEvent(new CustomEvent('affo-prepare-font-swap', {detail:${detail}})); return true; })();`
+        });
+        if (!dispatchResult || !dispatchResult[0]) return false;
+        const result = await pollFontSwapBridgeResult(fontType, 45000);
+        if (!result.success) {
+            affoDebugWarn(`prepareFontSwapInTargetTab: ${result.error || 'font preparation failed'}`);
+        }
+        return !!result.success;
+    } catch (error) {
+        affoDebugWarn('prepareFontSwapInTargetTab failed:', error);
+        return false;
+    }
+}
+
+async function restoreFontSwapInTargetTab(fontType) {
+    const resultKey = `restore-${fontType}`;
+    try {
+        const dispatchResult = await executeScriptInTargetTab({
+            code: `(function(){ if (!window.__affoFontSwapDone) return false; window.__affoFontSwapDone[${JSON.stringify(resultKey)}] = false; document.dispatchEvent(new CustomEvent('affo-restore-font-swap', {detail:{fontType:${JSON.stringify(fontType)}}})); return true; })();`
+        });
+        if (!dispatchResult || !dispatchResult[0]) return false;
+        const result = await pollFontSwapBridgeResult(resultKey, 5000);
+        return !!result.success;
+    } catch (error) {
+        affoDebugWarn('restoreFontSwapInTargetTab failed:', error);
+        return false;
+    }
+}
+
 // Helper: insert CSS in the correct tab (source tab if available, otherwise active tab)
 function insertCSSInTargetTab(options) {
     if (window.sourceTabId) {
@@ -2561,6 +2617,12 @@ async function applyFontToPage(position, config) {
         // Build clean payload for domain storage.
         const payload = await buildPayload(position, config);
 
+        // Keep the current page face in place while the replacement downloads.
+        // The content script captures the reading anchor immediately before the swap.
+        if (!await prepareFontSwapInTargetTab(genericKey, payload)) {
+            return false;
+        }
+
         if (appliedCssActive[genericKey]) {
             await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] }).catch(() => {});
             appliedCssActive[genericKey] = null;
@@ -2571,8 +2633,9 @@ async function applyFontToPage(position, config) {
 
         // Check if this is an inline apply domain
         if (shouldUseInlineApply(origin)) {
-            affoDebugLog(`applyFontToPage: Using inline apply for ${origin} - content script will handle font loading and styling`);
+            affoDebugLog(`applyFontToPage: Using inline apply for ${origin} - content script will handle ready font styling`);
             // For inline apply domains, storage update is enough - content script handles everything
+            await restoreFontSwapInTargetTab(genericKey);
             return true;
         } else {
             // Apply CSS using consolidated insertCSS approach for standard domains
@@ -2594,13 +2657,16 @@ async function applyFontToPage(position, config) {
                         cssOrigin: 'user'
                     });
                     appliedCssActive[genericKey] = css;
+                    await restoreFontSwapInTargetTab(genericKey);
                     affoDebugLog(`applyFontToPage: Successfully applied ${position} font using insertCSS`);
                     return true;
                 } catch (error) {
+                    await restoreFontSwapInTargetTab(genericKey);
                     console.error(`applyFontToPage: CSS injection failed:`, error);
                     return false;
                 }
             }
+            await restoreFontSwapInTargetTab(genericKey);
             return payload.fontSizeScale != null;
         }
     } catch (e) {
@@ -2674,6 +2740,10 @@ async function applyThirdManInFont(fontType, config) {
         // Build clean payload for domain storage.
         const payload = await buildPayload(fontType, config);
 
+        if (!await prepareFontSwapInTargetTab(fontType, payload)) {
+            return false;
+        }
+
         if (appliedCssActive[fontType]) {
             await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
@@ -2686,85 +2756,33 @@ async function applyThirdManInFont(fontType, config) {
         return saveApplyMapForOrigin(origin, fontType, payload).then(async () => {
             // For inline apply domains, return early - content script handles font loading
             if (shouldUseInlineApply(origin)) {
-                affoDebugLog(`applyThirdManInFont: Storage written - content script will load fonts progressively`);
+                affoDebugLog(`applyThirdManInFont: Storage written - content script owns the ready font swap`);
+                await restoreFontSwapInTargetTab(fontType);
                 return true;
             }
 
-            const css2Url = payload && payload.fontName
-                ? await buildCss2Url(payload.fontName, config)
-                : '';
-
-            // First, inject Google Fonts CSS link if needed (only for non-inline domains)
-            const fontName = payload.fontName;
-
-            let fontLinkPromise = Promise.resolve();
-            if (css2Url) {
-                const linkId = `a-font-face-off-style-${fontType}-link`;
-                const linkScript = `
-                    (function() {
-                        // Add preconnect hints for faster font loading
-                        if (!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')) {
-                            var pc1 = document.createElement('link');
-                            pc1.rel = 'preconnect';
-                            pc1.href = 'https://fonts.googleapis.com';
-                            document.head.appendChild(pc1);
-                        }
-                        if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
-                            var pc2 = document.createElement('link');
-                            pc2.rel = 'preconnect';
-                            pc2.href = 'https://fonts.gstatic.com';
-                            pc2.crossOrigin = '';
-                            document.head.appendChild(pc2);
-                        }
-                        var linkId = '${linkId}';
-                        var existingLink = document.getElementById(linkId);
-                        if (!existingLink) {
-                            var link = document.createElement('link');
-                            link.id = linkId;
-                            link.rel = 'stylesheet';
-                            link.href = '${css2Url}';
-                            document.head.appendChild(link);
-                            if (${AFFO_DEBUG}) console.log('Third Man In: Added Google Fonts link for ${fontName}:', '${css2Url}');
-                        }
-                    })();
-                `;
-                fontLinkPromise = executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                    affoDebugWarn(`applyThirdManInFont: Font link injection failed:`, error);
-                });
+            // Run element walker in content.js to mark elements with data-affo-font-type.
+            affoDebugLog(`applyThirdManInFont: Running element walker for ${fontType}`);
+            try {
+                await runElementWalkerInTargetTab(fontType);
+                const css = payload
+                    ? generateThirdManInCSS(fontType, payload, shouldUseAggressive(origin))
+                    : '';
+                if (css) {
+                    affoDebugLog(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
+                    await insertCSSInTargetTab({ code: css, cssOrigin: 'user' });
+                    appliedCssActive[fontType] = css;
+                    await restoreFontSwapInTargetTab(fontType);
+                    affoDebugLog(`applyThirdManInFont: Successfully applied ${fontType} font`);
+                    return true;
+                }
+                await restoreFontSwapInTargetTab(fontType);
+                return payload && payload.fontSizeScale != null;
+            } catch (error) {
+                await restoreFontSwapInTargetTab(fontType);
+                console.error(`applyThirdManInFont: Stable apply failed:`, error);
+                return false;
             }
-
-            return fontLinkPromise.then(() => {
-                // Run element walker in content.js to mark elements with data-affo-font-type
-                affoDebugLog(`applyThirdManInFont: Running element walker for ${fontType}`);
-
-                return runElementWalkerInTargetTab(fontType).then(() => {
-                    // Apply CSS using the already-built payload
-                    if (payload) {
-                        const css = generateThirdManInCSS(fontType, payload, shouldUseAggressive(origin));
-                        if (css) {
-                            affoDebugLog(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
-                            return insertCSSInTargetTab({
-                                code: css,
-                                cssOrigin: 'user'
-                            }).then(() => {
-                                appliedCssActive[fontType] = css;
-                                affoDebugLog(`applyThirdManInFont: Successfully applied ${fontType} font`);
-                                return true;
-                            }).catch(error => {
-                                console.error(`applyThirdManInFont: CSS injection failed:`, error);
-                                return false;
-                            });
-                        }
-                        if (payload.fontSizeScale != null) {
-                            return true;
-                        }
-                    }
-                    return payload && payload.fontSizeScale != null;
-                }).catch(error => {
-                    console.error(`applyThirdManInFont: Element walker script failed:`, error);
-                    return false;
-                });
-            });
         });
     }).catch(e => {
         affoDebugWarn('applyThirdManInFont failed', e);
@@ -5591,29 +5609,16 @@ function applyAllThirdManInFonts() {
             const domainData = rawDomainData || {};
             const { batchConfigs, cssJobs } = buildThirdManInBatchChanges(types, domainData);
             const changeCount = Object.keys(batchConfigs).length;
+            let preparedSwapTypes = [];
 
             if (changeCount === 0) {
                 affoDebugLog('applyAllThirdManInFonts: No fonts to apply (all are placeholders/unset)');
                 return Promise.resolve();
             }
 
-            // Clean up existing popup-inserted CSS before the storage write so
-            // content-side percent scaling records the page's real computed sizes.
-            affoDebugLog('applyAllThirdManInFonts: Cleaning up existing CSS for all types');
-            const cleanupPromises = ['serif', 'sans', 'mono'].map(type => {
-                if (appliedCssActive[type]) {
-                    affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
-                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
-                        appliedCssActive[type] = null;
-                    }).catch(error => {
-                        affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
-                    });
-                }
-                return Promise.resolve();
-            });
-
-            return Promise.all(cleanupPromises).then(async () => {
-                // Step 2a: Build payloads for all configs (strips fontFaceRule/css2Url)
+            return Promise.resolve().then(async () => {
+                // Build payloads first so every replacement can become ready while
+                // the page keeps its currently applied faces and reading position.
                 const payloadConfigs = {};
                 for (const [type, batchConfig] of Object.entries(batchConfigs)) {
                     if (isFontBatchPayloadRequest(batchConfig)) {
@@ -5623,12 +5628,33 @@ function applyAllThirdManInFonts() {
                     }
                 }
 
-                // Step 2b: SINGLE batch storage write for all fonts (now with clean payloads)
+                preparedSwapTypes = Object.keys(payloadConfigs);
+                const preparationResults = await Promise.all(Object.entries(payloadConfigs).map(([type, payload]) => {
+                    return prepareFontSwapInTargetTab(type, payload);
+                }));
+                if (preparationResults.some(result => !result)) {
+                    return null;
+                }
+
+                // Clean up popup-inserted CSS only after all replacement faces are ready.
+                await Promise.all(['serif', 'sans', 'mono'].map(type => {
+                    if (!appliedCssActive[type]) return Promise.resolve();
+                    affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
+                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
+                        appliedCssActive[type] = null;
+                    }).catch(error => {
+                        affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
+                    });
+                }));
+
                 affoDebugLog('applyAllThirdManInFonts: Performing SINGLE batch storage write for all fonts:', Object.keys(payloadConfigs));
-                return saveBatchApplyStateForOrigin(origin, payloadConfigs);
-            }).then(() => {
+                await saveBatchApplyStateForOrigin(origin, payloadConfigs);
+                return payloadConfigs;
+            }).then(async payloadConfigs => {
+                if (!payloadConfigs) return [];
                 if (shouldUseInlineApply(origin)) {
                     affoDebugLog(`applyAllThirdManInFonts: Content script owns page apply for ${origin}; skipping popup CSS/walkers`);
+                    await Promise.all(Object.keys(payloadConfigs).map(type => restoreFontSwapInTargetTab(type)));
                     return [];
                 }
 
@@ -5644,30 +5670,7 @@ function applyAllThirdManInFonts() {
                         return false;
                     }
 
-                    // Inject Google Fonts CSS link if needed (before element walker)
-                    const css2Url = payload.fontName ? await buildCss2Url(payload.fontName, job.config) : '';
-                    if (css2Url) {
-                        const linkId = `a-font-face-off-style-${job.type}-link`;
-                        const linkScript = `
-                            (function() {
-                                var linkId = '${linkId}';
-                                var existingLink = document.getElementById(linkId);
-                                if (!existingLink) {
-                                    var link = document.createElement('link');
-                                    link.id = linkId;
-                                    link.rel = 'stylesheet';
-                                    link.href = '${css2Url}';
-                                    document.head.appendChild(link);
-                                    if (${AFFO_DEBUG}) console.log('Third Man In: Added Google Fonts link for ${payload.fontName}:', '${css2Url}');
-                                }
-                            })();
-                        `;
-                        await executeScriptInTargetTab({ code: linkScript }).catch(error => {
-                            affoDebugWarn(`applyAllThirdManInFonts: Font link injection failed for ${job.type}:`, error);
-                        });
-                    }
-
-                    // Element walker - RUN AFTER font loading
+                    // The preparation phase already loaded the face; now mark targets.
                     affoDebugLog(`applyAllThirdManInFonts: Running element walker for ${job.type}`);
 
                     return runElementWalkerInTargetTab(job.type).then(async () => {
@@ -5696,23 +5699,24 @@ function applyAllThirdManInFonts() {
                                 return insertCSSInTargetTab({ code: css }).then(() => {
                                     affoDebugLog(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
                                     appliedCssActive[job.type] = css;
-                                    return true;
+                                    return restoreFontSwapInTargetTab(job.type).then(() => true);
                                 }).catch(error => {
                                     console.error(`applyAllThirdManInFonts: insertCSS failed for ${job.type}:`, error);
-                                    return false;
+                                    return restoreFontSwapInTargetTab(job.type).then(() => false);
                                 });
                             }
-                            return payload.fontSizeScale != null;
+                            return restoreFontSwapInTargetTab(job.type).then(() => payload.fontSizeScale != null);
                         });
                     }).catch(error => {
                         console.error(`applyAllThirdManInFonts: Element walker failed for ${job.type}:`, error);
-                        return false;
+                        return restoreFontSwapInTargetTab(job.type).then(() => false);
                     });
                 });
             });
 
                 return Promise.all(cssPromises);
-        }).then(() => {
+        }).then(async () => {
+                await Promise.all(preparedSwapTypes.map(type => restoreFontSwapInTargetTab(type)));
                 // Step 5: Update UI state
                 saveExtensionState();
                 affoDebugLog('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', changeCount);
