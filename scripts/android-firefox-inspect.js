@@ -5,10 +5,22 @@ const firefox = require('selenium-webdriver/firefox');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+    loadBookmarkList,
+    parseUiNodes,
+} = require('./android-firefox-bookmarks');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_URL = 'https://en.wikipedia.org/wiki/Typography';
 const DEFAULT_XPI = path.join(ROOT_DIR, 'web-ext-artifacts', 'latest.xpi');
+const DEFAULT_BOOKMARK_FILE = path.join(
+    ROOT_DIR,
+    '.agents',
+    'skills',
+    'desktop-testing',
+    'references',
+    'android-firefox-bookmarks.json',
+);
 const APPROVED_ANDROID_TARGET = Object.freeze({
     serial: 'RF8M81WSL1V',
     packageName: 'org.mozilla.fenix',
@@ -46,6 +58,9 @@ Options:
   --xpi <path>             Extension XPI to install (default: web-ext-artifacts/latest.xpi)
   --skip-addon             Do not install an extension before navigating
   --allow-addon-failure    Continue inspection if addon installation fails
+  --bookmarks <path>       JSON bookmark list restored after reset
+                            (default: .agents/skills/desktop-testing/references/android-firefox-bookmarks.json)
+  --skip-bookmarks         Do not restore the configured bookmarks after reset
   --expect-affo            Exit non-zero if the AFFO content script marker is missing
   --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config
   --seed-serif <name>      Serif favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SERIF})
@@ -78,6 +93,10 @@ function parseArgs(argv) {
         xpiPath: process.env.AFFO_ANDROID_XPI || DEFAULT_XPI,
         skipAddon: process.env.AFFO_ANDROID_SKIP_ADDON === '1',
         allowAddonFailure: process.env.AFFO_ANDROID_ALLOW_ADDON_FAILURE === '1',
+        bookmarkFile: process.env.AFFO_ANDROID_BOOKMARKS
+            ? path.resolve(process.env.AFFO_ANDROID_BOOKMARKS)
+            : DEFAULT_BOOKMARK_FILE,
+        seedBookmarks: process.env.AFFO_ANDROID_SKIP_BOOKMARKS !== '1',
         expectAffo: process.env.AFFO_ANDROID_EXPECT_AFFO === '1',
         seedSubstackRoulette: process.env.AFFO_ANDROID_SEED_SUBSTACK_ROULETTE === '1',
         seedSerif: process.env.AFFO_ANDROID_SEED_SERIF || DEFAULT_SEED_SERIF,
@@ -115,6 +134,10 @@ function parseArgs(argv) {
             args.skipAddon = true;
         } else if (arg === '--allow-addon-failure') {
             args.allowAddonFailure = true;
+        } else if (arg === '--bookmarks') {
+            args.bookmarkFile = path.resolve(requireValue(argv, ++i, arg));
+        } else if (arg === '--skip-bookmarks') {
+            args.seedBookmarks = false;
         } else if (arg === '--expect-affo') {
             args.expectAffo = true;
         } else if (arg === '--seed-substack-roulette') {
@@ -232,6 +255,46 @@ function runAdb(serial, adbArgs, options = {}) {
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: options.timeoutMs || ADB_COMMAND_TIMEOUT_MS,
     }).trim();
+}
+
+function dumpFenixUi(args) {
+    const remotePath = '/sdcard/affo-android-firefox-ui.xml';
+    runAdb(args.serial, ['shell', 'uiautomator', 'dump', remotePath]);
+    return parseUiNodes(runAdb(args.serial, ['shell', 'cat', remotePath]));
+}
+
+function tapUiNode(args, node) {
+    if (!node || !node.bounds) {
+        throw new Error('Cannot tap an Android UI node without bounds.');
+    }
+    const x = Math.round((node.bounds.left + node.bounds.right) / 2);
+    const y = Math.round((node.bounds.top + node.bounds.bottom) / 2);
+    runAdb(args.serial, ['shell', 'input', 'tap', String(x), String(y)]);
+}
+
+function findUiNode(nodes, attribute, value) {
+    return nodes.find((node) => node[attribute] === value);
+}
+
+function dismissFenixOnboarding(args, report) {
+    const actions = [];
+    for (let step = 0; step < 4; step += 1) {
+        const nodes = dumpFenixUi(args);
+        const continueNode = findUiNode(nodes, 'text', 'Continue');
+        if (continueNode) {
+            tapUiNode(args, continueNode);
+            actions.push('Continue');
+            continue;
+        }
+        const notNowNode = findUiNode(nodes, 'text', 'Not now');
+        if (notNowNode) {
+            tapUiNode(args, notNowNode);
+            actions.push('Not now');
+            continue;
+        }
+        break;
+    }
+    report.fenixOnboarding = { actions };
 }
 
 function collectDevicePreflight(args) {
@@ -371,6 +434,87 @@ async function installAddonIfRequested(driver, args, report) {
             throw error;
         }
     }
+}
+
+function openFenixUrl(args, url) {
+    runAdb(args.serial, [
+        'shell',
+        'am',
+        'start',
+        '-a',
+        'android.intent.action.VIEW',
+        '-d',
+        url,
+        args.packageName,
+    ]);
+}
+
+function restoreBookmarksIfRequested(args, report) {
+    if (!args.seedBookmarks) {
+        report.bookmarkSeed = { skipped: true };
+        return;
+    }
+
+    const bookmarks = loadBookmarkList(args.bookmarkFile);
+    report.bookmarkSeed = {
+        skipped: false,
+        success: false,
+        bookmarkFile: args.bookmarkFile,
+        requestedBookmarks: bookmarks,
+    };
+    if (bookmarks.length === 0) {
+        report.bookmarkSeed.result = { ok: true, items: [] };
+        report.bookmarkSeed.success = true;
+        return;
+    }
+
+    const items = [];
+    try {
+        openFenixUrl(args, bookmarks[0] ? bookmarks[0].url : DEFAULT_URL);
+        dismissFenixOnboarding(args, report);
+
+        for (const bookmark of bookmarks) {
+            openFenixUrl(args, bookmark.url);
+
+            let nodes = dumpFenixUi(args);
+            const cfrDismiss = nodes.find((node) => node['resource-id'] === 'cfr.dismiss');
+            if (cfrDismiss) {
+                tapUiNode(args, cfrDismiss);
+                nodes = dumpFenixUi(args);
+            }
+
+            const moreOptions = findUiNode(nodes, 'content-desc', 'More options');
+            if (!moreOptions) {
+                throw new Error(`Android Firefox bookmark restoration could not find More options for ${bookmark.url}.`);
+            }
+            tapUiNode(args, moreOptions);
+            nodes = dumpFenixUi(args);
+
+            const existing = findUiNode(nodes, 'content-desc', 'Edit bookmark');
+            if (existing) {
+                runAdb(args.serial, ['shell', 'input', 'keyevent', 'KEYCODE_BACK']);
+                items.push({ action: 'unchanged', ...bookmark });
+                continue;
+            }
+
+            const bookmarkPage = findUiNode(nodes, 'content-desc', 'Bookmark page');
+            if (!bookmarkPage) {
+                throw new Error(`Android Firefox bookmark restoration could not find Bookmark page for ${bookmark.url}.`);
+            }
+            tapUiNode(args, bookmarkPage);
+            nodes = dumpFenixUi(args);
+            const saved = nodes.find((node) => (node.text || '').startsWith('Saved in '));
+            if (!saved) {
+                throw new Error(`Android Firefox did not confirm the bookmark for ${bookmark.url}.`);
+            }
+            items.push({ action: 'created', ...bookmark, confirmation: saved.text });
+        }
+    } finally {
+        runAdb(args.serial, ['shell', 'am', 'force-stop', args.packageName]);
+    }
+
+    report.bookmarkSeed.result = { ok: true, items };
+    report.bookmarkSeed.success = true;
 }
 
 function buildSubstackRouletteSeed(args) {
@@ -603,6 +747,8 @@ async function main() {
             preflightOnly: args.preflightOnly,
             selectors: args.selectors,
             skipAddon: args.skipAddon,
+            seedBookmarks: args.seedBookmarks,
+            bookmarkFile: args.bookmarkFile,
             expectAffo: args.expectAffo,
             seedSubstackRoulette: args.seedSubstackRoulette,
             seedSerif: args.seedSerif,
@@ -614,6 +760,7 @@ async function main() {
 
     let driver;
     let geckodriverLogFd;
+    let sessionCreated = false;
     try {
         validateAndroidTarget(args);
         report.devicePreflight = collectDevicePreflight(args);
@@ -623,6 +770,7 @@ async function main() {
             const driverContext = await createAndroidFirefoxDriver(args);
             driver = driverContext.driver;
             geckodriverLogFd = driverContext.geckodriverLogFd;
+            sessionCreated = true;
             await installAddonIfRequested(driver, args, report);
             await driver.get(args.url);
             report.documentReadyState = await waitForDocument(driver, args.timeoutMs);
@@ -654,6 +802,22 @@ async function main() {
         }
         if (geckodriverLogFd != null) {
             fs.closeSync(geckodriverLogFd);
+        }
+        if (sessionCreated) {
+            try {
+                restoreBookmarksIfRequested(args, report);
+            } catch (error) {
+                report.bookmarkSeed = {
+                    ...(report.bookmarkSeed || {}),
+                    success: false,
+                    error: error.message,
+                };
+                if (!report.error) {
+                    report.error = error.message;
+                    report.stack = error.stack;
+                    process.exitCode = 1;
+                }
+            }
         }
     }
 
