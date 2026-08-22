@@ -37,7 +37,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["messaging-utils.js", "sroulette-utils.js", "site-detection-utils.js", "local-font-utils.js", "left-toolbar.js"],
+      "js": ["messaging-utils.js", "sroulette-utils.js", "site-detection-utils.js", "local-font-utils.js", "font-warm-utils.js", "left-toolbar.js"],
       "run_at": "document_start"
     },
     {

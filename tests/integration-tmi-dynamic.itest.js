@@ -291,4 +291,64 @@ describe('TMI dynamic-content incremental marking', { concurrency: false }, () =
         assert.equal(dynamicTypography.existingStyleMutations, 0,
             'dynamic scaling should not rewrite existing scaled elements');
     });
+
+    it('fails open and restores TMI plus toolbar geometry across repeated reloads', async () => {
+        const missingFontName = 'AFFO Missing Remote Face';
+        await writeExtensionStorage({
+            affoApplyMap: {
+                [ORIGIN]: {
+                    sans: { fontName: missingFontName, variableAxes: {} }
+                }
+            }
+        });
+
+        async function waitForRestoredState(label) {
+            await driver.wait(async () => driver.executeScript(`
+                const style = document.getElementById('a-font-face-off-style-sans');
+                const text = document.getElementById('n1');
+                const toolbar = document.getElementById('affo-left-toolbar-iframe');
+                return !!(
+                    style && style.textContent.includes(${JSON.stringify(missingFontName)}) &&
+                    text && text.getAttribute('data-affo-font-type') === 'sans' &&
+                    toolbar && toolbar.getBoundingClientRect().height > 0
+                );
+            `), 8000, label);
+
+            return driver.executeScript(`
+                const toolbar = document.getElementById('affo-left-toolbar-iframe');
+                return {
+                    readyState: document.readyState,
+                    fontFamily: getComputedStyle(document.getElementById('n1')).fontFamily,
+                    toolbarHeight: toolbar.getBoundingClientRect().height,
+                    hasPageFontLink: !!document.querySelector(
+                        'link[id^="a-font-face-off-style-"][id$="-link"]'
+                    )
+                };
+            `);
+        }
+
+        await driver.get(baseUrl);
+        const initial = await waitForRestoredState('Initial fail-open TMI state should apply');
+        assert.match(initial.fontFamily, /AFFO Missing Remote Face/i,
+            `configured family CSS should apply even when the face is unavailable: ${JSON.stringify(initial)}`);
+        assert.ok(initial.toolbarHeight > 0,
+            `toolbar should have positive geometry without relying on page load: ${JSON.stringify(initial)}`);
+        assert.equal(initial.hasPageFontLink, false,
+            'persisted font restore should not add a load-bearing page stylesheet link');
+
+        await driver.navigate().refresh();
+        const firstReload = await waitForRestoredState('First reload should restore TMI and toolbar');
+        await driver.navigate().refresh();
+        const secondReload = await waitForRestoredState('Second reload should restore TMI and toolbar');
+
+        [firstReload, secondReload].forEach((state) => {
+            assert.equal(state.readyState, 'complete', `fixture page should finish loading: ${JSON.stringify(state)}`);
+            assert.match(state.fontFamily, /AFFO Missing Remote Face/i,
+                `configured family CSS should survive repeated reloads: ${JSON.stringify(state)}`);
+            assert.ok(state.toolbarHeight > 0,
+                `toolbar should survive repeated reloads with positive geometry: ${JSON.stringify(state)}`);
+            assert.equal(state.hasPageFontLink, false,
+                'repeated reload should not introduce a page stylesheet link');
+        });
+    });
 });

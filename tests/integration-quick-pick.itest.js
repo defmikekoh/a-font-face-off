@@ -266,6 +266,10 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         const state = await getQuickPickState();
         const metrics = await getToolbarIframeMetrics();
         const expectedVisibleButtonCount = state.isTouchEligible ? 6 : 3;
+        assert.ok(
+            metrics.frameHeight > 0,
+            `Toolbar iframe should never remain at its zero-height bootstrap value: ${JSON.stringify(metrics)}`
+        );
         assert.equal(metrics.buttonCount, 6, 'Toolbar should keep all six button elements available in the iframe');
         assert.equal(
             metrics.visibleButtonCount,

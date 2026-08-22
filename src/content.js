@@ -2612,11 +2612,9 @@
         debugLog(`[AFFO Content] Using local desktop font ${fontName}`);
         return Promise.resolve();
       }
-      // If Google font and not FontFace-only domain, load Google Fonts CSS
-      else if (!shouldUseFontFaceOnly()) {
-        return loadGoogleFontCSS(fontConfig);
-      }
-      // If Google font and FontFace-only domain, use FontFace API only
+      // Load Google fonts through background-fetched binary FontFace objects on
+      // every domain. Page-level CSS links can hold Firefox's load lifecycle
+      // open, while page-injected @font-face URLs remain subject to site CSP.
       else {
         return tryFontFaceAPI(fontConfig);
       }
@@ -2643,98 +2641,11 @@
     return loadingPromise;
   }
 
-  // Ensure preconnect hints for Google Fonts are present in the page
-  var preconnectsInjected = false;
-  function ensureGoogleFontsPreconnect() {
-    if (preconnectsInjected) return;
-    preconnectsInjected = true;
-    try {
-      if (!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')) {
-        var pc1 = document.createElement('link');
-        pc1.rel = 'preconnect';
-        pc1.href = 'https://fonts.googleapis.com';
-        document.head.appendChild(pc1);
-      }
-      if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
-        var pc2 = document.createElement('link');
-        pc2.rel = 'preconnect';
-        pc2.href = 'https://fonts.gstatic.com';
-        pc2.crossOrigin = '';
-        document.head.appendChild(pc2);
-      }
-    } catch (_) { }
-  }
-
-  function loadGoogleFontCSS(fontConfig) {
-    try {
-      if (shouldTreatFontConfigAsLocal(fontConfig)) return Promise.resolve();
-      var fontName = fontConfig.fontName;
-      var linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-      if (document.getElementById(linkId)) return Promise.resolve(); // Already loaded
-
-      // Add preconnect hints before loading font
-      ensureGoogleFontsPreconnect();
-
-      return resolveCss2Url(fontName, { fallbackWhenMissing: true }).then(function (css2Url) {
-        if (document.getElementById(linkId)) return; // Loaded while resolving
-        if (!css2Url) {
-          debugLog(`[AFFO Content] No css2Url for ${fontName} — skipping Google Fonts link`);
-          return;
-        }
-        injectGoogleFontLink(linkId, fontName, css2Url);
-      });
-    } catch (e) {
-      console.error(`[AFFO Content] Failed to load Google Font CSS ${fontConfig.fontName}:`, e);
-      return Promise.resolve();
-    }
-  }
-
-  function injectGoogleFontLink(linkId, fontName, href) {
-    var link = document.createElement('link');
-    link.id = linkId;
-    link.rel = 'stylesheet';
-    link.href = href;
-    document.head.appendChild(link);
-    debugLog(`[AFFO Content] Loading Google Font CSS: ${fontName} - ${href}`);
-  }
-
   var configuredFontReadyPromises = {};
   var preparedFontSwapAnchors = {};
-  var FONT_STYLESHEET_TIMEOUT_MS = 20000;
   var FONT_FACE_READY_TIMEOUT_MS = 20000;
+  var FONT_APPLY_FAIL_OPEN_TIMEOUT_MS = 5000;
   var PREPARED_FONT_SWAP_TTL_MS = 30000;
-
-  function getGoogleFontLinkId(fontName) {
-    return 'a-font-face-off-style-' + String(fontName || '').replace(/\s+/g, '-').toLowerCase() + '-link';
-  }
-
-  function waitForFontStylesheet(link, fontName) {
-    if (!link) return Promise.reject(new Error('No stylesheet was resolved for ' + fontName));
-    if (link.sheet) return Promise.resolve();
-
-    return new Promise(function (resolve, reject) {
-      var settled = false;
-      var timeoutId = setTimeout(function () {
-        finish(new Error('Timed out loading stylesheet for ' + fontName));
-      }, FONT_STYLESHEET_TIMEOUT_MS);
-
-      function finish(error) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeoutId);
-        link.removeEventListener('load', onLoad);
-        link.removeEventListener('error', onError);
-        if (error) reject(error);
-        else resolve();
-      }
-      function onLoad() { finish(); }
-      function onError() { finish(new Error('Failed to load stylesheet for ' + fontName)); }
-
-      link.addEventListener('load', onLoad);
-      link.addEventListener('error', onError);
-      if (link.sheet) finish();
-    });
-  }
 
   function getFontReadinessSample() {
     try {
@@ -2805,10 +2716,6 @@
     if (configuredFontReadyPromises[key]) return configuredFontReadyPromises[key];
 
     var readyPromise = loadFont(fontConfig, fontType).then(function () {
-      if (shouldUseFontFaceOnly() || getFontFaceRule(fontConfig.fontName)) return;
-      var link = document.getElementById(getGoogleFontLinkId(fontConfig.fontName));
-      return waitForFontStylesheet(link, fontConfig.fontName);
-    }).then(function () {
       return waitForDocumentFontFaces(fontConfig);
     }).then(function () {
       debugLog('[AFFO Content] Font ready for stable swap:', fontConfig.fontName, fontType);
@@ -4617,11 +4524,35 @@
     var readinessPromise = fontConfig.fontName
       ? waitForConfiguredFontReady(fontConfig, fontType)
       : Promise.resolve();
-    var prerequisites = walkerPromise
-      ? Promise.all([readinessPromise, walkerPromise])
-      : readinessPromise;
+    var readinessForApply = new Promise(function (resolve) {
+      var settled = false;
+      var timeoutId = setTimeout(function () {
+        finish(new Error('Timed out waiting to apply ' + fontConfig.fontName));
+      }, FONT_APPLY_FAIL_OPEN_TIMEOUT_MS);
 
-    return prerequisites.then(function () {
+      function finish(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve({ ready: !error, error: error || null });
+      }
+
+      readinessPromise.then(function () { finish(); }).catch(finish);
+    });
+
+    // TMI CSS can exist before its marker attributes. As the chunked walker
+    // marks elements, the rule begins matching incrementally; its completion
+    // must not be a prerequisite for restoring the saved configuration.
+    if (walkerPromise) {
+      walkerPromise.catch(function (error) {
+        debugWarn(`[AFFO Content] ${fontType} element walker failed after CSS apply:`, error);
+      });
+    }
+
+    return readinessForApply.then(function (readiness) {
+      if (!readiness.ready) {
+        debugWarn(`[AFFO Content] ${fontType} font was not ready; applying configured CSS with browser fallback:`, readiness.error);
+      }
       var viewportAnchor = getPreparedFontSwapAnchor(fontType) ||
         AFFOFontSwapUtils.captureViewportAnchor(document, window);
 
@@ -4650,7 +4581,7 @@
 
       return AFFOFontSwapUtils.restoreViewportAnchorAfterLayout(viewportAnchor, window);
     }).catch(function (error) {
-      debugWarn(`[AFFO Content] Stable ${fontType} font apply failed; keeping the current page font:`, error);
+      debugWarn(`[AFFO Content] ${fontType} CSS apply failed:`, error);
       return false;
     });
   }
@@ -5155,15 +5086,11 @@
             } catch (e) { }
           });
 
-          // Remove Google Fonts links efficiently - check for known patterns first
+          // Remove background-fetched Google Fonts styles and legacy links.
           try {
-            var allLinks = document.getElementsByTagName('link');
-            for (var i = allLinks.length - 1; i >= 0; i--) {
-              var link = allLinks[i];
-              if (link.id && link.id.indexOf('a-font-face-off-style-') === 0 && link.id.indexOf('-link') > 0) {
-                link.remove();
-              }
-            }
+            document.querySelectorAll('[id^="a-font-face-off-style-"][id$="-link"]').forEach(function (fontSource) {
+              fontSource.remove();
+            });
           } catch (e) { }
 
           // Remove custom font @font-face style elements efficiently

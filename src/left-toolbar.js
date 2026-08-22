@@ -1,4 +1,4 @@
-/* global AFFOMessaging */
+/* global AFFOMessaging, AFFOFontWarmUtils */
 // Left toolbar content script - based on essential-buttons-toolbar approach
 (function() {
     'use strict';
@@ -31,6 +31,7 @@
     let toolbarPrintMediaQuery = null;
     let toolbarPrintHandler = null;
     let toolbarPresenceObserver = null;
+    let lastUsableViewportMetrics = null;
     const MESSAGING_UNAVAILABLE_MESSAGE = 'Extension messaging is unavailable. If you just reloaded the temp add-on with web-ext, reload the page and reopen the AFFO UI, then try again.';
     const QUICK_PICK_MESSAGE_COLOR = '#6c757d';
     const QUICK_PICK_SUCCESS_COLOR = '#198754';
@@ -67,27 +68,6 @@
         }, options));
     }
 
-    const runtimeCss2UrlPromises = {};
-    function resolveRuntimeCss2Url(fontName) {
-        const key = String(fontName || '').trim();
-        if (!key || key.toLowerCase() === 'default') return Promise.resolve('');
-        if (runtimeCss2UrlPromises[key]) return runtimeCss2UrlPromises[key];
-        runtimeCss2UrlPromises[key] = sendRuntimeMessageWithRetry({
-            type: 'resolveCss2Url',
-            fontName: key
-        }, {
-            retryMs: 1500,
-            retryDelayMs: 100
-        }).then(response => {
-            delete runtimeCss2UrlPromises[key];
-            return response && response.ok ? (response.css2Url || '') : '';
-        }).catch(() => {
-            delete runtimeCss2UrlPromises[key];
-            return '';
-        });
-        return runtimeCss2UrlPromises[key];
-    }
-
     function normalizeLocalFontsValue(value) {
         if (globalThis.AFFOLocalFontUtils && typeof AFFOLocalFontUtils.normalizeLocalFonts === 'function') {
             return AFFOLocalFontUtils.normalizeLocalFonts(value);
@@ -102,9 +82,9 @@
         return !!(fontConfig && fontConfig.fontName && localFonts.indexOf(fontConfig.fontName) !== -1);
     }
 
-    function warmFontFaceOnlyConfigs(entry, localFonts) {
+    function warmStoredFontConfigs(entry, localFonts, fontTypes) {
         const seen = new Set();
-        ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
+        fontTypes.forEach(fontType => {
             const fontConfig = entry[fontType];
             if (!fontConfig || !fontConfig.fontName || isLocalFontConfig(fontConfig, localFonts)) return;
             const warmKey = JSON.stringify([
@@ -118,9 +98,8 @@
             if (seen.has(warmKey)) return;
             seen.add(warmKey);
 
-            // FontFace-only pages cannot use a page-level stylesheet, but the
-            // background cache can still start the primary Latin WOFF2 fetch at
-            // document_start while content.js waits for the DOM.
+            // Warm through the background so document-start work never adds a
+            // page resource that can hold Firefox's loading lifecycle open.
             sendRuntimeMessageWithRetry({
                 type: 'affoWarmFontFace',
                 fontName: fontConfig.fontName,
@@ -311,22 +290,35 @@
 
     function getViewportMetrics() {
         const visualViewport = window.visualViewport;
-        if (!visualViewport) {
+        const visualWidth = visualViewport && Number(visualViewport.width);
+        const visualHeight = visualViewport && Number(visualViewport.height);
+        const innerWidth = Number(window.innerWidth) || Number(document.documentElement.clientWidth);
+        const innerHeight = Number(window.innerHeight) || Number(document.documentElement.clientHeight);
+        const width = visualWidth > 0 ? visualWidth : innerWidth;
+        const height = visualHeight > 0 ? visualHeight : innerHeight;
+
+        // Android Firefox can transiently expose a zero-height visual viewport
+        // while restoring/reloading a tab. Never collapse the live iframe back
+        // to its bootstrap height; a zero-sized iframe can leave stale pixels
+        // visible while becoming completely unhittable.
+        if (!(width > 0) || !(height > 0)) {
+            if (lastUsableViewportMetrics) return lastUsableViewportMetrics;
             return {
-                width: window.innerWidth,
-                height: window.innerHeight,
+                width: 360,
+                height: 640,
                 scale: 1,
                 offsetLeft: 0,
                 offsetTop: 0
             };
         }
-        return {
-            width: visualViewport.width,
-            height: visualViewport.height,
-            scale: visualViewport.scale || 1,
-            offsetLeft: visualViewport.offsetLeft || 0,
-            offsetTop: visualViewport.offsetTop || 0
+        lastUsableViewportMetrics = {
+            width,
+            height,
+            scale: visualViewport && Number(visualViewport.scale) > 0 ? Number(visualViewport.scale) : 1,
+            offsetLeft: visualViewport && Number.isFinite(Number(visualViewport.offsetLeft)) ? Number(visualViewport.offsetLeft) : 0,
+            offsetTop: visualViewport && Number.isFinite(Number(visualViewport.offsetTop)) ? Number(visualViewport.offsetTop) : 0
         };
+        return lastUsableViewportMetrics;
     }
 
     function getToolbarThicknessPx(metrics) {
@@ -412,13 +404,19 @@
         leftToolbarIframe.style.margin = '0';
     }
 
-    // --- Early font preloading (runs at document_start for maximum lead time) ---
-    // For domains with stored fonts, inject preconnect + <link> tags immediately
-    // so browser starts fetching fonts before page is fully loaded.
+    // --- Early font warming (runs at document_start for maximum lead time) ---
+    // Fetch through the background cache. A page-level stylesheet inserted at
+    // document_start can keep Firefox's load lifecycle pending on dynamic pages.
     (function earlyFontPreload() {
         try {
             const origin = location.hostname;
-            browser.storage.local.get(['affoApplyMap', 'affoWaitForItDomains', 'affoFontFaceOnlyDomains', 'affoLocalFonts']).then(data => {
+            browser.storage.local.get([
+                'affoApplyMap',
+                'affoCurrentView',
+                'affoCurrentMode',
+                'affoWaitForItDomains',
+                'affoLocalFonts'
+            ]).then(data => {
                 const map = data.affoApplyMap || {};
                 const entry = map[origin];
 
@@ -429,67 +427,13 @@
                 if (waitForItDomains.includes(origin)) return;
 
                 const localFonts = normalizeLocalFontsValue(data.affoLocalFonts || []);
+                const fontTypes = AFFOFontWarmUtils.getStoredFontTypesToWarm(
+                    entry,
+                    data.affoCurrentView,
+                    data.affoCurrentMode
+                );
 
-                // FontFace-only domains intentionally avoid page-level Google Fonts
-                // stylesheets. Warm their background cache instead, without exposing
-                // the generated family to page CSS before content.js owns the load.
-                const fontFaceOnlyDomains = Array.isArray(data.affoFontFaceOnlyDomains)
-                    ? data.affoFontFaceOnlyDomains
-                    : ['x.com'];
-                if (fontFaceOnlyDomains.includes(origin)) {
-                    warmFontFaceOnlyConfigs(entry, localFonts);
-                    return;
-                }
-
-                // Wait for document.head to be available
-                function injectWhenReady() {
-                    if (document.head) {
-                        injectPreloads();
-                    } else {
-                        setTimeout(injectWhenReady, 10);
-                    }
-                }
-
-                function injectPreloads() {
-                    // Inject preconnect hints first
-                    if (!document.querySelector('link[rel="preconnect"][href="https://fonts.googleapis.com"]')) {
-                        const pc1 = document.createElement('link');
-                        pc1.rel = 'preconnect';
-                        pc1.href = 'https://fonts.googleapis.com';
-                        document.head.appendChild(pc1);
-                    }
-                    if (!document.querySelector('link[rel="preconnect"][href="https://fonts.gstatic.com"]')) {
-                        const pc2 = document.createElement('link');
-                        pc2.rel = 'preconnect';
-                        pc2.href = 'https://fonts.gstatic.com';
-                        pc2.crossOrigin = '';
-                        document.head.appendChild(pc2);
-                    }
-
-                    // Inject <link> tags for any runtime-resolvable Google fonts in stored config
-                    ['body', 'serif', 'sans', 'mono'].forEach(fontType => {
-                        const fontConfig = entry[fontType];
-                        if (!fontConfig || !fontConfig.fontName) return;
-                        if (isLocalFontConfig(fontConfig, localFonts)) return;
-
-                        const fontName = fontConfig.fontName;
-                        const linkId = 'a-font-face-off-style-' + fontName.replace(/\s+/g, '-').toLowerCase() + '-link';
-
-                        if (!document.getElementById(linkId)) {
-                            resolveRuntimeCss2Url(fontName).then(css2Url => {
-                                if (!css2Url || document.getElementById(linkId)) return;
-                                const link = document.createElement('link');
-                                link.id = linkId;
-                                link.rel = 'stylesheet';
-                                link.href = css2Url;
-                                document.head.appendChild(link);
-                                affoDebugLog(`[AFFO Toolbar] Early preload for ${fontName}: ${css2Url}`);
-                            });
-                        }
-                    });
-                }
-
-                injectWhenReady();
+                warmStoredFontConfigs(entry, localFonts, fontTypes);
             }).catch(e => {
                 affoDebugWarn('[AFFO Toolbar] Early font preload failed:', e);
             });
@@ -540,9 +484,10 @@
         // stylesheets, which overrides non-important inline min-width.
         const metrics = getViewportMetrics();
         const initialWidth = getToolbarThicknessPx(metrics);
+        const initialHeight = getToolbarLengthPx(metrics);
         const initialLeft = Math.round(metrics.offsetLeft + getToolbarGapPx(metrics));
         leftToolbarIframe.style =
-            `display: block !important; height: 0; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset !important; max-height: unset !important; min-width: unset !important; max-width: unset !important; border: 0; background: transparent; color-scheme: light; border-radius: 0; width: ${initialWidth}px !important; left: ${initialLeft}px; top: ${Math.round(metrics.offsetTop)}px`;
+            `display: block !important; height: ${initialHeight}px !important; position: fixed; z-index: 2147483647; margin: 0; padding: 0; min-height: unset !important; max-height: unset !important; min-width: unset !important; max-width: unset !important; border: 0; background: transparent; color-scheme: light; border-radius: 0; width: ${initialWidth}px !important; left: ${initialLeft}px; top: ${Math.round(metrics.offsetTop)}px`;
         leftToolbarIframe.src = (typeof browser !== 'undefined' ? browser : chrome).runtime.getURL('left-toolbar-iframe.html');
         
         
@@ -577,6 +522,11 @@
 
         // Use Essential's exact DOM insertion method
         document.body.insertAdjacentElement('afterend', leftToolbarIframe);
+
+        // Geometry is independent of the iframe document. Firefox can defer an
+        // iframe load event while the top-level page is still pending, so never
+        // leave the toolbar at its defensive zero-height bootstrap value.
+        applyToolbarViewportGeometry();
         
         // Track visual viewport geometry so the toolbar stays pinned inside
         // the currently visible viewport during browser chrome collapse/pinch.
@@ -589,8 +539,6 @@
         
         // Add load event listener to check and fix sizing issues like Essential does
         window.addEventListener('load', checkToolbarHeight);
-        
-        // DON'T call updateToolbarHeight immediately - wait for iframe load event like Essential
         
         if (resolve) resolve();
     }
