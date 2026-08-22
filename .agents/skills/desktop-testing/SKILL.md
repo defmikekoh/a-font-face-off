@@ -36,11 +36,10 @@ Run Python-backed skill tooling through `.venv/bin/python`. For example, validat
 this skill with the validator bundled with Codex:
 
 ```bash
-SKILL_VALIDATOR="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
-.venv/bin/python "$SKILL_VALIDATOR" .agents/skills/desktop-testing
+.venv/bin/python /Users/mike/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/desktop-testing
 ```
 
-Use geckodriver 0.37.1 or later for Firefox Android automation. If an older Homebrew version is installed, run `brew update && brew upgrade geckodriver`, then verify the version again. This minimum does not apply to desktop-only testing.
+Use geckodriver 0.37.1 or later for Firefox Android automation. If an older Homebrew version is installed, run `brew update` and `brew upgrade geckodriver` as separate commands, then verify the version again. This minimum does not apply to desktop-only testing.
 
 Firefox Developer Edition must be installed at `/Applications/Firefox Developer Edition.app`.
 
@@ -211,6 +210,21 @@ The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO
 
 Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
+#### Approval-compatible Note10 ADB
+
+For direct ADB work on the approved Note10, put the literal serial in every command and run exactly one ADB command per tool call. Do not use an environment variable for the serial. Do not use pipes, redirects, `&&`, `||`, `;`, command substitution, loops, or a shell wrapper around ADB. Those forms do not match narrow command-prefix approvals reliably and obscure which device operation is authorized.
+
+Use two explicit commands for local captures:
+
+```bash
+adb -s RF8M81WSL1V shell screencap -p /sdcard/affo-current.png
+adb -s RF8M81WSL1V pull /sdcard/affo-current.png ztemp/affo-current.png
+adb -s RF8M81WSL1V shell uiautomator dump /sdcard/affo-ui.xml
+adb -s RF8M81WSL1V pull /sdcard/affo-ui.xml ztemp/affo-ui.xml
+```
+
+Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, app force-stop, installs, pushes, forward changes, and package/profile clearing—outside read-only ADB prefix approvals unless the user separately approves the exact operation.
+
 The harness enforces the approved serial/package pair. Only after fresh explicit approval for a different target may you pass `--allow-unapproved-target`; `--allow-clear-package-data` alone is not sufficient.
 
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
@@ -305,7 +319,7 @@ Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()`
 
 **Note10 measurement gotchas (learned the hard way):**
 
-- **A screenshot is authoritative, `getBoundingClientRect` is NOT.** Rect math caps at `innerHeight`, so it CANNOT see whitespace *below* the popup — a too-short body reads `gripsBottom === innerHeight` (gap 0) while a device screenshot clearly shows a gap. Always confirm popup fill/anchoring with `adb -s RF8M81WSL1V exec-out screencap -p > ztemp/x.png`.
+- **A screenshot is authoritative, `getBoundingClientRect` is NOT.** Rect math caps at `innerHeight`, so it CANNOT see whitespace *below* the popup — a too-short body reads `gripsBottom === innerHeight` (gap 0) while a device screenshot clearly shows a gap. Always confirm popup fill/anchoring with the separate `shell screencap` and `pull` commands above.
 - **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
 - **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
 - **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
@@ -449,10 +463,10 @@ Only perform this cleanup against the pre-approved `RF8M81WSL1V` + `org.mozilla.
 If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
 
 ```bash
-adb -s DEVICE_ID forward --list
-adb -s DEVICE_ID forward --remove tcp:PORT
+adb -s RF8M81WSL1V forward --list
+adb -s RF8M81WSL1V forward --remove tcp:PORT
 adb -s RF8M81WSL1V shell am force-stop org.mozilla.fenix
-adb -s RF8M81WSL1V shell cat /proc/net/unix | rg 'org\.mozilla\.fenix/.*firefox-debugger-socket'
+adb -s RF8M81WSL1V shell cat /proc/net/unix
 ```
 
-The final socket search should print no duplicate `firefox-debugger-socket` rows before retrying. If sockets remain after force-stop, a device reboot is the blunt recovery.
+Inspect the final command's output for duplicate `org.mozilla.fenix/...firefox-debugger-socket` rows before retrying. Forward removal and force-stop are state-changing and should receive specific approval; do not place them under the read-only Note10 prefixes. If sockets remain after force-stop, a device reboot is the blunt recovery.
