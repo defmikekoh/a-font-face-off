@@ -17,6 +17,7 @@
     "gf:update": "node scripts/update-gf-metadata.js",
     "lint": "eslint --no-warn-ignored src/*.js scripts/ tests/**/*.js",
     "inspect:android-firefox": "node scripts/android-firefox-inspect.js",
+    "test:android:emulator": "npm run build:latest && node scripts/android-emulator-test.js",
     "test": "node --test 'tests/**/*.test.js'",
     "test:integration": "npm run build:latest && node --test --test-concurrency=1 'tests/**/*.itest.js'"
   },

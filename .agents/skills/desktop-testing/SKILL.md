@@ -208,6 +208,18 @@ The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO
 - Any other Firefox package on the Note10, including Firefox Release or Beta.
 - `org.mozilla.fenix` or any Firefox package on another phone, tablet, emulator, or Android user/work profile.
 
+The disposable Android 16 emulator is an explicit exception for the opt-in
+emulator smoke lane:
+
+```text
+Device:  emulator-5554 (AFFO_Pixel_API36, Android 16/API 36)
+Package: org.mozilla.fenix (Firefox Nightly)
+```
+
+Its Firefox profile may be cleared by `npm run test:android:emulator`. This
+exception does not authorize profile clearing on the physical S23 Ultra or TCL
+NxtPaper devices.
+
 Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
 #### Approval-compatible Note10 ADB
@@ -225,6 +237,42 @@ adb -s RF8M81WSL1V pull /sdcard/affo-ui.xml ztemp/affo-ui.xml
 
 Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, app force-stop, installs, pushes, forward changes, and package/profile clearing—outside read-only ADB prefix approvals unless the user separately approves the exact operation.
 
+#### scrcpy visual companion
+
+If `scrcpy` is installed, use it for visual confirmation and evidence around
+Android Firefox sessions. It complements the WebDriver harness: WebDriver is
+authoritative for DOM, computed CSS, extension storage, and injection timing;
+scrcpy shows the actual device screen, browser chrome, keyboard, touch feedback,
+scrolling, overlays, and transient startup states.
+
+Check the tool once per session:
+
+```bash
+scrcpy --version
+adb version
+```
+
+For the approved Note10, a manual live mirror is:
+
+```bash
+scrcpy -s RF8M81WSL1V --max-size=1440 --max-fps=30 --no-audio --window-title="AFFO Android"
+```
+
+For non-GUI evidence or a short reproduction recording, use:
+
+```bash
+scrcpy -s RF8M81WSL1V --no-window --no-audio --time-limit=10 \
+  --record=ztemp/android-scrcpy-session.mp4
+```
+
+Do not use `--kill-adb-on-close`; the ADB daemon is shared with Selenium,
+geckodriver, and the project helpers. Do not infer DOM or computed-style state
+from the video. Pair recordings with the JSON report, geckodriver trace, and
+ADB UI dump/screenshot. Recordings are most useful when a failure involves a
+Firefox startup stall, missing/covered toolbar, popup-to-tab transition, touch
+target, keyboard, scroll, or other behavior that structured inspection cannot
+represent.
+
 The harness enforces the approved serial/package pair. Only after fresh explicit approval for a different target may you pass `--allow-unapproved-target`; `--allow-clear-package-data` alone is not sufficient.
 
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
@@ -236,6 +284,20 @@ geckodriver --version  # require 0.37.1 or later for Android
 npm run build:latest
 npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --expect-affo --out ztemp/android-firefox-inspect.json
 ```
+
+For the disposable Android 16 emulator smoke lane, use:
+
+```bash
+npm run test:android:emulator
+```
+
+This builds the current XPI, clears only the emulator's Nightly profile,
+installs the add-on, opens the DeepView regression page, and asserts Android
+16, Firefox Nightly, add-on installation, document readiness, AFFO injection,
+article presence, and visible toolbar iframe state. Because the test launches
+child ADB processes, run it in an environment that can access the shared ADB
+daemon; if sandboxing blocks ADB startup, rerun with elevated execution
+approval.
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; this approval applies only to Nightly on the Note10 identified above.
 
