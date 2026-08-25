@@ -214,6 +214,7 @@ jobs:
 
       - name: Print direct link and QR to latest .xpi
         run: |
+          set -euo pipefail
           echo "Fetching latest (tagged) release download URL..."
           API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/android-test-latest"
 
@@ -222,8 +223,14 @@ jobs:
           attempt=1
           while [ $attempt -le $attempts ]; do
             echo "Attempt $attempt/$attempts: Checking for release asset..."
-            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r '.assets[0].browser_download_url')
-            if [ "$DOWNLOAD_URL" != "null" ] && [ -n "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL=$(curl -fsSL \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL" | jq -r '
+                [.assets[] | select(.name | endswith(".xpi"))]
+                | sort_by(.created_at) | reverse | .[0].browser_download_url // empty
+              ')
+            if [ -n "$DOWNLOAD_URL" ]; then
               echo "Asset found!"
               break
             fi
@@ -234,7 +241,7 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          if [ "$DOWNLOAD_URL" = "null" ] || [ -z "$DOWNLOAD_URL" ]; then
+          if [ -z "$DOWNLOAD_URL" ]; then
             echo "No asset found for latest tagged release after $attempts attempts."
             exit 1
           fi
