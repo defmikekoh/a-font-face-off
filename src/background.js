@@ -2546,6 +2546,11 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
     );
   });
 
+  appendUniquePageFontRules(
+    rules,
+    AFFOPageFontUtils.buildCapturedFontFaceRules(fontName, msg.capturedFontFaces)
+  );
+
   if (rules.length === 0) {
     const stylesheetQueue = AFFOPageFontUtils.rankStylesheetUrls(msg.stylesheetUrls, fontName)
       .slice(0, PAGE_FONT_STYLESHEET_FETCH_LIMIT);

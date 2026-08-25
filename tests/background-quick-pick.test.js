@@ -263,6 +263,47 @@ describe('background WhatFont Face-off draft', () => {
         assert.equal(storage.data.affoFaceoffPageFontDraft.config.fontWeight, 500);
     });
 
+    it('prepares fonts captured from the page FontFace constructor', async () => {
+        const fontData = buildVariableTestFont();
+        const resourceUrl = 'https://partners.rebelmouse.com/IEEE/IvarCompleteWeb/IvarText-Regular.woff2';
+        const fetchedUrls = [];
+        const { context, storage } = loadBackground({}, {
+            fetch: async url => {
+                fetchedUrls.push(url);
+                return {
+                    ok: true,
+                    status: 200,
+                    text: async () => '',
+                    arrayBuffer: async () => fontData
+                };
+            }
+        });
+
+        const result = await context.self.affoHandleRuntimeMessage({
+            type: 'affoPrepareFaceoffPageFont',
+            fontName: 'IvarText',
+            fontWeight: 400,
+            fontStyle: 'normal',
+            variableAxes: {},
+            fontFaceRules: [],
+            capturedFontFaces: [{
+                family: 'IvarText',
+                source: `url("${resourceUrl}")`,
+                baseUrl: 'https://spectrum.ieee.org/arctic-iceberg-drones',
+                descriptors: { weight: '400', style: 'normal', display: 'swap' }
+            }],
+            stylesheetUrls: [],
+            pageUrl: 'https://spectrum.ieee.org/arctic-iceberg-drones'
+        }, {
+            tab: { id: 123, url: 'https://spectrum.ieee.org/arctic-iceberg-drones' }
+        });
+
+        assert.equal(result.success, true);
+        assert.deepEqual(fetchedUrls, [resourceUrl]);
+        assert.match(storage.data.affoFaceoffPageFontDraft.config.fontFaceRule, /font-family: "IvarText"/);
+        assert.match(storage.data.affoFaceoffPageFontDraft.config.fontFaceRule, /data:font\/ttf;base64/);
+    });
+
     it('retains computed axes proven by the downloaded font fvar table', async () => {
         const fontData = buildVariableTestFont();
         const { context, storage } = loadBackground({}, {

@@ -997,6 +997,15 @@ function _whatFont() {
                 return urls;
             }
 
+            function collectCapturedFontFaces(fontName) {
+                if (typeof globalThis.AFFOGetCapturedPageFontFaces !== 'function') return [];
+                try {
+                    return globalThis.AFFOGetCapturedPageFontFaces(fontName);
+                } catch (_) {
+                    return [];
+                }
+            }
+
             function openFaceoff(response) {
                 var isMobileFirefox = window.navigator.userAgent.indexOf('Mobile') !== -1 &&
                     window.navigator.userAgent.indexOf('Firefox') !== -1;
@@ -1032,6 +1041,7 @@ function _whatFont() {
                     fontStyle: typeInfo.style,
                     variableAxes: typeInfo.variableAxes || {},
                     fontFaceRules: collectFontFaceRules(typeInfo.current),
+                    capturedFontFaces: collectCapturedFontFaces(typeInfo.current),
                     stylesheetUrls: collectStylesheetUrls(),
                     fontResourceUrls: collectFontResourceUrls(typeInfo.current),
                     pageUrl: window.location.href

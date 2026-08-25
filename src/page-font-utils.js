@@ -544,6 +544,51 @@
     });
   }
 
+  function escapeCssString(value) {
+    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function safeCapturedDescriptor(name, value) {
+    var text = String(value || '').trim();
+    if (!text) return '';
+    if (name === 'weight' && /^(?:normal|bold|[\d.]+(?:\s+[\d.]+)?)$/i.test(text)) return text;
+    if (name === 'style' && /^(?:normal|italic|oblique(?:\s+-?[\d.]+deg(?:\s+-?[\d.]+deg)?)?)$/i.test(text)) return text;
+    if (name === 'stretch' && /^(?:normal|(?:ultra-|extra-|semi-)?(?:condensed|expanded)|[\d.]+%(?:\s+[\d.]+%)?)$/i.test(text)) return text;
+    if (name === 'unicodeRange' && /^[uU+\dA-Fa-f?\s,\-]+$/.test(text)) return text;
+    if (name === 'display' && /^(?:auto|block|swap|fallback|optional)$/i.test(text)) return text;
+    return '';
+  }
+
+  function buildCapturedFontFaceRules(fontName, records) {
+    var family = cleanFontFamilyName(fontName);
+    var target = normalizeFontFamilyName(family);
+    if (!target) return [];
+
+    return uniqueStrings((Array.isArray(records) ? records : []).filter(function(record) {
+      return record && normalizeFontFamilyName(record.family) === target &&
+        typeof record.source === 'string' && record.source.trim();
+    }).map(function(record) {
+      var descriptors = record.descriptors && typeof record.descriptors === 'object'
+        ? record.descriptors
+        : {};
+      var declarations = [
+        'font-family: "' + escapeCssString(family) + '"',
+        'src: ' + record.source.trim()
+      ];
+      [
+        ['style', 'font-style'],
+        ['weight', 'font-weight'],
+        ['stretch', 'font-stretch'],
+        ['unicodeRange', 'unicode-range'],
+        ['display', 'font-display']
+      ].forEach(function(entry) {
+        var value = safeCapturedDescriptor(entry[0], descriptors[entry[0]]);
+        if (value) declarations.push(entry[1] + ': ' + value);
+      });
+      return resolveFontFaceUrls('@font-face { ' + declarations.join('; ') + '; }', record.baseUrl);
+    }));
+  }
+
   function buildAdobeDynamicFontFaceRule(fontName, resourceUrls) {
     var family = cleanFontFamilyName(fontName);
     var familyMatch = normalizeFontFamilyName(family).match(/^([a-z0-9]+)-([ni])(\d)$/);
@@ -570,6 +615,7 @@
 
   var api = {
     buildAdobeDynamicFontFaceRule: buildAdobeDynamicFontFaceRule,
+    buildCapturedFontFaceRules: buildCapturedFontFaceRules,
     buildFontBinaryAxisDefinition: buildFontBinaryAxisDefinition,
     detectFontBinaryFormat: detectFontBinaryFormat,
     cleanFontFamilyName: cleanFontFamilyName,

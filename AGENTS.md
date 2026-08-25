@@ -43,6 +43,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `src/left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `src/options.js` / `src/options.html` | Settings page for domain configs and cache management |
 | `src/whatfont_core.js` | Font detection overlay (injected at `document_idle` with `jquery.js`) |
+| `src/page-font-face-capture.js` | Page-realm document-start observer for string-backed `FontFace` constructor calls used by WhatFont → Face-off |
 | `src/custom-fonts.css` | @font-face rules for non-Google custom fonts |
 | `src/data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
 

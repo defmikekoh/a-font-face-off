@@ -4,6 +4,7 @@ const zlib = require('node:zlib');
 
 const {
     buildAdobeDynamicFontFaceRule,
+    buildCapturedFontFaceRules,
     buildFontBinaryAxisDefinition,
     buildFontFaceAxisDefinition,
     cleanFontFamilyName,
@@ -155,6 +156,45 @@ describe('page-font-utils', () => {
             ]),
             ''
         );
+    });
+
+    it('builds reusable rules from matching captured FontFace constructor calls', () => {
+        const rules = buildCapturedFontFaceRules('IvarText', [{
+            family: 'IvarText',
+            source: 'url("../fonts/IvarText-Regular.woff2") format("woff2")',
+            baseUrl: 'https://partners.example.com/css/page.css',
+            descriptors: {
+                weight: '400',
+                style: 'normal',
+                stretch: 'normal',
+                display: 'swap'
+            }
+        }, {
+            family: 'Other Font',
+            source: 'url("other.woff2")'
+        }]);
+
+        assert.equal(rules.length, 1);
+        assert.match(rules[0], /font-family: "IvarText"/);
+        assert.match(rules[0], /https:\/\/partners\.example\.com\/fonts\/IvarText-Regular\.woff2/);
+        assert.match(rules[0], /font-weight: 400/);
+        assert.match(rules[0], /font-display: swap/);
+    });
+
+    it('drops unsafe captured FontFace descriptors', () => {
+        const rules = buildCapturedFontFaceRules('Safe Font', [{
+            family: 'Safe Font',
+            source: 'local("Arial")',
+            descriptors: {
+                weight: '400; color: red',
+                style: 'normal',
+                unicodeRange: 'U+0000-00FF; src: url(evil)'
+            }
+        }]);
+
+        assert.equal(rules.length, 1);
+        assert.doesNotMatch(rules[0], /color|evil/);
+        assert.match(rules[0], /font-style: normal/);
     });
 
     it('extracts and resolves imported stylesheet URLs', () => {

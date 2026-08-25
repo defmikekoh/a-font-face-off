@@ -70,10 +70,57 @@ describe('WhatFont toolbar integration', () => {
         await teardown(driver, profileDir);
     });
 
+    it('captures page-realm FontFace constructor metadata at document start', async () => {
+        const record = await driver.executeAsyncScript(`
+            const done = arguments[arguments.length - 1];
+            const eventName = '__affo_page_font_face_created_v1__';
+            const timer = setTimeout(() => done(null), 3000);
+            let capturedRecord = null;
+            document.addEventListener(eventName, event => {
+                capturedRecord = JSON.parse(event.detail);
+            }, { once: true });
+            const face = new FontFace('AFFO Capture Probe', 'local("Arial")', {
+                weight: '600',
+                style: 'normal'
+            });
+            document.fonts.add(face);
+            face.load().then(() => {
+                clearTimeout(timer);
+                done(capturedRecord);
+            }, error => {
+                clearTimeout(timer);
+                done({ error: String(error) });
+            });
+        `);
+
+        assert.equal(record.family, 'AFFO Capture Probe');
+        assert.equal(record.source, 'local("Arial")');
+        assert.equal(record.descriptors.weight, '600');
+        assert.equal(record.baseUrl, 'https://en.wikipedia.org/wiki/Typography');
+    });
+
     it('activates WhatFont after one toolbar click when scripts are lazy-loaded', async () => {
         await seedToolbarAppliedFontState();
         await driver.navigate().refresh();
         await waitForToolbarIframe();
+
+        await driver.executeAsyncScript(`
+            const done = arguments[arguments.length - 1];
+            const face = new FontFace('AFFO Capture Probe', 'local("Arial")', {
+                weight: '600',
+                style: 'normal'
+            });
+            document.fonts.add(face);
+            face.load().then(() => {
+                const target = document.createElement('p');
+                target.id = 'affo-dynamic-font-target';
+                target.textContent = 'Dynamically constructed font face';
+                target.style.fontFamily = '"AFFO Capture Probe", sans-serif';
+                target.style.fontWeight = '600';
+                document.body.appendChild(target);
+                done(true);
+            }, error => done(String(error)));
+        `);
 
         await clickWhatFontToolbarButtonOnce();
         await waitForWhatFontOverlay();
@@ -118,5 +165,37 @@ describe('WhatFont toolbar integration', () => {
             title: 'Compare this page font in Face-off',
             guardedPanel: true
         });
+    });
+
+    it('hands a captured dynamic FontFace to Face-off', async () => {
+        await driver.executeScript(`
+            document.getElementById('affo-dynamic-font-target').click();
+        `);
+        await driver.wait(async () => {
+            return driver.executeScript(`
+                return Array.from(document.querySelectorAll('.__whatfont_panel')).some(panel =>
+                    panel.textContent.includes('AFFO Capture Probe')
+                );
+            `);
+        }, 5000, 'WhatFont should identify the dynamically constructed font family');
+
+        await driver.executeScript(`
+            const panel = Array.from(document.querySelectorAll('.__whatfont_panel')).find(candidate =>
+                candidate.textContent.includes('AFFO Capture Probe')
+            );
+            panel.querySelector('.__whatfont_faceoff_compare').click();
+        `);
+
+        const actionText = await driver.wait(async () => {
+            return driver.executeScript(`
+                const panel = Array.from(document.querySelectorAll('.__whatfont_panel')).find(candidate =>
+                    candidate.textContent.includes('AFFO Capture Probe')
+                );
+                const text = panel && panel.querySelector('.__whatfont_faceoff_compare').textContent.trim();
+                return text === 'Opening...' || text === 'Unavailable' ? text : false;
+            `);
+        }, 5000, 'Captured dynamic font should complete its Face-off handoff');
+
+        assert.equal(actionText, 'Opening...');
     });
 });

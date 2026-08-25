@@ -55,6 +55,84 @@
         return typeof browser !== 'undefined' ? browser : chrome;
     }
 
+    const PAGE_FONT_FACE_CAPTURE_EVENT = '__affo_page_font_face_created_v1__';
+    const PAGE_FONT_FACE_CAPTURE_LIMIT = 64;
+    const capturedPageFontFaces = [];
+    const capturedPageFontFaceKeys = new Set();
+
+    function normalizeCapturedFontFamily(value) {
+        let family = String(value || '').trim();
+        if ((family[0] === '"' && family[family.length - 1] === '"') ||
+            (family[0] === "'" && family[family.length - 1] === "'")) {
+            family = family.slice(1, -1);
+        }
+        return family.trim().toLowerCase();
+    }
+
+    function rememberCapturedPageFontFace(event) {
+        let record;
+        try {
+            record = JSON.parse(String(event && event.detail || ''));
+        } catch (_) {
+            return;
+        }
+        if (!record || typeof record.family !== 'string' || typeof record.source !== 'string' ||
+            !record.family.trim() || !record.source.trim() || record.source.length > 32768) {
+            return;
+        }
+
+        const descriptors = record.descriptors && typeof record.descriptors === 'object'
+            ? record.descriptors
+            : {};
+        const normalized = {
+            family: record.family,
+            source: record.source,
+            baseUrl: typeof record.baseUrl === 'string' ? record.baseUrl : document.baseURI,
+            descriptors: {
+                style: typeof descriptors.style === 'string' ? descriptors.style : '',
+                weight: typeof descriptors.weight === 'string' ? descriptors.weight : '',
+                stretch: typeof descriptors.stretch === 'string' ? descriptors.stretch : '',
+                unicodeRange: typeof descriptors.unicodeRange === 'string' ? descriptors.unicodeRange : '',
+                display: typeof descriptors.display === 'string' ? descriptors.display : ''
+            }
+        };
+        const key = JSON.stringify(normalized);
+        if (capturedPageFontFaceKeys.has(key)) return;
+        capturedPageFontFaceKeys.add(key);
+        capturedPageFontFaces.push(normalized);
+        while (capturedPageFontFaces.length > PAGE_FONT_FACE_CAPTURE_LIMIT) {
+            capturedPageFontFaceKeys.delete(JSON.stringify(capturedPageFontFaces.shift()));
+        }
+    }
+
+    function installPageFontFaceCapture() {
+        document.addEventListener(PAGE_FONT_FACE_CAPTURE_EVENT, rememberCapturedPageFontFace, true);
+        globalThis.AFFOGetCapturedPageFontFaces = function(fontName) {
+            const target = normalizeCapturedFontFamily(fontName);
+            if (!target) return [];
+            return capturedPageFontFaces.filter(record =>
+                normalizeCapturedFontFamily(record.family) === target
+            ).map(record => ({
+                family: record.family,
+                source: record.source,
+                baseUrl: record.baseUrl,
+                descriptors: Object.assign({}, record.descriptors)
+            }));
+        };
+
+        const parent = document.documentElement || document.head;
+        if (!parent) return;
+        const script = document.createElement('script');
+        script.src = getBrowserAPI().runtime.getURL('page-font-face-capture.js');
+        script.async = false;
+        script.setAttribute('data-affo-guard', '');
+        script.addEventListener('load', () => script.remove(), { once: true });
+        script.addEventListener('error', () => script.remove(), { once: true });
+        parent.appendChild(script);
+    }
+
+    installPageFontFaceCapture();
+
     function getVisibleToolbarButtonCount() {
         return touchToolbarEligible ? TOUCH_TOOLBAR_BUTTON_COUNT : NON_TOUCH_TOOLBAR_BUTTON_COUNT;
     }

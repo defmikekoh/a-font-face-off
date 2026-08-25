@@ -31,7 +31,7 @@ Google Fonts CSS2 API URLs are derived at runtime from `fontName` + Google Fonts
 
 A pinned WhatFont card exposes a `Face-off` action for comparing the detected page font without adding it to custom fonts:
 
-1. `whatfont_core.js` collects same-origin-accessible matching `@font-face` rules plus candidate stylesheet URLs.
+1. `left-toolbar.js` installs a bounded document-start observer for string-backed page-realm `FontFace` constructor calls. `whatfont_core.js` collects matching captured calls, same-origin-accessible `@font-face` rules, and candidate stylesheet URLs. Captured metadata stays in the content-script realm and is sent to the background only when the user invokes Face-off; binary constructor sources are not copied.
 2. `background.js` uses `page-font-utils.js` to extract matching rules, resolve relative font URLs, select the rule matching the detected weight/style, derive variable-axis ranges proven by the selected `@font-face` descriptors, and fetch candidate stylesheets when page CSSOM access is blocked.
 3. Background fetches the selected WOFF2, WOFF, TTF, or OTF binary through `background-font-runtime.js`, detects its container from the binary signature, and replaces its remote source with a correctly typed temporary data URL. This avoids cross-origin font restrictions when the rule moves from the source page to the extension popup.
 4. Background writes a short-lived `affoFaceoffPageFontDraft` and opens the popup.
