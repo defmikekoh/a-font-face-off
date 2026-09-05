@@ -145,17 +145,43 @@ function affoRestoreViewportAnchor(snapshot, windowObject) {
 
 function affoRestoreViewportAnchorAfterLayout(snapshot, windowObject) {
     if (!snapshot) return Promise.resolve(false);
+    var documentObject = windowObject.document;
+    // Android opens the popup in another tab. Hidden source pages can suspend
+    // animation frames indefinitely; reading the anchor rect flushes layout
+    // without waiting for a paint that cannot happen while the popup is open.
+    if (documentObject && documentObject.visibilityState === 'hidden') {
+        return Promise.resolve(affoRestoreViewportAnchor(snapshot, windowObject));
+    }
     var requestFrame = typeof windowObject.requestAnimationFrame === 'function'
         ? windowObject.requestAnimationFrame.bind(windowObject)
         : function (callback) { return setTimeout(callback, 0); };
+    var cancelFrame = typeof windowObject.cancelAnimationFrame === 'function'
+        ? windowObject.cancelAnimationFrame.bind(windowObject)
+        : clearTimeout;
 
     return new Promise(function (resolve) {
-        requestFrame(function () {
-            requestFrame(function () {
+        var settled = false;
+        var frameId;
+
+        function finish() {
+            if (settled) return;
+            settled = true;
+            if (frameId != null) cancelFrame(frameId);
+            if (documentObject) documentObject.removeEventListener('visibilitychange', onVisibilityChange);
+            resolve(affoRestoreViewportAnchor(snapshot, windowObject));
+        }
+
+        function onVisibilityChange() {
+            if (documentObject.visibilityState === 'hidden') finish();
+        }
+
+        if (documentObject) documentObject.addEventListener('visibilitychange', onVisibilityChange);
+        frameId = requestFrame(function () {
+            if (settled) return;
+            frameId = requestFrame(function () {
+                if (settled) return;
                 affoRestoreViewportAnchor(snapshot, windowObject);
-                requestFrame(function () {
-                    resolve(affoRestoreViewportAnchor(snapshot, windowObject));
-                });
+                frameId = requestFrame(finish);
             });
         });
     });

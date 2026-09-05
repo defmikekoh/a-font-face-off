@@ -137,4 +137,62 @@ describe('font-swap-utils viewport anchoring', () => {
         assert.equal(await restoreViewportAnchorAfterLayout({ element, top: 100, scrollY: 500 }, windowObject), true);
         assert.equal(frameCount, 3);
     });
+
+    it('restores a hidden page without waiting for suspended animation frames', async () => {
+        const deltas = [];
+        const { windowObject } = makeViewport({
+            window: {
+                document: { visibilityState: 'hidden' },
+                requestAnimationFrame: () => assert.fail('Hidden pages must not wait for animation frames'),
+                scrollBy: (x, y) => deltas.push([x, y]),
+            },
+        });
+
+        const restored = await restoreViewportAnchorAfterLayout({
+            element: makeElement({ top: 260 }), top: 100, scrollY: 500,
+        }, windowObject);
+        assert.equal(restored, true);
+        assert.deepEqual(deltas, [[0, 160]]);
+    });
+
+    for (const completedFrames of [0, 1, 2]) {
+        it(`finishes when the page becomes hidden after ${completedFrames} layout frames`, async () => {
+            const documentObject = new globalThis.EventTarget();
+            documentObject.visibilityState = 'visible';
+            const frames = new Map();
+            let frameId = 0;
+            let restores = 0;
+            const { windowObject } = makeViewport({
+                window: {
+                    document: documentObject,
+                    requestAnimationFrame: callback => {
+                        frames.set(++frameId, callback);
+                        return frameId;
+                    },
+                    cancelAnimationFrame: id => frames.delete(id),
+                    scrollTo: () => { restores++; },
+                },
+            });
+            let settled = false;
+            const restoring = restoreViewportAnchorAfterLayout({ scrollY: 500 }, windowObject)
+                .then(result => { settled = true; return result; });
+            for (let index = 0; index < completedFrames; index++) {
+                const [id, callback] = frames.entries().next().value;
+                frames.delete(id);
+                callback();
+            }
+            documentObject.visibilityState = 'hidden';
+            documentObject.dispatchEvent(new globalThis.Event('visibilitychange'));
+            await Promise.resolve();
+            assert.equal(settled, true, 'Apply must finish even if no more frames are delivered');
+            assert.equal(await restoring, true);
+            assert.equal(frames.size, 0, 'No stale scroll correction should run when returning to the page');
+            const restoresAtCompletion = restores;
+            documentObject.visibilityState = 'visible';
+            documentObject.dispatchEvent(new globalThis.Event('visibilitychange'));
+            documentObject.visibilityState = 'hidden';
+            documentObject.dispatchEvent(new globalThis.Event('visibilitychange'));
+            assert.equal(restores, restoresAtCompletion, 'The visibility listener must be removed');
+        });
+    }
 });

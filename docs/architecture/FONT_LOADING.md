@@ -2,7 +2,13 @@
 
 ## Async Architecture
 
-All async operations are Promise-based (2024 refactor complete). No setTimeout polling for sequencing. CSS injection, font loading, button state updates, and storage operations all use async/await.
+Async operations are Promise-based. The popup's content-script bridges use `executeScript` polling for font preparation, viewport restoration, and element-walker completion.
+
+## Apply Button Latency
+
+The popup keeps `Loading...` visible through font preparation, storage/CSS changes, viewport restoration, and button-state refresh. An uncached remote font can require CSS and binary downloads plus decoding; readiness includes the configured face and supplemental bold face. Popup preparation has a 45-second bridge deadline, with individual background fetches capped at 15 seconds and the subsequent document face-readiness check capped at 20 seconds. This differs from the five-second fail-open policy for persisted page application described below. TMI also awaits element marking, so large documents can add work.
+
+Viewport restoration waits for three layout frames on visible pages. On hidden pages, including Android's source tab while the popup tab is open, it restores immediately using the anchor's layout rect. If a visible page becomes hidden during the frame sequence, it cancels the pending frame and finishes restoration. This avoids waiting for suspended animation frames until the popup's five-second restoration deadline, and prevents a stale scroll correction when the source tab becomes visible again. Pages at the very top have no captured anchor and already skip this step.
 
 ## Font Loading Optimizations (Page Reload)
 
