@@ -49,7 +49,7 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
 2. Use desktop Selenium/geckodriver as a fast initial testing area for repeatable popup and shared content-script behavior where useful.
-3. Use the Android Firefox WebDriver harness for authoritative Firefox Nightly on Android DOM/computed CSS when AFFO injection, extension storage, seeded settings, or final behavior matters.
+3. For a bug in the current Android session, use the existing Firefox DevTools/RDP connection when available so its cache, settings, and failing page survive. Use the Android Firefox WebDriver harness for reproducible seeded runs; session creation clears the selected package data. Read [live-session inspection and Apply timing](references/live-session-inspection.md) for build checks, popup targeting, and completion evidence.
 4. Use desktop Chrome through the Codex Chrome Extension when the user's real Chrome profile/session is the fastest way to inspect already-open or authenticated desktop pages: original DOM, selectors, overlays, console logs, screenshots, and baseline computed styles. Treat this as reconnaissance, and verify AFFO/Firefox-specific conclusions in Firefox.
 5. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
 6. Use the Edge Canary Android MV3 prototype when Chromium-extension behavior matters; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
@@ -345,10 +345,10 @@ Use a seed font that differs from the site default when proving font application
 
 #### Inspecting the popup ITSELF on Note10 (panel vs page-font tab)
 
-`inspect:android-firefox` inspects the *web page* (content script), not the popup UI. The popup renders on two surfaces and you often need to inspect the popup directly:
+`inspect:android-firefox` inspects the *web page* (content script), not the popup UI. The popup can render on different surfaces; identify and inspect the one used in the reported behavior:
 
 - **Desktop**: a browser-action PANEL (sizes-to-content; CSS gives it a fixed `400x600`).
-- **Firefox Android**: a FULL-VIEWPORT surface. Opening the extension normally and the one-shot page-font Face-off (WhatFont card → Face-off, or long-press the top icon in the left toolbar) both open `popup.html` as a TAB via `openPopupFallback` → `browser.tabs.create('popup.html?domain=…&sourceTabId=…')`. `popup-context.js` keys mobile sizing off `/Android/i` in the UA → `html.affo-mobile`.
+- **Firefox Android**: full-viewport UI can be a native browser-action surface at `popup.html`, or an ordinary extension tab at `popup.html?domain=…&sourceTabId=…` created by `openPopupFallback` (toolbar/one-shot page-font flows). The native surface may be absent from RDP `listTabs` even while visible on the phone. Identify the actual surface with the device UI and, from a real extension context, `browser.extension.getViews()` and `browser.tabs.query({})`. Preserve the user's entry path when reproducing a UI-specific issue. `popup-context.js` keys mobile sizing off `/Android/i` in the UA → `html.affo-mobile`.
 
 To drive/inspect that popup tab with geckodriver, pin the add-on UUID to make extension origins and blob URLs deterministic, then trigger the real page flow and switch to its new window handle. Do not depend on direct WebDriver navigation to `moz-extension://`; current Fenix/geckodriver can reject it with `Navigation to ... is not allowed in this context`.
 
@@ -435,7 +435,7 @@ Folder suffix: Chrome
 
 This writes to `A Font Face-off Chrome/`. Browser GETs to paths like `/chrome/` can show a WebDAVNav HTML UI while authenticated `PROPFIND /chrome/` still returns 404, so do not treat GET success as a WebDAV sync proof.
 
-## Popup panel details
+## Desktop popup panel details
 
 - The popup opens inside the `customizationui-widget-panel` panel element in chrome context
 - Panel state can be checked: `panel.state === 'open'`
