@@ -562,7 +562,9 @@ function runElementWalkerInTargetTab(fontType) {
             let attempts = 0;
             function poll() {
                 executeScriptInTargetTab({
-                    code: `window.__affoWalkerDone && window.__affoWalkerDone['${fontType}']`
+                    // executeScript runs even when source-tab timers are paused.
+                    // Advance at most one bounded chunk before checking completion.
+                    code: `document.dispatchEvent(new CustomEvent('affo-continue-walker', {detail:{fontType:'${fontType}'}})); window.__affoWalkerDone && window.__affoWalkerDone['${fontType}']`
                 }).then(result => {
                     const val = result && result[0];
                     if (val && val.done) {
@@ -5675,7 +5677,7 @@ function applyAllThirdManInFonts() {
 
                     return runElementWalkerInTargetTab(job.type).then(async () => {
                         // Verify what elements were marked
-                        return browser.tabs.executeScript({
+                        return executeScriptInTargetTab({
                             code: `
                                 (function() {
                                     const markedElements = document.querySelectorAll('[data-affo-font-type="${job.type}"]');

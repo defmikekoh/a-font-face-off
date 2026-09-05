@@ -4331,6 +4331,25 @@
   // Yield after a short wall-clock budget rather than allowing thousands of
   // synchronous getComputedStyle calls in one task on long, dynamic pages.
   var WALKER_YIELD_BUDGET_MS = 8;
+  // Popup polling can advance a yielded walk when Firefox suspends timers in
+  // the source tab. Each continuation is shared by all types in that pass.
+  var pendingElementWalkerChunks = {};
+
+  function scheduleElementWalkerChunk(fontTypes, callback) {
+    var pending = true;
+    var timerId;
+    function resume() {
+      if (!pending) return;
+      pending = false;
+      clearTimeout(timerId);
+      fontTypes.forEach(function (ft) {
+        if (pendingElementWalkerChunks[ft] === resume) delete pendingElementWalkerChunks[ft];
+      });
+      callback();
+    }
+    fontTypes.forEach(function (ft) { pendingElementWalkerChunks[ft] = resume; });
+    timerId = setTimeout(resume, 0);
+  }
 
   function getElementWalkerRoot() {
     if (isChatGpt) {
@@ -4450,7 +4469,7 @@
 
           if (element) {
             // More elements to process — yield to main thread then continue
-            setTimeout(processChunk, 0);
+            scheduleElementWalkerChunk(typesToWalk, processChunk);
           } else {
             // Walker finished
             finishWalk();
@@ -5134,12 +5153,20 @@
     var ft = evt.detail && evt.detail.fontType;
     if (ft === 'serif' || ft === 'sans' || ft === 'mono') {
       window.__affoWalkerDone[ft] = false;
-      elementWalkerCompleted[ft] = false;
+      // Changing the replacement font doesn't invalidate the page's original
+      // serif/sans/mono classification. Reuse completed or in-flight work.
       runElementWalker(ft).then(function (markedCounts) {
         window.__affoWalkerDone[ft] = { done: true, count: (markedCounts && markedCounts[ft]) || 0 };
       }).catch(function () {
         window.__affoWalkerDone[ft] = { done: true, count: 0 };
       });
+    }
+  });
+
+  document.addEventListener('affo-continue-walker', function (evt) {
+    var ft = evt.detail && evt.detail.fontType;
+    if (Object.prototype.hasOwnProperty.call(pendingElementWalkerChunks, ft)) {
+      pendingElementWalkerChunks[ft]();
     }
   });
 

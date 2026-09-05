@@ -36,11 +36,14 @@ var elementWalkerInFlight = {};            // fontType → Promise (in-flight co
 var lastWalkElementCount = 0;              // element count from last walk (used to cap rechecks)
 var LARGE_PAGE_ELEMENT_THRESHOLD = 5000;   // skip timed rechecks above this
 var WALKER_YIELD_BUDGET_MS = 8;            // wall-clock work budget before yielding
+var pendingElementWalkerChunks = {};     // fontType → one-shot continuation for a yielded pass
 ```
 
 ### Performance Optimizations
 - Single `getComputedStyle` call per candidate element — used for visibility, font classification, and fixed-position UI detection. Ancestor position checks use a per-walk `WeakMap`, so a shared ancestor is measured at most once per walker pass.
 - Time-budgeted processing: yields via `setTimeout(0)` after roughly 8ms instead of allowing a fixed multi-thousand-element chunk to monopolize the main thread
+- Popup Apply reuses completed/in-flight classification rather than invalidating it when only the replacement font changes. Navigation and existing reclassification triggers still clear completion when needed.
+- While waiting for a required scan, popup polling dispatches `affo-continue-walker` through `executeScript`, advancing at most one pending 8ms chunk. Firefox Android can suspend source-tab timers while its extension UI is open. The continuation cancels its scheduled timer and runs only once, so returning to the page cannot replay consumed work. Ordinary page-driven scans continue through timers.
 - `knownSerifFonts`, `knownSansFonts`, `preservedFonts` are `Set` objects (O(1) `.has()` lookup instead of O(n) `indexOf`)
 - Recheck control: ordinary small pages get one 700ms safety pass; ChatGPT relies on scoped mutation marking; `document.fonts.ready` is registered only while `document.fonts.status === "loading"`, avoiding an immediate redundant pass when fonts are already ready
 - ChatGPT walks start at `<main>` and only classify candidates inside `[data-message-author-role]`; sidebar history and the composer are outside the work scope
