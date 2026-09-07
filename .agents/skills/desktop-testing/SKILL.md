@@ -285,6 +285,11 @@ npm run build:latest
 npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --expect-affo --out ztemp/android-firefox-inspect.json
 ```
 
+Before interpreting Android toolbar visibility, scrolling, or click failures, read
+[visible-page verification and reload comparisons](references/android-page-verification.md).
+Firefox onboarding or Home can cover a WebDriver-loaded page while DOM inspection
+still succeeds; a populated DOM does not establish a visible test surface.
+
 For the disposable Android 16 emulator smoke lane, use:
 
 ```bash
