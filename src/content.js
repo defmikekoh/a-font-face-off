@@ -118,7 +118,7 @@
   // re-processed every mutation batch.
   var sharedDomObserver = null;
   var sharedDomDebounceTimer = null;
-  var pendingMeaningfulRoots = [];
+  var pendingMeaningfulRoots = new Set();
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
@@ -1571,6 +1571,18 @@
       getActiveFontSizeScaleTypes().length > 0;
   }
 
+  // Streaming can populate a paragraph after its empty/short element was
+  // ignored. Revisit only that text owner; an already classified paragraph
+  // inherits the injected CSS for subsequent tokens without another walk.
+  function getChatGptStreamTextRoot(node) {
+    if (!isChatGpt || !node || node.nodeType !== 3 || getObservedTmiCssTypes().length === 0) return null;
+    var parent = node.parentElement;
+    if (!parent || parent.hasAttribute('data-affo-font-type')) return null;
+    if (!isInsideChatGptMessage(parent) || isInsideTmiPrunedSubtree(parent)) return null;
+    if (!elementHasOwnText(parent)) return null;
+    return parent;
+  }
+
   function ensureSharedDomObserver() {
     if (sharedDomObserver) return;
     sharedDomObserver = new MutationObserver(function (muts) {
@@ -1581,14 +1593,23 @@
       for (var i = 0; i < muts.length; i++) {
         var m = muts[i];
         if (isInsideInteractiveSubtree(m.target)) continue;
+        if (m.type === 'characterData') {
+          var textRoot = getChatGptStreamTextRoot(m.target);
+          if (textRoot) {
+            if (!newRoots) newRoots = [];
+            newRoots.push(textRoot);
+          }
+          continue;
+        }
         var added = m.addedNodes;
         if (!added || added.length === 0) continue;
         for (var j = 0; j < added.length; j++) {
           var n = added[j];
           try {
-            if (isMeaningfulInlineAddedNode(n)) {
+            var root = getChatGptStreamTextRoot(n);
+            if (root || isMeaningfulInlineAddedNode(n)) {
               if (!newRoots) newRoots = [];
-              newRoots.push(n);
+              newRoots.push(root || n);
             }
           } catch (_) { }
         }
@@ -1601,17 +1622,24 @@
         if (sharedInlineTimers.length === 0) ensureSharedInlinePolling();
       }
 
-      for (var k = 0; k < newRoots.length; k++) pendingMeaningfulRoots.push(newRoots[k]);
+      for (var k = 0; k < newRoots.length; k++) pendingMeaningfulRoots.add(newRoots[k]);
 
-      if (sharedDomDebounceTimer) clearTimeout(sharedDomDebounceTimer);
+      // Keep a bounded batch window: continuous streaming must not postpone
+      // classification indefinitely by resetting the timer for every token.
+      if (sharedDomDebounceTimer) {
+        if (isChatGpt) return;
+        clearTimeout(sharedDomDebounceTimer);
+      }
       sharedDomDebounceTimer = setTimeout(function () {
         sharedDomDebounceTimer = null;
-        var roots = pendingMeaningfulRoots;
-        pendingMeaningfulRoots = [];
+        var roots = Array.from(pendingMeaningfulRoots);
+        pendingMeaningfulRoots.clear();
         dispatchMeaningfulMutations(roots);
       }, INLINE_REAPPLY_DEBOUNCE_MS);
     });
-    sharedDomObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+    sharedDomObserver.observe(document.documentElement || document, {
+      childList: true, subtree: true, characterData: isChatGpt
+    });
     debugLog('[AFFO Content] Created unified DOM mutation observer');
   }
 
@@ -1626,7 +1654,7 @@
       try { clearTimeout(sharedDomDebounceTimer); } catch (_) { }
       sharedDomDebounceTimer = null;
     }
-    pendingMeaningfulRoots = [];
+    pendingMeaningfulRoots.clear();
   }
 
   // Apply inline styles only within the given added subtree roots (instead of

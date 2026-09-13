@@ -47,6 +47,7 @@ var pendingElementWalkerChunks = {};     // fontType → one-shot continuation f
 - `knownSerifFonts`, `knownSansFonts`, `preservedFonts` are `Set` objects (O(1) `.has()` lookup instead of O(n) `indexOf`)
 - Recheck control: ordinary small pages get one 700ms safety pass; ChatGPT relies on scoped mutation marking; `document.fonts.ready` is registered only while `document.fonts.status === "loading"`, avoiding an immediate redundant pass when fonts are already ready
 - ChatGPT walks start at `<main>` and only classify candidates inside `[data-message-author-role]`; sidebar history and the composer are outside the work scope
+- ChatGPT's shared observer also watches `characterData` and added text nodes for active non-inline TMI types. Text arriving in an initially empty/short paragraph queues only its unmarked text-owning parent. Pending roots are deduplicated; ChatGPT flushes within a 250ms batch window instead of delaying until streaming stops. Once marked, later tokens do not queue another walk. Other domains retain child-list-only observation and trailing debounce.
 
 ### Key Functions
 - **`getElementFontType(element, computedStyle)`** — Module-scope classification function. Returns `'serif'`, `'sans'`, `'mono'`, or `null`. Receives pre-computed style from the walker loop. Reads `preservedFonts`, `knownSerifFonts`, `knownSansFonts` from module scope.

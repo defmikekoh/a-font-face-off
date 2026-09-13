@@ -81,28 +81,6 @@ function addHtmlClass(fileName, className) {
   fs.writeFileSync(filePath, text);
 }
 
-function patchCssGenerators() {
-  const filePath = path.join(OUT_DIR, 'css-generators.js');
-  let text = fs.readFileSync(filePath, 'utf8');
-  const patches = [
-    'function generateBodyCSS(payload, aggressive, ignoreComments, hostname) {',
-    'function generateBodyContactCSS(payload, aggressive, ignoreComments, hostname) {',
-    'function generateThirdManInCSS(fontType, payload, aggressive) {'
-  ];
-
-  for (const signature of patches) {
-    if (!text.includes(signature)) {
-      throw new Error(`Could not find ${signature} in css-generators.js`);
-    }
-    text = text.replace(
-      signature,
-      `${signature}\n    aggressive = true; // Edge MV3 prototype: no Firefox cssOrigin:user equivalent.`
-    );
-  }
-
-  fs.writeFileSync(filePath, text);
-}
-
 function buildManifest(sourceManifest) {
   const contentScripts = sourceManifest.content_scripts.map(script => ({
     ...script,
@@ -167,7 +145,7 @@ function writeServiceWorker(sourceManifest) {
   fs.writeFileSync(path.join(OUT_DIR, 'edge-mv3-service-worker.js'), text);
 }
 
-function writeBrowserPolyfillLite() {
+function createBrowserPolyfillLite() {
   const text = `(function(global) {
   'use strict';
 
@@ -291,12 +269,8 @@ function writeBrowserPolyfillLite() {
       return Promise.resolve({ tabId: Number(tabIdOrDetails), details: maybeDetails || {} });
     }
     return getActiveTabId().then(function(tabId) {
-      return { tabId: tabId, details: tabIdOrDetails || {} };
+      return { tabId: tabId, details: maybeDetails || tabIdOrDetails || {} };
     });
-  }
-
-  function executeCodeString(code) {
-    return (0, eval)(code);
   }
 
   function executeScript(tabIdOrDetails, maybeDetails) {
@@ -306,15 +280,17 @@ function writeBrowserPolyfillLite() {
         target: getTarget(args.tabId, details)
       };
 
+      if (details.runAt === 'document_start') injection.injectImmediately = true;
+
       if (details.file) {
         injection.files = [details.file];
       } else if (details.files) {
         injection.files = details.files;
-      } else if (details.code != null) {
-        injection.func = executeCodeString;
-        injection.args = [String(details.code)];
+      } else if (typeof details.func === 'function') {
+        injection.func = details.func;
+        injection.args = details.args || [];
       } else {
-        throw new Error('executeScript requires code, file, or files');
+        throw new Error('executeScript requires a packaged function, file, or files');
       }
 
       return noCallbackPromise(chromeApi.scripting.executeScript, chromeApi.scripting, [injection])
@@ -330,6 +306,8 @@ function writeBrowserPolyfillLite() {
       var injection = {
         target: getTarget(args.tabId, details)
       };
+
+      if (details.cssOrigin) injection.origin = details.cssOrigin.toUpperCase();
 
       if (details.file) {
         injection.files = [details.file];
@@ -353,6 +331,8 @@ function writeBrowserPolyfillLite() {
       var injection = {
         target: getTarget(args.tabId, details)
       };
+
+      if (details.cssOrigin) injection.origin = details.cssOrigin.toUpperCase();
 
       if (details.file) {
         injection.files = [details.file];
@@ -403,6 +383,11 @@ function writeBrowserPolyfillLite() {
   var browserApi = {
     __affoEdgeMv3Shim: true,
     storage: {
+      session: chromeApi.storage.session ? {
+        get: wrapMethod(chromeApi.storage.session, 'get'),
+        set: wrapMethod(chromeApi.storage.session, 'set'),
+        remove: wrapMethod(chromeApi.storage.session, 'remove')
+      } : undefined,
       local: {
         get: wrapMethod(chromeApi.storage.local, 'get'),
         set: wrapMethod(chromeApi.storage.local, 'set'),
@@ -414,15 +399,16 @@ function writeBrowserPolyfillLite() {
     runtime: {
       getURL: chromeApi.runtime.getURL.bind(chromeApi.runtime),
       getManifest: chromeApi.runtime.getManifest.bind(chromeApi.runtime),
-      // Edge Canary Android exposes openOptionsPage(), but its callback may
-      // never settle. Leave it absent so popup.js uses its tabs.create()
-      // fallback to open options.html directly.
+      // Keep the tab-opening workaround only on Android, where Edge's
+      // openOptionsPage callback may never settle.
+      openOptionsPage: /Android/i.test(global.navigator && global.navigator.userAgent || '')
+        ? undefined : wrapMethod(chromeApi.runtime, 'openOptionsPage'),
       sendMessage: wrapMethod(chromeApi.runtime, 'sendMessage'),
       onMessage: wrapOnMessage(chromeApi.runtime.onMessage),
       onInstalled: chromeApi.runtime.onInstalled,
       onStartup: chromeApi.runtime.onStartup
     },
-    tabs: {
+    tabs: chromeApi.tabs ? {
       query: wrapMethod(chromeApi.tabs, 'query'),
       get: wrapMethod(chromeApi.tabs, 'get'),
       create: wrapMethod(chromeApi.tabs, 'create'),
@@ -434,17 +420,17 @@ function writeBrowserPolyfillLite() {
       onUpdated: chromeApi.tabs.onUpdated,
       onActivated: chromeApi.tabs.onActivated,
       onRemoved: chromeApi.tabs.onRemoved
-    },
+    } : undefined,
     windows: chromeApi.windows ? {
       onFocusChanged: chromeApi.windows.onFocusChanged
     } : undefined,
-    alarms: {
+    alarms: chromeApi.alarms ? {
       create: function() {
         return noCallbackPromise(chromeApi.alarms.create, chromeApi.alarms, Array.prototype.slice.call(arguments));
       },
       clear: wrapMethod(chromeApi.alarms, 'clear'),
       onAlarm: chromeApi.alarms.onAlarm
-    },
+    } : undefined,
     permissions: chromeApi.permissions ? {
       getAll: wrapMethod(chromeApi.permissions, 'getAll'),
       contains: wrapMethod(chromeApi.permissions, 'contains'),
@@ -463,7 +449,7 @@ function writeBrowserPolyfillLite() {
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 `;
 
-  fs.writeFileSync(path.join(OUT_DIR, 'browser-polyfill-lite.js'), text);
+  return text;
 }
 
 function main() {
@@ -473,13 +459,14 @@ function main() {
   const sourceManifest = readJson(path.join(SRC_DIR, 'manifest.json'));
   writeJson(path.join(OUT_DIR, 'manifest.json'), buildManifest(sourceManifest));
   writeServiceWorker(sourceManifest);
-  writeBrowserPolyfillLite();
+  fs.writeFileSync(path.join(OUT_DIR, 'browser-polyfill-lite.js'), createBrowserPolyfillLite());
   patchHtmlScript('popup.html', 'config-utils.js');
   patchHtmlScript('options.html', 'messaging-utils.js');
   addHtmlClass('options.html', 'affo-chromium-options');
-  patchCssGenerators();
 
   console.log(`Generated Edge MV3 source: ${path.relative(ROOT, OUT_DIR)}`);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { buildManifest, createBrowserPolyfillLite };

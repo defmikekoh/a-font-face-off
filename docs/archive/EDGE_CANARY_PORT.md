@@ -140,9 +140,9 @@ The generated build:
 - Uses a service worker wrapper (`edge-mv3-service-worker.js`) that imports the current background scripts
 - Injects `browser-polyfill-lite.js` before extension scripts so existing `browser.*` calls can run on Chrome/Edge
 - Adapts old `tabs.insertCSS`/`removeCSS`/`executeScript` call sites to MV3 `chrome.scripting`
-- Forces CSS generators into aggressive mode so generated CSS uses `!important`
+- Preserves `cssOrigin` as MV3 `origin` for both insertion and removal; CSS generators respect the configured aggressive mode
 
-Prototype caveat: the `tabs.executeScript({ code })` adapter uses an MV3 scripting wrapper to evaluate existing dynamic code strings in the target tab. That is good enough for local Canary testing, but it is not a store-ready architecture; a production MV3 port should replace those dynamic code strings with fixed content-script message handlers.
+Desktop Chrome compatibility update: script injections now use packaged functions with JSON arguments, passed directly to `chrome.scripting.executeScript`. The shared helper serializes those functions only for Firefox MV2. The shim initializes in content scripts without requiring privileged tabs/alarms APIs. Desktop options use `openOptionsPage`; Android retains the tab-opening workaround. Sroulette CSS tracking uses session storage to survive MV3 worker restarts.
 
 Google Drive sync prototype caveat: the current code still uses the desktop OAuth loopback flow. Firefox can cancel the loopback redirect with a blocking `webRequest` listener; Edge/Chrome MV3 may not allow that listener, so `background.js` also observes the redirect through non-blocking `webRequest`/`tabs.onUpdated` and closes the auth tab after capturing the code. Edge Canary Android does not currently surface the extension `options_ui` as a Settings item in the extension menu; the Quick Pick panel includes a `Connect Google Drive` action as a mobile-accessible sync entry point.
 
@@ -179,5 +179,5 @@ Platform-specific code:
 As of May 2026, this port is **not worth pursuing**:
 - Arbitrary Edge Android sideloading is still Canary/developer-option territory
 - Stable Edge Android has a curated extension store, but no general stable-channel CRX distribution path without Microsoft curation/listing
-- The `cssOrigin` gap means permanently degraded font override quality
+- Historical CSS-origin concern (corrected by the desktop Chrome compatibility update above): Chrome supports user-origin injection; the prototype adapter had discarded it.
 - Firefox Android is the proven, stable target with full MV2 support and no deprecation timeline

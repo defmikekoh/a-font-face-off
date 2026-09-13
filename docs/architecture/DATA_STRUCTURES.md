@@ -6,6 +6,10 @@ This document outlines the key data structures used in the A Font Face-off brows
 
 The extension uses `browser.storage.local` for configuration, sync metadata, favorites, and UI state. WOFF2 font binaries for FontFace-only domains are cached separately in IndexedDB to avoid serializing large byte arrays through extension storage.
 
+### MV3 session CSS tracking
+
+In the Chromium MV3 build, `browser.storage.session` stores `affoSrouletteInsertedCss:<tabId>` objects, mapping configured TMI targets (`serif`, `sans`, `mono`) to the exact inserted CSS strings. This allows removal of both author- and user-origin styles after a service-worker restart. Updates are serialized per tab, and entries are removed when cleared or when the tab closes. This bookkeeping is not synced and expires with the browser session. Firefox MV2 retains the in-memory tracking when session storage is unavailable.
+
 ### Domain Storage (`affoApplyMap`)
 **Purpose**: Stores fonts and Sroulette intent applied to specific domains across all modes (Body Contact, Third Man In)
 **Key**: `affoApplyMap`

@@ -1,4 +1,4 @@
-/* global AFFOPageFontUtils */
+/* global AFFOPageFontUtils, AFFOMessaging */
 // Dev-mode logging: build step sets AFFO_DEBUG = false for production
 var AFFO_DEBUG = true;
 function affoDebugLog() {
@@ -104,6 +104,36 @@ const syncWrittenSignatures = new Map(); // storageKey -> array of JSON value si
 let cachedAppFolderId = null;
 
 const srouletteInsertedCssByTab = new Map();
+const srouletteCssQueues = new Map();
+
+// Session storage survives MV3 worker suspension, but not a browser restart.
+// Serialize changes per tab so simultaneous Serif/Sans/Mono updates do not
+// overwrite each other's tracking data.
+function withSrouletteCssTracking(tabId, operation) {
+  const previous = srouletteCssQueues.get(tabId) || Promise.resolve();
+  const next = previous.catch(() => {}).then(async () => {
+    const session = browser.storage.session;
+    const key = `affoSrouletteInsertedCss:${tabId}`;
+    if (session) {
+      const stored = await session.get(key);
+      if (stored[key]) srouletteInsertedCssByTab.set(tabId, stored[key]);
+      else srouletteInsertedCssByTab.delete(tabId);
+    }
+    try {
+      return await operation();
+    } finally {
+      if (session) {
+        const tracked = srouletteInsertedCssByTab.get(tabId);
+        if (tracked) await session.set({ [key]: tracked });
+        else await session.remove(key);
+      }
+    }
+  });
+  srouletteCssQueues.set(tabId, next);
+  return next.finally(() => {
+    if (srouletteCssQueues.get(tabId) === next) srouletteCssQueues.delete(tabId);
+  });
+}
 
 let blockJavaScriptDomains = AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
 const blockJavaScriptDomainsReady = browser.storage.local.get(BLOCK_JAVASCRIPT_DOMAINS_KEY).then((data) => {
@@ -253,7 +283,11 @@ function setSrouletteIntentForTarget(entry, target, pool) {
   return AFFOSroulette.setIntent(entry, target, pool);
 }
 
-async function removeTrackedSrouletteCss(tabId, targets) {
+function removeTrackedSrouletteCss(tabId, targets) {
+  return withSrouletteCssTracking(tabId, () => removeTrackedSrouletteCssNow(tabId, targets));
+}
+
+async function removeTrackedSrouletteCssNow(tabId, targets) {
   if (tabId == null) return;
   const tracked = srouletteInsertedCssByTab.get(tabId);
   if (!tracked) return;
@@ -280,12 +314,16 @@ async function removeTrackedSrouletteCss(tabId, targets) {
   }
 }
 
-async function insertTrackedSrouletteCss(tabId, target, css) {
+function insertTrackedSrouletteCss(tabId, target, css) {
+  return withSrouletteCssTracking(tabId, () => insertTrackedSrouletteCssNow(tabId, target, css));
+}
+
+async function insertTrackedSrouletteCssNow(tabId, target, css) {
   if (tabId == null || !isSrouletteCssTarget(target) || typeof css !== 'string' || !css.trim()) {
     return false;
   }
 
-  await removeTrackedSrouletteCss(tabId, [target]);
+  await removeTrackedSrouletteCssNow(tabId, [target]);
   await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'author' });
   await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
 
@@ -301,7 +339,9 @@ async function insertTrackedSrouletteCss(tabId, target, css) {
 try {
   if (browser.tabs && browser.tabs.onRemoved) {
     browser.tabs.onRemoved.addListener(tabId => {
-      srouletteInsertedCssByTab.delete(tabId);
+      withSrouletteCssTracking(tabId, () => {
+        srouletteInsertedCssByTab.delete(tabId);
+      }).catch(error => affoDebugWarn('[AFFO Background] CSS tracking cleanup failed:', error));
     });
   }
 } catch (_) {}
@@ -2793,8 +2833,8 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (sender && typeof sender.frameId === 'number') {
           injectionTarget.frameId = sender.frameId;
         }
-        const existingResults = await browser.tabs.executeScript(tabId, Object.assign({
-          code: `window._WHATFONT === true && !!document.querySelector('.__whatfont_control');`
+        const existingResults = await AFFOMessaging.executeScript(browser, tabId, Object.assign({
+          func: () => window._WHATFONT === true && !!document.querySelector('.__whatfont_control')
         }, injectionTarget));
         if (existingResults && existingResults[0]) {
           return { success: true };
@@ -2811,47 +2851,46 @@ async function handleAffoRuntimeMessage(msg, sender) {
           }
         }
         const cssUrl = browser.runtime.getURL('wf.css');
-        const activationResults = await browser.tabs.executeScript(tabId, Object.assign({
-          code: `
-            (function() {
-              try {
-                if (window._WHATFONT === true && document.querySelector('.__whatfont_control')) {
-                  return { success: true, alreadyActive: true };
-                }
-
-                var jq = null;
-                if (typeof window.jQuery === 'function') {
-                  jq = window.jQuery;
-                } else if (typeof window.$ === 'function' && window.$.fn && window.$.fn.jquery) {
-                  jq = window.$;
-                }
-
-                if (!jq) {
-                  return { success: false, error: 'jQuery was not available after injection' };
-                }
-                if (typeof window._whatFont !== 'function') {
-                  return { success: false, error: '_whatFont was not available after injection' };
-                }
-
-                if (typeof window.WhatFont === 'undefined') {
-                  window.WhatFont = window._whatFont();
-                }
-                if (typeof window.WhatFont.setJQuery === 'function') {
-                  window.WhatFont.setJQuery(jq);
-                }
-                window.WhatFont.setCSSURL(${JSON.stringify(cssUrl)});
-                window.WhatFont.init();
-
-                return {
-                  success: window._WHATFONT === true && !!document.querySelector('.__whatfont_control'),
-                  active: window._WHATFONT === true,
-                  hasControl: !!document.querySelector('.__whatfont_control')
-                };
-              } catch (e) {
-                return { success: false, error: e && e.message ? e.message : String(e) };
+        const activationResults = await AFFOMessaging.executeScript(browser, tabId, Object.assign({
+          func: (cssUrl) => {
+            try {
+              if (window._WHATFONT === true && document.querySelector('.__whatfont_control')) {
+                return { success: true, alreadyActive: true };
               }
-            })();
-          `
+
+              var jq = null;
+              if (typeof window.jQuery === 'function') {
+                jq = window.jQuery;
+              } else if (typeof window.$ === 'function' && window.$.fn && window.$.fn.jquery) {
+                jq = window.$;
+              }
+
+              if (!jq) {
+                return { success: false, error: 'jQuery was not available after injection' };
+              }
+              if (typeof window._whatFont !== 'function') {
+                return { success: false, error: '_whatFont was not available after injection' };
+              }
+
+              if (typeof window.WhatFont === 'undefined') {
+                window.WhatFont = window._whatFont();
+              }
+              if (typeof window.WhatFont.setJQuery === 'function') {
+                window.WhatFont.setJQuery(jq);
+              }
+              window.WhatFont.setCSSURL(cssUrl);
+              window.WhatFont.init();
+
+              return {
+                success: window._WHATFONT === true && !!document.querySelector('.__whatfont_control'),
+                active: window._WHATFONT === true,
+                hasControl: !!document.querySelector('.__whatfont_control')
+              };
+            } catch (e) {
+              return { success: false, error: e && e.message ? e.message : String(e) };
+            }
+          },
+          args: [cssUrl]
         }, injectionTarget));
         const activation = activationResults && activationResults[0];
         if (!activation || !activation.success) {

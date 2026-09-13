@@ -91,7 +91,22 @@
     }
   }
 
+  // Call sites supply packaged functions and JSON arguments. Only Firefox MV2
+  // needs serialization; MV3 passes the function directly to scripting (no eval).
+  function executeScript(browserApi, tabId, details) {
+    var options = Object.assign({}, details);
+    if (browserApi.runtime.getManifest().manifest_version === 2 && options.func) {
+      options.code = '(' + options.func.toString() + ')(...' + JSON.stringify(options.args || []) + ')';
+      delete options.func;
+      delete options.args;
+    }
+    return tabId == null
+      ? browserApi.tabs.executeScript(options)
+      : browserApi.tabs.executeScript(tabId, options);
+  }
+
   root.AFFOMessaging = {
+    executeScript: executeScript,
     PORT_ERROR_RE: PORT_ERROR_RE,
     getBackgroundPageWindow: getBackgroundPageWindow,
     ignoreNoReceiver: ignoreNoReceiver,

@@ -465,8 +465,8 @@ function getContextDomainFromUrl() {
 async function getHostnameByScript(tab) {
     try {
         const result = (tab && tab.id != null)
-            ? await browser.tabs.executeScript(tab.id, { code: 'location.hostname' })
-            : await executeScriptInTargetTab({ code: 'location.hostname' });
+            ? await AFFOMessaging.executeScript(browser, tab.id, { func: () => location.hostname })
+            : await executeScriptInTargetTab({ func: () => location.hostname });
         if (Array.isArray(result) && result.length) {
             return normalizeHostname(result[0]);
         }
@@ -540,14 +540,10 @@ async function updateDomainDisplay() {
 }
 
 // Helper: execute script in the correct tab (source tab if available, otherwise active tab)
-function executeScriptInTargetTab(options) {
-    if (window.sourceTabId) {
-        affoDebugLog('[AFFO Popup] Executing script in source tab:', window.sourceTabId);
-        return browser.tabs.executeScript(window.sourceTabId, options);
-    } else {
-        affoDebugLog('[AFFO Popup] Executing script in active tab');
-        return browser.tabs.executeScript(options);
-    }
+async function executeScriptInTargetTab(options) {
+    const tab = await getTargetTabForPopup();
+    if (!tab || tab.id == null) throw new Error('No target tab available');
+    return AFFOMessaging.executeScript(browser, tab.id, options);
 }
 
 // Helper: run element walker in the target tab via custom event bridge
@@ -555,7 +551,12 @@ function executeScriptInTargetTab(options) {
 function runElementWalkerInTargetTab(fontType) {
     // Dispatch custom event to trigger walker in content.js
     return executeScriptInTargetTab({
-        code: `window.__affoWalkerDone && (window.__affoWalkerDone['${fontType}'] = false); document.dispatchEvent(new CustomEvent('affo-run-walker', {detail:{fontType:'${fontType}'}})); true;`
+        func: (fontType) => {
+            if (window.__affoWalkerDone) window.__affoWalkerDone[fontType] = false;
+            document.dispatchEvent(new CustomEvent('affo-run-walker', { detail: { fontType } }));
+            return true;
+        },
+        args: [fontType]
     }).then(() => {
         // Poll for walker completion via executeScript
         return new Promise((resolve) => {
@@ -564,7 +565,11 @@ function runElementWalkerInTargetTab(fontType) {
                 executeScriptInTargetTab({
                     // executeScript runs even when source-tab timers are paused.
                     // Advance at most one bounded chunk before checking completion.
-                    code: `document.dispatchEvent(new CustomEvent('affo-continue-walker', {detail:{fontType:'${fontType}'}})); window.__affoWalkerDone && window.__affoWalkerDone['${fontType}']`
+                    func: (fontType) => {
+                        document.dispatchEvent(new CustomEvent('affo-continue-walker', { detail: { fontType } }));
+                        return window.__affoWalkerDone && window.__affoWalkerDone[fontType];
+                    },
+                    args: [fontType]
                 }).then(result => {
                     const val = result && result[0];
                     if (val && val.done) {
@@ -589,7 +594,8 @@ function pollFontSwapBridgeResult(resultKey, timeoutMs) {
     return new Promise((resolve) => {
         function poll() {
             executeScriptInTargetTab({
-                code: `window.__affoFontSwapDone && window.__affoFontSwapDone[${JSON.stringify(resultKey)}]`
+                func: (key) => window.__affoFontSwapDone && window.__affoFontSwapDone[key],
+                args: [resultKey]
             }).then(result => {
                 const value = result && result[0];
                 if (value && value.done) {
@@ -608,10 +614,15 @@ function pollFontSwapBridgeResult(resultKey, timeoutMs) {
 }
 
 async function prepareFontSwapInTargetTab(fontType, fontConfig) {
-    const detail = JSON.stringify({ fontType, fontConfig: fontConfig || {} });
     try {
         const dispatchResult = await executeScriptInTargetTab({
-            code: `(function(){ if (!window.__affoFontSwapDone) return false; window.__affoFontSwapDone[${JSON.stringify(fontType)}] = false; document.dispatchEvent(new CustomEvent('affo-prepare-font-swap', {detail:${detail}})); return true; })();`
+            func: (fontType, fontConfig) => {
+                if (!window.__affoFontSwapDone) return false;
+                window.__affoFontSwapDone[fontType] = false;
+                document.dispatchEvent(new CustomEvent('affo-prepare-font-swap', { detail: { fontType, fontConfig } }));
+                return true;
+            },
+            args: [fontType, fontConfig || {}]
         });
         if (!dispatchResult || !dispatchResult[0]) return false;
         const result = await pollFontSwapBridgeResult(fontType, 45000);
@@ -629,7 +640,13 @@ async function restoreFontSwapInTargetTab(fontType) {
     const resultKey = `restore-${fontType}`;
     try {
         const dispatchResult = await executeScriptInTargetTab({
-            code: `(function(){ if (!window.__affoFontSwapDone) return false; window.__affoFontSwapDone[${JSON.stringify(resultKey)}] = false; document.dispatchEvent(new CustomEvent('affo-restore-font-swap', {detail:{fontType:${JSON.stringify(fontType)}}})); return true; })();`
+            func: (fontType, resultKey) => {
+                if (!window.__affoFontSwapDone) return false;
+                window.__affoFontSwapDone[resultKey] = false;
+                document.dispatchEvent(new CustomEvent('affo-restore-font-swap', { detail: { fontType } }));
+                return true;
+            },
+            args: [fontType, resultKey]
         });
         if (!dispatchResult || !dispatchResult[0]) return false;
         const result = await pollFontSwapBridgeResult(resultKey, 5000);
@@ -641,14 +658,16 @@ async function restoreFontSwapInTargetTab(fontType) {
 }
 
 // Helper: insert CSS in the correct tab (source tab if available, otherwise active tab)
-function insertCSSInTargetTab(options) {
-    if (window.sourceTabId) {
-        affoDebugLog('[AFFO Popup] Inserting CSS in source tab:', window.sourceTabId);
-        return browser.tabs.insertCSS(window.sourceTabId, options);
-    } else {
-        affoDebugLog('[AFFO Popup] Inserting CSS in active tab');
-        return browser.tabs.insertCSS(options);
-    }
+async function insertCSSInTargetTab(options) {
+    const tab = await getTargetTabForPopup();
+    if (!tab || tab.id == null) throw new Error('No target tab available');
+    return browser.tabs.insertCSS(tab.id, { ...options, cssOrigin: 'user' });
+}
+
+async function removeCSSInTargetTab(options) {
+    const tab = await getTargetTabForPopup();
+    if (!tab || tab.id == null) throw new Error('No target tab available');
+    return browser.tabs.removeCSS(tab.id, { ...options, cssOrigin: 'user' });
 }
 
 // Helper: send message to the correct tab (source tab if available, otherwise active tab)
@@ -742,38 +761,20 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         if (fontConfig.fontName && fontConfig.fontName !== 'Default') {
             affoDebugLog(`reapplyThirdManInCSS: Waiting for font ${fontConfig.fontName} to load`);
             // Check if font is loaded by testing if it renders differently than fallback
-            const fontCheckScript = `
-                (function() {
-                    try {
-                        const testText = 'BESbswy';
-                        const testSize = '72px';
-                        const fallbackFont = 'monospace';
-                        const targetFont = '${fontConfig.fontName}';
-
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-
-                        context.font = testSize + ' ' + fallbackFont;
-                        const fallbackWidth = context.measureText(testText).width;
-
-                        context.font = testSize + ' ' + targetFont + ', ' + fallbackFont;
-                        const targetWidth = context.measureText(testText).width;
-
-                        const loaded = Math.abs(targetWidth - fallbackWidth) > 1;
-                        affoDebugLog('Font check:', targetFont, 'loaded:', loaded, 'fallback:', fallbackWidth, 'target:', targetWidth);
-                        return loaded;
-                    } catch(e) {
-                        affoDebugWarn('Font check failed:', e);
-                        return true; // Assume loaded on error
-                    }
-                })();
-            `;
+            const fontCheck = (targetFont) => {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                context.font = '72px monospace';
+                const fallbackWidth = context.measureText('BESbswy').width;
+                context.font = '72px ' + JSON.stringify(targetFont) + ', monospace';
+                return Math.abs(context.measureText('BESbswy').width - fallbackWidth) > 1;
+            };
 
             // Try up to 5 times with 200ms intervals
             let fontLoaded = false;
             for (let i = 0; i < 5 && !fontLoaded; i++) {
                 try {
-                    const result = await executeScriptInTargetTab({ code: fontCheckScript });
+                    const result = await executeScriptInTargetTab({ func: fontCheck, args: [fontConfig.fontName] });
                     fontLoaded = result && result[0];
                     if (!fontLoaded) {
                         affoDebugLog(`reapplyThirdManInCSS: Font not ready, waiting... (attempt ${i+1}/5)`);
@@ -807,49 +808,17 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
                 // Small delay to allow CSS injection to complete
                 await new Promise(resolve => setTimeout(resolve, 100));
 
-                await browser.tabs.executeScript({
-                    code: `
-                        console.log('=== CSS VERIFICATION START ===');
-                        console.log('CSS verification: Elements with ${fontType} marker:', document.querySelectorAll('[data-affo-font-type="${fontType}"]').length);
-
-                        var elements = document.querySelectorAll('[data-affo-font-type="${fontType}"]');
-                        if (elements.length > 0) {
-                            var firstEl = elements[0];
-                            var style = getComputedStyle(firstEl);
-                            console.log('CSS verification: First element tag:', firstEl.tagName);
-                            console.log('CSS verification: First element font-family:', style.fontFamily);
-                            console.log('CSS verification: First element text content (first 50 chars):', firstEl.textContent.slice(0, 50));
-
-                            // Check if there are any CSS rules targeting this element
-                            var matchedRules = [];
-                            for (let sheet of document.styleSheets) {
-                                try {
-                                    for (let rule of sheet.cssRules || sheet.rules || []) {
-                                        if (rule.selectorText && rule.selectorText.includes('data-affo-font-type')) {
-                                            matchedRules.push(rule.cssText);
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.log('Could not read stylesheet:', sheet.href, e.message);
-                                }
-                            }
-                            console.log('CSS verification: Found font-type rules:', matchedRules.length, matchedRules);
-
-                            // Check if the font is actually loaded
-                            if (document.fonts && document.fonts.check) {
-                                var fontName = '${fontConfig.fontName}';
-                                var isLoaded = document.fonts.check('16px ' + fontName);
-                                console.log('CSS verification: Font loading status for', fontName, ':', isLoaded);
-                            }
-                        } else {
-                            console.warn('CSS verification: No elements found with data-affo-font-type="${fontType}"');
-                            // Check if walker ran at all
-                            var allMarked = document.querySelectorAll('[data-affo-font-type]');
-                            console.log('CSS verification: Total elements with any font-type marker:', allMarked.length);
-                        }
-                        console.log('=== CSS VERIFICATION END ===');
-                    `
+                const result = await executeScriptInTargetTab({
+                    func: (fontType) => {
+                        const elements = document.querySelectorAll('[data-affo-font-type="' + fontType + '"]');
+                        return {
+                            count: elements.length,
+                            firstFont: elements.length ? window.getComputedStyle(elements[0]).fontFamily : null
+                        };
+                    },
+                    args: [fontType]
                 });
+                affoDebugLog('CSS verification:', fontType, result[0]);
             } catch (e) {
                 affoDebugWarn('CSS verification failed:', e);
             }
@@ -2626,7 +2595,7 @@ async function applyFontToPage(position, config) {
         }
 
         if (appliedCssActive[genericKey]) {
-            await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] }).catch(() => {});
+            await removeCSSInTargetTab({ code: appliedCssActive[genericKey] }).catch(() => {});
             appliedCssActive[genericKey] = null;
         }
 
@@ -2689,7 +2658,7 @@ async function unapplyFontFromPage(position) {
         // Remove CSS
         if (appliedCssActive[genericKey]) {
             try {
-                await browser.tabs.removeCSS({ code: appliedCssActive[genericKey] });
+                await removeCSSInTargetTab({ code: appliedCssActive[genericKey] });
             } catch (error) {
                 affoDebugWarn('Error removing CSS:', error);
             }
@@ -2702,12 +2671,15 @@ async function unapplyFontFromPage(position) {
         // Remove injected style elements
         const styleIdOff = 'a-font-face-off-style-' + genericKey;
         try {
-            await executeScriptInTargetTab({ code: `
-                (function(){
-                    try{ var s=document.getElementById('${styleIdOff}'); if(s) s.remove(); }catch(_){}
-                    try{ var l=document.getElementById('${styleIdOff}-link'); if(l) l.remove(); }catch(_){}
-                })();
-            `});
+            await executeScriptInTargetTab({
+                func: (styleId) => {
+                    for (const id of [styleId, styleId + '-link']) {
+                        const element = document.getElementById(id);
+                        if (element) element.remove();
+                    }
+                },
+                args: [styleIdOff]
+            });
         } catch (error) {
             affoDebugWarn('Error removing style elements:', error);
         }
@@ -2747,7 +2719,7 @@ async function applyThirdManInFont(fontType, config) {
         }
 
         if (appliedCssActive[fontType]) {
-            await browser.tabs.removeCSS({ code: appliedCssActive[fontType] }).catch(() => {});
+            await removeCSSInTargetTab({ code: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
         }
 
@@ -2802,7 +2774,7 @@ function unapplyThirdManInFont(fontType) {
         // Remove CSS
         let cssPromise = Promise.resolve();
         if (appliedCssActive[fontType]) {
-            cssPromise = browser.tabs.removeCSS({ code: appliedCssActive[fontType] }).catch(() => {});
+            cssPromise = removeCSSInTargetTab({ code: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
         }
 
@@ -2813,19 +2785,19 @@ function unapplyThirdManInFont(fontType) {
             // Remove injected style elements and clean up data attributes
             const styleId = `a-font-face-off-${fontType}-style`;
             const linkId = `${styleId}-link`;
-            return executeScriptInTargetTab({ code: `
-                (function(){
-                    try{ var s=document.getElementById('${styleId}'); if(s) s.remove(); }catch(_){}
-                    try{ var l=document.getElementById('${linkId}'); if(l) l.remove(); }catch(_){}
-                    // Clean up data-affo-font-type attributes for this font type
-                    try{
-                        document.querySelectorAll('[data-affo-font-type="${fontType}"]').forEach(el => {
-                            el.removeAttribute('data-affo-font-type');
-                            el.removeAttribute('data-affo-original-font-type');
-                        });
-                    }catch(_){}
-                })();
-            `}).catch(() => {});
+            return executeScriptInTargetTab({
+                func: (styleId, linkId, fontType) => {
+                    for (const id of [styleId, linkId]) {
+                        const element = document.getElementById(id);
+                        if (element) element.remove();
+                    }
+                    document.querySelectorAll('[data-affo-font-type="' + fontType + '"]').forEach(el => {
+                        el.removeAttribute('data-affo-font-type');
+                        el.removeAttribute('data-affo-original-font-type');
+                    });
+                },
+                args: [styleId, linkId, fontType]
+            }).catch(() => {});
         }).then(() => {
             affoDebugLog(`unapplyThirdManInFont: Successfully unapplied ${fontType} font`);
             return true;
@@ -5567,7 +5539,8 @@ function handleApply(panelId) {
         })();
     } else {
         // Body Contact and Face-off modes: single panel apply
-        applyPromise = applyPanelConfiguration(panelId).then(() => {
+        applyPromise = applyPanelConfiguration(panelId).then(result => {
+            if (result === false) throw new Error('The font could not be applied. Reload the page and try again.');
             // Handle body mode specially - update buttons after successful apply
             if (panelId === 'body') {
                 affoDebugLog('Body apply completed - updating buttons');
@@ -5583,6 +5556,7 @@ function handleApply(panelId) {
 
     return applyPromise.catch(error => {
         console.error('Error applying configuration:', error);
+        showCustomAlert(error.message || 'The font could not be applied.');
     }).finally(() => {
         // Hide loading state and release the lock
         return hideApplyLoading(panelId).then(() => {
@@ -5600,8 +5574,7 @@ function applyAllThirdManInFonts() {
 
     return getActiveOrigin().then(origin => {
         if (!origin) {
-            affoDebugLog('applyAllThirdManInFonts: No active origin, aborting');
-            return Promise.resolve();
+            throw new Error('Open a web page before applying fonts.');
         }
 
         affoDebugLog('applyAllThirdManInFonts: Collecting font configurations');
@@ -5635,14 +5608,15 @@ function applyAllThirdManInFonts() {
                     return prepareFontSwapInTargetTab(type, payload);
                 }));
                 if (preparationResults.some(result => !result)) {
-                    return null;
+                    await Promise.all(preparedSwapTypes.map(type => restoreFontSwapInTargetTab(type)));
+                    throw new Error('The fonts could not be prepared. Reload the page and try again.');
                 }
 
                 // Clean up popup-inserted CSS only after all replacement faces are ready.
                 await Promise.all(['serif', 'sans', 'mono'].map(type => {
                     if (!appliedCssActive[type]) return Promise.resolve();
                     affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
-                    return browser.tabs.removeCSS({ code: appliedCssActive[type] }).then(() => {
+                    return removeCSSInTargetTab({ code: appliedCssActive[type] }).then(() => {
                         appliedCssActive[type] = null;
                     }).catch(error => {
                         affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
@@ -5653,7 +5627,6 @@ function applyAllThirdManInFonts() {
                 await saveBatchApplyStateForOrigin(origin, payloadConfigs);
                 return payloadConfigs;
             }).then(async payloadConfigs => {
-                if (!payloadConfigs) return [];
                 if (shouldUseInlineApply(origin)) {
                     affoDebugLog(`applyAllThirdManInFonts: Content script owns page apply for ${origin}; skipping popup CSS/walkers`);
                     await Promise.all(Object.keys(payloadConfigs).map(type => restoreFontSwapInTargetTab(type)));
@@ -5678,18 +5651,8 @@ function applyAllThirdManInFonts() {
                     return runElementWalkerInTargetTab(job.type).then(async () => {
                         // Verify what elements were marked
                         return executeScriptInTargetTab({
-                            code: `
-                                (function() {
-                                    const markedElements = document.querySelectorAll('[data-affo-font-type="${job.type}"]');
-                                    if (${AFFO_DEBUG}) console.log('VERIFICATION: ${job.type} elements marked:', markedElements.length);
-                                    for (let i = 0; i < Math.min(10, markedElements.length); i++) {
-                                        const el = markedElements[i];
-                                        const computed = window.getComputedStyle(el);
-                                        if (${AFFO_DEBUG}) console.log('VERIFICATION: Marked ${job.type} element', i+1, ':', el.tagName, el.className, 'computedFont:', computed.fontFamily, 'text:', el.textContent.substring(0, 30));
-                                    }
-                                    return markedElements.length;
-                                })();
-                            `
+                            func: (fontType) => document.querySelectorAll('[data-affo-font-type="' + fontType + '"]').length,
+                            args: [job.type]
                         }).then(async (result) => {
                             affoDebugLog(`applyAllThirdManInFonts: ${job.type} walker marked ${result[0]} elements`);
 
@@ -5717,8 +5680,11 @@ function applyAllThirdManInFonts() {
             });
 
                 return Promise.all(cssPromises);
-        }).then(async () => {
+        }).then(async results => {
                 await Promise.all(preparedSwapTypes.map(type => restoreFontSwapInTargetTab(type)));
+                if (results.some(result => result === false)) {
+                    throw new Error('Some fonts could not be applied. Reload the page and try again.');
+                }
                 // Step 5: Update UI state
                 saveExtensionState();
                 affoDebugLog('applyAllThirdManInFonts: OPTIMIZED Apply All process completed - used 1 storage write instead of', changeCount);
@@ -5812,7 +5778,7 @@ async function applySroulettePanelConfiguration(panelId, pool) {
 
     if (appliedCssActive[panelId]) {
         try {
-            await browser.tabs.removeCSS({ code: appliedCssActive[panelId] });
+            await removeCSSInTargetTab({ code: appliedCssActive[panelId] });
         } catch (error) {
             affoDebugWarn(`applySroulettePanelConfiguration: Failed to remove existing ${panelId} CSS:`, error);
         }
