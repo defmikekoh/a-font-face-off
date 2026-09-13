@@ -9,6 +9,7 @@
     "postbuild": "node scripts/set-debug.js true",
     "build:latest": "npm run build && cp web-ext-artifacts/*.zip web-ext-artifacts/latest.xpi",
     "build:edge-mv3": "node scripts/build-edge-mv3.js",
+    "build:edge-mv3-zip": "node scripts/zip-edge-mv3.js",
     "pack:edge-crx": "node scripts/pack-edge-crx.js",
     "build:edge-crx": "npm run build:edge-mv3 && npm run pack:edge-crx",
     "build:edge-smoke-mv3": "node scripts/build-edge-smoke-mv3.js",
