@@ -45,4 +45,39 @@ CSP uses `content_security_policy.extension_pages`. Remote font/style sources re
 
 Unit tests cover shared injection, frame targeting, Firefox script errors, CSS origins and removal after restart, manifest differences, and font application. Run `npm test`, `npm run lint`, and `npm run test:integration`; verify mobile behavior on the authorized Firefox Nightly device using the project testing skill. Verify the generated Chromium extension separately because Firefox does not exercise the service worker or Chromium API adapter.
 
+### Desktop Chrome smoke
+
+Run `npm run test:chrome`. Selenium Manager downloads Chrome for Testing
+**153.0.8010.36** and its matching ChromeDriver into `ztemp/selenium/` on first
+use. Subsequent runs reuse those binaries. Each run builds the Chromium
+extension, loads it automatically into a fresh profile under `ztemp/`, and
+quits Chrome and removes that profile afterward. It does not use your normal
+Chrome profile. Browser execution needs permission to open local debugging
+ports; first use also requires download access.
+
+The runner uses the existing Selenium dependency for browser startup and tab
+setup, then CDP for shared assertions in `scripts/chromium-smoke.js`. The Android
+runner uses the same assertions with its existing installed browser and explicit
+ADB forwarding; it still performs no installation or device reset.
+
+The ten desktop checks cover MV3 installation/content injection, popup mode
+switching, remote font application with aggressive mode off, Body Reset,
+three-family TMI, the Chromium JavaScript-blocking rule, WhatFont injection,
+USER-origin CSS insertion/removal, persisted configuration and tracked CSS
+cleanup after worker restart, and new extension runtime/manifest errors.
+Worker restart is established by a stopped lifecycle event and a fresh global
+context, not a changed DevTools target ID (desktop Chrome can reuse it).
+
+The default is headless. Use `AFFO_CHROME_HEADED=1 npm run test:chrome` to show
+the browser, or `AFFO_CHROME_VERSION=stable npm run test:chrome` to test the
+current Stable release before deliberately updating the pinned default.
+An exact version can also be supplied. The JSON report at
+`ztemp/desktop-chromium-test.json` records the actual browser version and failures.
+
+These are integration smoke checks: they use example.com and Google Fonts,
+so network failures can fail the run. Popup checks use an extension **tab**,
+not the native toolbar panel. The DNR check verifies installed rule configuration,
+not a site's script execution. Keep native-popup and Android Vivaldi checks for
+browser chrome, touch, and mobile layout coverage.
+
 References: [Mozilla MV3 migration guide](https://extensionworkshop.com/documentation/develop/manifest-v3-migration-guide/), [scripting.insertCSS](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/scripting/insertCSS), [scripting.executeScript](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/scripting/executeScript).

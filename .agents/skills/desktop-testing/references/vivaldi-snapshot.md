@@ -1,6 +1,6 @@
-# Vivaldi Snapshot on Note10
+# Vivaldi Snapshot on Note10 and Android emulator
 
-## Approved scope
+## Note10 approved scope
 
 The disposable target is Samsung Galaxy Note10 `RF8M81WSL1V`, package `com.vivaldi.browser.snapshot`. User authorization includes app/profile resets, force-stop/relaunch, and local extension install/reload for AFFO testing. Do not reset stable `com.vivaldi.browser`, another device, or another Android user/work profile under this authorization. Keep Snapshot signed out of browser Sync. Reset for clean-install tests; retain the session for iterative debugging.
 
@@ -78,3 +78,116 @@ The native Extensions-menu popup appears in `/json` as `type: "other"`; ordinary
 Chromium serializes extension messages as JSON: native ArrayBuffers become empty objects. AFFO now base64-encodes binary `affoFetch` replies at the message boundary, preserving native ArrayBuffers in IndexedDB. A font downloaded by the worker is not proof it arrived intact; assert both computed font-family and FontFace load success.
 
 The Extensions page retains old error records after reload. Record the initial IDs/occurrence counts and fail for new or incremented entries. Do not erase prior failures to claim a clean run. Reports distinguish pre-existing records from errors produced by the current test.
+
+
+## Android 16 emulator
+
+Verified on 2026-09-14: `emulator-5554`, AVD `AFFO_Pixel_API36` (Pixel 8,
+Google APIs ARM64, 1080×2400), Vivaldi Snapshot **8.2.4147.50**
+(`com.vivaldi.browser.snapshot`). The user requested this emulator smoke run;
+installation, local AFFO loading, and test-domain mutations were exercised.
+Reuse the installed profile. This run did not clear Vivaldi app data and does
+not expand the Note10-specific blanket reset authorization above.
+
+This is a useful option for repeatable Android Chromium checks when the issue
+does not depend on a particular physical phone. It does not establish Firefox
+behavior or eliminate physical-device checks for hardware/OS-specific issues.
+No emulator-versus-phone speed benchmark was performed. The first run included
+emulator boot, Vivaldi installation, onboarding, and extension-folder setup;
+subsequent runs can reuse that setup.
+
+### Boot and install only when needed
+
+Check `emulator-5554` explicitly; it may not be running. The existing AVD can be
+started without a host window (ADB screenshots and CDP still work):
+
+```bash
+/Users/mike/Library/Android/sdk/emulator/emulator -avd AFFO_Pixel_API36 -port 5554 -no-window -no-audio
+```
+
+The verified launch could not restore its saved snapshot because the renderer
+configuration differed, then booted normally from disk. A transient `device
+offline` during boot is not grounds to wipe the AVD or reset the shared ADB
+server. Wait for boot before querying packages. Host launch logs belong in
+`ztemp/`. Do not assume the emulator or its browser is still running merely
+because a prior run succeeded.
+
+If Vivaldi is absent, the verified installation used the Note10's installed
+Snapshot package, copied read-only. Obtain its current APK paths with
+`adb -s RF8M81WSL1V shell pm path com.vivaldi.browser.snapshot`, then pull each
+returned path separately into `ztemp/`. That build required both `base.apk`
+and `split_chrome.apk`; do not hardcode the device's generated `/data/app/`
+paths or install only the base split.
+
+```bash
+adb -s emulator-5554 install-multiple ztemp/vivaldi-snapshot-base.apk ztemp/vivaldi-snapshot-chrome.apk
+npm run build:chromium
+adb -s emulator-5554 push ztemp/edge-mv3-src/. /sdcard/Download/affo-mv3
+```
+
+On this emulator, `monkey` returned an error about physical system keys without
+opening the browser. Tapping the observed Vivaldi Snapshot launcher icon worked.
+Complete the existing Quick Start onboarding flow above; the smoke run used No
+Blocking and declined notifications. Inspect fresh UI nodes before tapping.
+
+### Extension loading and CDP
+
+- Discover sockets anew. The emulator exposed **`chrome_devtools_remote`** with
+  no PID suffix, unlike the Note10's observed PID-suffixed socket. Confirm the
+  forwarded `/json` targets belong to Vivaldi before interacting. Port **9245**
+  was used to keep emulator CDP separate from Note10 port 9235.
+- An Android VIEW intent for `vivaldi://extensions` could not resolve. Navigating
+  an existing Vivaldi page through CDP `Page.navigate` worked. Inside that page,
+  `location.href` reported `chrome://extensions/`, while `/json` still reported
+  `vivaldi://extensions/`. The existing smoke runner worked unchanged; do not
+  change its target matching based only on the document's internal URL.
+- In the extension manager, `chrome.developerPrivate.updateProfileConfiguration({
+  inDeveloperMode: true })` and `chrome.developerPrivate.loadUnpacked({
+  failQuietly: true })` opened the folder picker. Resolve the load promise
+  asynchronously so Android UI interaction can proceed. Select Download →
+  affo-mv3 → Use this folder → Allow. A notification prompt can intervene.
+- The load promise resolving or picker closing is not sufficient proof. Wait
+  until `chrome.developerPrivate.getExtensionsInfo` reports AFFO **ENABLED** with
+  no manifest errors. It briefly returned an empty list before installation
+  became visible during this run.
+- Extension IDs, page IDs, and worker IDs are session/install observations.
+  Rediscover them. Use returned WebSocket URLs, and obtain the actual source
+  browser tab ID through `browser.tabs.query` in an extension context.
+
+Prepare example.com, the extension manager, and AFFO's popup test tab using the
+current extension ID and source tab ID, as described above. Run:
+
+```bash
+node scripts/test-android-chromium.js --endpoint http://127.0.0.1:9245 --extension-id ACTUAL_INSTALLED_EXTENSION_ID --out ztemp/vivaldi-emulator-smoke.json
+```
+
+The eight checks passed: MV3 installation/content injection; remote Lora Body
+Apply with aggressive mode off; three-target TMI Apply; Chromium JavaScript
+blocking; WhatFont activation; USER-origin CSS insertion/removal; Sroulette CSS
+removal after service-worker restart; and no new runtime/manifest errors.
+
+### Native popup check
+
+A popup test tab does not prove native popup rendering. In this run,
+`browser.action.openPopup()` from the test tab rejected with `Failed to open
+popup`; the native **Extensions menu → A Font Face-off** entry opened it. This
+API failure alone did not indicate an AFFO rendering failure.
+
+Identify the native `/json` target by **`type: "other"`**, separate from the
+popup test tab (`type: "page"`). Wait for startup to select a mode and populate
+previews before judging a screenshot; the initial capture was temporarily blank.
+The settled native popup used `affo-mobile affo-popup-panel`, measured **320×600
+CSS pixels**, had a 476px preview region, and placed the grips bottom at 600px.
+Device screenshots confirmed its native layout.
+
+Face-off, TMI, and Body Contact mode switching worked. The smoke suite leaves
+example.com configurations in storage: switching from configured TMI to Body
+Contact can legitimately await the custom confirmation dialog. Inspect that
+visible dialog before labeling an awaited CDP evaluation as hung. Confirming
+clears the test-domain settings; `forceInit` is not a universal confirmation
+bypass. Record this as test-state cleanup, not as a browser/profile reset.
+
+Evidence from the run was saved under `ztemp/vivaldi-emulator-smoke.json`,
+`ztemp/vivaldi-emulator-native.json`, and `ztemp/vivaldi-emulator-popup.png`.
+These ignored artifacts and temporary CDP helpers are evidence, not maintained
+skill APIs or prerequisites for future tests.

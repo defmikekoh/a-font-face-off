@@ -21,6 +21,7 @@
     "test:android:emulator": "npm run build:latest && node scripts/android-emulator-test.js",
     "test": "node --test 'tests/**/*.test.js'",
     "test:integration": "npm run build:latest && node --test --test-concurrency=1 'tests/**/*.itest.js'",
+    "test:chrome": "npm run build:chromium && node scripts/test-desktop-chromium.js",
     "build:chromium": "node scripts/build-edge-mv3.js"
   },
   "devDependencies": {
