@@ -7,7 +7,8 @@ const acorn = require('acorn');
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
 const names = new Set(['anyMutationConsumerActive', 'getChatGptStreamTextRoot', 'ensureSharedDomObserver',
     'maybeCleanupSharedDomObserver', 'dispatchMeaningfulMutations', 'isMeaningfulInlineAddedNode',
-    'elementHasOwnText', 'directTextHasMinNonWhitespace', 'markTypesInRoots']);
+    'elementHasOwnText', 'directTextHasMinNonWhitespace', 'markTypesInRoots',
+    'getMutationTmiTypes', 'drainMeaningfulMutations']);
 const functions = [];
 function collect(node) {
     if (!node || typeof node !== 'object') return;
@@ -26,7 +27,7 @@ function paragraph({ message = true, pruned = false, marked = false } = {}) {
         nodeType: 1, tagName: 'P', children: [], childNodes: [], connected: true, message, pruned,
         hasAttribute: name => attrs.has(name),
         getAttribute: name => attrs.get(name),
-        contains(node) { return this === node || this.children.includes(node); },
+        contains(node) { return this === node || this.children.some(child => child.contains(node)); },
         attrs
     };
     return p;
@@ -44,9 +45,14 @@ function harness(chatgpt = true) {
     let callback;
     let observed;
     let nextId = 0;
+    let now = 0;
     const context = vm.createContext({
         isChatGpt: chatgpt,
         sharedDomObserver: null, sharedDomDebounceTimer: null, pendingMeaningfulRoots: new Set(),
+        dynamicMutationJob: null, fontSizeScaleConfigs: {},
+        usesHybridInlineTmiSelectors: () => false,
+        WALKER_YIELD_BUDGET_MS: 8, clockStep: 0,
+        getAffoNow: () => { now += context.clockStep; return now; },
         inlineObserverWanted: false, inlineConfigs: {},
         getObservedTmiCssTypes: () => ['sans'], getActiveFontSizeScaleTypes: () => [],
         isInsideInteractiveSubtree: node => !!(node.parentElement || node).pruned,
@@ -56,11 +62,26 @@ function harness(chatgpt = true) {
         isInOrContainsChatGptMessage: node => !chatgpt || node.message,
         resetFixedPositionUiCache() {},
         elementMayOwnTmiText: node => node.childNodes.some(child => /\S/.test(child.nodeValue || '')),
-        markElementForTypes(node) { classified.push(node); node.attrs.set('data-affo-font-type', 'sans'); },
+        markElementForTypes(node, _cs, types) {
+            classified.push(node);
+            node.attrs.set('data-affo-font-type', Object.keys(types)[0]);
+        },
         window: { getComputedStyle: () => ({ display: 'block', visibility: 'visible' }) },
         document: {
             documentElement: {}, contains: node => node.connected,
-            createTreeWalker(root) { walked.push(root); return { nextNode: () => null }; }
+            createTreeWalker(root) {
+                walked.push(root);
+                const nodes = root.children;
+                return {
+                    currentNode: root,
+                    nextNode() {
+                        const index = nodes.indexOf(this.currentNode);
+                        const next = nodes[index + 1];
+                        if (next) this.currentNode = next;
+                        return next || null;
+                    }
+                };
+            }
         },
         NodeFilter: { SHOW_ELEMENT: 1 },
         MutationObserver: class {
@@ -169,4 +190,63 @@ test('cleanup cancels pending text work when the last consumer is disabled', () 
     assert.equal(h.timers.size, 0);
     assert.equal(h.context.pendingMeaningfulRoots.size, 0);
     assert.equal(h.context.sharedDomObserver, null);
+});
+
+test('yields large scans, serializes later batches, and scales only after classification', async () => {
+    const h = harness(false);
+    h.context.clockStep = 5;
+    const root = paragraph();
+    for (let i = 0; i < 8; i++) {
+        const p = paragraph();
+        text(p, 'A paragraph with enough content');
+        p.parentElement = root;
+        root.children.push(p);
+    }
+    const scaled = [];
+    h.context.fontSizeScaleConfigs.sans = { fontSizeScale: 125 };
+    h.context.getActiveFontSizeScaleTypes = () => ['sans'];
+    h.context.applyFontSizeScaleInRoots = (_config, _type, roots) => {
+        scaled.push(...roots);
+        assert.ok(roots.every(r => !r.children.length || r.children.every(p => p.attrs.has('data-affo-font-type'))));
+    };
+    const done = h.context.dispatchMeaningfulMutations([root, root.children[0]]);
+    assert.ok(h.classified.length < 8);
+    assert.equal(scaled.length, 0);
+    const later = paragraph();
+    text(later, 'A later batch must still be classified');
+    assert.equal(h.context.dispatchMeaningfulMutations([later]), done);
+    for (let i = 0; i < 30 && h.context.dynamicMutationJob; i++) { h.flush(); await Promise.resolve(); }
+    await done;
+    assert.equal(h.classified.length, 9, 'Union classification should not repeat for the scale consumer');
+    assert.deepEqual(scaled, [root, later]);
+});
+
+test('reset cancels a yielded scan and never reapplies downstream styles', async () => {
+    const h = harness(false);
+    h.context.clockStep = 10;
+    const roots = Array.from({ length: 8 }, () => { const p = paragraph(); text(p, 'Readable text'); return p; });
+    const done = h.context.dispatchMeaningfulMutations(roots);
+    const before = h.classified.length;
+    assert.ok(before > 0 && before < roots.length);
+    h.context.getObservedTmiCssTypes = () => [];
+    h.context.maybeCleanupSharedDomObserver();
+    h.flush();
+    await done;
+    assert.equal(h.classified.length, before);
+    assert.equal(h.timers.size, 0);
+    assert.equal(h.context.dynamicMutationJob, null);
+});
+
+test('yielded scans skip detached roots and types disabled between chunks', async () => {
+    const h = harness(false);
+    h.context.clockStep = 10;
+    const roots = Array.from({ length: 4 }, () => { const p = paragraph(); text(p, 'Readable text'); return p; });
+    const done = h.context.dispatchMeaningfulMutations(roots);
+    roots[1].connected = false;
+    h.flush();
+    assert.equal(h.classified.length, 1);
+    h.context.getObservedTmiCssTypes = () => [];
+    h.flush();
+    await done;
+    assert.equal(h.classified.length, 1);
 });

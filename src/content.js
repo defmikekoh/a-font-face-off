@@ -119,6 +119,7 @@
   var sharedDomObserver = null;
   var sharedDomDebounceTimer = null;
   var pendingMeaningfulRoots = new Set();
+  var dynamicMutationJob = null; // serializes yielded subtree scans and queued mutation batches
   var styleOrderChaserObserver = null; // keeps AFFO styles last in non-aggressive mode
   var styleOrderChaserMoving = false;
   var lastReappliedEntry = null; // resolved configs from the most recent page apply
@@ -1655,6 +1656,11 @@
       sharedDomDebounceTimer = null;
     }
     pendingMeaningfulRoots.clear();
+    if (dynamicMutationJob) {
+      dynamicMutationJob.roots.clear();
+      if (dynamicMutationJob.cancel) dynamicMutationJob.cancel();
+      dynamicMutationJob = null;
+    }
   }
 
   // Apply inline styles only within the given added subtree roots (instead of
@@ -1695,42 +1701,49 @@
     headingResetRoots.forEach(resetHeadingTypographyInMarkedSubtree);
   }
 
-  // Dispatch debounced, scoped work to the active consumers for the meaningful
-  // subtree roots that were added since the last dispatch.
-  function dispatchMeaningfulMutations(roots) {
-    if (!roots || roots.length === 0) return;
-    // Drop roots that have since detached.
-    var live = roots.filter(function (n) { return n && document.contains(n); });
-    if (live.length === 0) return;
-    // Drop roots nested inside another pending root to avoid double-walking.
-    var topRoots = live.filter(function (r) {
-      return !live.some(function (other) { return other !== r && other.contains && other.contains(r); });
+  function getMutationTmiTypes() {
+    if (usesHybridInlineTmiSelectors()) return [];
+    return ['serif', 'sans', 'mono'].filter(function (ft) {
+      return (inlineObserverWanted && !!inlineConfigs[ft]) ||
+        getObservedTmiCssTypes().indexOf(ft) !== -1 || !!fontSizeScaleConfigs[ft];
     });
+  }
 
-    // Inline consumer: mark inline TMI types in the new subtrees, then apply
-    // inline styles within them.
-    if (inlineObserverWanted && Object.keys(inlineConfigs).length > 0) {
-      var tmiInline = ['serif', 'sans', 'mono'].filter(function (ft) { return !!inlineConfigs[ft]; });
-      if (tmiInline.length > 0 && !usesHybridInlineTmiSelectors()) markTypesInRoots(topRoots, tmiInline);
-      applyInlineStylesInRoots(topRoots);
+  // Keep one yielded scan in flight. Mutations received during a scan join its
+  // next batch, rather than starting overlapping walkers over the same nodes.
+  function dispatchMeaningfulMutations(roots) {
+    if (!roots || roots.length === 0 || !anyMutationConsumerActive()) return;
+    if (dynamicMutationJob) {
+      roots.forEach(function (root) { dynamicMutationJob.roots.add(root); });
+      return dynamicMutationJob.promise;
     }
+    var job = { roots: new Set(roots), cancel: null, promise: null };
+    dynamicMutationJob = job;
+    job.promise = drainMeaningfulMutations(job).catch(function (error) {
+      console.error('[AFFO Content] Dynamic TMI scan failed:', error);
+    }).finally(function () {
+      if (dynamicMutationJob === job) dynamicMutationJob = null;
+    });
+    return job.promise;
+  }
 
-    // Non-inline TMI CSS consumer: marking the new nodes is enough — the
-    // injected attribute-selector CSS styles them automatically.
-    var tmiCssTypes = getObservedTmiCssTypes();
-    if (tmiCssTypes.length > 0) {
-      debugLog('[AFFO Content] Marking newly added subtrees for non-inline TMI types:', tmiCssTypes);
-      markTypesInRoots(topRoots, tmiCssTypes);
-    }
-
-    // Font-size scale consumer: mark new TMI subtrees, then scale only targets
-    // inside the newly added roots. Full-document passes are reserved for the
-    // initial apply, configuration changes, navigation, and focus recovery.
-    var scaleTypes = getActiveFontSizeScaleTypes();
-    if (scaleTypes.length > 0) {
-      var tmiScale = scaleTypes.filter(function (ft) { return ft !== 'body'; });
-      if (tmiScale.length > 0 && !usesHybridInlineTmiSelectors()) markTypesInRoots(topRoots, tmiScale);
-      scaleTypes.forEach(function (fontType) {
+  async function drainMeaningfulMutations(job) {
+    while (dynamicMutationJob === job && job.roots.size > 0) {
+      var live = new Set(Array.from(job.roots).filter(function (n) { return n && document.contains(n); }));
+      job.roots.clear();
+      var topRoots = Array.from(live).filter(function (root) {
+        for (var parent = root.parentElement; parent; parent = parent.parentElement) {
+          if (live.has(parent)) return false;
+        }
+        return true;
+      });
+      // Classify the union once, before any consumer applies inline styles or
+      // scaling. CSS-only TMI takes effect incrementally as markers are added.
+      await markTypesInRoots(topRoots, getMutationTmiTypes(), job);
+      if (dynamicMutationJob !== job) return;
+      topRoots = topRoots.filter(function (root) { return document.contains(root); });
+      if (inlineObserverWanted) applyInlineStylesInRoots(topRoots);
+      getActiveFontSizeScaleTypes().forEach(function (fontType) {
         applyFontSizeScaleInRoots(fontSizeScaleConfigs[fontType], fontType, topRoots);
       });
     }
@@ -4132,45 +4145,76 @@
   // selector CSS styles the freshly marked nodes automatically. Mirrors the
   // full walker's acceptNode/visibility/interactive-subtree pruning so results
   // are identical to a full re-walk over just that subtree.
-  function markTypesInRoots(roots, types) {
-    if (!roots || roots.length === 0 || !types || types.length === 0) return;
-    resetFixedPositionUiCache();
-    var typeSet = {};
-    types.forEach(function (ft) { typeSet[ft] = true; });
-
-    function markOne(el) {
-      if (!el) return;
-      var cs;
-      try {
-        cs = window.getComputedStyle(el);
-        if (el.tagName !== 'BODY' && (cs.display === 'none' || cs.visibility === 'hidden')) return;
-      } catch (_) { return; }
-      markElementForTypes(el, cs, typeSet, null);
-    }
-
-    roots.forEach(function (root) {
-      if (!root || root.nodeType !== 1) return;
-      try {
-        if (isTmiPrunedSubtreeRoot(root) || isInsideTmiPrunedSubtree(root)) return;
-        if (!isInOrContainsChatGptMessage(root)) return;
-      } catch (_) { return; }
-
-      if (elementMayOwnTmiText(root)) markOne(root);
-
-      var walker = document.createTreeWalker(
-        root,
-        NodeFilter.SHOW_ELEMENT,
-        {
-          acceptNode: function (node) {
-            if (isTmiPrunedSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
-            return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-          }
-        }
-      );
-      var node;
-      while ((node = walker.nextNode())) {
-        markOne(node);
+  function markTypesInRoots(roots, types, job) {
+    if (!roots.length || !types.length) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      var rootIndex = 0;
+      var root = null;
+      var walker = null;
+      var element = null;
+      var timer = null;
+      function finish(error) {
+        clearTimeout(timer);
+        job.cancel = null;
+        if (error) reject(error);
+        else resolve();
       }
+      job.cancel = function () { finish(); };
+
+      function processScopedChunk() {
+        try {
+          if (dynamicMutationJob !== job) { finish(); return; }
+          var activeTypes = getMutationTmiTypes();
+          var typeSet = {};
+          types.forEach(function (ft) { if (activeTypes.indexOf(ft) !== -1) typeSet[ft] = true; });
+          if (Object.keys(typeSet).length === 0) { finish(); return; }
+          resetFixedPositionUiCache();
+          var startedAt = getAffoNow();
+          while (root || rootIndex < roots.length) {
+            if (!root) {
+              root = roots[rootIndex++];
+              walker = null;
+              element = root;
+            }
+            if (!root || root.nodeType !== 1 || !document.contains(root) ||
+                isTmiPrunedSubtreeRoot(root) || isInsideTmiPrunedSubtree(root) ||
+                !isInOrContainsChatGptMessage(root)) {
+              root = null;
+            } else {
+              if (!walker) {
+                walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+                  acceptNode: function (node) {
+                    // Visit even non-text owners so traversal itself shares the
+                    // budget, rather than skipping a large subtree in nextNode.
+                    return isTmiPrunedSubtreeRoot(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+                  }
+                });
+              } else if (!root.contains(walker.currentNode)) {
+                // The page removed the cursor while we yielded. Restart at the
+                // live root so its remaining siblings are not stranded.
+                walker.currentNode = root;
+                element = root;
+              }
+              if (element && root.contains(element) && elementMayOwnTmiText(element)) {
+                var cs = window.getComputedStyle(element);
+                if (cs.display !== 'none' && cs.visibility !== 'hidden') {
+                  markElementForTypes(element, cs, typeSet, null);
+                }
+              }
+              element = walker.nextNode();
+              if (!element) root = null;
+            }
+            if (getAffoNow() - startedAt >= WALKER_YIELD_BUDGET_MS) {
+              timer = setTimeout(processScopedChunk, 0);
+              return;
+            }
+          }
+          finish();
+        } catch (error) {
+          finish(error);
+        }
+      }
+      processScopedChunk();
     });
   }
 

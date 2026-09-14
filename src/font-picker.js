@@ -126,7 +126,9 @@ function create(popup) {
 
         let currentPosition = 'top';
         let families = [];
-        let sectionOffsets = {};
+        let renderedSections = [];
+        let catalogKey = '';
+        let lastQuery = null;
 
         function normalize(str) { return (str || '').toLowerCase(); }
         function firstLetter(name) {
@@ -145,8 +147,8 @@ function create(popup) {
             if (typeof popup.gfFamilyList === 'undefined' || !Array.isArray(popup.gfFamilyList) || popup.gfFamilyList.length === 0) {
                 try { await popup.ensureGfFamilyList(); } catch (e) { affoDebugWarn('GF family list load failed:', e); }
             }
-            // Ensure favorites are up-to-date
-            try { favorites.loadFavoritesFromStorage(); } catch (e) {}
+            // Refresh before caching the catalog for this opening.
+            await favorites.loadFavoritesFromStorage();
             const gf = getKnownGoogleFamilies();
             const set = new Set();
             const list = [];
@@ -160,6 +162,7 @@ function create(popup) {
             });
             gf.forEach(f => { if (!set.has(f)) list.push(f); });
             families = list;
+            prepareList();
             searchEl.value = '';
             buildList('');
             modal.classList.add('visible');
@@ -180,104 +183,85 @@ function create(popup) {
             bottomTrigger && bottomTrigger.setAttribute('aria-expanded', 'false');
         }
 
-        function buildRail(letters) {
-            railEl.innerHTML = '';
-            letters.forEach(L => {
-                const span = document.createElement('span');
-                span.className = 'rail-letter';
-                span.textContent = L;
-                span.title = `Jump to ${L}`;
-                span.addEventListener('click', () => {
-                    const anchor = document.getElementById(`fp-section-${L}`);
-                    if (!anchor) return;
-                    // With listEl positioned relative, anchor.offsetTop is relative to listEl
-                    const top = anchor.offsetTop || 0;
-                    listEl.scrollTop = Math.max(0, top);
-                });
-                railEl.appendChild(span);
-            });
-        }
-
-        function buildList(query) {
-            const q = normalize(query);
-            const matches = q
-                ? families.filter(n => normalize(n).includes(q))
-                : families.slice();
-
-
-            // Group into sections
-            listEl.innerHTML = '';
+        // Build once per catalog/favorites change. Search only toggles rows whose
+        // visibility changes; no per-row listeners or repeated name normalization.
+        function prepareList() {
+            const favNames = Array.from(new Set(Object.values(favorites.getSavedFavorites() || {})
+                .map(cfg => cfg && cfg.fontName).filter(Boolean)));
+            const nextKey = JSON.stringify([families, favNames, popup.CUSTOM_FONTS, popup.LOCAL_FONTS]);
+            if (nextKey === catalogKey) return;
+            catalogKey = nextKey;
+            lastQuery = null;
+            const custom = new Set(popup.CUSTOM_FONTS);
+            const local = new Set(popup.LOCAL_FONTS);
+            const favoriteNames = favNames.filter(name => !custom.has(name) && !local.has(name));
+            const favoriteSet = new Set(favoriteNames);
             const sections = new Map();
-
-            // Favorites section: gather unique favorited font names
-            const favNames = Array.from(new Set(
-                Object.values(favorites.getSavedFavorites() || {})
-                    .map(cfg => cfg && cfg.fontName)
-                    .filter(Boolean)
-            ));
-            const favFiltered = favNames
-                .filter(n => (q ? normalize(n).includes(q) : true))
-                .filter(n => !popup.CUSTOM_FONTS.includes(n) && !popup.LOCAL_FONTS.includes(n)); // avoid duplicate with pinned sections
-            if (favFiltered.length) {
-                sections.set('Favorites', favFiltered);
-            }
-
-            // Remaining items grouped by letter (Pinned handled as its own key)
-            const favSet = new Set(favFiltered);
-            const addItem = (name) => {
-                const key = popup.CUSTOM_FONTS.includes(name) ? 'Pinned' : popup.LOCAL_FONTS.includes(name) ? 'Local' : firstLetter(name);
-                if (favSet.has(name) && key !== 'Pinned') return; // don't duplicate favorites into letters
+            if (favoriteNames.length) sections.set('Favorites', favoriteNames);
+            families.forEach(name => {
+                if (favoriteSet.has(name)) return;
+                const key = custom.has(name) ? 'Pinned' : local.has(name) ? 'Local' : firstLetter(name);
                 if (!sections.has(key)) sections.set(key, []);
                 sections.get(key).push(name);
-            };
-            matches.forEach(addItem);
-
-            // Order: Pinned section (if present), then A-Z, then '#'
-            const order = [];
-            if (sections.has('Pinned')) order.push('Pinned');
-            if (sections.has('Local')) order.push('Local');
-            if (sections.has('Favorites')) order.push('Favorites');
-            for (let i=0;i<26;i++) {
-                const L = String.fromCharCode(65+i);
-                if (sections.has(L)) order.push(L);
-            }
-            if (sections.has('#')) order.push('#');
-
-            // Build DOM
-            order.forEach(key => {
+            });
+            const order = ['Pinned', 'Local', 'Favorites', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#']
+                .filter(key => sections.has(key));
+            const listFragment = document.createDocumentFragment();
+            const railFragment = document.createDocumentFragment();
+            renderedSections = order.map(key => {
                 const title = document.createElement('div');
                 title.className = 'font-picker-section-title';
                 title.textContent = key === 'Pinned' ? 'Custom Fonts' : key === 'Local' ? 'Local Fonts' : key;
                 title.id = `fp-section-${key}`;
-                listEl.appendChild(title);
-
-                sections.get(key).forEach(name => {
-                    const item = document.createElement('div');
-                    item.className = 'font-picker-item';
-                    item.setAttribute('role', 'option');
-                    item.textContent = name;
-                    item.addEventListener('click', () => selectFont(name));
-                    listEl.appendChild(item);
+                listFragment.appendChild(title);
+                const items = sections.get(key).map(name => {
+                    const node = document.createElement('div');
+                    node.className = 'font-picker-item';
+                    node.setAttribute('role', 'option');
+                    node.textContent = name;
+                    listFragment.appendChild(node);
+                    return { node, searchName: normalize(name) };
                 });
+                let letter = null;
+                if (key !== 'Pinned' && key !== 'Local' && key !== 'Favorites') {
+                    letter = document.createElement('span');
+                    letter.className = 'rail-letter';
+                    letter.textContent = key;
+                    letter.title = `Jump to ${key}`;
+                    railFragment.appendChild(letter);
+                }
+                return { title, items, letter };
             });
+            listEl.replaceChildren(listFragment);
+            railEl.replaceChildren(railFragment);
+        }
 
-            // Build rail letters
-            const letters = order.filter(k => k !== 'Pinned' && k !== 'Local' && k !== 'Favorites');
-            buildRail(letters);
-
-            // Compute offsets after layout
-            requestAnimationFrame(() => {
-                sectionOffsets = {};
-                const listRect = listEl.getBoundingClientRect();
-                order.forEach(key => {
-                    const anchor = document.getElementById(`fp-section-${key}`);
-                    if (!anchor) return;
-                    const anchorRect = anchor.getBoundingClientRect();
-                    const top = anchorRect.top - listRect.top + listEl.scrollTop;
-                    sectionOffsets[key] = Math.max(0, top);
+        function buildList(query) {
+            const q = normalize(query);
+            if (q === lastQuery) return;
+            lastQuery = q;
+            renderedSections.forEach(section => {
+                let visible = false;
+                section.items.forEach(item => {
+                    const hidden = !!q && !item.searchName.includes(q);
+                    if (item.node.hidden !== hidden) item.node.hidden = hidden;
+                    if (!hidden) visible = true;
                 });
+                if (section.title.hidden === visible) section.title.hidden = !visible;
+                if (section.letter && section.letter.hidden === visible) section.letter.hidden = !visible;
             });
         }
+
+        listEl.addEventListener('click', event => {
+            const item = event.target.closest('.font-picker-item');
+            if (item && listEl.contains(item) && !item.hidden) selectFont(item.textContent);
+        });
+        railEl.addEventListener('click', event => {
+            const letter = event.target.closest('.rail-letter');
+            if (!letter || !railEl.contains(letter) || letter.hidden) return;
+            const anchor = document.getElementById(`fp-section-${letter.textContent}`);
+            if (anchor && !anchor.hidden) listEl.scrollTop = Math.max(0, anchor.offsetTop);
+        });
 
     async function selectFont(name) {
         affoDebugLog(`selectFont: Selecting "${name}" for position "${currentPosition}"`);
