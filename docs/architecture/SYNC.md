@@ -13,7 +13,8 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 ## Google Drive
 
-- OAuth via tab-based flow with PKCE (opens tab + intercepts redirect via webRequest; works on both desktop and Android Firefox). Tokens stored in `affoGDriveTokens`.
+- OAuth uses a tab-based flow with PKCE and a loopback redirect, rather than `identity.launchWebAuthFlow`. Firefox intercepts and cancels the redirect with blocking `webRequest`; Chromium observes it through non-blocking `webRequest` and `tabs.onUpdated`, captures the code, and closes the auth tab. Tokens are stored in `affoGDriveTokens`.
+- Quick Pick includes a `Connect Google Drive` action for mobile access. This is useful when a browser does not expose extension options in its menu, as observed in earlier Edge Canary Android testing.
 - If Google rejects the refresh token with `invalid_grant`, the extension clears local tokens, preserves `affoSyncBackend = 'gdrive'`, and stores a local-only reconnect-required state in `affoGDriveAuthStatus` so the Options UI can offer an explicit reconnect flow instead of looking fully disconnected.
 - Files stored in a visible "A Font Face-off{suffix}" folder in the user's Google Drive. All synced items are single files in the root folder (no subfolders): `domains.json`, `domains-meta.json`, `favorites.json`, `custom-fonts.css`, `known-serif.json`, `known-sans.json`, `fontface-only-domains.json`, `fontface-only-domains-meta.json`, `inline-apply-domains.json`, `inline-apply-domains-meta.json`, `aggressive-domains.json`, `aggressive-domains-meta.json`, `waitforit-domains.json`, `waitforit-domains-meta.json`, `ignore-comments-domains.json`, `ignore-comments-domains-meta.json`, `block-javascript-domains.json`, `block-javascript-domains-meta.json`, `substack-beige-disabled-domains.json`, `substack-beige-disabled-domains-meta.json`, `preserved-fonts.json`, `substack-roulette.json`.
 - `remoteRev` optimistic concurrency via `ensureRemoteRevisionUnchanged`
@@ -22,6 +23,7 @@ Cloud sync covers `custom-fonts.css`, domain settings (`affoApplyMap` + per-orig
 
 - Basic auth or anonymous, `credentials: 'omit'`, MKCOL for folder
 - Uses `affoWebDavFolderSuffix` to choose the remote folder name independently from Google Drive (`A Font Face-off` or `A Font Face-off {suffix}`)
+- Set the server URL to the DAV root that answers an authorized `PROPFIND` with `207 Multi-Status`. A human-browsable WebDAVNav URL can return HTML for GET while returning 404 for `PROPFIND`; GET success alone does not validate the sync path. A folder suffix such as `Chrome` creates `A Font Face-off Chrome` when a separate browser namespace is desired.
 - Uses a quoted strong `ETag` as `remoteRev` when the server provides one. Weak (`W/`) and malformed ETags are ignored because they cannot satisfy `If-Match` strong comparison.
 - WebDAV GETs use `cache: 'no-store'` so revision checks cannot consume a fresh-but-stale browser cache entry.
 - Sends `If-Match` on `PUT` when an existing item has a stored strong WebDAV ETag (optimistic concurrency).

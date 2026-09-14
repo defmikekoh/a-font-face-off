@@ -170,6 +170,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage() { return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
@@ -187,7 +188,7 @@ function createHarness({ localSeed, remoteManifest, remoteAppFiles, remoteFileIn
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -324,6 +325,7 @@ function createWebDavHarness({
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage() { return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
@@ -341,7 +343,7 @@ function createWebDavHarness({
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -431,6 +433,7 @@ function createQueueHarness() {
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage(msg) {
                 notifications.push(msg);
                 return Promise.resolve();
@@ -451,7 +454,7 @@ function createQueueHarness() {
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -496,6 +499,7 @@ function createSyncMetaHarness() {
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage() { return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
@@ -513,7 +517,7 @@ function createSyncMetaHarness() {
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -554,6 +558,7 @@ function createDriveOpsHarness() {
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage() { return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
@@ -571,7 +576,7 @@ function createDriveOpsHarness() {
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -627,6 +632,7 @@ function createGDriveAuthHarness({ localSeed, fetchImpl }) {
             onChanged: storage.onChanged,
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
             sendMessage() { return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
@@ -650,7 +656,7 @@ function createGDriveAuthHarness({ localSeed, fetchImpl }) {
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); },
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
         },
     };
@@ -1963,6 +1969,7 @@ describe('Google Drive alarms API fallback', () => {
                 onChanged: storage.onChanged,
             },
             runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
                 sendMessage() { return Promise.resolve(); },
                 getURL(file) { return `moz-extension://test/${file}`; },
                 onMessage: { addListener() {} },
@@ -1975,7 +1982,7 @@ describe('Google Drive alarms API fallback', () => {
             identity: {
                 launchWebAuthFlow() { return Promise.resolve(); },
             },
-            browserAction: {
+            action: {
                 openPopup() { return Promise.resolve(); },
             },
         };

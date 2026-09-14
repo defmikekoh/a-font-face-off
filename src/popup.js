@@ -465,7 +465,7 @@ function getContextDomainFromUrl() {
 async function getHostnameByScript(tab) {
     try {
         const result = (tab && tab.id != null)
-            ? await AFFOMessaging.executeScript(browser, tab.id, { func: () => location.hostname })
+            ? await AFFOMessaging.executeScript(browser, { target: { tabId: tab.id }, func: () => location.hostname })
             : await executeScriptInTargetTab({ func: () => location.hostname });
         if (Array.isArray(result) && result.length) {
             return normalizeHostname(result[0]);
@@ -543,7 +543,7 @@ async function updateDomainDisplay() {
 async function executeScriptInTargetTab(options) {
     const tab = await getTargetTabForPopup();
     if (!tab || tab.id == null) throw new Error('No target tab available');
-    return AFFOMessaging.executeScript(browser, tab.id, options);
+    return AFFOMessaging.executeScript(browser, { ...options, target: { tabId: tab.id } });
 }
 
 // Helper: run element walker in the target tab via custom event bridge
@@ -661,13 +661,13 @@ async function restoreFontSwapInTargetTab(fontType) {
 async function insertCSSInTargetTab(options) {
     const tab = await getTargetTabForPopup();
     if (!tab || tab.id == null) throw new Error('No target tab available');
-    return browser.tabs.insertCSS(tab.id, { ...options, cssOrigin: 'user' });
+    return browser.scripting.insertCSS({ ...options, target: { tabId: tab.id }, origin: 'USER' });
 }
 
 async function removeCSSInTargetTab(options) {
     const tab = await getTargetTabForPopup();
     if (!tab || tab.id == null) throw new Error('No target tab available');
-    return browser.tabs.removeCSS(tab.id, { ...options, cssOrigin: 'user' });
+    return browser.scripting.removeCSS({ ...options, target: { tabId: tab.id }, origin: 'USER' });
 }
 
 // Helper: send message to the correct tab (source tab if available, otherwise active tab)
@@ -800,7 +800,7 @@ async function reapplyThirdManInCSS(fontType, fontConfig) {
         const cssCode = generateThirdManInCSS(fontType, fontConfig, shouldUseAggressive(window.currentTabHostname));
         if (cssCode) {
             affoDebugLog(`reapplyThirdManInCSS: Generated CSS for ${fontType}:`, cssCode);
-            await insertCSSInTargetTab({ code: cssCode });
+            await insertCSSInTargetTab({ css: cssCode });
             appliedCssActive[fontType] = cssCode;
 
             // Verify the CSS was applied with comprehensive debugging
@@ -2595,7 +2595,7 @@ async function applyFontToPage(position, config) {
         }
 
         if (appliedCssActive[genericKey]) {
-            await removeCSSInTargetTab({ code: appliedCssActive[genericKey] }).catch(() => {});
+            await removeCSSInTargetTab({ css: appliedCssActive[genericKey] }).catch(() => {});
             appliedCssActive[genericKey] = null;
         }
 
@@ -2624,8 +2624,7 @@ async function applyFontToPage(position, config) {
             if (css) {
                 try {
                     await insertCSSInTargetTab({
-                        code: css,
-                        cssOrigin: 'user'
+                        css: css
                     });
                     appliedCssActive[genericKey] = css;
                     await restoreFontSwapInTargetTab(genericKey);
@@ -2658,7 +2657,7 @@ async function unapplyFontFromPage(position) {
         // Remove CSS
         if (appliedCssActive[genericKey]) {
             try {
-                await removeCSSInTargetTab({ code: appliedCssActive[genericKey] });
+                await removeCSSInTargetTab({ css: appliedCssActive[genericKey] });
             } catch (error) {
                 affoDebugWarn('Error removing CSS:', error);
             }
@@ -2719,7 +2718,7 @@ async function applyThirdManInFont(fontType, config) {
         }
 
         if (appliedCssActive[fontType]) {
-            await removeCSSInTargetTab({ code: appliedCssActive[fontType] }).catch(() => {});
+            await removeCSSInTargetTab({ css: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
         }
 
@@ -2744,7 +2743,7 @@ async function applyThirdManInFont(fontType, config) {
                     : '';
                 if (css) {
                     affoDebugLog(`applyThirdManInFont: Generated CSS for ${fontType}:`, css);
-                    await insertCSSInTargetTab({ code: css, cssOrigin: 'user' });
+                    await insertCSSInTargetTab({ css: css });
                     appliedCssActive[fontType] = css;
                     await restoreFontSwapInTargetTab(fontType);
                     affoDebugLog(`applyThirdManInFont: Successfully applied ${fontType} font`);
@@ -2774,7 +2773,7 @@ function unapplyThirdManInFont(fontType) {
         // Remove CSS
         let cssPromise = Promise.resolve();
         if (appliedCssActive[fontType]) {
-            cssPromise = removeCSSInTargetTab({ code: appliedCssActive[fontType] }).catch(() => {});
+            cssPromise = removeCSSInTargetTab({ css: appliedCssActive[fontType] }).catch(() => {});
             appliedCssActive[fontType] = null;
         }
 
@@ -5616,7 +5615,7 @@ function applyAllThirdManInFonts() {
                 await Promise.all(['serif', 'sans', 'mono'].map(type => {
                     if (!appliedCssActive[type]) return Promise.resolve();
                     affoDebugLog(`applyAllThirdManInFonts: Removing existing CSS for ${type}`);
-                    return removeCSSInTargetTab({ code: appliedCssActive[type] }).then(() => {
+                    return removeCSSInTargetTab({ css: appliedCssActive[type] }).then(() => {
                         appliedCssActive[type] = null;
                     }).catch(error => {
                         affoDebugWarn(`applyAllThirdManInFonts: Failed to remove existing CSS for ${type}:`, error);
@@ -5661,7 +5660,7 @@ function applyAllThirdManInFonts() {
                             if (css) {
                                 affoDebugLog(`applyAllThirdManInFonts: Generated CSS for ${job.type}:`, css);
                                 affoDebugLog(`applyAllThirdManInFonts: Payload for ${job.type}:`, payload);
-                                return insertCSSInTargetTab({ code: css }).then(() => {
+                                return insertCSSInTargetTab({ css: css }).then(() => {
                                     affoDebugLog(`applyAllThirdManInFonts: Successfully applied CSS for ${job.type}`);
                                     appliedCssActive[job.type] = css;
                                     return restoreFontSwapInTargetTab(job.type).then(() => true);
@@ -5778,7 +5777,7 @@ async function applySroulettePanelConfiguration(panelId, pool) {
 
     if (appliedCssActive[panelId]) {
         try {
-            await removeCSSInTargetTab({ code: appliedCssActive[panelId] });
+            await removeCSSInTargetTab({ css: appliedCssActive[panelId] });
         } catch (error) {
             affoDebugWarn(`applySroulettePanelConfiguration: Failed to remove existing ${panelId} CSS:`, error);
         }

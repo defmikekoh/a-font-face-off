@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const acorn = require('acorn');
-const { createBrowserPolyfillLite } = require('../scripts/build-edge-mv3.js');
+const { buildManifest } = require('../scripts/build-edge-mv3.js');
 
 const read = name => fs.readFileSync(require.resolve('../src/' + name), 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -69,7 +69,7 @@ function createHarness({ content = false, android = false } = {}) {
         };
     }
     const context = vm.createContext({ chrome, navigator: { userAgent: android ? 'Android EdgA' : 'Macintosh Chrome' } });
-    vm.runInContext(createBrowserPolyfillLite(), context);
+    vm.runInContext(read('browser-api.js'), context);
     vm.runInContext(read('messaging-utils.js'), context);
     return { context, page, calls, chrome };
 }
@@ -83,10 +83,11 @@ test('MV3 shim initializes with only content-script APIs and can use storage/mes
     assert.equal(await context.browser.runtime.sendMessage('ping'), 'ping');
 });
 
-test('MV3 rejects legacy code strings and executes packaged functions without eval', async () => {
+test('MV3 executes packaged functions without the legacy tabs adapter', async () => {
     const { context } = createHarness();
-    await assert.rejects(context.browser.tabs.executeScript(7, { code: 'location.hostname' }), /packaged function/);
-    const result = await context.AFFOMessaging.executeScript(context.browser, 7, {
+    assert.equal(context.browser.tabs.executeScript, undefined);
+    const result = await context.AFFOMessaging.executeScript(context.browser, {
+        target: { tabId: 7 },
         func: (value) => value,
         args: ['a font with "quotes", backticks ` and ${literal}']
     });
@@ -107,8 +108,8 @@ test('Body and TMI preparation, walker and restore execute in the source tab wit
         const config = { fontName: 'Font "quoted" ${literal}', variableAxes: { wght: 500 } };
         assert.equal(await context.prepareFontSwapInTargetTab(fontType, config), true);
         assert.equal((await context.runElementWalkerInTargetTab(fontType)).count, 3);
-        await context.insertCSSInTargetTab({ code: 'p { color: red }' });
-        await context.removeCSSInTargetTab({ code: 'p { color: red }' });
+        await context.insertCSSInTargetTab({ css: 'p { color: red }' });
+        await context.removeCSSInTargetTab({ css: 'p { color: red }' });
         assert.equal(await context.restoreFontSwapInTargetTab(fontType), true);
         const prepared = calls.find(call => call.event === 'affo-prepare-font-swap' && call.detail.fontType === fontType);
         assert.deepEqual(prepared.detail.fontConfig, config);
@@ -118,14 +119,14 @@ test('Body and TMI preparation, walker and restore execute in the source tab wit
     assert.ok(calls.filter(call => call.insert).every(call => call.insert.origin === 'USER' && call.insert.target.tabId === 7));
 });
 
-test('CSS shim preserves explicit author/user origins, frame targeting and default author origin', async () => {
+test('shared CSS API preserves author/user origins and frame targeting', async () => {
     const { context, calls } = createHarness();
-    for (const cssOrigin of ['author', 'user', undefined]) {
-        const details = { code: 'p { color: red }', cssOrigin, frameId: 2 };
-        await context.browser.tabs.insertCSS(7, details);
-        await context.browser.tabs.removeCSS(7, details);
+    for (const origin of ['AUTHOR', 'USER', undefined]) {
+        const details = { css: 'p { color: red }', origin, target: { tabId: 7, frameIds: [2] } };
+        await context.browser.scripting.insertCSS(details);
+        await context.browser.scripting.removeCSS(details);
         assert.deepEqual(calls.at(-2).insert, calls.at(-1).remove);
-        assert.equal(calls.at(-2).insert.origin, cssOrigin && cssOrigin.toUpperCase());
+        assert.equal(calls.at(-2).insert.origin, origin);
         assert.deepEqual(calls.at(-2).insert.target, { tabId: 7, frameIds: [2] });
     }
 });
@@ -137,25 +138,34 @@ test('desktop options uses the native API while Android retains the tab-opening 
     assert.equal(createHarness({ android: true }).context.browser.runtime.openOptionsPage, undefined);
 });
 
-test('Firefox MV2 function injection preserves JSON arguments and returns the result', async () => {
-    const context = vm.createContext({});
+test('Firefox uses its native API and surfaces per-frame script errors', async () => {
+    const native = { scripting: { async executeScript(details) {
+        assert.deepEqual(clone(details.target), { tabId: 8, frameIds: [2] });
+        return [{ frameId: 2, error: { message: 'Page bridge failed' } }];
+    } } };
+    const context = vm.createContext({ browser: native, chrome: {} });
+    vm.runInContext(read('browser-api.js'), context);
     vm.runInContext(read('messaging-utils.js'), context);
-    const browser = {
-        runtime: { getManifest: () => ({ manifest_version: 2 }) },
-        tabs: {
-            async executeScript(tabId, options) {
-                assert.equal(tabId, 8);
-                assert.equal(options.frameId, 2);
-                assert.equal(options.func, undefined);
-                return [vm.runInNewContext(options.code)];
-            }
-        }
-    };
-    const result = await context.AFFOMessaging.executeScript(browser, 8, {
-        func: value => value.fontName,
-        args: [{ fontName: 'quote " newline\n${literal}' }], frameId: 2
-    });
-    assert.equal(result[0], 'quote " newline\n${literal}');
+    assert.equal(context.browser, native);
+    await assert.rejects(context.AFFOMessaging.executeScript(native, {
+        target: { tabId: 8, frameIds: [2] }, func: () => false
+    }), /Page bridge failed/);
+});
+
+test('Firefox and Chromium share MV3 manifests except background hosting and blocking permissions', () => {
+    const firefox = JSON.parse(read('manifest.json'));
+    const chromium = buildManifest(firefox);
+    assert.equal(firefox.manifest_version, 3);
+    assert.equal(firefox.background.persistent, false);
+    assert.ok(firefox.background.scripts.includes('browser-api.js'));
+    assert.ok(firefox.permissions.includes('webRequestBlocking'));
+    assert.equal(chromium.browser_specific_settings, undefined);
+    assert.ok(chromium.background.service_worker);
+    assert.ok(chromium.permissions.includes('declarativeNetRequestWithHostAccess'));
+    assert.ok(!chromium.permissions.includes('webRequestBlocking'));
+    for (const key of ['action', 'content_scripts', 'host_permissions', 'content_security_policy', 'web_accessible_resources']) {
+        assert.deepEqual(chromium[key], firefox[key]);
+    }
 });
 
 function trackingContext(sessionData, cssOps) {
@@ -166,9 +176,9 @@ function trackingContext(sessionData, cssOps) {
                 async set(values) { Object.assign(sessionData, clone(values)); },
                 async remove(key) { delete sessionData[key]; }
             } },
-            tabs: {
-                async insertCSS(tabId, options) { cssOps.push({ insert: options.code, origin: options.cssOrigin, tabId }); },
-                async removeCSS(tabId, options) { cssOps.push({ remove: options.code, origin: options.cssOrigin, tabId }); }
+            scripting: {
+                async insertCSS(options) { cssOps.push({ insert: options.css, origin: options.origin, tabId: options.target.tabId }); },
+                async removeCSS(options) { cssOps.push({ remove: options.css, origin: options.origin, tabId: options.target.tabId }); }
             }
         },
         isSrouletteCssTarget: target => ['serif', 'sans', 'mono'].includes(target),
@@ -189,8 +199,8 @@ test('Sroulette removes old CSS after worker restart and retains concurrent TMI 
     const restarted = trackingContext(session, cssOps);
     await restarted.insertTrackedSrouletteCss(7, 'serif', 'serif new');
     assert.deepEqual(cssOps.filter(op => op.remove), [
-        { remove: 'serif old', origin: 'author', tabId: 7 },
-        { remove: 'serif old', origin: 'user', tabId: 7 }
+        { remove: 'serif old', origin: 'AUTHOR', tabId: 7 },
+        { remove: 'serif old', origin: 'USER', tabId: 7 }
     ]);
     await restarted.removeTrackedSrouletteCss(7);
     assert.equal(session['affoSrouletteInsertedCss:7'], undefined);
@@ -244,12 +254,19 @@ test('Body and TMI Apply save configurations only after successful preparation a
     assert.deepEqual(Object.keys(saved[1].value), types);
     assert.equal(alerts.length, 0);
     assert.equal(calls.filter(call => call.insert).length, 4);
+    for (const { insert } of calls.filter(call => call.insert)) {
+        assert.match(insert.css, /font-family: "Georgia";/);
+        assert.doesNotMatch(insert.css, /font-family: "Georgia" !important/);
+    }
+    context.shouldUseAggressive = () => true;
+    assert.equal(await context.applyFontToPage('body', config), true);
+    assert.match(calls.filter(call => call.insert).at(-1).insert.css, /font-family: "Georgia" !important;/);
 
     delete page.window.__affoFontSwapDone;
     await context.handleApply('serif');
     context.currentViewMode = 'body';
     await context.handleApply('body');
-    assert.equal(saved.length, 2, 'A missing content bridge must not save a failed Apply');
+    assert.equal(saved.length, 3, 'A missing content bridge must not save a failed Apply');
     assert.equal(alerts.length, 2, 'Both modes must visibly report failure');
     assert.match(alerts[0], /could not be prepared/);
     assert.match(alerts[1], /could not be applied/);
@@ -274,9 +291,48 @@ test('WhatFont activation uses packaged functions in the sender frame', async ()
     loadFunctions('background.js', ['handleAffoRuntimeMessage'], context);
     const result = await context.handleAffoRuntimeMessage({ type: 'affoEnsureWhatFontScripts' }, { tab: { id: 7 }, frameId: 3 });
     assert.equal(result.success, true);
-    assert.deepEqual(calls.filter(call => call.files).map(call => call.files[0]), ['jquery.js', 'whatfont_core.js']);
+    assert.deepEqual(calls.filter(call => call.files).flatMap(call => call.files), ['jquery.js', 'whatfont_core.js']);
     assert.ok(calls.every(call => (call.scriptTarget || call.target).frameIds[0] === 3));
     const again = await context.handleAffoRuntimeMessage({ type: 'affoEnsureWhatFontScripts' }, { tab: { id: 7 }, frameId: 3 });
     assert.equal(again.success, true);
-    assert.equal(calls.filter(call => call.files).length, 2, 'An active WhatFont must not load files again');
+    assert.equal(calls.filter(call => call.files).length, 1, 'An active WhatFont must not load files again');
+});
+
+test('binary font replies survive Chromium JSON messaging without changing cached buffers', async () => {
+    const context = vm.createContext({ btoa: value => Buffer.from(value, 'binary').toString('base64'), atob: value => Buffer.from(value, 'base64').toString('binary') });
+    vm.runInContext(read('messaging-utils.js'), context);
+    // Exercise multiple encoding chunks and every possible byte, including zero.
+    const bytes = Uint8Array.from({ length: 100003 }, (_, index) => index % 256);
+    context.AFFOBackgroundFontRuntime = { async handleFetchMessage() { return {ok:true,binary:true,data:bytes.buffer,cached:true}; } };
+    loadFunctions('background.js', ['handleAffoRuntimeMessage'], context);
+    const response = await context.handleAffoRuntimeMessage({type:'affoFetch',binary:true,url:'https://fonts.example/font.woff2'}, {});
+    const wire = clone(response);
+    assert.equal(wire.encoding, 'base64');
+    assert.equal(wire.cached, true);
+    assert.equal(typeof wire.data, 'string');
+    assert.deepEqual(Buffer.from(context.AFFOMessaging.decodeBinaryResponseData(wire.data)), Buffer.from(bytes));
+    assert.equal(bytes.byteLength, 100003);
+    const text = {ok:true,binary:false,data:'@font-face {}'};
+    assert.equal(context.AFFOMessaging.encodeBinaryResponse(text), text);
+});
+
+test('popup sizing distinguishes Chromium Android panels from Firefox and explicit tabs', () => {
+    for (const [android, chromium, search, expected] of [
+        [true, true, '', ['affo-mobile', 'affo-popup-panel']],
+        [true, true, '?sourceTabId=7', ['affo-mobile']],
+        [true, false, '', ['affo-mobile']],
+        [true, false, '?sourceTabId=7', ['affo-mobile']],
+        [false, true, '', []],
+        [false, false, '', []]
+    ]) {
+        const classes = [];
+        const context = vm.createContext({
+            navigator: {userAgent:android ? 'Android' : 'Macintosh'},
+            browser: {runtime:{getManifest:()=>({background:chromium ? {service_worker:'worker.js'} : {scripts:['background.js']}})}},
+            location:{search}, URLSearchParams,
+            document:{documentElement:{classList:{add:name=>classes.push(name)}}}
+        });
+        vm.runInContext(read('popup-context.js'),context);
+        assert.deepEqual(classes,expected);
+    }
 });

@@ -4,7 +4,7 @@ This file provides guidance to Codex, Claude Code (claude.ai/code), and Gemini w
 
 ## Project Overview
 
-A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and compares fonts on web pages in real-time. No font files are bundled; all fonts are fetched at runtime from Google Fonts or custom CDN hosts. The extension uses a single injected `<style>` element (Facade pattern) rather than per-node DOM mutations.
+A Font Face-off is a shared Manifest V3 browser extension for Firefox and Chromium (Chrome, Vivaldi, and Edge) that replaces and compares fonts on web pages in real-time. No font files are bundled; all fonts are fetched at runtime from Google Fonts or custom CDN hosts. The extension uses a single injected `<style>` element (Facade pattern) rather than per-node DOM mutations.
 
 ## Key Commands
 
@@ -19,7 +19,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - The canonical desktop/Android extension-testing skill directory is `.agents/skills/desktop-testing/`; `.claude/skills/desktop-testing` is a symlink to it for Claude Code discovery. Edit the canonical `.agents` files rather than duplicating or relocating them without a deliberate compatibility change.
-- **Safety boundary:** Android Selenium/geckodriver clears the selected Firefox package data when creating a session. Destructive automation is pre-approved ONLY for Firefox Nightly (`org.mozilla.fenix`) on the Samsung Galaxy Note10 (ADB serial `RF8M81WSL1V`). Do not target other Firefox packages on that Note10, or Firefox on any other Android device, without new explicit approval. (Tooling behavior, device specifics, and which paths are/aren't destructive are documented in the `desktop-testing` and `firefox-extension-debug` skills.)
+- **Safety boundary:** Android Selenium/geckodriver clears the selected Firefox package data when creating a session. Disposable browser testing is pre-approved on Samsung Galaxy Note10 `RF8M81WSL1V` for Firefox Nightly (`org.mozilla.fenix`) and Vivaldi Snapshot (`com.vivaldi.browser.snapshot`). Snapshot permission includes app/profile resets, force-stop/relaunch, and local extension install/reload. Vivaldi stable (`com.vivaldi.browser`), other browser packages, devices, and Android users/work profiles require new explicit approval for destructive testing. The Firefox harness remains Firefox-only. (Tooling behavior, device specifics, and which paths are/aren't destructive are documented in the `desktop-testing` and `firefox-extension-debug` skills.)
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - ESLint config (`eslint.config.mjs`) uses flat config format — all `files` patterns must use `src/` prefix (e.g., `"src/*.js"`). Without it, rules silently don't apply.
 
@@ -38,7 +38,7 @@ A Font Face-off is a Firefox browser extension (Manifest V2) that replaces and c
 | `src/css-generators.js` | Shared CSS generation functions (body, body-contact, TMI) |
 | `src/background.js` | Non-persistent background script; cloud sync, runtime message routing, Quick Pick handlers |
 | `src/background-font-runtime.js` | Background font fetch/cache service and Google Fonts CSS2 URL resolution |
-| `src/block-javascript-utils.js` | Shared MV2 response-header and MV3 dynamic-rule helpers for per-domain page JavaScript blocking |
+| `src/block-javascript-utils.js` | Firefox response-header and Chromium dynamic-rule helpers for per-domain page JavaScript blocking |
 | `src/left-toolbar.js` | Toolbar overlay injected at `document_start`; early font preloading, Quick Pick panel |
 | `src/left-toolbar-iframe.js` | Iframe-based toolbar implementation |
 | `src/options.js` / `src/options.html` | Settings page for domain configs and cache management |
@@ -79,6 +79,10 @@ Logging rules:
 - Helper files loaded before `popup.js` and Node-tested files should gate debug output with `globalThis.AFFO_DEBUG === true` so tests and non-debug contexts stay quiet.
 - `console.error` is acceptable for real failures. Routine status, cache hits, generated CSS dumps, verification traces, and expected fallback notes should be debug-gated.
 - Code injected into page context cannot call popup/background helper functions; either skip those scripts when `AFFO_DEBUG` is false or embed a literal `if (${AFFO_DEBUG}) console.log(...)` guard.
+
+## Shared MV3 Builds
+
+`src/manifest.json` is the Firefox MV3 baseline. `npm run build:latest` packages Firefox; `npm run build:chromium` generates the Chrome/Vivaldi/Edge directory at `ztemp/edge-mv3-src/`. The older `build:edge-mv3` command remains an alias for existing CRX workflows. Shared scripts use `browser.scripting` and `browser.action`; `browser-api.js` supplies Chromium Promise/messaging adaptation and leaves native Firefox APIs untouched. Preserve the per-domain aggressive setting and AUTHOR/USER CSS origins. See `docs/architecture/MV3.md`.
 
 ## Architecture Deep Dives
 

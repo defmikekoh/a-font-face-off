@@ -162,8 +162,9 @@ async function updateBlockJavaScriptDynamicRule() {
   });
 }
 
-const manifest = browser.runtime.getManifest ? browser.runtime.getManifest() : { manifest_version: 2 };
-if (manifest.manifest_version === 2) {
+// Firefox keeps blocking webRequest; the Chromium build declares DNR instead.
+const usesBlockingWebRequest = (browser.runtime.getManifest().permissions || []).includes('webRequestBlocking');
+if (usesBlockingWebRequest) {
   if (browser.webRequest && browser.webRequest.onHeadersReceived) {
     browser.webRequest.onHeadersReceived.addListener(
       applyBlockJavaScriptPolicy,
@@ -299,9 +300,9 @@ async function removeTrackedSrouletteCssNow(tabId, targets) {
   for (const target of trackedTargets) {
     const css = tracked[target];
     if (!css) continue;
-    for (const cssOrigin of ['author', 'user']) {
+    for (const origin of ['AUTHOR', 'USER']) {
       try {
-        await browser.tabs.removeCSS(tabId, { code: css, cssOrigin });
+        await browser.scripting.removeCSS({ target: { tabId }, css, origin });
       } catch (e) {
         affoDebugLog('[AFFO Background] Sroulette removeCSS note:', e.message);
       }
@@ -324,8 +325,8 @@ async function insertTrackedSrouletteCssNow(tabId, target, css) {
   }
 
   await removeTrackedSrouletteCssNow(tabId, [target]);
-  await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'author' });
-  await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
+  await browser.scripting.insertCSS({ target: { tabId }, css, origin: 'AUTHOR' });
+  await browser.scripting.insertCSS({ target: { tabId }, css, origin: 'USER' });
 
   let tracked = srouletteInsertedCssByTab.get(tabId);
   if (!tracked) {
@@ -371,8 +372,8 @@ function getAffoBrowserActionTitleForTab(tab, applyMap) {
 
 function canSetAffoBrowserActionTitle() {
   return browser &&
-    browser.browserAction &&
-    typeof browser.browserAction.setTitle === 'function';
+    browser.action &&
+    typeof browser.action.setTitle === 'function';
 }
 
 function sanitizeApplyMapForTitle(rawMap) {
@@ -388,7 +389,7 @@ async function updateAffoBrowserActionTitleForTab(tab, applyMap = null) {
   if (!canSetAffoBrowserActionTitle() || !tab || tab.id == null) return false;
   const map = applyMap || await getAffoApplyMapForTitle();
   const title = getAffoBrowserActionTitleForTab(tab, map);
-  await browser.browserAction.setTitle({ tabId: tab.id, title });
+  await browser.action.setTitle({ tabId: tab.id, title });
   return true;
 }
 
@@ -2829,29 +2830,21 @@ async function handleAffoRuntimeMessage(msg, sender) {
         if (tabId == null) {
           return { success: false, error: 'Missing sender tab' };
         }
-        const injectionTarget = { runAt: 'document_end' };
+        const target = { tabId };
         if (sender && typeof sender.frameId === 'number') {
-          injectionTarget.frameId = sender.frameId;
+          target.frameIds = [sender.frameId];
         }
-        const existingResults = await AFFOMessaging.executeScript(browser, tabId, Object.assign({
+        const existingResults = await AFFOMessaging.executeScript(browser, {
+          target,
           func: () => window._WHATFONT === true && !!document.querySelector('.__whatfont_control')
-        }, injectionTarget));
+        });
         if (existingResults && existingResults[0]) {
           return { success: true };
         }
-        await browser.tabs.executeScript(tabId, Object.assign({ file: 'jquery.js' }, injectionTarget));
-        try {
-          await browser.tabs.executeScript(tabId, Object.assign({ file: 'whatfont_core.js' }, injectionTarget));
-        } catch (e) {
-          // whatfont_core.js ends by assigning a function, which Firefox reports
-          // as a non-clonable executeScript result even though the load succeeded.
-          const message = e && e.message ? e.message : String(e);
-          if (!/non-structured-clonable data/i.test(message)) {
-            throw e;
-          }
-        }
+        await AFFOMessaging.executeScript(browser, { target, files: ['jquery.js', 'whatfont_core.js'] });
         const cssUrl = browser.runtime.getURL('wf.css');
-        const activationResults = await AFFOMessaging.executeScript(browser, tabId, Object.assign({
+        const activationResults = await AFFOMessaging.executeScript(browser, {
+          target,
           func: (cssUrl) => {
             try {
               if (window._WHATFONT === true && document.querySelector('.__whatfont_control')) {
@@ -2891,7 +2884,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
             }
           },
           args: [cssUrl]
-        }, injectionTarget));
+        });
         const activation = activationResults && activationResults[0];
         if (!activation || !activation.success) {
           return {
@@ -2910,22 +2903,22 @@ async function handleAffoRuntimeMessage(msg, sender) {
     if (msg.type === 'openPopup') {
       affoDebugLog('[AFFO Background] Received openPopup request');
       affoDebugLog('[AFFO Background] User agent:', navigator.userAgent);
-      affoDebugLog('[AFFO Background] Available APIs:', Object.keys(browser.browserAction || {}));
+      affoDebugLog('[AFFO Background] Available APIs:', Object.keys(browser.action || {}));
 
       try {
-        affoDebugLog('[AFFO Background] Attempting browserAction.openPopup()...');
+        affoDebugLog('[AFFO Background] Attempting action.openPopup()...');
 
         // For Firefox Android, try the standard API
-        if (browser.browserAction && browser.browserAction.openPopup) {
-          await browser.browserAction.openPopup();
-          affoDebugLog('[AFFO Background] browserAction.openPopup() call completed');
-          return { success: true, method: 'browserAction.openPopup' };
+        if (browser.action && browser.action.openPopup) {
+          await browser.action.openPopup();
+          affoDebugLog('[AFFO Background] action.openPopup() call completed');
+          return { success: true, method: 'action.openPopup' };
         } else {
-          affoDebugWarn('[AFFO Background] browserAction.openPopup not available');
-          return { success: false, error: 'browserAction.openPopup not available' };
+          affoDebugWarn('[AFFO Background] action.openPopup not available');
+          return { success: false, error: 'action.openPopup not available' };
         }
       } catch (e) {
-        console.error('[AFFO Background] browserAction.openPopup() failed:', e.message);
+        console.error('[AFFO Background] action.openPopup() failed:', e.message);
         console.error('[AFFO Background] Full error:', e);
         return { success: false, error: e.message };
       }
@@ -3090,7 +3083,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
         // Generate and inject CSS
         const css = generateThirdManInCSS(position, payload, aggressive);
-        await browser.tabs.insertCSS(tabId, { code: css, cssOrigin: 'user' });
+        await browser.scripting.insertCSS({ target: { tabId }, css, origin: 'USER' });
 
         affoDebugLog('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
         return { success: true };
@@ -3131,7 +3124,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
     // Handle font fetching requests
     if (!msg || msg.type !== 'affoFetch') return;
-    return AFFOBackgroundFontRuntime.handleFetchMessage(msg);
+    return AFFOMessaging.encodeBinaryResponse(await AFFOBackgroundFontRuntime.handleFetchMessage(msg));
   } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
   }

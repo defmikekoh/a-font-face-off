@@ -16,9 +16,8 @@ body {
        Default sizing = the desktop browser-action PANEL: a definite 400x600 (the
        panel sizes-to-content, so a flex column with a flex:1 preview needs a fixed
        height or it collapses). Firefox Android fills the viewport instead — see
-       html.affo-mobile below. Platform is detected by user agent in popup-context.js
-       (NOT @media(pointer:fine), which the Note10 S-Pen trips, and NOT URL params,
-       which the normal Android popup lacks). */
+       html.affo-mobile below. popup-context.js also distinguishes Chromium
+       Android native panels from the full-viewport Firefox/tab surfaces. */
     min-width: 400px;
     width: 400px;
     height: 600px;
@@ -43,6 +42,13 @@ html.affo-mobile body {
     width: 100vw;
     height: 100vh;
     height: calc(100dvh + env(safe-area-inset-bottom));
+}
+
+/* Chromium Android native popups size to content. Viewport height here would
+   feed the panel's initial small size back into the flex column and collapse
+   the previews. Keep the mobile width and use the desktop panel height. */
+html.affo-mobile.affo-popup-panel body {
+    height: 600px;
 }
 
 /* Global layout variables */

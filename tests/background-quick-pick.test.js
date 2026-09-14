@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { setImmediate } = require('node:timers');
 const AFFOSroulette = require('../src/sroulette-utils.js');
 const AFFOPageFontUtils = require('../src/page-font-utils.js');
 
@@ -86,6 +87,7 @@ function loadBackground(seed = {}, options = {}) {
             onChanged: storage.onChanged
         },
         runtime: {
+            getManifest: () => ({ manifest_version: 3, permissions: options.permissions || ['webRequestBlocking'] }),
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
             sendMessage() { return Promise.resolve(); }
@@ -94,19 +96,22 @@ function loadBackground(seed = {}, options = {}) {
             query(queryInfo = {}) { return Promise.resolve(clone(tabsSeed.filter(tab => matchesTabQuery(tab, queryInfo)))); },
             get(tabId) { return Promise.resolve(clone(tabsSeed.find(tab => tab.id === tabId))); },
             sendMessage() { return Promise.resolve({ success: true }); },
-            insertCSS(tabId, details) {
-                cssOps.push({ op: 'insertCSS', tabId, details: clone(details) });
-                return Promise.resolve();
-            },
-            removeCSS(tabId, details) {
-                cssOps.push({ op: 'removeCSS', tabId, details: clone(details) });
-                return Promise.resolve();
-            },
-            executeScript() { return Promise.resolve(); },
             create() { return Promise.resolve({ id: 1 }); },
             onRemoved: { addListener() {} },
             onActivated: { addListener() {} },
             onUpdated: { addListener() {} }
+        },
+        scripting: {
+            insertCSS(details) {
+                const { target, ...css } = details;
+                cssOps.push({ op: 'insertCSS', tabId: target.tabId, details: clone(css) });
+                return Promise.resolve();
+            },
+            removeCSS(details) {
+                const { target, ...css } = details;
+                cssOps.push({ op: 'removeCSS', tabId: target.tabId, details: clone(css) });
+                return Promise.resolve();
+            }
         },
         windows: {
             onFocusChanged: { addListener() {} }
@@ -119,7 +124,7 @@ function loadBackground(seed = {}, options = {}) {
         identity: {
             launchWebAuthFlow() { return Promise.resolve(); }
         },
-        browserAction: {
+        action: {
             openPopup() { return Promise.resolve(); },
             setTitle(details) {
                 titleOps.push(clone(details));
@@ -127,6 +132,8 @@ function loadBackground(seed = {}, options = {}) {
             }
         }
     };
+
+    Object.assign(browserStub, options.requestApis || {});
 
     const context = vm.createContext({
         console,
@@ -467,32 +474,32 @@ describe('background quick-pick Sroulette', () => {
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: Lora; }', cssOrigin: 'author' }
+                details: { css: '.first { font-family: Lora; }', origin: 'AUTHOR' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: Lora; }', cssOrigin: 'user' }
+                details: { css: '.first { font-family: Lora; }', origin: 'USER' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: Lora; }', cssOrigin: 'author' }
+                details: { css: '.first { font-family: Lora; }', origin: 'AUTHOR' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.first { font-family: Lora; }', cssOrigin: 'user' }
+                details: { css: '.first { font-family: Lora; }', origin: 'USER' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.second { font-family: Lora; }', cssOrigin: 'author' }
+                details: { css: '.second { font-family: Lora; }', origin: 'AUTHOR' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.second { font-family: Lora; }', cssOrigin: 'user' }
+                details: { css: '.second { font-family: Lora; }', origin: 'USER' }
             }
         ]);
     });
@@ -516,22 +523,22 @@ describe('background quick-pick Sroulette', () => {
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'author' }
+                details: { css: '.mono { font-family: Lora; }', origin: 'AUTHOR' }
             },
             {
                 op: 'insertCSS',
                 tabId: 123,
-                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'user' }
+                details: { css: '.mono { font-family: Lora; }', origin: 'USER' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'author' }
+                details: { css: '.mono { font-family: Lora; }', origin: 'AUTHOR' }
             },
             {
                 op: 'removeCSS',
                 tabId: 123,
-                details: { code: '.mono { font-family: Lora; }', cssOrigin: 'user' }
+                details: { css: '.mono { font-family: Lora; }', origin: 'USER' }
             }
         ]);
     });
@@ -557,5 +564,33 @@ describe('background quick-pick Sroulette', () => {
         assert.deepEqual(titleOps, [
             { tabId: 7, title: 'AFFO - B: Merriweather' }
         ]);
+    });
+});
+
+
+describe('MV3 request blocking', () => {
+    it('keeps Firefox blocking webRequest and installs Chromium DNR rules', async () => {
+        let listener;
+        const firefox = loadBackground({ affoBlockJavaScriptDomains: ['blocked.example'] }, {
+            requestApis: { webRequest: { onHeadersReceived: { addListener(fn, filter, flags) {
+                listener = fn;
+                assert.ok(flags.includes('blocking'));
+                assert.deepEqual(clone(filter.types), ['main_frame']);
+            } } } }
+        });
+        assert.equal(typeof listener, 'function');
+        const response = await listener({url:'https://blocked.example/article',responseHeaders:[]});
+        assert.equal(response.responseHeaders[0].value, "script-src 'none'");
+        assert.deepEqual(clone(await listener({url:'https://allowed.example/'})), {});
+        assert.ok(firefox.context);
+        const updates = [];
+        loadBackground({ affoBlockJavaScriptDomains: ['blocked.example'] }, {
+            permissions: ['declarativeNetRequestWithHostAccess'],
+            requestApis: { declarativeNetRequest: { async updateDynamicRules(rules) { updates.push(clone(rules)); } } }
+        });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(updates.length, 1);
+        assert.deepEqual(updates[0].addRules[0].condition.requestDomains, ['blocked.example']);
+        assert.equal(updates[0].addRules[0].action.responseHeaders[0].value, "script-src 'none'");
     });
 });

@@ -1,11 +1,11 @@
 ---
 name: firefox-extension-testing
-description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox, and the Edge Canary Android MV3 CRX prototype using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
+description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox, Vivaldi Snapshot on Android, and the Edge Canary Android MV3 build using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
 ---
 
 # A Font Face-off Extension Testing
 
-Automated and semi-automated testing of the extension on desktop Firefox Developer Edition, Android Firefox, and the Edge Canary Android MV3 CRX prototype. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android Firefox inspection uses the project WebDriver harness for real DOM and computed CSS. Edge Canary Android work uses generated MV3 source, native-packed CRX artifacts, and ADB/manual Canary extension UI.
+Automated and semi-automated testing of the extension on desktop Firefox Developer Edition, Android Firefox, Vivaldi Snapshot, and Edge Canary Android MV3. Desktop tests interact with the real browser action popup (not a direct moz-extension:// URL). Android Firefox inspection uses the project WebDriver harness for real DOM and computed CSS. Edge Canary Android work uses generated MV3 source, native-packed CRX artifacts, and ADB/manual Canary extension UI.
 
 This repo skill is canonical for AFFO-specific commands, selectors, storage seeds, popup/toolbar IDs, generated Edge MV3 artifacts, and known site examples. Use the global `firefox-extension-debug` skill for reusable Android Firefox safety boundaries, ADB patterns, CDP reconnaissance guidance, and GUI/DevTools route selection.
 
@@ -52,7 +52,7 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 3. For a bug in the current Android session, use the existing Firefox DevTools/RDP connection when available so its cache, settings, and failing page survive. Use the Android Firefox WebDriver harness for reproducible seeded runs; session creation clears the selected package data. Read [live-session inspection and Apply timing](references/live-session-inspection.md) for build checks, popup targeting, and completion evidence.
 4. Use desktop Chrome through the Codex Chrome Extension when the user's real Chrome profile/session is the fastest way to inspect already-open or authenticated desktop pages: original DOM, selectors, overlays, console logs, screenshots, and baseline computed styles. Treat this as reconnaissance, and verify AFFO/Firefox-specific conclusions in Firefox.
 5. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
-6. Use the Edge Canary Android MV3 prototype when Chromium-extension behavior matters; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
+6. Use Vivaldi Snapshot on the approved Note10 for shared Chromium MV3 verification (see the Snapshot reference below), or Edge Canary for Edge-specific behavior; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
 7. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
 8. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
@@ -196,7 +196,7 @@ Use `--dismiss` for a close control in the page and `--dismiss-frame '<iframe se
 
 #### Authorized Firefox Android Target
 
-Android Selenium/geckodriver session creation clears the selected Firefox package data. Operations using that path, or any explicit app/profile clearing, are pre-approved only for this exact target:
+Android Selenium/geckodriver session creation clears the selected Firefox package data. Operations using that path, or explicit Firefox app/profile clearing, are pre-approved for this exact physical-device target:
 
 ```text
 Device:  RF8M81WSL1V (Samsung Galaxy Note10)
@@ -392,6 +392,14 @@ Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()`
 - **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
 - **Device asleep → `Failed to decode response from marionette`.** The harness now wakes the device during preflight; for manual workflows use `adb -s RF8M81WSL1V shell input keyevent KEYCODE_WAKEUP`.
 - **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.
+
+## Vivaldi Snapshot Android — disposable Chromium testing
+
+The user explicitly authorizes disposable AFFO testing on **Note10 `RF8M81WSL1V` + `com.vivaldi.browser.snapshot`**. This includes force-stop/relaunch, clearing Snapshot app/profile data, and installing/reloading the local AFFO Chromium build for tests. No additional reset confirmation is needed for this pair. Vivaldi stable (`com.vivaldi.browser`), other devices, and other Android users/work profiles are outside this approval.
+
+Use resets for clean-install tests; preserve the test session for ordinary iteration. A Snapshot reset clears its tabs, settings, installed extensions, and login state. Do not sign the disposable profile into browser Sync.
+
+Read [Vivaldi Snapshot testing](references/vivaldi-snapshot.md) for the verified installation, CDP, and test workflow. `npm run build:chromium` generates the shared build at `ztemp/edge-mv3-src/`. The Firefox geckodriver harness remains Firefox-only; do not pass the Vivaldi package to it.
 
 ## Edge Canary Android MV3 Prototype
 

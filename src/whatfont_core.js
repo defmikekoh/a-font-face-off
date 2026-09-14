@@ -1506,3 +1506,6 @@ function _whatFont() {
 
 // Expose _whatFont function to global scope for extension access
 window._whatFont = _whatFont;
+
+// File injection results must be cloneable in Firefox MV3.
+void 0;

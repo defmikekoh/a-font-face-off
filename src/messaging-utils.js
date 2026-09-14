@@ -91,22 +91,47 @@
     }
   }
 
-  // Call sites supply packaged functions and JSON arguments. Only Firefox MV2
-  // needs serialization; MV3 passes the function directly to scripting (no eval).
-  function executeScript(browserApi, tabId, details) {
-    var options = Object.assign({}, details);
-    if (browserApi.runtime.getManifest().manifest_version === 2 && options.func) {
-      options.code = '(' + options.func.toString() + ')(...' + JSON.stringify(options.args || []) + ')';
-      delete options.func;
-      delete options.args;
+  // Shared MV3 injection: keep the returned values convenient for callers,
+  // but surface Firefox's per-frame execution errors instead of treating them
+  // as an empty successful result.
+  async function executeScript(browserApi, details) {
+    const results = await browserApi.scripting.executeScript(details);
+    return results.map(function(item) {
+      if (Object.prototype.hasOwnProperty.call(item, 'error')) {
+        throw new Error(getErrorMessage(item.error));
+      }
+      return item.result;
+    });
+  }
+
+  // Chromium runtime messages use JSON serialization, which drops ArrayBuffers.
+  // Keep cache/runtime binaries native and encode only the message response.
+  function encodeBinaryResponse(response) {
+    if (!response || !response.ok || !response.binary) return response;
+    var bytes = new Uint8Array(response.data);
+    var chunks = [];
+    for (var offset = 0; offset < bytes.length; offset += 32768) {
+      chunks.push(String.fromCharCode.apply(null, bytes.subarray(offset, offset + 32768)));
     }
-    return tabId == null
-      ? browserApi.tabs.executeScript(options)
-      : browserApi.tabs.executeScript(tabId, options);
+    return Object.assign({}, response, { data: btoa(chunks.join('')), encoding: 'base64' });
+  }
+
+  function decodeBinaryResponseData(data) {
+    if (typeof data === 'string') {
+      var binary = atob(data);
+      var bytes = new Uint8Array(binary.length);
+      for (var index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+      return bytes.buffer;
+    }
+    if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') return data;
+    if (ArrayBuffer.isView(data)) return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    return new Uint8Array(data || []).buffer;
   }
 
   root.AFFOMessaging = {
     executeScript: executeScript,
+    encodeBinaryResponse: encodeBinaryResponse,
+    decodeBinaryResponseData: decodeBinaryResponseData,
     PORT_ERROR_RE: PORT_ERROR_RE,
     getBackgroundPageWindow: getBackgroundPageWindow,
     ignoreNoReceiver: ignoreNoReceiver,

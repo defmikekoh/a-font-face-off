@@ -3421,20 +3421,8 @@
     };
   }
 
-  function isArrayBufferValue(value) {
-    return value && Object.prototype.toString.call(value) === '[object ArrayBuffer]';
-  }
-
   function getArrayBufferFromBinaryResponseData(data) {
-    if (isArrayBufferValue(data)) return data;
-    if (data && ArrayBuffer.isView(data)) {
-      if (data.byteOffset === 0 && data.byteLength === data.buffer.byteLength) {
-        return data.buffer;
-      }
-      return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    }
-    var uint8Array = new Uint8Array(data || []);
-    return uint8Array.buffer;
+    return AFFOMessaging.decodeBinaryResponseData(data);
   }
 
   function hasHiddenAncestorForFontSubsetScan(element, visibilityCache) {

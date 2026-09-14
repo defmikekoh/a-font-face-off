@@ -17,7 +17,7 @@ export default [
 
     // Extension source files (browser context), excluding files with their own config
     {
-        files: ["src/*.js"],
+        files: ["src/popup-context.js", "src/browser-api.js", "src/*.js"],
         ignores: ["src/config-utils.js", "src/css-generators.js", "src/font-url-utils.js", "src/font-face-utils.js", "src/local-font-utils.js", "src/sroulette-utils.js", "src/site-detection-utils.js", "src/block-javascript-utils.js", "src/popup-panel-utils.js", "src/content-sroulette-runtime.js", "src/background-font-runtime.js", "src/favorites.js", "src/font-picker.js", "src/whatfont_core.js"],
         ...js.configs.recommended,
         languageOptions: {
