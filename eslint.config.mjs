@@ -113,29 +113,9 @@ export default [
                 // From background-font-runtime.js
                 AFFOBackgroundFontRuntime: "readonly",
 
-                // From favorites.js (loaded before popup.js)
-                loadFavoritesFromStorage: "readonly",
-                saveFavoritesToStorage: "readonly",
-                hasInCollection: "readonly",
-                getOrderedFavoriteNames: "readonly",
-                generateFavoritePreview: "readonly",
-                generateDetailedFavoritePreview: "readonly",
-                generateFontConfigName: "readonly",
-                generateConfigPreview: "readonly",
-                showSaveModal: "readonly",
-                hideSaveModal: "readonly",
-                showFavoritesPopup: "readonly",
-                hideFavoritesPopup: "readonly",
-                showEditFavoritesModal: "readonly",
-                hideEditFavoritesModal: "readonly",
-                enableFavoritesReorder: "readonly",
-                getDragAfterElement: "readonly",
-                persistFavoritesOrder: "readonly",
-                // From font-picker.js (loaded before popup.js)
-                getFamiliesFromMetadata: "readonly",
-                initializeGoogleFontsSelects: "readonly",
-                resolveFamilyCase: "readonly",
-                setupFontPicker: "readonly",
+                // Popup UI module factories
+                AFFOFavorites: "readonly",
+                AFFOFontPicker: "readonly",
                 // From whatfont_core.js (loaded before content.js)
                 _whatFont: "readonly",
             },
@@ -409,8 +389,8 @@ export default [
         },
     },
 
-    // favorites.js — depends on config-utils.js, css-generators.js, popup.js globals
-    // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
+    // favorites.js — private state, explicit popup callbacks, shared pure helpers
+    // Browser factory and Node helper exports share the same implementation.
     {
         files: ["src/favorites.js"],
         ...js.configs.recommended,
@@ -432,23 +412,7 @@ export default [
                 normalizeConfig: "readonly",
                 // From css-generators.js
                 formatAxisValue: "readonly",
-                // From popup.js (loaded after, but these are hoisted or available at call time)
-                savedFavorites: "writable",
-                savedFavoritesOrder: "writable",
                 AFFOMessaging: "readonly",
-                currentViewMode: "readonly",
-                getCurrentUIConfig: "readonly",
-                getCurrentPanelState: "readonly",
-                getActiveOrigin: "readonly",
-                getTargetTabForPopup: "readonly",
-                getEffectiveFontDefinition: "readonly",
-                applyFontConfig: "readonly",
-                markPanelAsSroulette: "readonly",
-                updateBodyButtons: "readonly",
-                updateAllThirdManInButtons: "readonly",
-                saveExtensionState: "readonly",
-                refreshApplyButtonsDirtyState: "readonly",
-                showCustomConfirm: "readonly",
             },
         },
         rules: {
@@ -459,7 +423,7 @@ export default [
     },
 
     // font-picker.js — font picker modal, Google Fonts init, family resolution
-    // All top-level functions are intentional cross-file exports (consumed by popup.js via global scope)
+    // Browser factory and Node helper exports share the same implementation.
     {
         files: ["src/font-picker.js"],
         ...js.configs.recommended,
@@ -475,26 +439,6 @@ export default [
                 requestAnimationFrame: "readonly",
                 // WebExtension
                 browser: "readonly",
-                // From favorites.js
-                loadFavoritesFromStorage: "readonly",
-                savedFavorites: "readonly",
-                // From popup.js (available at call time)
-                gfMetadata: "readonly",
-                gfFamilyList: "readonly",
-                ensureGfMetadata: "readonly",
-                ensureGfFamilyList: "readonly",
-                ensureCustomFontsLoaded: "readonly",
-                CUSTOM_FONTS: "readonly",
-                LOCAL_FONTS: "readonly",
-                getPanelLabel: "readonly",
-                loadFont: "readonly",
-                applyFont: "readonly",
-                getCurrentUIConfig: "readonly",
-                updateBodyButtons: "readonly",
-                updateAllThirdManInButtons: "readonly",
-                refreshApplyButtonsDirtyState: "readonly",
-                currentViewMode: "readonly",
-                saveFontSettings: "readonly",
             },
         },
         rules: {

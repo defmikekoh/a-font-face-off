@@ -251,7 +251,7 @@ describe('Integration tests', () => {
         await driver.sleep(300);
 
         await popupExec(driver, `
-            showFavoritesPopup('mono');
+            document.getElementById('mono-load-favorite-bar').click();
             return true;
         `);
         await driver.sleep(300);
@@ -414,6 +414,89 @@ describe('Integration tests', () => {
             "return document.getElementById('body-font-size-text')?.value"
         );
         assert.equal(newValue, '24', 'text input should reflect slider value');
+    });
+
+    it('saves and reloads a favorite through the popup controls', async () => {
+        await popupExec(driver, `
+            const size = document.getElementById('body-font-size');
+            size.value = 23;
+            size.dispatchEvent(new Event('input', { bubbles: true }));
+            document.getElementById('body-save-favorite-bar').click();
+            document.getElementById('save-modal-name').value = 'UI cleanup regression';
+            document.getElementById('save-modal-save').click();
+            document.getElementById('custom-alert-ok').click();
+            return true;
+        `);
+        await driver.wait(async () => popupExec(driver, `
+            return browser.storage.local.get('affoFavorites').then(data =>
+                data.affoFavorites?.['UI cleanup regression']?.fontSize === 23);
+        `), 5000);
+        await popupExec(driver, `
+            const size = document.getElementById('body-font-size');
+            size.value = 26;
+            size.dispatchEvent(new Event('input', { bubbles: true }));
+            document.getElementById('body-load-favorite-bar').click();
+            return true;
+        `);
+        await driver.wait(async () => popupExec(driver, `
+            const item = document.querySelector('[data-favorite-name="UI cleanup regression"]');
+            if (!item) return false;
+            item.click();
+            return true;
+        `), 5000);
+        await driver.wait(async () => popupExec(driver, `
+            return getCurrentUIConfig('body')?.fontSize === 23 &&
+                !document.getElementById('favorites-popup').classList.contains('visible');
+        `), 5000);
+        assert.equal(await popupExec(driver, "return document.getElementById('body-font-size-text').value;"), '23');
+    });
+
+    it('resets shared controls in every panel without storing display defaults', async () => {
+        const results = await popupExec(driver, `
+            return ['top', 'bottom', 'body', 'serif', 'sans', 'mono'].map(position => {
+                clearSroulettePanelState(position);
+                setFontSizeUnit(position, 'scale', { value: 135, activate: true });
+                const panel = document.getElementById(position + '-font-controls');
+                for (const [id, value] of [['line-height', 2], ['letter-spacing', 0.1], ['font-weight', 700], ['font-style', 'italic']]) {
+                    const control = document.getElementById(position + '-' + id);
+                    control.value = value;
+                    control.closest('.control-group').classList.remove('unset');
+                }
+                resetFontForPosition(position);
+                return {
+                    position,
+                    values: ['font-size', 'font-size-text', 'line-height', 'line-height-text', 'letter-spacing', 'letter-spacing-text', 'font-weight', 'font-style', 'font-color']
+                        .map(id => document.getElementById(position + '-' + id).value),
+                    active: panel.querySelectorAll('.control-group[data-control]:not(.unset)').length,
+                    config: getCurrentUIConfig(position)
+                };
+            });
+        `);
+        for (const result of results) {
+            assert.deepEqual(result.values, ['17', '17', '1.5', '1.5', '0', '0', '400', 'normal', 'default'], result.position);
+            assert.equal(result.active, 0, result.position);
+            for (const key of ['fontSize', 'fontSizeScale', 'lineHeight', 'letterSpacing', 'fontWeight', 'fontStyle', 'fontColor']) {
+                assert.equal(Object.hasOwn(result.config || {}, key), false, result.position + ': ' + key);
+            }
+        }
+    });
+
+    it('individual reset buttons preserve neighboring controls', async () => {
+        const result = await popupExec(driver, `
+            const size = document.getElementById('body-font-size');
+            size.value = 23;
+            size.dispatchEvent(new Event('input', { bubbles: true }));
+            const spacing = document.getElementById('body-letter-spacing');
+            spacing.value = 0.1;
+            spacing.dispatchEvent(new Event('input', { bubbles: true }));
+            document.querySelector('#body-font-controls .axis-reset-btn[data-control="letter-spacing"]').click();
+            return { config: getCurrentUIConfig('body'), spacing: spacing.value,
+                text: document.getElementById('body-letter-spacing-text').value };
+        `);
+        assert.equal(result.config.fontSize, 23);
+        assert.equal(Object.hasOwn(result.config, 'letterSpacing'), false);
+        assert.equal(result.spacing, '0');
+        assert.equal(result.text, '0');
     });
 
     it('consumes a page-font draft into Face-off top without saving it', async () => {

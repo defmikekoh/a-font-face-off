@@ -10,7 +10,7 @@ const {
     normalizeFavoriteSearch,
     canOfferSrouletteFavoriteForPage,
     positionSupportsSrouletteFavorite,
-    showSaveModal,
+    create,
     srouletteFavoriteMatchesSearch,
 } = require('../src/favorites.js');
 
@@ -102,11 +102,10 @@ test('Sroulette pseudo-favorites are selectable for the mono TMI panel', () => {
 });
 
 test('showSaveModal is blocked while Sroulette is selected', () => {
-    const previousGetCurrentPanelState = global.getCurrentPanelState;
     const previousDocument = global.document;
     let documentTouched = false;
 
-    global.getCurrentPanelState = () => ({ kind: 'sroulette', pool: 'serif' });
+    const { showSaveModal } = create({ getCurrentPanelState: () => ({ kind: 'sroulette', pool: 'serif' }) });
     global.document = {
         getElementById() {
             documentTouched = true;
@@ -118,10 +117,33 @@ test('showSaveModal is blocked while Sroulette is selected', () => {
         showSaveModal('serif');
         assert.equal(documentTouched, false);
     } finally {
-        if (previousGetCurrentPanelState === undefined) delete global.getCurrentPanelState;
-        else global.getCurrentPanelState = previousGetCurrentPanelState;
-
         if (previousDocument === undefined) delete global.document;
         else global.document = previousDocument;
+    }
+});
+
+test('favorites instances own their loaded data and order independently', async () => {
+    const previousBrowser = global.browser;
+    let stored = {
+        affoFavorites: { First: { fontName: 'Lora', variableAxes: {} } },
+        affoFavoritesOrder: ['First']
+    };
+    global.browser = { storage: { local: { get: async () => globalThis.structuredClone(stored) } } };
+    try {
+        const first = create({});
+        const second = create({});
+        await first.loadFavoritesFromStorage();
+        stored = {
+            affoFavorites: { Second: { fontName: 'Inter', variableAxes: {} } },
+            affoFavoritesOrder: ['Second']
+        };
+        await second.loadFavoritesFromStorage();
+        assert.deepEqual(first.getOrderedFavoriteNames(), ['First']);
+        assert.deepEqual(second.getOrderedFavoriteNames(), ['Second']);
+        assert.equal(first.getSavedFavorites().First.fontName, 'Lora');
+        assert.equal(second.getSavedFavorites().Second.fontName, 'Inter');
+    } finally {
+        if (previousBrowser === undefined) delete global.browser;
+        else global.browser = previousBrowser;
     }
 });

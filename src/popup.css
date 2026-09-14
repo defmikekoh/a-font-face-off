@@ -540,8 +540,6 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
 
 .controls-panel {
     width: 33.333%;
-    background: #2c3e50;
-    color: white;
     padding: 20px;
     /* Reduce bottom padding so there's no extra blank space below footer */
     padding-bottom: 8px;
@@ -568,6 +566,10 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     touch-action: pan-y; /* Only allow vertical touch scrolling */
     pointer-events: auto; /* Ensure interactions work */
     /* display: flex is added only when .visible class is present */
+    background: #f8f9fa;
+    color: #2c3e50;
+    border-right-color: #dee2e6;
+    border-left-color: #dee2e6;
 }
 
 /* Prevent dragging on all control panel elements */
@@ -868,19 +870,17 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     /* Remove top padding so heading touches the top edge of its box */
     padding: 0 20px 20px;
     overflow-y: auto;
-    background: white;
     /* Remove straight per-box border; outer rink border will wrap combined boxes */
     border: none;
     box-sizing: border-box;
+    background: #ffffff;
+    color: #212529;
 }
 
 .font-section h3 {
-    margin: 0 0 8px 0;
     font-size: 16px;
-    color: #333;
     font-weight: bold;
     text-align: center;
-    padding-bottom: 6px;
     padding-top: 6px; /* match top padding to bottom so spacing is symmetrical while staying flush */
     border-bottom: 1px solid #eee;
     /* Keep headings fixed at the top of each scrollable preview */
@@ -889,6 +889,10 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     z-index: 2;
     background: inherit; /* match section background */
     /* No extra top padding so the heading sits flush with the box edge */
+    color: #495057;
+    border-bottom-color: #dee2e6;
+    margin: 0 0 8px 0;
+    padding-bottom: 6px;
 }
 
 .font-section p, .font-section pre {
@@ -899,6 +903,11 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     margin: 0;
     /* Add comfortable top/bottom padding inside the scroll area */
     padding: 12px 0 16px 0;
+}
+
+.font-section p {
+    color: #212529;
+    margin: 0;
 }
 
 /* Mode-specific font section visibility */
@@ -947,7 +956,6 @@ body.view-third-man-in #body-domain-section.domain-display-rink {
 }
 
 /* Remove top heading divider line in Body and Third modes */
-/* (Removed previous blanket removal of header borders in Body/Third to restore dividers) */
 
 /* Restore subtle heading divider line for specific preview sections */
 body.view-body-contact #body-font-section h3,
@@ -984,19 +992,19 @@ body.view-third-man-in #sans-font-section {
 
 /* Font sections - dynamic styling applied via JavaScript */
 #top-font-section {
-    background: #f8f9fa;
+    background: #ffffff;
 }
 
 #top-font-section h3 {
-    color: #2c3e50;
+    color: #495057;
 }
 
 #bottom-font-section {
-    background: #f1f3f4;
+    background: #f8f9fa;
 }
 
 #bottom-font-section h3 {
-    color: #34495e;
+    color: #495057;
 }
 
 #body-font-section {
@@ -1022,9 +1030,9 @@ body.view-third-man-in #sans-font-section {
 /* Horizontal center-line separator */
 .center-line-separator {
     height: 3px;
-    background: linear-gradient(to right, #3498db, #2980b9);
     flex-shrink: 0;
     position: relative;
+    background: linear-gradient(to right, #495057, #6c757d);
 }
 
 
@@ -1071,7 +1079,6 @@ body.view-body-contact #font-preview-rink {
     background: #ffffff;
     overflow: hidden;
 }
-/* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
 body.view-body-contact #font-preview-rink::before {
     content: '';
     position: absolute;
@@ -1116,7 +1123,6 @@ body.view-third-man-in .center-line-separator { display: none !important; }
 /* Blue line separators for Third Man In mode (between sections) */
 .blue-line-separator { display: none; height: 4px; background: #46b; }
 body.view-third-man-in .blue-line-separator { display: block; }
-/* Cover any legacy 1px header/border artifact at the very top (inside the rink) */
 body.view-third-man-in #font-preview-rink::before {
     content: '';
     position: absolute;
@@ -1157,12 +1163,13 @@ body.body-contact #font-comparison {
 
 /* Control Panel Styles */
 .controls-panel h2 {
-    color: #ecf0f1;
     font-size: 18px;
     margin-bottom: 20px;
     text-align: center;
     border-bottom: 2px solid #34495e;
     padding-bottom: 10px;
+    color: #2c3e50;
+    border-bottom-color: #dee2e6;
 }
 
 .control-section {
@@ -1170,18 +1177,17 @@ body.body-contact #font-comparison {
 }
 
 .control-section h3 {
-    color: #3498db;
     font-size: 16px;
     margin-bottom: 15px;
     border-left: 3px solid #3498db;
     padding-left: 10px;
+    color: #495057;
+    border-left-color: #495057;
 }
 
 /* Domain display rink - compact single line */
 .domain-display-rink {
     padding: 0 20px 8px !important;
-    background: #2c3e50;
-    border: 1px solid #34495e;
     border-color: #34495e !important; /* Match control panel border color exactly */
     min-height: auto !important;
     flex: 0 0 auto; /* Do not steal vertical space from the preview rink */
@@ -1189,6 +1195,8 @@ body.body-contact #font-comparison {
     margin-top: 0;
     border-radius: 8px;
     position: relative;
+    background: #ffffff !important;
+    border: 1px solid #34495e !important;
 }
 
 .domain-rink {
@@ -1216,10 +1224,10 @@ body.body-contact #font-comparison {
     position: absolute;
     left: 0;
     right: 0;
+    border-radius: 999px;
     bottom: 4px;
     height: 6px;
-    background: #f9d44a;
-    border-radius: 999px;
+    background: #ffe26f;
     z-index: 0;
 }
 
@@ -1228,10 +1236,10 @@ body.body-contact #font-comparison {
     position: absolute;
     left: 0;
     right: 0;
+    border-radius: 999px;
     bottom: 0;
     height: 2px;
-    background: rgba(204, 51, 51, 0.38);
-    border-radius: 999px;
+    background: rgba(204, 51, 51, 0.3);
     z-index: 1;
 }
 
@@ -1243,17 +1251,21 @@ body.body-contact #font-comparison {
     border-left: 4px solid #c33;
     border-right: 4px solid #c33;
     border-top: 4px solid #c33;
-    border-bottom: 0;
     border-radius: 10px 10px 0 0;
-    background: linear-gradient(
-        to top,
-        transparent 0 2px,
-        #2c3e50 2px 100%
-    );
     position: relative;
     z-index: 2;
     margin-bottom: 0;
     overflow: hidden;
+    background: linear-gradient(
+        to top,
+        transparent 0 2px,
+        #ffffff 2px 100%
+    );
+    border-bottom: 0;
+}
+
+.domain-goal::after {
+    background: rgba(204, 51, 51, 0.35);
 }
 
 .domain-goal::before {
@@ -1261,16 +1273,14 @@ body.body-contact #font-comparison {
     position: absolute;
     inset: 0;
     border-radius: 10px 10px 0 0;
-    background-image:
-        repeating-linear-gradient(45deg, rgba(236, 240, 241, 0.08) 0, rgba(236, 240, 241, 0.08) 3px, transparent 3px, transparent 12px),
-        repeating-linear-gradient(-45deg, rgba(236, 240, 241, 0.08) 0, rgba(236, 240, 241, 0.08) 3px, transparent 3px, transparent 12px);
     pointer-events: none;
     z-index: -1;
+    background-image: repeating-linear-gradient(45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px),
+        repeating-linear-gradient(-45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px);
 }
 
 .domain-text {
-    font-size: 16px;
-    color: #3498db; /* Match Body CP settings heading color */
+    font-size: 16px; /* Match Body CP settings heading color */
     font-weight: bold;
     text-align: center;
     white-space: nowrap;
@@ -1278,6 +1288,7 @@ body.body-contact #font-comparison {
     text-overflow: ellipsis;
     max-width: 250px;
     line-height: 1;
+    color: #495057;
 }
 
 
@@ -1377,24 +1388,24 @@ body.body-contact #font-comparison {
 }
 
 .axis-value-display {
-    color: #7f8c8d;
     font-size: 12px;
     font-style: italic;
     min-width: 60px;
+    color: #6c757d;
 }
 
 .control-group label {
     display: block;
-    color: #bdc3c7;
     font-size: 14px;
     margin-bottom: 5px;
     font-weight: 500;
+    color: #495057;
 }
 
 .axis-tag {
-    color: #95a5a6;
     font-weight: 400;
     font-size: 10px;
+    color: #6c757d;
 }
 
 .axis-info-btn {
@@ -1404,8 +1415,6 @@ body.body-contact #font-comparison {
     aspect-ratio: 1 / 1;
     align-items: center;
     justify-content: center;
-    background: #3498db;
-    color: white;
     border-radius: 50%;
     font-size: 14px;
     font-weight: bold;
@@ -1416,11 +1425,16 @@ body.body-contact #font-comparison {
     box-sizing: border-box;
     line-height: 1;
     padding: 0;
+    background: #495057;
+    color: white;
+    border: 1px solid #343a40;
 }
 
 .axis-info-btn:hover {
-    background: #2980b9;
     transform: scale(1.1);
+    background: #343a40;
+    color: white;
+    border-color: #212529;
 }
 
 .axis-reset-btn {
@@ -1430,8 +1444,6 @@ body.body-contact #font-comparison {
     aspect-ratio: 1 / 1;
     align-items: center;
     justify-content: center;
-    background: #e74c3c;
-    color: white;
     border-radius: 50%;
     font-size: 14px;
     font-weight: bold;
@@ -1443,12 +1455,16 @@ body.body-contact #font-comparison {
     box-sizing: border-box;
     line-height: 1;
     padding: 0;
-    border: none;
+    background: #dc3545;
+    color: white;
+    border: 1px solid #c82333;
 }
 
 .axis-reset-btn:hover {
-    background: #c0392b;
     transform: scale(1.1);
+    background: #c82333;
+    color: white;
+    border-color: #bd2130;
 }
 
 .axis-reset-btn:active {
@@ -1457,25 +1473,26 @@ body.body-contact #font-comparison {
 
 .control-group.unset .axis-reset-btn {
     opacity: 0.5;
-    background: #7f8c8d !important;
     border: none !important;
+    background: #6c757d !important;
+    color: white;
 }
 
 .control-group.unset .axis-reset-btn:focus {
-    outline: none !important;
-    background: #7f8c8d !important;
-    border: none !important;
-    box-shadow: none !important;
     opacity: 0.5 !important;
+    outline: none !important;
+    background: #6c757d !important;
+    border: 1px solid #495057 !important;
+    box-shadow: none !important;
 }
 
 .control-group.unset .axis-reset-btn:active {
+    opacity: 0.5 !important;
     outline: none !important;
-    background: #7f8c8d !important;
-    border: none !important;
+    background: #6c757d !important;
+    border: 1px solid #495057 !important;
     box-shadow: none !important;
     transform: none !important;
-    opacity: 0.5 !important;
 }
 
 /* More specific overrides for all possible states */
@@ -1499,39 +1516,39 @@ body.body-contact #font-comparison {
 
 .control-group.unset .axis-reset-btn:hover {
     opacity: 1;
-    background: #e74c3c;
+    background: #dc3545;
+    color: white;
+    border-color: #c82333;
 }
 
 /* Active (set) state - white icons */
 .control-group:not(.unset) .axis-info-btn {
-    background: #3498db;
-    color: #ffffff; /* active question mark white */
-    border: 1px solid #3498db;
+    background: #495057;
+    color: #ffffff;
+    border: 1px solid #495057;
 }
 
 .control-group:not(.unset) .axis-info-btn:hover {
-    background: #2980b9;
-    color: #ffffff;
-    border-color: #2980b9;
+    background: #495057;
+    color: white;
+    border-color: #495057;
 }
 
 .control-group:not(.unset) .axis-reset-btn {
-    background: #e74c3c;
+    background: #dc3545;
     color: white;
-    border: 1px solid #e74c3c;
+    border: 1px solid #dc3545;
 }
 
 .control-group:not(.unset) .axis-reset-btn:hover {
-    background: #c0392b;
+    background: #c82333;
     color: white;
-    border-color: #c0392b;
+    border-color: #c82333;
 }
 
 /* Custom tooltip system */
 .axis-tooltip {
     position: absolute;
-    background: #2c3e50;
-    color: #ecf0f1;
     padding: 8px 12px;
     border-radius: 4px;
     font-size: 11px;
@@ -1542,16 +1559,23 @@ body.body-contact #font-comparison {
     border: 1px solid #34495e;
     display: none;
     pointer-events: none;
+    background: #f8f9fa;
+    color: #495057;
+    border-color: #dee2e6;
 }
 
 .control-group.unset .axis-info-btn {
     opacity: 0.5;
-    background: #7f8c8d;
+    background: #6c757d;
+    color: white;
+    border: 1px solid #495057;
 }
 
 .control-group.unset .axis-info-btn:hover {
     opacity: 1;
-    background: #3498db;
+    background: #495057;
+    color: white;
+    border-color: #343a40;
 }
 
 .control-group input[type="range"] {
@@ -1559,13 +1583,13 @@ body.body-contact #font-comparison {
     min-width: 100px;
     max-width: 140px;
     height: 6px;
-    background: #34495e;
-    border: 1px solid #4a5a6a;
     border-radius: 3px;
     outline: none;
     -webkit-appearance: none;
     appearance: none;
     margin-right: 8px;
+    background: #dee2e6;
+    border: 1px solid #6c757d;
 }
 
 .axis-text-input,
@@ -1585,10 +1609,24 @@ body.body-contact #font-comparison {
     box-sizing: border-box;
 }
 
+.axis-text-input,
+    .axis-readonly-input {
+    background: #ffffff;
+    color: #495057;
+    border-color: #ced4da;
+}
+
 .control-group.unset .axis-text-input,
 .control-group.unset .axis-readonly-input {
     opacity: 0.5;
     color: #7f8c8d;
+}
+
+.control-group.unset .axis-text-input,
+    .control-group.unset .axis-readonly-input {
+    color: #6c757d;
+    background: #f8f9fa;
+    opacity: 1;
 }
 
 .axis-text-input:focus,
@@ -1600,24 +1638,33 @@ body.body-contact #font-comparison {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3) !important;
 }
 
+.axis-text-input:focus,
+    .control-group.unset .axis-text-input:focus {
+    border-color: #495057 !important;
+    background: #ffffff !important;
+    color: #212529 !important;
+}
+
 
 .control-group input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
-    background: #3498db;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid white;
+    background: #495057;
+    border-color: #ffffff;
 }
 
 .control-group input[type="range"]::-moz-range-thumb {
     width: 16px;
     height: 16px;
-    background: #3498db;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid white;
+    background: #495057;
+    border-color: #ffffff;
 }
 
 /* Exclude icon buttons from the generic span sizing */
@@ -1629,62 +1676,69 @@ body.body-contact #font-comparison {
     display: inline-block;
 }
 
+.control-group span {
+    color: #495057;
+}
+
 /* Ensure basic Weight value is styled like a readonly input */
 .control-group .axis-readonly-input {
-    color: #ecf0f1;
+    color: #495057;
     font-weight: 700;
+    background: #ffffff;
+    border-color: #ced4da;
 }
 
 /* Dimmed state for unset variable axes */
 .control-group.unset {
-    opacity: 0.4;
+    opacity: 0.7;
 }
 
 /* Variable axes active state: same palette as unset, just brighter */
 .axes-container .control-group:not(.unset) {
-    opacity: 0.75;
+    opacity: 0.85;
 }
 
 .axes-container .control-group:not(.unset) .axis-info-btn {
-    background: #9aa3a7;
+    background: #495057;
     color: #ffffff;
-    border: 1px solid #9aa3a7;
+    border: 1px solid #495057;
 }
 
 .control-group.unset label {
-    color: #7f8c8d;
+    color: #6c757d;
 }
 
 .control-group.unset span {
-    color: #7f8c8d;
     font-style: italic;
+    color: #6c757d;
 }
 
 .control-group.unset input[type="range"] {
-    opacity: 0.5;
-    border-color: #7f8c8d;
+    border-color: #adb5bd;
+    opacity: 0.7;
 }
 
 .control-group select {
     width: 100%;
     max-width: 220px;
     padding: 8px;
-    background: #34495e;
-    color: #ecf0f1;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
     font-size: 12px;
     outline: none;
+    background: #ffffff;
+    color: #495057;
+    border-color: #ced4da;
 }
 
 .control-group select:focus {
-    border-color: #3498db;
-    background: #3a4a5a;
+    border-color: #495057;
+    background: #ffffff;
 }
 
 .control-group select option {
-    background: #34495e;
-    color: #ecf0f1;
+    background: #ffffff;
+    color: #495057;
 }
 
 .no-axes {
@@ -1698,18 +1752,18 @@ body.body-contact #font-comparison {
 .reset-button {
     width: 100%;
     padding: 10px;
-    background: #e74c3c;
-    color: white;
     border: none;
     border-radius: 5px;
     font-size: 13px;
     font-weight: bold;
     cursor: pointer;
     margin-top: 15px;
+    background: #dc3545;
+    color: white;
 }
 
 .reset-button:hover {
-    background: #c0392b;
+    background: #c82333;
 }
 
 .reset-button:active {
@@ -1724,7 +1778,6 @@ body.body-contact #font-comparison {
     width: 100%;
     /* Tall enough to hold the buttons AND clear the device gesture strip */
     height: var(--panel-grips-total);
-    background: linear-gradient(to top, rgba(44, 62, 80, 0.95), rgba(44, 62, 80, 0.8));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1732,6 +1785,8 @@ body.body-contact #font-comparison {
     border-top: 2px solid #34495e;
     padding: 0 max(10px, env(safe-area-inset-right)) max( env(safe-area-inset-bottom), 0px ) max(10px, env(safe-area-inset-left));
     --grip-width: 160px;
+    background: linear-gradient(to top, rgba(248, 249, 250, 0.95), rgba(248, 249, 250, 0.8));
+    border-top-color: #dee2e6;
 }
 
 body.mode-switching #panel-grips {
@@ -1742,10 +1797,8 @@ body.mode-switching #panel-grips {
     visibility: hidden !important;
 }
 
-/* Apply buttons near grips (visible in Facade view) */
 .apply-btn {
-    display: none; /* hidden by default - facade mode removed */
-    padding: 6px 10px;
+    display: none;     padding: 6px 10px;
     background: #16a085;
     color: white;
     border: 1px solid #13866f;
@@ -1758,7 +1811,6 @@ body.mode-switching #panel-grips {
 .apply-btn:hover { background: #13866f; }
 .apply-btn.active { background: #1abc9c; border-color: #149b84; }
 
-/* Apply buttons removed - no longer used */
 
 /* Loading state for Apply buttons */
 .apply-btn.loading {
@@ -2044,7 +2096,6 @@ body.mode-switching #panel-grips {
         }
     }
 
-    /* Debug outlines removed */
 
     /* Hide any phantom elements that might be causing issues */
     body.view-third-man-in .favorites-container,
@@ -2131,32 +2182,36 @@ body.mode-switching #panel-grips {
 }
 
 .grip-area:hover {
-    background: rgba(52, 152, 219, 0.2);
+    background: rgba(108, 117, 125, 0.2);
 }
 
 .grip-area:active {
-    background: rgba(52, 152, 219, 0.4);
     transform: scale(0.95);
+    background: rgba(108, 117, 125, 0.4);
 }
 
 /* Persisted active state (panel open) -> border accent, no gray */
 .grip-area.active {
     background: transparent;
-    border-color: #3498db; /* accent border when panel is open */
+    border-color: #007bff;
     box-shadow: none;
+}
+
+@media (hover: none) {
+    .grip-area:hover { background: transparent; }
 }
 
 .grip-handle {
     font-size: 18px;
-    color: #3498db;
     font-weight: bold;
     margin-bottom: 2px;
+    color: #495057;
 }
 
 .grip-label {
     font-size: 10px;
-    color: #bdc3c7;
     font-weight: 500;
+    color: #6c757d;
 }
 
 /* Separate favorites container */
@@ -2199,13 +2254,13 @@ body.view-faceoff .favorites-container {
 }
 
 .favorites-title {
-    color: #bdc3c7;
     font-size: 10px;
     font-weight: 600;
     text-align: center;
     margin-bottom: 2px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    color: #6c757d;
 }
 
 .favorites-row {
@@ -2309,13 +2364,15 @@ body.view-faceoff .favorites-container {
 }
 
 .custom-alert-content {
-    background: white;
     border: 2px solid #333;
     border-radius: 8px;
     padding: 20px;
     min-width: 300px;
     max-width: 500px;
     text-align: center;
+    background: white;
+    color: #333;
+    border-color: #333;
 }
 
 .custom-alert-message {
@@ -2330,46 +2387,12 @@ body.view-faceoff .favorites-container {
 }
 
 .custom-alert-btn {
-    background: #007cba;
-    color: white;
     border: 1px solid #005a87;
     padding: 8px 20px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
     margin: 0 5px;
-}
-
-.custom-alert-btn:hover {
-    background: #005a87;
-}
-
-.custom-confirm-cancel {
-    background: #6c757d;
-    border-color: #545b62;
-}
-
-.custom-confirm-cancel:hover {
-    background: #545b62;
-}
-
-.custom-confirm-ok {
-    background: #dc3545;
-    border-color: #c82333;
-}
-
-.custom-confirm-ok:hover {
-    background: #c82333;
-}
-
-/* Light theme for custom alert */
-.custom-alert-content {
-    background: white;
-    color: #333;
-    border-color: #333;
-}
-
-.custom-alert-btn {
     background: #007cba;
     color: white;
     border-color: #005a87;
@@ -2421,53 +2444,53 @@ body.view-faceoff .favorites-container {
 .favorite-name-input {
     flex: 1;
     padding: 5px 8px;
-    background: rgba(52, 73, 94, 0.9);
-    color: #ecf0f1;
     border: 1px solid #4a5a6a;
     border-radius: 3px;
     font-size: 11px;
     outline: none;
     min-width: 0;
+    background: rgba(255, 255, 255, 0.9);
+    color: #495057;
+    border-color: #ced4da;
 }
 
 .favorite-name-input:focus {
-    border-color: #3498db;
-    background: rgba(58, 74, 90, 0.95);
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+    border-color: #495057;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
 }
 
 .favorite-name-input::placeholder {
-    color: #95a5a6;
+    color: #adb5bd;
 }
 
 .favorites-dropdown {
     flex: 1;
     padding: 5px 8px;
-    background: rgba(52, 73, 94, 0.9);
-    color: #ecf0f1;
     border: 1px solid #4a5a6a;
     border-radius: 3px;
     font-size: 11px;
     outline: none;
     min-width: 0;
+    background: rgba(255, 255, 255, 0.9);
+    color: #495057;
+    border-color: #ced4da;
 }
 
 .favorites-dropdown:focus {
-    border-color: #3498db;
-    background: rgba(58, 74, 90, 0.95);
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+    border-color: #495057;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
 }
 
 .favorites-dropdown option {
-    background: #34495e;
-    color: #ecf0f1;
+    background: #ffffff;
+    color: #495057;
 }
 
 .favorite-btn {
     width: 26px;
     height: 26px;
-    background: #3498db;
-    color: white;
     border: none;
     border-radius: 3px;
     font-size: 11px;
@@ -2477,11 +2500,13 @@ body.view-faceoff .favorites-container {
     justify-content: center;
     transition: all 0.2s ease;
     flex-shrink: 0;
+    background: #495057;
+    color: white;
 }
 
 .favorite-btn:hover {
-    background: #2980b9;
     transform: scale(1.05);
+    background: #343a40;
 }
 
 .favorite-btn:active {
@@ -2489,26 +2514,26 @@ body.view-faceoff .favorites-container {
 }
 
 .favorite-btn.save-btn:hover {
-    background: #27ae60;
+    background: #28a745;
 }
 
 .favorite-btn.delete-btn {
-    background: #e74c3c;
+    background: #dc3545;
 }
 
 .favorite-btn.delete-btn:hover {
-    background: #c0392b;
+    background: #c82333;
 }
 
 .favorite-btn:disabled {
-    background: #7f8c8d;
     cursor: not-allowed;
     transform: none;
+    background: #adb5bd;
 }
 
 .favorite-btn:disabled:hover {
-    background: #7f8c8d;
     transform: none;
+    background: #adb5bd;
 }
 
 /* Save Modal */
@@ -2530,14 +2555,14 @@ body.view-faceoff .favorites-container {
 }
 
 .save-modal-content {
-    background: #2c3e50;
-    color: #ecf0f1;
     border-radius: 8px;
     width: 90%;
     max-width: 400px;
     max-height: 80vh;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    background: #ffffff;
+    color: #495057;
 }
 
 .save-modal-header {
@@ -2546,18 +2571,18 @@ body.view-faceoff .favorites-container {
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid #34495e;
+    border-bottom-color: #dee2e6;
 }
 
 .save-modal-header h3 {
     margin: 0;
     font-size: 16px;
-    color: #ecf0f1;
+    color: #495057;
 }
 
 .save-modal-close {
     background: none;
     border: none;
-    color: #bdc3c7;
     font-size: 24px;
     font-weight: bold;
     cursor: pointer;
@@ -2569,10 +2594,11 @@ body.view-faceoff .favorites-container {
     justify-content: center;
     border-radius: 50%;
     transition: all 0.2s ease;
+    color: #6c757d;
 }
 
 .save-modal-close:hover {
-    background: #e74c3c;
+    background: #dc3545;
     color: white;
 }
 
@@ -2582,48 +2608,50 @@ body.view-faceoff .favorites-container {
 
 .save-modal-body label {
     display: block;
-    color: #bdc3c7;
     font-size: 12px;
     margin-bottom: 8px;
     font-weight: 500;
+    color: #495057;
 }
 
 .save-modal-input {
     width: 100%;
     padding: 8px 12px;
-    background: #34495e;
-    color: #ecf0f1;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
     font-size: 14px;
     outline: none;
     margin-bottom: 16px;
+    background: #ffffff;
+    color: #495057;
+    border-color: #ced4da;
 }
 
 .save-modal-input:focus {
-    border-color: #3498db;
-    background: #3a4a5a;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+    border-color: #495057;
+    background: #ffffff;
+    box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
 }
 
 .save-modal-preview {
-    background: #34495e;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
     padding: 12px;
+    background: #f8f9fa;
+    border-color: #dee2e6;
 }
 
 .save-modal-preview strong {
-    color: #3498db;
     font-size: 12px;
     display: block;
     margin-bottom: 8px;
+    color: #495057;
 }
 
 #save-modal-config {
-    color: #bdc3c7;
     font-size: 11px;
     line-height: 1.4;
+    color: #6c757d;
 }
 
 .save-modal-footer {
@@ -2632,6 +2660,7 @@ body.view-faceoff .favorites-container {
     gap: 8px;
     padding: 16px 20px;
     border-top: 1px solid #34495e;
+    border-top-color: #dee2e6;
 }
 
 .save-modal-btn {
@@ -2645,21 +2674,21 @@ body.view-faceoff .favorites-container {
 }
 
 .save-modal-btn.cancel-btn {
-    background: #7f8c8d;
+    background: #6c757d;
     color: white;
 }
 
 .save-modal-btn.cancel-btn:hover {
-    background: #6c7b7d;
+    background: #5a6268;
 }
 
 .save-modal-btn.save-btn {
-    background: #27ae60;
+    background: #28a745;
     color: white;
 }
 
 .save-modal-btn.save-btn:hover {
-    background: #229954;
+    background: #218838;
 }
 
 .save-modal-btn:active {
@@ -2677,12 +2706,12 @@ body.view-faceoff .favorites-container {
 }
 
 .favorite-btn.edit-btn {
-    background: #f39c12;
+    background: #fd7e14;
     color: white;
 }
 
 .favorite-btn.edit-btn:hover {
-    background: #e67e22;
+    background: #e66b00;
 }
 
 /* View toggle button (uses extension icon) */
@@ -2745,7 +2774,8 @@ body.view-faceoff .favorites-container {
 .favorites-search-toolbar {
     padding: 10px 16px;
     border-bottom: 1px solid #34495e;
-    background: #2c3e50;
+    border-bottom-color: #dee2e6;
+    background: #ffffff;
 }
 
 .favorites-search {
@@ -2754,9 +2784,10 @@ body.view-faceoff .favorites-container {
     padding: 8px 10px;
     border: 1px solid #4a5a6a;
     border-radius: 4px;
-    background: #34495e;
-    color: #ecf0f1;
     font-size: 12px;
+    border-color: #d0d0d0;
+    background: #ffffff;
+    color: #222222;
 }
 
 .favorites-search:focus {
@@ -2765,13 +2796,12 @@ body.view-faceoff .favorites-container {
 }
 
 .favorites-search::placeholder {
-    color: #95a5a6;
+    color: #888888;
 }
 
 .popup-close {
     background: none;
     border: none;
-    color: #bdc3c7;
     font-size: 20px;
     font-weight: bold;
     cursor: pointer;
@@ -2783,10 +2813,11 @@ body.view-faceoff .favorites-container {
     justify-content: center;
     border-radius: 50%;
     transition: all 0.2s ease;
+    color: #6c757d;
 }
 
 .popup-close:hover {
-    background: #e74c3c;
+    background: #dc3545;
     color: white;
 }
 
@@ -2815,8 +2846,8 @@ body.view-faceoff .favorites-container {
 }
 
 .favorite-item:hover {
-    background: #3a4a5a;
-    border-color: #3498db;
+    background: #e9ecef;
+    border-color: #495057;
 }
 
 .favorite-item-name {
@@ -2834,9 +2865,9 @@ body.view-faceoff .favorites-container {
 
 .no-favorites {
     text-align: center;
-    color: #95a5a6;
     font-style: italic;
     padding: 20px;
+    color: #6c757d;
 }
 
 /* Edit Favorites Modal */
@@ -2977,7 +3008,6 @@ body.view-faceoff .favorites-container {
 }
 .browse-fonts-btn:hover { background: #3a4a5a; }
 
-/* footer removed */
 
 .edit-modal.visible {
     display: flex;
@@ -2994,6 +3024,11 @@ body.view-faceoff .favorites-container {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+.favorites-popup-content, .edit-modal-content {
+    background: #ffffff;
+    color: #495057;
+}
+
 .edit-modal-header {
     display: flex;
     justify-content: space-between;
@@ -3002,10 +3037,18 @@ body.view-faceoff .favorites-container {
     border-bottom: 1px solid #34495e;
 }
 
+.favorites-popup-header, .edit-modal-header {
+    border-bottom-color: #dee2e6;
+}
+
 .edit-modal-header h3 {
     margin: 0;
     font-size: 16px;
     color: #ecf0f1;
+}
+
+.favorites-popup-header h3, .edit-modal-header h3 {
+    color: #495057;
 }
 
 .edit-modal-body {
@@ -3031,6 +3074,11 @@ body.view-faceoff .favorites-container {
     border-radius: 4px;
     /* Smooth transitions for reordering */
     transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.favorite-item, .edit-favorite-item {
+    background: #f8f9fa;
+    border-color: #dee2e6;
 }
 
 /* Delete button styling */
@@ -3098,10 +3146,18 @@ body.view-faceoff .favorites-container {
     margin-bottom: 4px;
 }
 
+.favorite-item-name, .edit-favorite-name {
+    color: #495057;
+}
+
 .edit-favorite-preview {
     font-size: 11px;
     color: #95a5a6;
     line-height: 1.3;
+}
+
+.favorite-item-preview, .edit-favorite-preview {
+    color: #6c757d;
 }
 
 .edit-favorite-actions {
@@ -3111,8 +3167,6 @@ body.view-faceoff .favorites-container {
 }
 
 .delete-favorite-btn {
-    background: #e74c3c;
-    color: white;
     border: none;
     border-radius: 3px;
     padding: 6px 8px;
@@ -3122,572 +3176,18 @@ body.view-faceoff .favorites-container {
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #dc3545;
+    color: white;
 }
 
 .delete-favorite-btn:hover {
-    background: #c0392b;
     transform: scale(1.05);
+    background: #c82333;
 }
 
 .delete-favorite-btn:active {
     transform: scale(0.95);
 }
-
-/* Light theme — always active (was previously gated behind prefers-color-scheme: light).
-   The body background/color now live in the main body rule above. */
-    .controls-panel {
-        background: #f8f9fa;
-        color: #2c3e50;
-        border-right-color: #dee2e6;
-        border-left-color: #dee2e6;
-    }
-
-    .controls-panel h2 {
-        color: #2c3e50;
-        border-bottom-color: #dee2e6;
-    }
-
-    .control-section h3 {
-        color: #495057;
-        border-left-color: #495057;
-    }
-
-    .domain-display-rink {
-        background: #ffffff !important;
-        border: 1px solid #34495e !important;
-    }
-
-    .domain-goal-ice::before {
-        bottom: 4px;
-        height: 6px;
-        background: #ffe26f;
-        z-index: 0;
-    }
-
-    .domain-goal-ice::after {
-        bottom: 0;
-        height: 2px;
-        background: rgba(204, 51, 51, 0.3);
-        z-index: 1;
-    }
-
-    .domain-goal {
-        background: linear-gradient(
-            to top,
-            transparent 0 2px,
-            #ffffff 2px 100%
-        );
-        border-bottom: 0;
-    }
-
-    .domain-goal::before {
-        background-image:
-            repeating-linear-gradient(45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px),
-            repeating-linear-gradient(-45deg, rgba(73, 80, 87, 0.08) 0, rgba(73, 80, 87, 0.08) 3px, transparent 3px, transparent 12px);
-    }
-
-    .domain-goal::after {
-        background: rgba(204, 51, 51, 0.35);
-    }
-
-    .domain-text {
-        color: #495057;
-    }
-
-    .control-group label {
-        color: #495057;
-    }
-
-    .axis-tag {
-        color: #6c757d;
-    }
-
-    .axis-info-btn {
-        background: #495057;
-        color: white;
-        border: 1px solid #343a40;
-    }
-
-    .axis-info-btn:hover {
-        background: #343a40;
-        color: white;
-        border-color: #212529;
-    }
-
-    .control-group.unset .axis-info-btn {
-        background: #6c757d;
-        color: white;
-        border: 1px solid #495057;
-    }
-
-    .control-group.unset .axis-info-btn:hover {
-        background: #495057;
-        color: white;
-        border-color: #343a40;
-    }
-
-    .control-group:not(.unset) .axis-info-btn {
-        background: #495057;
-        color: #ffffff; /* activated '?' icon white */
-        border: 1px solid #495057;
-    }
-
-    .control-group:not(.unset) .axis-info-btn:hover {
-        background: #495057;
-        color: white;
-        border-color: #495057;
-    }
-
-    .axis-reset-btn {
-        background: #dc3545;
-        color: white;
-        border: 1px solid #c82333;
-    }
-
-    .axis-reset-btn:hover {
-        background: #c82333;
-        color: white;
-        border-color: #bd2130;
-    }
-
-    .control-group.unset .axis-reset-btn {
-        background: #6c757d !important;
-        color: white;
-        border: 1px solid #495057;
-    }
-
-    .control-group.unset .axis-reset-btn:focus {
-        outline: none !important;
-        background: #6c757d !important;
-        border: 1px solid #495057 !important;
-        box-shadow: none !important;
-    }
-
-    .control-group.unset .axis-reset-btn:active {
-        outline: none !important;
-        background: #6c757d !important;
-        border: 1px solid #495057 !important;
-        box-shadow: none !important;
-        transform: none !important;
-    }
-
-    .control-group.unset .axis-reset-btn:hover {
-        background: #dc3545;
-        color: white;
-        border-color: #c82333;
-    }
-
-    .control-group:not(.unset) .axis-reset-btn {
-        background: #dc3545;
-        color: white;
-        border: 1px solid #dc3545;
-    }
-
-    .control-group:not(.unset) .axis-reset-btn:hover {
-        background: #c82333;
-        color: white;
-        border-color: #c82333;
-    }
-
-    .control-group input[type="range"] {
-        background: #dee2e6;
-        border: 1px solid #6c757d;
-    }
-
-    .axis-text-input,
-    .axis-readonly-input {
-        background: #ffffff;
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .control-group.unset .axis-text-input,
-    .control-group.unset .axis-readonly-input {
-        color: #6c757d;
-        background: #f8f9fa;
-        opacity: 1;
-    }
-
-    .axis-text-input:focus,
-    .control-group.unset .axis-text-input:focus {
-        border-color: #495057 !important;
-        background: #ffffff !important;
-        color: #212529 !important;
-    }
-
-    .control-group input[type="range"]::-webkit-slider-thumb {
-        background: #495057;
-        border-color: #ffffff;
-    }
-
-    .control-group input[type="range"]::-moz-range-thumb {
-        background: #495057;
-        border-color: #ffffff;
-    }
-
-    .control-group span {
-        color: #495057;
-    }
-
-    .control-group.unset {
-        opacity: 0.7;
-    }
-
-    .control-group.unset label {
-        color: #6c757d;
-    }
-
-    .control-group.unset span {
-        color: #6c757d;
-    }
-
-    .control-group.unset input[type="range"] {
-        border-color: #adb5bd;
-        opacity: 0.7;
-    }
-
-    .axis-value-display {
-        color: #6c757d;
-    }
-
-    /* Ensure readonly value styling overrides generic span color */
-    .control-group .axis-readonly-input {
-        color: #495057;
-        font-weight: 700;
-        background: #ffffff;
-        border-color: #ced4da;
-    }
-
-    .control-group select {
-        background: #ffffff;
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .control-group select:focus {
-        border-color: #495057;
-        background: #ffffff;
-    }
-
-    .control-group select option {
-        background: #ffffff;
-        color: #495057;
-    }
-
-    .reset-button {
-        background: #dc3545;
-        color: white;
-    }
-
-    .reset-button:hover {
-        background: #c82333;
-    }
-
-    #panel-grips {
-        background: linear-gradient(to top, rgba(248, 249, 250, 0.95), rgba(248, 249, 250, 0.8));
-        border-top-color: #dee2e6;
-    }
-
-    .grip-handle {
-        color: #495057;
-    }
-
-    .grip-label {
-        color: #6c757d;
-    }
-
-    .grip-area:hover {
-        background: rgba(108, 117, 125, 0.2);
-    }
-
-    .grip-area:active {
-        background: rgba(108, 117, 125, 0.4);
-    }
-
-    .grip-area.active {
-        background: transparent; /* no sticky gray in light theme */
-        border-color: #007bff; /* light theme accent */
-        box-shadow: none;
-    }
-
-    /* On touch devices, avoid sticky hover/active states */
-    @media (hover: none) {
-        .grip-area:hover { background: transparent; }
-    }
-
-    .font-section {
-        background: #ffffff;
-        color: #212529;
-    }
-
-    .font-section h3 {
-        color: #495057;
-        border-bottom-color: #dee2e6;
-        margin: 0 0 8px 0;
-        padding-bottom: 6px;
-    }
-
-    .font-section p {
-        color: #212529;
-        margin: 0;
-    }
-
-    #top-font-section {
-        background: #ffffff;
-    }
-
-    #top-font-section h3 {
-        color: #495057;
-    }
-
-    #bottom-font-section {
-        background: #f8f9fa;
-    }
-
-    #bottom-font-section h3 {
-        color: #495057;
-    }
-
-    .center-line-separator {
-        background: linear-gradient(to right, #495057, #6c757d);
-    }
-
-    .axis-tooltip {
-        background: #f8f9fa;
-        color: #495057;
-        border-color: #dee2e6;
-    }
-
-    .favorites-title {
-        color: #6c757d;
-    }
-
-    /* Favorites UI light theme */
-    .favorite-name-input {
-        background: rgba(255, 255, 255, 0.9);
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .favorite-name-input:focus {
-        border-color: #495057;
-        background: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
-    }
-
-    .favorite-name-input::placeholder {
-        color: #adb5bd;
-    }
-
-    .favorites-dropdown {
-        background: rgba(255, 255, 255, 0.9);
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .favorites-dropdown:focus {
-        border-color: #495057;
-        background: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
-    }
-
-    .favorites-dropdown option {
-        background: #ffffff;
-        color: #495057;
-    }
-
-    .favorite-btn {
-        background: #495057;
-        color: white;
-    }
-
-    .favorite-btn:hover {
-        background: #343a40;
-    }
-
-    .favorite-btn.save-btn:hover {
-        background: #28a745;
-    }
-
-    .favorite-btn.delete-btn {
-        background: #dc3545;
-    }
-
-    .favorite-btn.delete-btn:hover {
-        background: #c82333;
-    }
-
-    .favorite-btn:disabled {
-        background: #adb5bd;
-    }
-
-    .favorite-btn:disabled:hover {
-        background: #adb5bd;
-    }
-
-
-    /* Save Modal light theme */
-    .save-modal-content {
-        background: #ffffff;
-        color: #495057;
-    }
-
-    .save-modal-header {
-        border-bottom-color: #dee2e6;
-    }
-
-    .save-modal-header h3 {
-        color: #495057;
-    }
-
-    .save-modal-close {
-        color: #6c757d;
-    }
-
-    .save-modal-close:hover {
-        background: #dc3545;
-        color: white;
-    }
-
-    .save-modal-body label {
-        color: #495057;
-    }
-
-    .save-modal-input {
-        background: #ffffff;
-        color: #495057;
-        border-color: #ced4da;
-    }
-
-    .save-modal-input:focus {
-        border-color: #495057;
-        background: #ffffff;
-        box-shadow: 0 0 0 2px rgba(73, 80, 87, 0.3);
-    }
-
-    .save-modal-preview {
-        background: #f8f9fa;
-        border-color: #dee2e6;
-    }
-
-    .save-modal-preview strong {
-        color: #495057;
-    }
-
-    #save-modal-config {
-        color: #6c757d;
-    }
-
-    .save-modal-footer {
-        border-top-color: #dee2e6;
-    }
-
-    .save-modal-btn.cancel-btn {
-        background: #6c757d;
-        color: white;
-    }
-
-    .save-modal-btn.cancel-btn:hover {
-        background: #5a6268;
-    }
-
-    .save-modal-btn.save-btn {
-        background: #28a745;
-        color: white;
-    }
-
-    .save-modal-btn.save-btn:hover {
-        background: #218838;
-    }
-
-    /* New Favorites UI light theme */
-    .favorite-btn.edit-btn {
-        background: #fd7e14;
-        color: white;
-    }
-
-    .favorite-btn.edit-btn:hover {
-        background: #e66b00;
-    }
-
-    .favorites-popup-content, .edit-modal-content {
-        background: #ffffff;
-        color: #495057;
-    }
-
-    .favorites-popup-header, .edit-modal-header {
-        border-bottom-color: #dee2e6;
-    }
-
-    .favorites-popup-header h3, .edit-modal-header h3 {
-        color: #495057;
-    }
-
-    .favorites-search-toolbar {
-        border-bottom-color: #dee2e6;
-        background: #ffffff;
-    }
-
-    .favorites-search {
-        border-color: #d0d0d0;
-        background: #ffffff;
-        color: #222222;
-    }
-
-    .favorites-search::placeholder {
-        color: #888888;
-    }
-
-    .popup-close {
-        color: #6c757d;
-    }
-
-    .popup-close:hover {
-        background: #dc3545;
-        color: white;
-    }
-
-    .favorite-item, .edit-favorite-item {
-        background: #f8f9fa;
-        border-color: #dee2e6;
-    }
-
-    .favorite-item:hover {
-        background: #e9ecef;
-        border-color: #495057;
-    }
-
-    .favorite-item-name, .edit-favorite-name {
-        color: #495057;
-    }
-
-    .favorite-item-preview, .edit-favorite-preview {
-        color: #6c757d;
-    }
-
-    .no-favorites {
-        color: #6c757d;
-    }
-
-    .delete-favorite-btn {
-        background: #dc3545;
-        color: white;
-    }
-
-    .delete-favorite-btn:hover {
-        background: #c82333;
-    }
-
-    /* Variable axes active state in light theme: same palette as unset, just brighter */
-    .axes-container .control-group:not(.unset) {
-        opacity: 0.85;
-    }
-
-    .axes-container .control-group:not(.unset) .axis-info-btn {
-        background: #495057;
-        color: #ffffff;
-        border: 1px solid #495057;
-    }
 
 /* Numeric Modal Styles */
 #numeric-modal {
@@ -3715,6 +3215,11 @@ body.view-faceoff .favorites-container {
     max-width: 90%;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+#numeric-modal .numeric-modal-content {
+    background: #ffffff;
+    color: #495057;
 }
 
 @media (max-width: 360px) {
@@ -3775,10 +3280,19 @@ body.view-faceoff .favorites-container {
     background: #34495e;
 }
 
+#numeric-modal .numeric-modal-header {
+    background: #f8f9fa;
+    border-bottom-color: #dee2e6;
+}
+
 .numeric-modal-header h3 {
     margin: 0;
     font-size: 18px;
     color: #ecf0f1;
+}
+
+#numeric-modal .numeric-modal-header h3 {
+    color: #495057;
 }
 
 .numeric-modal-header .modal-close {
@@ -3797,8 +3311,17 @@ body.view-faceoff .favorites-container {
     transition: all 0.2s ease;
 }
 
+#numeric-modal .numeric-modal-header .modal-close {
+    color: #6c757d;
+}
+
 .numeric-modal-header .modal-close:hover {
     background: #e74c3c;
+    color: white;
+}
+
+#numeric-modal .numeric-modal-header .modal-close:hover {
+    background: #dc3545;
     color: white;
 }
 
@@ -3822,6 +3345,12 @@ body.view-faceoff .favorites-container {
     cursor: default;
 }
 
+#numeric-modal .numeric-input-display {
+    background: #f8f9fa;
+    border-color: #ced4da;
+    color: #495057;
+}
+
 .numeric-keypad {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -3842,13 +3371,27 @@ body.view-faceoff .favorites-container {
     user-select: none;
 }
 
+#numeric-modal .numeric-btn {
+    background: #f8f9fa;
+    color: #495057;
+    border-color: #ced4da;
+}
+
 .numeric-btn:hover {
     background: #4a6378;
+}
+
+#numeric-modal .numeric-btn:hover {
+    background: #e9ecef;
 }
 
 .numeric-btn:active {
     background: #5a738e;
     transform: translateY(1px);
+}
+
+#numeric-modal .numeric-btn:active {
+    background: #dee2e6;
 }
 
 .numeric-zero {
@@ -3925,50 +3468,6 @@ body.view-faceoff .favorites-container {
 
 .numeric-action-btn.apply-btn:hover {
     background: #2ecc71;
-}
-
-/* Light theme for numeric modal */
-#numeric-modal .numeric-modal-content {
-    background: #ffffff;
-    color: #495057;
-}
-
-#numeric-modal .numeric-modal-header {
-    background: #f8f9fa;
-    border-bottom-color: #dee2e6;
-}
-
-#numeric-modal .numeric-modal-header h3 {
-    color: #495057;
-}
-
-#numeric-modal .numeric-modal-header .modal-close {
-    color: #6c757d;
-}
-
-#numeric-modal .numeric-modal-header .modal-close:hover {
-    background: #dc3545;
-    color: white;
-}
-
-#numeric-modal .numeric-input-display {
-    background: #f8f9fa;
-    border-color: #ced4da;
-    color: #495057;
-}
-
-#numeric-modal .numeric-btn {
-    background: #f8f9fa;
-    color: #495057;
-    border-color: #ced4da;
-}
-
-#numeric-modal .numeric-btn:hover {
-    background: #e9ecef;
-}
-
-#numeric-modal .numeric-btn:active {
-    background: #dee2e6;
 }
 
 /* Make numeric trigger inputs look clickable */

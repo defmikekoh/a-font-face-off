@@ -1,5 +1,20 @@
 # Popup Architecture (popup.js)
 
+## Startup and UI module boundaries
+
+`initializePopup()` coordinates panel cloning, migration/font prerequisites, page context,
+state restoration, and named event-binding stages. `restorePopupState()` starts before
+synchronous control binding, preserving the existing startup overlap. `restoreInitialFonts()`
+and `initializeFontSelections()` retain the font-restoration and select-population ordering;
+the page-font draft is applied after saved selections.
+
+`AFFOFavorites.create(callbacks)` owns favorites data, ordering, save/load/edit modal
+listeners, and drag-reordering. `AFFOFontPicker.create(callbacks)` owns picker behavior and
+receives the favorites instance. Both use explicitly supplied popup callbacks and live getters
+for changing state, rather than reaching into popup globals. The factories remain plain
+scripts; Node tests can create isolated instances without a popup. ESLint does not declare
+popup globals in either module, so accidental cross-file dependencies are errors.
+
 ## Storage Operations
 
 ### Panel Helper Module
@@ -105,7 +120,11 @@ Generic factory for slider input, text keydown/blur, and value display handlers.
 Clones the `body-font-controls` template to create control panels for top, bottom, serif, sans, and mono positions at startup. Replaces all `body-` ID prefixes, updates headings (e.g. "Top Font", "Serif"), button text ("Apply All"/"Reset All" for TMI positions), aria-labels, and titles. All 5 panels are cloned before any other initialization code runs.
 
 ### `resetFontForPosition(position)`
-Generic reset for any panel position. Resets slider values (font-size: 17, line-height: 1.5, letter-spacing: 0, weight: 400), text inputs, value displays, marks all control groups as `unset`, resets variable axes using `getEffectiveFontDefinition()`, and calls `applyFont(position)`.
+`resetBasicControl()` uses `BASIC_CONTROL_DEFAULTS` to update a control, its text/value displays, and its unset marker. `resetBasicPanelControls()` applies that primitive to every basic control; `resetPanelAxes()` resets rendered variable axes. These helpers do not save or refresh previews.
+
+`resetFontForPosition()` resets controls and axes, then refreshes the preview. Sroulette uses the same primitives without refreshing the preview. TMI restoration resets its existing subset of basic controls with `{ unset: false }`, preserving active-state markers until restoration completes.
+
+Basic display defaults are 17px size, 1.5 line height, 0em letter spacing, and weight 400. Reset controls remain unset, so these display defaults are not stored as explicit configuration.
 
 ### `togglePanel(panelId)`
 Unified panel toggle for all modes. For face-off panels (top/bottom): manages grip active/aria state, overlay visibility, and narrow-screen single-panel enforcement. For body/TMI panels: simple classList toggle.
@@ -119,10 +138,17 @@ The popup is a **three-rectangle flex column** on `body`: `#mode-tabs` (fixed he
 - The page-font Face-off opens `popup.html?domain=…&sourceTabId=…` as a TAB (mobile `openPopupFallback` → `tabs.create`); desktop uses `action.openPopup`.
 - Face-off is comparison-only and does NOT apply to the page; the old "facade" apply-to-page machinery (apply-top/bottom handlers, `syncApplyButtonsForOrigin`, `refreshApplyButtonsDirtyState`) was removed — it had been leaking `reset-top/bottom` into Face-off based on saved serif/sans state. Apply/Reset remain live only in TMI (`syncThirdManInButtons`) and Body-Contact (`updateBodyButtonsImmediate`).
 
-## Font Application
+### Component styling
 
-- `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyStateForOrigin()` (1 storage write instead of N) with parallel CSS application
+The permanent light palette lives with each component's base and state rules in
+`popup.css`. There is no trailing theme override layer. Rules that need stronger
+specificity (including numeric-modal ID selectors) remain next to their components;
+responsive and touch-state rules retain their cascade roles.
 
 ### Chromium Android native popup
 
 `popup-context.js` adds `affo-popup-panel` alongside `affo-mobile` for Chromium native popups. These size to content and need a fixed 600px height; using `100dvh` collapses the preview region into the initially small viewport. Explicit popup tabs carrying `sourceTabId`, and both Firefox Android surfaces, retain full-viewport sizing. Verified on Note10 Vivaldi Snapshot 8.2.
+
+## Font Application
+
+- `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyStateForOrigin()` (1 storage write instead of N) with parallel CSS application

@@ -8,7 +8,6 @@ function affoDebugWarn() {
   if (AFFO_DEBUG) console.warn.apply(console, arguments);
 }
 
-// View mode: 'body-contact', 'faceoff', or 'third-man-in' (facade mode removed)
 let currentViewMode = null; // Start modeless to avoid warnings when switching to appropriate mode
 let suppressUiStateSave = false;
 
@@ -1188,8 +1187,6 @@ async function getOrCreateFontDefinition(fontName) {
     return def;
 }
 
-// Remote CSS probing and fvar parsing removed (no network probing, no binary parsing).
-
 function getAxesForFamilyFromMetadata(fontName) {
     if (!gfMetadata || !fontName) return [];
     const lists = [
@@ -1311,8 +1308,6 @@ if (typeof window !== 'undefined') {
     window.ensureGfFamilyList = ensureGfFamilyList;
 }
 
-// Remote CSS probing helpers removed.
-
 // Axis descriptions and detailed information
 const axisInfo = {
     wght: {
@@ -1393,14 +1388,8 @@ const axisInfo = {
     }
 };
 
-
 function getEffectiveFontDefinition(fontName) {
     return dynamicFontDefinitions[fontName] || fontDefinitions[fontName] || { axes: [], defaults: {}, ranges: {}, steps: {} };
-}
-
-// Helper function to get active controls for any position
-function getActiveControls(position) {
-    return getActiveControlsFromUI(position);
 }
 
 // Helper function to get active axes for any position
@@ -1508,10 +1497,6 @@ function getFontMemory(position) {
     return map[position] || null;
 }
 
-// Favorites storage
-let savedFavorites = {};
-let savedFavoritesOrder = [];
-
 // Extension state storage - separate for each mode
 let extensionState = {
     'body-contact': {},
@@ -1560,7 +1545,6 @@ function loadExtensionState() {
     });
 }
 
-// Async version of saveExtensionState - debouncing removed for better coordination
 async function saveExtensionState() {
     try {
         await saveExtensionStateImmediate();
@@ -1616,25 +1600,6 @@ function getActiveControlsFromConfig(config) {
     return AFFOPopupPanelUtils.getActiveControlsFromConfig(config);
 }
 
-function getActiveControlsFromUI(position) {
-    const activeControls = new Set();
-    const sizeGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
-    const lineHeightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
-    const letterSpacingGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
-    const weightGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
-    const styleGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
-    const colorGroup = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-
-    if (sizeGroup && !sizeGroup.classList.contains('unset')) activeControls.add('font-size');
-    if (lineHeightGroup && !lineHeightGroup.classList.contains('unset')) activeControls.add('line-height');
-    if (letterSpacingGroup && !letterSpacingGroup.classList.contains('unset')) activeControls.add('letter-spacing');
-    if (weightGroup && !weightGroup.classList.contains('unset')) activeControls.add('weight');
-    if (styleGroup && !styleGroup.classList.contains('unset')) activeControls.add('style');
-    if (colorGroup && !colorGroup.classList.contains('unset')) activeControls.add('color');
-
-    return activeControls;
-}
-
 function getCurrentFontName(position) {
     const fontSelect = document.getElementById(`${position}-font-select`);
     const heading = document.getElementById(`${position}-font-name`);
@@ -1669,7 +1634,6 @@ function getActiveAxesFromUI(position) {
     }
     return activeAxes;
 }
-
 
 // Get current font configuration
 function getCurrentUIConfig(position) {
@@ -1785,7 +1749,6 @@ function getCurrentUIConfig(position) {
         affoDebugLog(`getCurrentUIConfig(${position}): lineHeightGroup classes:`, lineHeightGroup.className, 'has unset:', lineHeightGroup.classList.contains('unset'));
     }
 
-
     // Return UI config with only currently active controls (flattened structure)
     // Note: variableAxes always present as empty object (even if no axes) to simplify access patterns
     const config = {
@@ -1898,7 +1861,7 @@ async function applyFontConfig(position, config) {
         console.trace('applyFontConfig call stack');
         clearSroulettePanelState(position);
     }
-    // Set font family (allow unset in Facade -> Default)
+    // Set font family; an unset family displays Default.
     if (config.fontName === null || String(config.fontName).toLowerCase() === 'default') {
         const disp = document.getElementById(`${position}-font-display`);
         const group = disp && disp.closest('.control-group');
@@ -2037,7 +2000,6 @@ async function applyFontConfig(position, config) {
             });
         }
 
-
         // Apply the font preview
         if (fontLoadRequestId != null && !isCurrentFontLoadRequest(position, fontLoadRequestId)) return;
         applyFont(position);
@@ -2152,10 +2114,8 @@ function hideTooltip() {
     }
 }
 
-
 // getFamiliesFromMetadata, initializeGoogleFontsSelects, resolveFamilyCase,
 // setupFontPicker are now in font-picker.js
-
 
 // Font loading and management functions
 async function loadFont(position, fontName, options = {}) {
@@ -2496,8 +2456,6 @@ function generateFontControls(position, fontName) {
         resetButton.addEventListener('click', function() {
             // Reset to default and make unset/dimmed again
             updateValues(defaultValue);
-            const activeAxes = getActiveAxes(position);
-            activeAxes.delete(axis);
             controlGroup.classList.add('unset');
             applyFont(position);
         });
@@ -2562,7 +2520,7 @@ function shouldIgnoreComments(origin) {
 // Element walker is now handled entirely in content.js via message passing
 // (popup.js calls runElementWalkerInTargetTab instead of injecting walker scripts)
 
-// Separate apply/unapply functions for body mode and face-off mode
+// Apply/unapply Body Contact page fonts
 async function applyFontToPage(position, config) {
     affoDebugLog(`🟢 applyFontToPage: Applying ${position} with config:`, config);
     const genericKey = (position === 'top') ? 'serif' :
@@ -2981,9 +2939,6 @@ function applyFont(position) {
     if (!suppressUiStateSave) saveExtensionState();
 }
 
-// updateBasicControls function removed - event listeners are now set up in DOMContentLoaded
-
-
 // Favorites functions (hasInCollection, generateFontConfigName, generateConfigPreview,
 // showSaveModal, hideSaveModal, getOrderedFavoriteNames, showFavoritesPopup,
 // hideFavoritesPopup, showEditFavoritesModal, hideEditFavoritesModal,
@@ -3393,53 +3348,8 @@ function activateSroulettePanelMarker(marker, event) {
 function resetPanelControlsForSroulette(position) {
     const panel = document.getElementById(`${position}-font-controls`);
     if (!panel) return;
-
-    const display = document.getElementById(`${position}-font-display`);
-    const currentFontName = display ? String(display.textContent || '').trim() : '';
-    const fontDef = currentFontName ? getEffectiveFontDefinition(currentFontName) : null;
-
-    setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
-
-    const lineHeightControl = document.getElementById(`${position}-line-height`);
-    const lineHeightText = document.getElementById(`${position}-line-height-text`);
-    const lineHeightValue = document.getElementById(`${position}-line-height-value`);
-    if (lineHeightControl) lineHeightControl.value = 1.5;
-    if (lineHeightText) lineHeightText.value = 1.5;
-    if (lineHeightValue) lineHeightValue.textContent = '1.5';
-
-    const letterSpacingControl = document.getElementById(`${position}-letter-spacing`);
-    const letterSpacingText = document.getElementById(`${position}-letter-spacing-text`);
-    const letterSpacingValue = document.getElementById(`${position}-letter-spacing-value`);
-    if (letterSpacingControl) letterSpacingControl.value = 0;
-    if (letterSpacingText) letterSpacingText.value = 0;
-    if (letterSpacingValue) letterSpacingValue.textContent = '0em';
-
-    const weightControl = document.getElementById(`${position}-font-weight`);
-    const weightValue = document.getElementById(`${position}-font-weight-value`);
-    if (weightControl) weightControl.value = 400;
-    if (weightValue) weightValue.textContent = '400';
-
-    const styleControl = document.getElementById(`${position}-font-style`);
-    if (styleControl) styleControl.value = 'normal';
-
-    const colorControl = document.getElementById(`${position}-font-color`);
-    if (colorControl) colorControl.value = 'default';
-
-    panel.querySelectorAll('.control-group[data-control]').forEach(group => {
-        group.classList.add('unset');
-    });
-
-    panel.querySelectorAll('.control-group[data-axis]').forEach(group => {
-        const axis = group.getAttribute('data-axis');
-        const defaultValue = fontDef && fontDef.defaults ? fontDef.defaults[axis] : null;
-        if (defaultValue != null) {
-            const slider = document.getElementById(`${position}-${axis}`);
-            const textInput = document.getElementById(`${position}-${axis}-text`);
-            if (slider) slider.value = defaultValue;
-            if (textInput) textInput.value = defaultValue;
-        }
-        group.classList.add('unset');
-    });
+    resetBasicPanelControls(position);
+    resetPanelAxes(position);
 }
 
 function markPanelAsSroulette(position, pool) {
@@ -3542,7 +3452,39 @@ function cloneControlPanel(position) {
     template.parentNode.insertBefore(clone, template.nextSibling);
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
+// UI modules receive callbacks and live getters; neither reaches into popup globals.
+const favorites = AFFOFavorites.create({
+    get currentViewMode() { return currentViewMode; },
+    getCurrentUIConfig,
+    getCurrentPanelState,
+    getActiveOrigin,
+    getTargetTabForPopup,
+    getEffectiveFontDefinition,
+    applyFontConfig,
+    markPanelAsSroulette,
+    updateBodyButtons,
+    updateAllThirdManInButtons,
+    saveExtensionState,
+    showCustomConfirm,
+    showCustomAlert
+});
+const fontPicker = AFFOFontPicker.create({
+    get gfMetadata() { return gfMetadata; },
+    get gfFamilyList() { return gfFamilyList; },
+    ensureGfFamilyList,
+    ensureCustomFontsLoaded,
+    get CUSTOM_FONTS() { return CUSTOM_FONTS; },
+    get LOCAL_FONTS() { return LOCAL_FONTS; },
+    getPanelLabel,
+    loadFont,
+    applyFont,
+    getCurrentUIConfig,
+    updateBodyButtons,
+    updateAllThirdManInButtons,
+    favorites
+});
+
+async function initializePopup() {
     affoDebugLog('DOMContentLoaded fired, starting popup initialization');
 
     const openOptionsButton = document.getElementById('open-options-button');
@@ -3564,6 +3506,56 @@ document.addEventListener('DOMContentLoaded', async function() {
     await injectCustomFonts();
     await loadPendingFaceoffPageFontDraft();
 
+    await initializePopupPageContext();
+
+    // Hide all settings until domain initialization is complete
+
+    document.body.style.visibility = 'hidden';
+    affoDebugLog('🔒 Hiding UI until domain initialization completes');
+
+    // Initialize preconnect links for faster font loading
+    initializeFontPreconnects();
+
+    affoDebugLog('Initial currentViewMode:', currentViewMode);
+    affoDebugLog('Initial body classes:', document.body.className);
+
+    const popupInitializationPromise = restorePopupState();
+
+    // Note: Apply-to-page button (Body mode) event listener is now handled by setupPanelButtons() in setupApplyResetEventListeners()
+
+    // Pre-highlight Apply buttons based on saved state for current origin
+    if (currentViewMode === 'third-man-in') {
+        try { syncThirdManInButtons(); } catch (_) {}
+    }
+
+    setupBasicFontControls();
+
+    // Font Picker wiring
+    fontPicker.setupFontPicker();
+
+    initializeFontDisplays();
+
+    setupPanelResetMarkers();
+
+    setupAlertEventListeners();
+
+    setupControlResetListeners();
+
+    const initialFontRestorationPromise = restoreInitialFonts();
+
+    initializeFontSelections(popupInitializationPromise, initialFontRestorationPromise).catch(error => {
+        console.error('Font selection initialization failed:', error);
+    });
+
+    setupFaceoffGripHandlers();
+
+    favorites.setupEventListeners();
+
+}
+
+document.addEventListener('DOMContentLoaded', initializePopup);
+
+async function initializePopupPageContext() {
     // Get current tab hostname and context for site-specific CSS rules
     try {
         // First check if context was passed as URL parameters (from left toolbar)
@@ -3586,90 +3578,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.currentTabHostname = null;
         window.sourceTabId = null;
     }
+}
 
-    // Hide all settings until domain initialization is complete
-
-    document.body.style.visibility = 'hidden';
-    affoDebugLog('🔒 Hiding UI until domain initialization completes');
-
-    // Initialize preconnect links for faster font loading
-    initializeFontPreconnects();
-
-    // DISABLED: URGENT FIX was interfering with domain restoration
-    // The simple sync function handles selector synchronization properly
-    /*
-    setTimeout(() => {
-        affoDebugLog('URGENT FIX: Syncing font selectors with headings');
-        ['serif', 'sans', 'mono'].forEach(type => {
-            const heading = document.getElementById(`${type}-font-name`);
-            const display = document.getElementById(`${type}-font-display`);
-            const selector = document.getElementById(`${type}-font-select`);
-
-            if (heading || display) {
-                const fontName = (heading && heading.textContent)
-                    ? heading.textContent
-                    : (display && display.textContent !== 'Default') ? display.textContent : null;
-
-                if (fontName && selector && !selector.value) {
-                    affoDebugLog(`URGENT FIX: ${type} heading="${fontName}" but selector empty, fixing`);
-                    selector.value = fontName;
-                } else if (fontName && selector) {
-                    affoDebugLog(`URGENT FIX: ${type} heading="${fontName}" selector="${selector.value}" - ${selector.value ? 'OK' : 'NEEDS FIX'}`);
-                }
-            }
-        });
-    }, 500);
-    */
-    affoDebugLog('DEBUG TEST: This should appear if our code is running');
-    affoDebugLog('Initial currentViewMode:', currentViewMode);
-    affoDebugLog('Initial body classes:', document.body.className);
-    // Get font selectors
-    // Font selection now handled by font picker interface, no dropdowns needed
-
-    // Get control panels and UI elements
-    const panelOverlay = document.getElementById('panel-overlay');
-    const topFontGrip = document.getElementById('top-font-grip');
-    const bottomFontGrip = document.getElementById('bottom-font-grip');
-
-    // Load saved state first, then continue initialization INSIDE the callback
-    affoDebugLog('Loading extension state before initialization');
-    const popupInitializationPromise = loadExtensionState().then(() => {
-        affoDebugLog('Extension state loaded, now determining correct mode');
-
-        return determineInitialMode();
-    }).then(() => {
-        affoDebugLog('Initial mode determined, now initializing mode interface');
-
-        return initializeModeInterface();
-    }).then(() => {
-        affoDebugLog('Mode interface initialized, now restoring from domain storage');
-
-        return restoreUIFromDomainStorage();
-    }).then(() => {
-        affoDebugLog('Domain storage restoration completed');
-
-        // ONLY NOW show UI and allow interactions - everything is ready
-
-        document.body.style.visibility = 'visible';
-        affoDebugLog('✅ UI is now visible and ready for user interaction');
-
-    }).catch((error) => {
-        console.error('Initialization failed:', error);
-        // Show UI anyway to prevent blank popup
-        document.body.style.visibility = 'visible';
-
-    });
-
-
-    // Mode switching is now handled by the 3-mode tab system in HTML
-
-    // Note: Apply-to-page button (Body mode) event listener is now handled by setupPanelButtons() in setupApplyResetEventListeners()
-
-    // Pre-highlight Apply buttons based on saved state for current origin
-    if (currentViewMode === 'third-man-in') {
-        try { syncThirdManInButtons(); } catch (_) {}
-    }
-
+function setupBasicFontControls() {
     // Body family reset button
     const bodyFamilyResetBtn = document.getElementById('body-family-reset');
     if (bodyFamilyResetBtn) {
@@ -3706,17 +3617,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         const callbacks = getPositionCallbacks(position);
         if (!callbacks) return;
         btn.addEventListener('click', function() {
-            const colorSelect = document.getElementById(`${position}-font-color`);
-            const colorGroup = colorSelect && colorSelect.closest('.control-group');
-            if (colorSelect) colorSelect.value = 'default';
-            if (colorGroup) colorGroup.classList.add('unset');
+            resetBasicControl(position, 'color');
             callbacks.preview();
             if (callbacks.buttons) callbacks.buttons();
             if (callbacks.save) saveExtensionState();
         });
     });
-
-
 
     function parseSizeVal(v){
         if (v == null) return null;
@@ -3843,10 +3749,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (callbacks.save) saveExtensionState();
         });
     });
+}
 
-    // Font Picker wiring
-    setupFontPicker();
-
+function initializeFontDisplays() {
     // Initialize font family displays with default values
     const topDisp = document.getElementById('top-font-display');
     const botDisp = document.getElementById('bottom-font-display');
@@ -3871,9 +3776,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             element.classList.add('default');
         }
     });
+}
 
-    // Family reset handlers removed - no longer needed
-
+function setupPanelResetMarkers() {
     // Add event listeners for footer Reset buttons (all use resetPanelSettings)
     ['top', 'bottom', 'body'].forEach(pos => {
         const btn = document.getElementById(`reset-${pos}`);
@@ -3894,7 +3799,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!marker) return;
         activateSroulettePanelMarker(marker, e);
     }, true);
+}
 
+function setupAlertEventListeners() {
     // Custom alert OK button
     document.getElementById('custom-alert-ok').addEventListener('click', function() {
         hideCustomAlert();
@@ -3938,213 +3845,35 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('custom-confirm-cancel').addEventListener('click', function() {
         hideCustomConfirm();
     });
+}
 
+function setupControlResetListeners() {
     // Add delegated event listener for basic control reset buttons
     document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'line-height') {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return; // unsupported panel
-
-            const activeControls = getActiveControls(position);
-            const controlGroup = e.target.closest('.control-group');
-
-            // Reset to default line height and make unset
-            const lineHeightControl = document.getElementById(`${position}-line-height`);
-            const lineHeightTextInput = document.getElementById(`${position}-line-height-text`);
-            const lineHeightValue = document.getElementById(`${position}-line-height-value`);
-
-            if (lineHeightControl) {
-                lineHeightControl.value = 1.5;
-                if (lineHeightValue) lineHeightValue.textContent = '1.5';
-                if (lineHeightTextInput) {
-                    lineHeightTextInput.value = 1.5;
-                }
-
-                // Remove from active controls and add unset class
-                activeControls.delete('line-height');
-                if (controlGroup) {
-                    controlGroup.classList.add('unset');
-                }
-
-                // Remove focus from the reset button (more aggressive for mobile)
+        const controlName = e.target.getAttribute('data-control');
+        if (e.target.classList.contains('axis-reset-btn') && Object.hasOwn(BASIC_CONTROL_DEFAULTS, controlName)) {
+            const position = getPanelPositionFromElement(e.target);
+            if (!position) return;
+            resetBasicControl(position, controlName);
+            // Release focus after touch so reset controls do not retain pressed styling.
+            e.target.blur();
+            setTimeout(() => {
                 e.target.blur();
-                setTimeout(() => {
-                    e.target.blur();
-                    // Force focus to body to ensure button loses focus
-                    document.body.focus();
-                }, 10);
-                setTimeout(() => e.target.blur(), 100);
-
-                applyFont(position);
-                saveExtensionState();
-            }
-        }
-
-        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'weight') {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return; // unsupported panel
-
-            const activeControls = getActiveControls(position);
-            const controlGroup = e.target.closest('.control-group');
-
-            const weightControl = document.getElementById(`${position}-font-weight`);
-            const weightValue = document.getElementById(`${position}-font-weight-value`);
-
-            if (weightControl && weightValue) {
-                // Reset to default weight and unset control
-                weightControl.value = 400;
-                weightValue.textContent = '400';
-                activeControls.delete('weight');
-                if (controlGroup) {
-                    controlGroup.classList.add('unset');
-                }
-
-                // Remove focus from the reset button (more aggressive for mobile)
-                e.target.blur();
-                setTimeout(() => {
-                    e.target.blur();
-                    // Force focus to body to ensure button loses focus
-                    document.body.focus();
-                }, 10);
-                setTimeout(() => e.target.blur(), 100);
-
-                applyFont(position);
-                saveExtensionState();
-            }
-        }
-
-        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'style') {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return; // unsupported panel
-
-            const activeControls = getActiveControls(position);
-            const controlGroup = e.target.closest('.control-group');
-            const styleControl = document.getElementById(`${position}-font-style`);
-
-            if (styleControl) {
-                styleControl.value = 'normal';
-                activeControls.delete('style');
-                if (controlGroup) controlGroup.classList.add('unset');
-
-                e.target.blur();
-                setTimeout(() => {
-                    e.target.blur();
-                    document.body.focus();
-                }, 10);
-                setTimeout(() => e.target.blur(), 100);
-
-                applyFont(position);
-                saveExtensionState();
-            }
-        }
-
-        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'font-size') {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return; // unsupported panel
-
-            const activeControls = getActiveControls(position);
-            const group = e.target.closest('.control-group');
-            const slider = document.getElementById(`${position}-font-size`);
-            if (slider) {
-                setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
-                activeControls.delete('font-size');
-                if (group) group.classList.add('unset');
-
-                // Remove focus from the reset button (more aggressive for mobile)
-                e.target.blur();
-                setTimeout(() => {
-                    e.target.blur();
-                    // Force focus to body to ensure button loses focus
-                    document.body.focus();
-                }, 10);
-                setTimeout(() => e.target.blur(), 100);
-
-                applyFont(position);
-                saveExtensionState();
-            }
-        }
-
-        if (e.target.classList.contains('axis-reset-btn') && e.target.getAttribute('data-control') === 'letter-spacing') {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return;
-
-            const activeControls = getActiveControls(position);
-            const group = e.target.closest('.control-group');
-            const slider = document.getElementById(`${position}-letter-spacing`);
-            const textInput = document.getElementById(`${position}-letter-spacing-text`);
-            const span = document.getElementById(`${position}-letter-spacing-value`);
-            if (slider) {
-                slider.value = 0;
-                if (textInput) textInput.value = 0;
-                if (span) span.textContent = '0em';
-                activeControls.delete('letter-spacing');
-                if (group) group.classList.add('unset');
-
-                e.target.blur();
-                setTimeout(() => {
-                    e.target.blur();
-                    document.body.focus();
-                }, 10);
-                setTimeout(() => e.target.blur(), 100);
-
-                applyFont(position);
-                saveExtensionState();
-            }
+                document.body.focus();
+            }, 10);
+            setTimeout(() => e.target.blur(), 100);
+            applyFont(position);
+            saveExtensionState();
         }
 
         // Variable axes reset button handler
         if (e.target.classList.contains('axis-reset-btn') && e.target.hasAttribute('data-axis')) {
-            const panel = e.target.closest('.controls-panel');
-            let position;
-            if (panel.id.includes('top')) position = 'top';
-            else if (panel.id.includes('bottom')) position = 'bottom';
-            else if (panel.id.includes('body')) position = 'body';
-            else if (panel.id.includes('serif')) position = 'serif';
-            else if (panel.id.includes('sans')) position = 'sans';
-            else if (panel.id.includes('mono')) position = 'mono';
-            else return; // unsupported panel
+            const position = getPanelPositionFromElement(e.target);
+            if (!position) return;
 
-            const axis = e.target.getAttribute('data-axis');
-            const activeAxes = getActiveAxes(position);
             const controlGroup = e.target.closest('.control-group');
 
             // Remove the axis from active axes
-            activeAxes.delete(axis);
             if (controlGroup) {
                 controlGroup.classList.add('unset');
             }
@@ -4159,17 +3888,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Family reset button handler
         if (e.target.classList.contains('family-reset-btn')) {
             affoDebugLog('Family reset button clicked', e.target);
-            const panelId = e.target.closest('.controls-panel').id;
-            affoDebugLog('Panel ID:', panelId);
-            let position;
-
-            // Clean direct mapping from panel IDs to positions
-            if (panelId === 'top-font-controls') position = 'top';
-            else if (panelId === 'bottom-font-controls') position = 'bottom';
-            else if (panelId === 'body-font-controls') position = 'body';
-            else if (panelId === 'serif-font-controls') position = 'serif';
-            else if (panelId === 'sans-font-controls') position = 'sans';
-            else if (panelId === 'mono-font-controls') position = 'mono';
+            const position = getPanelPositionFromElement(e.target);
 
             if (position) {
                 affoDebugLog('Position determined:', position);
@@ -4214,99 +3933,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     });
+}
 
-    // Load saved state and initialize fonts
-    // (loadExtensionState already called earlier)
-
-    const currentModeState = extensionState ? extensionState[currentViewMode] : null;
-
-    // Async font restoration
-    const initialFontRestorationPromise = (async () => {
-        // Don't restore fonts if currentViewMode is not set yet
-        if (!currentViewMode) {
-            affoDebugWarn('Font restoration skipped: currentViewMode not set yet');
-            return;
-        }
-
-        if (currentViewMode === 'third-man-in') {
-            // Restore Third Man In mode fonts
-            if (currentModeState && currentModeState.serifFont && currentModeState.serifFont.fontName) {
-                await applyFontConfig('serif', currentModeState.serifFont);
-            }
-
-            if (currentModeState && currentModeState.sansFont && currentModeState.sansFont.fontName) {
-                await applyFontConfig('sans', currentModeState.sansFont);
-            }
-
-            if (currentModeState && currentModeState.monoFont && currentModeState.monoFont.fontName) {
-                await applyFontConfig('mono', currentModeState.monoFont);
-            }
-        } else if (currentViewMode === 'faceoff') {
-            // Face-off mode font restoration
-            if (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) {
-                // Restore saved top font for current mode
-                await applyFontConfig('top', currentModeState.topFont);
-            } else {
-                // Use default top font (suppress save during initialization)
-                await loadFont('top', 'ABeeZee', { suppressImmediateSave: true });
-            }
-
-            if (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) {
-                // Restore saved bottom font for current mode
-                await applyFontConfig('bottom', currentModeState.bottomFont);
-            } else {
-                // Use default bottom font (suppress save during initialization)
-                await loadFont('bottom', 'Zilla Slab Highlight', { suppressImmediateSave: true });
-            }
-        }
-    })();
-
-    // Add event listeners for font selectors
-    // Font changes now handled by font picker, no dropdown event listeners needed
-
-    // After state has been applied, populate the selects from metadata without clobbering selection.
-    // Ordering (applyFontConfig before select population) is guaranteed by awaiting the init +
-    // font-restoration promises below — no fixed delay needed.
-    (async () => {
-        await popupInitializationPromise;
-        await initialFontRestorationPromise;
-
-        const currentModeState = extensionState ? extensionState[currentViewMode] : null;
-        const topDesired = (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) ? resolveFamilyCase(currentModeState.topFont.fontName) : undefined;
-        const botDesired = (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) ? resolveFamilyCase(currentModeState.bottomFont.fontName) : undefined;
-        const ok = await initializeGoogleFontsSelects(topDesired, botDesired);
-        // Re-apply saved state once more to guarantee selection sticks even if the list was rebuilt
-        if (ok && extensionState) {
-            const currentModeState = extensionState[currentViewMode];
-            if (currentModeState) {
-                const topCfg = currentModeState.topFont;
-                const botCfg = currentModeState.bottomFont;
-                if (topCfg && topCfg.fontName) {
-                    const resolved = resolveFamilyCase(topCfg.fontName);
-                    if (resolved !== topCfg.fontName) {
-                        topCfg.fontName = resolved;
-                    }
-                    await applyFontConfig('top', topCfg);
-                }
-                if (botCfg && botCfg.fontName) {
-                    const resolved = resolveFamilyCase(botCfg.fontName);
-                    if (resolved !== botCfg.fontName) {
-                        botCfg.fontName = resolved;
-                    }
-                    await applyFontConfig('bottom', botCfg);
-                }
-            }
-        }
-        await applyPendingFaceoffPageFontDraft();
-        // Face-off displays already show the correct font names from the font picker
-        // Third Man In displays remain as "Default" unless specifically changed by user
-        // Persist any canonicalized names
-        await saveExtensionState();
-    })();
-
-    // Panel state variables are declared at module level
-
-
+function setupFaceoffGripHandlers() {
+    const panelOverlay = document.getElementById('panel-overlay');
+    const topFontGrip = document.getElementById('top-font-grip');
+    const bottomFontGrip = document.getElementById('bottom-font-grip');
     // Grip handlers (throttled to avoid double-fire on touch/click)
     let lastToggleTs = 0;
     function throttled(fn) {
@@ -4341,256 +3973,177 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Control panels are positioned by CSS relative to #preview-region
     // (top:0/bottom:0), so no JS bottom-offset adjustment is needed.
+}
 
-    // Initialize favorites system
-    loadFavoritesFromStorage();
-
-    // Save favorite functionality
-    function setupSaveFavorite(position) {
-        const ids = [
-            `${position}-save-favorite`,
-            `${position}-save-favorite-bar`
-        ];
-        ids.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn && !btn.__affoBound) {
-                btn.addEventListener('click', function() { showSaveModal(position); });
-                btn.__affoBound = true;
-            }
-        });
+async function restoreInitialFonts() {
+    const currentModeState = extensionState ? extensionState[currentViewMode] : null;
+    // Don't restore fonts if currentViewMode is not set yet
+    if (!currentViewMode) {
+        affoDebugWarn('Font restoration skipped: currentViewMode not set yet');
+        return;
     }
 
-    // Load favorite functionality - now opens popup
-    function setupLoadFavorite(position) {
-        const ids = [
-            `${position}-load-favorite`,
-            `${position}-load-favorite-bar`
-        ];
-        ids.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn && !btn.__affoBound) {
-                btn.addEventListener('click', function() { showFavoritesPopup(position); });
-                btn.__affoBound = true;
-            }
-        });
-    }
-
-    // Setup save modal event handlers
-    const saveModal = document.getElementById('save-modal');
-    const saveModalClose = document.getElementById('save-modal-close');
-    const saveModalCancel = document.getElementById('save-modal-cancel');
-    const saveModalSave = document.getElementById('save-modal-save');
-    const saveModalName = document.getElementById('save-modal-name');
-
-    // Close modal handlers
-    saveModalClose.addEventListener('click', hideSaveModal);
-    saveModalCancel.addEventListener('click', hideSaveModal);
-
-    // Close on background click
-    saveModal.addEventListener('click', function(e) {
-        if (e.target === saveModal) {
-            hideSaveModal();
+    if (currentViewMode === 'third-man-in') {
+        // Restore Third Man In mode fonts
+        if (currentModeState && currentModeState.serifFont && currentModeState.serifFont.fontName) {
+            await applyFontConfig('serif', currentModeState.serifFont);
         }
+
+        if (currentModeState && currentModeState.sansFont && currentModeState.sansFont.fontName) {
+            await applyFontConfig('sans', currentModeState.sansFont);
+        }
+
+        if (currentModeState && currentModeState.monoFont && currentModeState.monoFont.fontName) {
+            await applyFontConfig('mono', currentModeState.monoFont);
+        }
+    } else if (currentViewMode === 'faceoff') {
+        // Face-off mode font restoration
+        if (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) {
+            // Restore saved top font for current mode
+            await applyFontConfig('top', currentModeState.topFont);
+        } else {
+            // Use default top font (suppress save during initialization)
+            await loadFont('top', 'ABeeZee', { suppressImmediateSave: true });
+        }
+
+        if (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) {
+            // Restore saved bottom font for current mode
+            await applyFontConfig('bottom', currentModeState.bottomFont);
+        } else {
+            // Use default bottom font (suppress save during initialization)
+            await loadFont('bottom', 'Zilla Slab Highlight', { suppressImmediateSave: true });
+        }
+    }
+
+}
+
+async function initializeFontSelections(popupInitializationPromise, initialFontRestorationPromise) {
+    await popupInitializationPromise;
+    await initialFontRestorationPromise;
+
+    const currentModeState = extensionState ? extensionState[currentViewMode] : null;
+    const topDesired = (currentModeState && currentModeState.topFont && currentModeState.topFont.fontName) ? fontPicker.resolveFamilyCase(currentModeState.topFont.fontName) : undefined;
+    const botDesired = (currentModeState && currentModeState.bottomFont && currentModeState.bottomFont.fontName) ? fontPicker.resolveFamilyCase(currentModeState.bottomFont.fontName) : undefined;
+    const ok = await fontPicker.initializeGoogleFontsSelects(topDesired, botDesired);
+    // Re-apply saved state once more to guarantee selection sticks even if the list was rebuilt
+    if (ok && extensionState) {
+        const currentModeState = extensionState[currentViewMode];
+        if (currentModeState) {
+            const topCfg = currentModeState.topFont;
+            const botCfg = currentModeState.bottomFont;
+            if (topCfg && topCfg.fontName) {
+                const resolved = fontPicker.resolveFamilyCase(topCfg.fontName);
+                if (resolved !== topCfg.fontName) {
+                    topCfg.fontName = resolved;
+                }
+                await applyFontConfig('top', topCfg);
+            }
+            if (botCfg && botCfg.fontName) {
+                const resolved = fontPicker.resolveFamilyCase(botCfg.fontName);
+                if (resolved !== botCfg.fontName) {
+                    botCfg.fontName = resolved;
+                }
+                await applyFontConfig('bottom', botCfg);
+            }
+        }
+    }
+    await applyPendingFaceoffPageFontDraft();
+    // Face-off displays already show the correct font names from the font picker
+    // Third Man In displays remain as "Default" unless specifically changed by user
+    // Persist any canonicalized names
+    await saveExtensionState();
+
+}
+
+function restorePopupState() {
+    // Restore the mode before applying domain-specific controls.
+    affoDebugLog('Loading extension state before initialization');
+    return loadExtensionState().then(() => {
+        affoDebugLog('Extension state loaded, now determining correct mode');
+
+        return determineInitialMode();
+    }).then(() => {
+        affoDebugLog('Initial mode determined, now initializing mode interface');
+
+        return initializeModeInterface();
+    }).then(() => {
+        affoDebugLog('Mode interface initialized, now restoring from domain storage');
+
+        return restoreUIFromDomainStorage();
+    }).then(() => {
+        affoDebugLog('Domain storage restoration completed');
+
+        // Reveal the UI after domain restoration completes.
+        document.body.style.visibility = 'visible';
+        affoDebugLog('✅ UI is now visible and ready for user interaction');
+
+    }).catch((error) => {
+        console.error('Initialization failed:', error);
+        // Show UI anyway to prevent blank popup
+        document.body.style.visibility = 'visible';
+
     });
+}
 
-    // Close on Escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && saveModal.classList.contains('visible')) {
-            hideSaveModal();
+// Control defaults are UI display values; unset controls stay absent from saved configs.
+const BASIC_CONTROL_DEFAULTS = {
+    'font-size': { id: 'font-size' },
+    'line-height': { id: 'line-height', value: 1.5, suffix: '' },
+    'letter-spacing': { id: 'letter-spacing', value: 0, suffix: 'em' },
+    weight: { id: 'font-weight', value: 400, suffix: '' },
+    style: { id: 'font-style', value: 'normal' },
+    color: { id: 'font-color', value: 'default' }
+};
+
+function resetBasicControl(position, controlName, { unset = true } = {}) {
+    const config = BASIC_CONTROL_DEFAULTS[controlName];
+    if (!config) return;
+    if (controlName === 'font-size') {
+        setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
+    } else {
+        for (const suffix of ['', '-text']) {
+            const input = document.getElementById(`${position}-${config.id}${suffix}`);
+            if (input) input.value = config.value;
         }
-    });
-
-    // Save button handler
-    saveModalSave.addEventListener('click', function() {
-        const name = saveModalName.value.trim();
-        const position = saveModal.getAttribute('data-position');
-
-        if (typeof getCurrentPanelState === 'function' && getCurrentPanelState(position).kind === 'sroulette') {
-            hideSaveModal();
-            return;
-        }
-
-        if (!name) {
-            showCustomAlert('Please enter a name for this favorite');
-            return;
-        }
-
-        const config = getCurrentUIConfig(position);
-        affoDebugLog('Saving favorite - config from getCurrentUIConfig:', JSON.stringify(config, null, 2));
-        savedFavorites[name] = config;
-        if (!Array.isArray(savedFavoritesOrder)) savedFavoritesOrder = [];
-        if (savedFavoritesOrder.indexOf(name) === -1) savedFavoritesOrder.push(name);
-        saveFavoritesToStorage();
-
-        hideSaveModal();
-        showCustomAlert(`Saved "${name}" to favorites!`);
-    });
-
-    // Save on Enter key in name input
-    saveModalName.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            saveModalSave.click();
-        }
-    });
-
-    // Setup new favorites popup and edit modal event handlers
-    const favoritesPopup = document.getElementById('favorites-popup');
-    const favoritesPopupClose = document.getElementById('favorites-popup-close');
-    const editFavoritesModal = document.getElementById('edit-favorites-modal');
-    const editModalClose = document.getElementById('edit-modal-close');
-    const editFavoritesBtn = document.getElementById('edit-favorites');
-
-    // Favorites popup handlers
-    if (favoritesPopupClose) {
-        favoritesPopupClose.addEventListener('click', hideFavoritesPopup);
+        const display = document.getElementById(`${position}-${config.id}-value`);
+        if (display) display.textContent = String(config.value) + (config.suffix || '');
     }
-    if (favoritesPopup) {
-        favoritesPopup.addEventListener('click', function(e) {
-            if (e.target === favoritesPopup) {
-                hideFavoritesPopup();
-            }
-        });
+    if (unset) {
+        const group = document.querySelector(`#${position}-font-controls .control-group[data-control="${controlName}"]`);
+        if (group) group.classList.add('unset');
     }
+}
 
-    // Edit favorites modal handlers
-    if (editModalClose) {
-        editModalClose.addEventListener('click', hideEditFavoritesModal);
-    }
-    if (editFavoritesModal) {
-        editFavoritesModal.addEventListener('click', function(e) {
-            if (e.target === editFavoritesModal) {
-                hideEditFavoritesModal();
-            }
-        });
-    }
+function resetBasicPanelControls(position, options = {}) {
+    Object.keys(BASIC_CONTROL_DEFAULTS).forEach(control => resetBasicControl(position, control, options));
+}
 
-    // Edit favorites buttons for all modes
-    if (editFavoritesBtn) {
-        editFavoritesBtn.addEventListener('click', showEditFavoritesModal);
-    }
-
-    const editFavoritesBodyBtn = document.getElementById('edit-favorites-body');
-    if (editFavoritesBodyBtn) {
-        editFavoritesBodyBtn.addEventListener('click', showEditFavoritesModal);
-    }
-
-    const editFavoritesTmiBtn = document.getElementById('edit-favorites-tmi');
-    if (editFavoritesTmiBtn) {
-        editFavoritesTmiBtn.addEventListener('click', showEditFavoritesModal);
-    }
-
-    // Close popups/modals on Escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            if (saveModal.classList.contains('visible')) {
-                hideSaveModal();
-            }
-            if (favoritesPopup.classList.contains('visible')) {
-                hideFavoritesPopup();
-            }
-            if (editFavoritesModal.classList.contains('visible')) {
-                hideEditFavoritesModal();
-            }
-        }
-    });
-
-    // Setup favorites for all panels
-    setupSaveFavorite('top');
-    setupLoadFavorite('top');
-    setupSaveFavorite('bottom');
-    setupLoadFavorite('bottom');
-    setupSaveFavorite('body');
-    setupLoadFavorite('body');
-
-    // Third Man In mode favorites
-    setupSaveFavorite('serif');
-    setupLoadFavorite('serif');
-    setupSaveFavorite('sans');
-    setupLoadFavorite('sans');
-    setupSaveFavorite('mono');
-    setupLoadFavorite('mono');
-});
-
-// Generic reset for any panel position (replaces resetTopFont/resetBottomFont)
-function resetFontForPosition(position) {
-    const fontName = document.getElementById(`${position}-font-display`).textContent;
-    const fontDef = getEffectiveFontDefinition(fontName);
-
-    // Reset basic slider values
-    const sizeSlider = document.getElementById(`${position}-font-size`);
-    const lhSlider = document.getElementById(`${position}-line-height`);
-    const lsSlider = document.getElementById(`${position}-letter-spacing`);
-    const weightSlider = document.getElementById(`${position}-font-weight`);
-    const styleSelect = document.getElementById(`${position}-font-style`);
-    const colorSelect = document.getElementById(`${position}-font-color`);
-    setFontSizeUnit(position, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
-    if (sizeSlider) sizeSlider.value = 17;
-    if (lhSlider) lhSlider.value = 1.5;
-    if (lsSlider) lsSlider.value = 0;
-    if (weightSlider) weightSlider.value = 400;
-    if (styleSelect) styleSelect.value = 'normal';
-    if (colorSelect) colorSelect.value = 'default';
-
-    // Reset text inputs
-    const sizeText = document.getElementById(`${position}-font-size-text`);
-    const lhText = document.getElementById(`${position}-line-height-text`);
-    const lsText = document.getElementById(`${position}-letter-spacing-text`);
-    if (sizeText) sizeText.value = 17;
-    if (lhText) lhText.value = 1.5;
-    if (lsText) lsText.value = 0;
-
-    // Reset display values
-    const sizeValue = document.getElementById(`${position}-font-size-value`);
-    const lhValue = document.getElementById(`${position}-line-height-value`);
-    const lsValue = document.getElementById(`${position}-letter-spacing-value`);
-    const weightValue = document.getElementById(`${position}-font-weight-value`);
-    if (sizeValue) sizeValue.textContent = '17px';
-    if (lhValue) lhValue.textContent = '1.5';
-    if (lsValue) lsValue.textContent = '0em';
-    if (weightValue) weightValue.textContent = '400';
-
-    // Mark basic controls as unset/dimmed before preview recalculation.
-    const sizeControl = document.querySelector(`#${position}-font-controls .control-group[data-control="font-size"]`);
-    if (sizeControl) sizeControl.classList.add('unset');
-    const weightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="weight"]`);
-    if (weightControl) weightControl.classList.add('unset');
-    const styleControl = document.querySelector(`#${position}-font-controls .control-group[data-control="style"]`);
-    if (styleControl) styleControl.classList.add('unset');
-    const lineHeightControl = document.querySelector(`#${position}-font-controls .control-group[data-control="line-height"]`);
-    if (lineHeightControl) lineHeightControl.classList.add('unset');
-    const letterSpacingControl = document.querySelector(`#${position}-font-controls .control-group[data-control="letter-spacing"]`);
-    if (letterSpacingControl) letterSpacingControl.classList.add('unset');
-    const colorControl = document.querySelector(`#${position}-font-controls .control-group[data-control="color"]`);
-    if (colorControl) colorControl.classList.add('unset');
-
-    // Reset variable axes and make them unset/dimmed
-    if (fontDef && fontDef.axes.length > 0) {
-        fontDef.axes.forEach(axis => {
-            const control = document.getElementById(`${position}-${axis}`);
+function resetPanelAxes(position) {
+    const display = document.getElementById(`${position}-font-display`);
+    const fontName = display ? String(display.textContent || '').trim() : '';
+    const fontDef = fontName ? getEffectiveFontDefinition(fontName) : null;
+    document.querySelectorAll(`#${position}-font-controls .control-group[data-axis]`).forEach(group => {
+        const axis = group.getAttribute('data-axis');
+        const value = fontDef && fontDef.defaults ? fontDef.defaults[axis] : null;
+        if (value != null) {
+            const slider = document.getElementById(`${position}-${axis}`);
             const textInput = document.getElementById(`${position}-${axis}-text`);
-            const controlGroup = document.querySelector(`#${position}-font-controls .control-group[data-axis="${axis}"]`);
+            if (slider) slider.value = value;
+            if (textInput) textInput.value = value;
+        }
+        group.classList.add('unset');
+    });
+}
 
-            if (control) {
-                control.value = fontDef.defaults[axis];
-                if (textInput) textInput.value = fontDef.defaults[axis];
-                if (controlGroup) controlGroup.classList.add('unset');
-            }
-        });
-    }
-
-    // Apply the reset state
+function resetFontForPosition(position) {
+    resetBasicPanelControls(position);
+    resetPanelAxes(position);
     applyFont(position);
 }
 
 // (apply buttons listeners are bound in the primary DOMContentLoaded block above)
 
-
-// Facade mode completely removed
-
-
-
 // New storage structure to support multiple modes per domain
-// cleanOrigin function removed - now using hostname directly
 
 function getApplyMapForOrigin(origin, fontType = null) {
     if (!origin) return Promise.resolve(null);
@@ -4680,7 +4233,6 @@ function saveBatchApplyStateForOrigin(origin, batchConfigs) {
 
 function clearApplyMapForOrigin(origin, fontType = null) {
     affoDebugLog(`🔴 clearApplyMapForOrigin: Clearing domain storage - origin: ${origin}, fontType: ${fontType}`);
-    console.trace('🔴 clearApplyMapForOrigin: Stack trace to identify caller');
     if (!origin) return Promise.resolve();
     // Using origin directly (hostname)
     return browser.storage.local.get('affoApplyMap').then(data => {
@@ -4711,8 +4263,6 @@ function clearApplyMapForOrigin(origin, fontType = null) {
         console.error(`❌ clearApplyMapForOrigin: Error clearing from domain storage:`, e);
     });
 }
-
-// Note: clearAllThirdManInFonts removed - use clearApplyMapForOrigin(origin) to clear entire domain
 
 // Update active tab to match current mode
 function updateActiveTab(mode) {
@@ -4804,27 +4354,10 @@ function resetThirdManInUI() {
         const selectElement = document.getElementById(`${fontType}-font-select`);
         if (selectElement) selectElement.value = 'Default';
 
-        // Reset controls to defaults
-        setFontSizeUnit(fontType, 'px', { value: FONT_SIZE_UNIT_CONFIG.px.defaultValue });
-
-        const fontWeightSlider = document.getElementById(`${fontType}-font-weight`);
-        const fontWeightValue = document.getElementById(`${fontType}-font-weight-value`);
-        if (fontWeightSlider) fontWeightSlider.value = 400;
-        if (fontWeightValue) fontWeightValue.textContent = '400';
-
-        const fontStyleSelect = document.getElementById(`${fontType}-font-style`);
-        if (fontStyleSelect) fontStyleSelect.value = 'normal';
-
-        const lineHeightSlider = document.getElementById(`${fontType}-line-height`);
-        const lineHeightTextInput = document.getElementById(`${fontType}-line-height-text`);
-        const lineHeightValue = document.getElementById(`${fontType}-line-height-value`);
-        if (lineHeightSlider) lineHeightSlider.value = 1.5;
-        if (lineHeightValue) lineHeightValue.textContent = '1.5';
-        if (lineHeightTextInput) lineHeightTextInput.value = 1.5;
-
-        // Reset color selector
-        const colorSelect = document.getElementById(`${fontType}-font-color`);
-        if (colorSelect) colorSelect.value = 'default';
+        // Restoration preserves active-state markers until the saved config is applied.
+        for (const control of ['font-size', 'weight', 'style', 'line-height', 'color']) {
+            resetBasicControl(fontType, control, { unset: false });
+        }
     }
 }
 
@@ -4962,7 +4495,6 @@ function restoreUIFromDomainStorage() {
 
 // generateBodyContactCSS, generateThirdManInCSS are in css-generators.js
 // Element walker is handled by content.js via runElementWalkerInTargetTab()
-
 
 // Mode switching functionality
 // Check if a mode has applied settings for the current domain
@@ -5467,7 +4999,6 @@ function setupPanelButtons(panelId) {
     const applyBtn = document.getElementById(`apply-${panelId}`);
     const resetBtn = document.getElementById(`reset-${panelId}`);
 
-
     if (applyBtn && !applyBtn._affoApplyHandlerAttached) {
         applyBtn._affoApplyHandlerAttached = true;
         applyBtn.addEventListener('click', async (event) => {
@@ -5475,7 +5006,6 @@ function setupPanelButtons(panelId) {
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-
 
             // Skip if button is already disabled (processing)
             if (applyBtn.disabled) {
@@ -5512,8 +5042,6 @@ function setupPanelButtons(panelId) {
         });
     }
 }
-
-// Storage Queue removed - proper async flow control with .then() prevents race conditions
 
 // Prevent concurrent handleApply calls
 const handleApplyLocks = new Set();
