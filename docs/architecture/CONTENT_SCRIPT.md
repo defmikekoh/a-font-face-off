@@ -90,6 +90,7 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 ### Key Functions
 - **`ensureSharedInlineObserver()`** — Creates the shared MutationObserver on first call. Callback loops `addedNodes` once, then iterates `Object.keys(inlineConfigs)` to match selectors and apply per-type protection.
 - **`ensureSharedInlinePolling()`** — Creates shared polling timers (frequency ramp: fast → slow → stop) on first call. Each tick verifies sentinel elements for all active types before requesting any full rewrite.
+- Hidden tabs cancel periodic timers through one document visibility listener; mutations or explicit Apply do not start polling while hidden. The lifecycle deadline still expires on wall-clock time. `resumeInlineStylesOnFocus()` drops expired configs, preserves full focus-recovery styling, and resumes polling only while monitoring remains active. The elapsed fast/slow phase is preserved across visibility changes. Explicit Apply and mutation-driven styling remain available while hidden.
 - **`reapplyAllInlineStyles()`** — Shared SPA/focus handler that re-applies inline styles for all active types. Its polling mode skips types whose sampled protected values are intact.
 - **`checkExpiredInlineTypes()`** — Removes types whose `expiresAt` has passed from `inlineConfigs`. Calls `cleanupSharedInlineInfra()` when no types remain.
 - **`cleanupSharedInlineInfra()`** — Disconnects the shared observer and clears all shared timers.

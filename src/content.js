@@ -108,6 +108,8 @@
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
   var sharedInlineCleanupTimer = null; // final teardown timer for inline observer/config lifecycle
+  var sharedInlinePollingStartedAt = 0;
+  var inlinePollingVisibilityHookInstalled = false;
   var sharedInlineLastActivityAt = 0; // last apply or meaningful content addition
   var inlineObserverWanted = false; // true while the inline consumer wants the shared DOM observer (reset after the inline monitoring window ends)
   var observedTmiCssTypes = {}; // fontType → true for non-inline TMI types needing re-walk on DOM mutations
@@ -2100,7 +2102,7 @@
       ensureSharedInlinePolling();
 
       // Re-apply styles when page becomes visible
-      registerFocusHandler(reapplyAllInlineStyles);
+      registerFocusHandler(resumeInlineStylesOnFocus);
 
       debugLog(`[AFFO Content] Added shared SPA resilience for ${fontType} fonts on ${currentOrigin} (${Object.keys(inlineConfigs).length} active types)`);
 
@@ -2292,9 +2294,27 @@
     return true;
   }
 
+  function pauseInlinePollingWhenHidden() {
+    if (document.hidden) stopSharedInlinePolling('page hidden');
+  }
+
+  function resumeInlineStylesOnFocus() {
+    if (document.hidden) return;
+    checkExpiredInlineTypes();
+    if (Object.keys(inlineConfigs).length === 0) return;
+    // Preserve full focus recovery, including elements outside the poller's sentinel sample.
+    reapplyAllInlineStyles();
+    if (inlineObserverWanted) ensureSharedInlinePolling();
+  }
+
   // Set up shared polling timers (frequency ramp: fast → slow → stop)
   function ensureSharedInlinePolling() {
     if (sharedInlineTimers.length > 0) return; // already running
+    if (!inlineObserverWanted || Object.keys(inlineConfigs).length === 0) return;
+    if (!inlinePollingVisibilityHookInstalled) {
+      document.addEventListener('visibilitychange', pauseInlinePollingWhenHidden, true);
+      inlinePollingVisibilityHookInstalled = true;
+    }
 
     var isInline = shouldUseInlineApply();
     var initialFrequency = isInline ? 2000 : 5000;
@@ -2307,17 +2327,25 @@
     var checkCount = 0;
     if (!sharedInlineLastActivityAt) sharedInlineLastActivityAt = Date.now();
     if (!sharedInlineCleanupTimer) {
+      sharedInlinePollingStartedAt = Date.now();
       sharedInlineCleanupTimer = setTimeout(function () {
         debugLog('[AFFO Content] Stopped shared style monitoring after ' + (totalDuration / 1000) + ' seconds (' + checkCount + ' total checks)');
         cleanupSharedInlineInfra();
       }, totalDuration);
     }
+    // Keep lifecycle expiry and the fast-to-slow ramp on wall-clock time.
+    // Hiding/reopening a tab must not grant a fresh monitoring window.
+    initialDuration = Math.max(0, initialDuration - (Date.now() - sharedInlinePollingStartedAt));
+    if (initialDuration === 0) initialFrequency = laterFrequency;
+    if (document.hidden) return;
 
     // Start monitoring after 1s delay (same as before)
     var monitoringTimer = setTimeout(function () {
       try {
+        if (document.hidden) { pauseInlinePollingWhenHidden(); return; }
         var initialInterval = setInterval(function () {
           try {
+            if (document.hidden) { pauseInlinePollingWhenHidden(); return; }
             // Check for expired types and remove them
             checkExpiredInlineTypes();
             if (Object.keys(inlineConfigs).length === 0) return;
@@ -2334,25 +2362,29 @@
         sharedInlineTimers.push(initialInterval);
 
         // Switch to less frequent monitoring after initial period
-        var switchTimer = setTimeout(function () {
-          clearInterval(initialInterval);
-          debugLog('[AFFO Content] Switching to less frequent shared monitoring');
+        if (initialDuration > 0) {
+          var switchTimer = setTimeout(function () {
+            if (document.hidden) { pauseInlinePollingWhenHidden(); return; }
+            clearInterval(initialInterval);
+            debugLog('[AFFO Content] Switching to less frequent shared monitoring');
 
-          var laterInterval = setInterval(function () {
-            try {
-              checkExpiredInlineTypes();
-              if (Object.keys(inlineConfigs).length === 0) return;
-              if (maybeStopSharedInlinePollingForQuietPage()) return;
-              checkCount++;
-              reapplyAllInlineStyles({ verifyFirst: true });
-            } catch (e) {
-              debugLog('[AFFO Content] Error in shared periodic style check:', e);
-            }
-          }, laterFrequency);
-          sharedInlineTimers.push(laterInterval);
+            var laterInterval = setInterval(function () {
+              try {
+                if (document.hidden) { pauseInlinePollingWhenHidden(); return; }
+                checkExpiredInlineTypes();
+                if (Object.keys(inlineConfigs).length === 0) return;
+                if (maybeStopSharedInlinePollingForQuietPage()) return;
+                checkCount++;
+                reapplyAllInlineStyles({ verifyFirst: true });
+              } catch (e) {
+                debugLog('[AFFO Content] Error in shared periodic style check:', e);
+              }
+            }, laterFrequency);
+            sharedInlineTimers.push(laterInterval);
 
-        }, initialDuration);
-        sharedInlineTimers.push(switchTimer);
+          }, initialDuration);
+          sharedInlineTimers.push(switchTimer);
+        }
 
       } catch (e) {
         debugLog('[AFFO Content] Error setting up shared enhanced monitoring:', e);
@@ -2384,6 +2416,7 @@
       try { clearTimeout(sharedInlineCleanupTimer); } catch (_) { }
       sharedInlineCleanupTimer = null;
     }
+    sharedInlinePollingStartedAt = 0;
     maybeCleanupSharedDomObserver();
   }
 
