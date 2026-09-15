@@ -178,7 +178,7 @@ jobs:
         with:
           tag_name: firefox-test-latest
           target_commitish: ${{ github.sha }}
-          name: Android test (latest) ${{ steps.ver.outputs.v }}
+          name: Firefox Android test (latest) ${{ steps.ver.outputs.v }}
           body: |
             Draft build for Android testing.
             Version: ${{ steps.ver.outputs.v }}
