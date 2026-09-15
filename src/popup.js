@@ -706,7 +706,10 @@ async function openOptionsFromPopup() {
         try { window.close(); } catch (_) {}
     };
 
-    if (browser.runtime && typeof browser.runtime.openOptionsPage === 'function') {
+    // Chromium Android exposes openOptionsPage(), but its promise can remain
+    // pending from a native action popup. Open the options tab directly there.
+    const isAndroid = /Android/i.test(navigator.userAgent || '');
+    if (!isAndroid && browser.runtime && typeof browser.runtime.openOptionsPage === 'function') {
         try {
             await browser.runtime.openOptionsPage();
             closePopup();

@@ -9,4 +9,7 @@
   const isChromiumPanel = background && background.service_worker &&
     !new URLSearchParams(location.search).has('sourceTabId');
   if (isChromiumPanel) document.documentElement.classList.add('affo-popup-panel');
+  if (isChromiumPanel && /EdgA\//i.test(navigator.userAgent)) {
+    document.documentElement.classList.add('affo-edge-panel');
+  }
 })();

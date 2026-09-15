@@ -51,6 +51,14 @@ html.affo-mobile.affo-popup-panel body {
     height: 600px;
 }
 
+/* Edge Android clips native action popups to the available WebView viewport
+   (which is shorter than the 600px panel height on some phones). Let the
+   popup fill that viewport so the footer remains visible. */
+html.affo-mobile.affo-popup-panel.affo-edge-panel body {
+    height: 100%;
+    min-height: 0;
+}
+
 /* Global layout variables */
 :root {
     /* Height of the bottom grips/footer bar (button area only) */
