@@ -162,21 +162,21 @@ jobs:
           name: signed-xpi-${{ steps.ver.outputs.v }}
           path: signed/*.xpi
 
-      # Move android-test-latest tag to this commit so the release has a real tag
-      - name: Move android-test-latest tag to this commit
+      # Move firefox-test-latest tag to this commit so the release has a real tag
+      - name: Move firefox-test-latest tag to this commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch --tags --force
-          git tag -f android-test-latest $GITHUB_SHA
-          git push -f origin android-test-latest
+          git tag -f firefox-test-latest $GITHUB_SHA
+          git push -f origin firefox-test-latest
 
       # Prerelease on every push for a direct .xpi link
 
       - name: Create/Update "latest" release (manual)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-test-latest
+          tag_name: firefox-test-latest
           target_commitish: ${{ github.sha }}
           name: Android test (latest) ${{ steps.ver.outputs.v }}
           body: |
@@ -190,14 +190,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prune old assets from android-test-latest release
+      - name: Prune old assets from firefox-test-latest release
         run: |
           echo "Pruning old assets..."
-          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/android-test-latest"
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/firefox-test-latest"
           RELEASE_JSON=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$API_URL")
           RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
           if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
-            echo "No release found for tag android-test-latest."
+            echo "No release found for tag firefox-test-latest."
             exit 0
           fi
           # Collect asset IDs beyond the 5 most recent (keep newest first)
@@ -216,7 +216,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Fetching latest (tagged) release download URL..."
-          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/android-test-latest"
+          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/firefox-test-latest"
 
           # Retry up to 3 times with 10 second delays
           attempts=3

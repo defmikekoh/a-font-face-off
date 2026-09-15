@@ -44,7 +44,7 @@ I created this extension because looking at the Spectral font on my Android tabl
 
 ## Install
 
-Firefox Android only. Download and install the signed `.xpi` from https://github.com/defmikekoh/a-font-face-off/releases/tag/android-test-latest .
+Firefox Android only. Download and install the signed `.xpi` from https://github.com/defmikekoh/a-font-face-off/releases/tag/firefox-test-latest .
 
 ## Privacy
 
