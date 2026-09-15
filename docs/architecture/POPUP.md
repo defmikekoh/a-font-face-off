@@ -115,10 +115,12 @@ Pure function returning `{ action: 'apply'|'reset'|'none', changeCount }`. Share
 ## UI Control Factories
 
 ### `getPositionCallbacks(position)`
-Returns `{ preview, buttons, save }` callbacks appropriate for a panel position. Body calls `updateBodyPreview` + `updateBodyButtons`; TMI calls `updateThirdManInPreview` + `updateAllThirdManInButtons`; face-off calls `applyFont`.
+Returns `{ preview, buttons, save }` callbacks appropriate for a panel position. All previews call `applyFont`; Body additionally calls `updateBodyButtons`, and TMI calls `updateAllThirdManInButtons`. `save` is false because ordinary `applyFont` calls save the UI state themselves.
 
 ### `setupSliderControl(position, controlId, options?)`
 Generic factory for slider input, text keydown/blur, and value display handlers. Used for font-size, line-height, letter-spacing, and font-weight across all 6 positions. Options: `{ format, suffix, clampMin, clampMax }`.
+
+Basic and variable-axis sliders share `updateSliderEffects(position, immediate?)`. Each input updates its value display and starts persistence immediately; preview rendering and button checks coalesce to one animation-frame callback per panel. `applyFont(position, { saveState: false })` renders without a second save. Range `change` flushes pending visuals, and text commits/axis resets flush immediately. Enter followed by blur skips an unchanged text value. Axis resets mark the control unset before saving. Mode switches cancel pending visual callbacks; the queue contains no unsent settings, so popup destruction cannot drop a deferred save. Generic TMI control listeners skip ranges because their handlers already update buttons.
 
 ### `cloneControlPanel(position)`
 Clones the `body-font-controls` template to create control panels for top, bottom, serif, sans, and mono positions at startup. Replaces all `body-` ID prefixes, updates headings (e.g. "Top Font", "Serif"), button text ("Apply All"/"Reset All" for TMI positions), aria-labels, and titles. All 5 panels are cloned before any other initialization code runs.

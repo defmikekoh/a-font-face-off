@@ -2,9 +2,11 @@
 
 This document outlines the key data structures used in the A Font Face-off browser extension for font management and persistence.
 
-## Ephemeral scan and picker state
+## Ephemeral performance state
 
 These performance structures live only in their owning document and are never stored or synced:
+
+- `popup.js`: `pendingSliderEffects` is a `Map<position, { mode, frame }>` containing one animation-frame ID per panel awaiting preview/button updates. Inputs start storage writes immediately; this map never holds deferred persistence. Commit flushes a panel, mode changes cancel all entries, and popup teardown releases the map.
 
 - `content.js`: `dynamicMutationJob` is `null` or `{ roots: Set<Element>, cancel: Function|null, promise: Promise|null }`. It owns queued mutation roots and the cancellation/completion of one serial, chunked scan pipeline.
 - `content.js`: `sharedInlinePollingStartedAt` records the monitoring lifecycle start so hidden-tab pauses do not restart its fast phase. `inlinePollingVisibilityHookInstalled` deduplicates the pause listener. Periodic timer IDs are cleared while hidden; the separate cleanup deadline remains in force.

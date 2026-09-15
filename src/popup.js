@@ -2402,62 +2402,37 @@ function generateFontControls(position, fontName) {
         axesContainer.appendChild(controlGroup);
 
         // Add event listeners for both slider and text input
-        function activateAxis() {
-            affoDebugLog(`activateAxis called for ${position}-${axis}`, controlGroup);
-            // Remove 'unset' class to mark axis as active
-            controlGroup.classList.remove('unset');
-
-            // Always update button states when axis is activated (even if already active)
-            if (position === 'body') {
-                updateBodyButtons();
-                saveExtensionState();
-            } else if (['serif', 'sans', 'mono'].includes(position)) {
-                updateAllThirdManInButtons(position);
-            }
-        }
-
-        function updateValues(newValue) {
+        function updateValues(newValue, immediate = false) {
             input.value = newValue;
-            textInput.value = newValue;
-            applyFont(position);
-
-            // Update button states after changing axis value
-            if (position === 'body') {
-                updateBodyButtons();
-                saveExtensionState();
-            } else if (['serif', 'sans', 'mono'].includes(position)) {
-                updateAllThirdManInButtons(position);
-            }
+            textInput.value = input.value;
+            updateSliderEffects(position, immediate);
         }
 
         input.addEventListener('input', function() {
-            activateAxis();
+            controlGroup.classList.remove('unset');
             updateValues(this.value);
         });
+        input.addEventListener('change', () => flushSliderEffects(position));
 
+        function applyTextValue() {
+            const parsed = parseFloat(textInput.value);
+            const value = Math.min(Math.max(Number.isFinite(parsed) ? parsed : defaultValue, range[0]), range[1]);
+            const changed = controlGroup.classList.contains('unset') || Number(input.value) !== value;
+            controlGroup.classList.remove('unset');
+            if (changed) updateValues(value, true);
+            else textInput.value = input.value;
+        }
         textInput.addEventListener('keydown', function(e) {
-            affoDebugLog(`keydown event on ${position}-${axis}-text, key:`, e.key);
             if (e.key === 'Enter') {
-                affoDebugLog(`Enter pressed on ${position}-${axis}-text, calling activateAxis`);
-                activateAxis();
-                const value = Math.min(Math.max(parseFloat(this.value) || defaultValue, range[0]), range[1]);
-                updateValues(value);
+                applyTextValue();
                 this.blur();
             }
         });
-
-        textInput.addEventListener('blur', function() {
-            // Clamp value to valid range on blur
-            const value = Math.min(Math.max(parseFloat(this.value) || defaultValue, range[0]), range[1]);
-            activateAxis();
-            updateValues(value);
-        });
+        textInput.addEventListener('blur', applyTextValue);
 
         resetButton.addEventListener('click', function() {
-            // Reset to default and make unset/dimmed again
-            updateValues(defaultValue);
             controlGroup.classList.add('unset');
-            applyFont(position);
+            updateValues(defaultValue, true);
         });
     });
 
@@ -2889,7 +2864,7 @@ function restoreFontSettings(position, fontName) {
     }
 }
 
-function applyFont(position) {
+function applyFont(position, { saveState = true } = {}) {
     const textElement = document.getElementById(`${position}-font-text`);
     const nameElement = document.getElementById(`${position}-font-name`);
     if (!textElement || !nameElement) return;
@@ -2905,7 +2880,7 @@ function applyFont(position) {
         nameElement.textContent = defaults[position] || 'Default';
         nameElement.style.fontFamily = '';
         textElement.style.cssText = `font-family: ${genericFamily};`;
-        if (!suppressUiStateSave) saveExtensionState();
+        if (saveState && !suppressUiStateSave) saveExtensionState();
         return;
     }
 
@@ -2936,7 +2911,7 @@ function applyFont(position) {
 
     textElement.style.cssText = style;
 
-    if (!suppressUiStateSave) saveExtensionState();
+    if (saveState && !suppressUiStateSave) saveExtensionState();
 }
 
 // Favorites functions (hasInCollection, generateFontConfigName, generateConfigPreview,
@@ -3113,6 +3088,37 @@ function getPositionCallbacks(position) {
     if (['top', 'bottom'].includes(position))
         return { preview: () => applyFont(position), buttons: null, save: false };
     return null;
+}
+
+// Only visual/button work waits for a frame. Persist every input before returning,
+// because Firefox can destroy the popup without running another frame or timer.
+const pendingSliderEffects = new Map();
+
+function flushSliderEffects(position) {
+    const pending = pendingSliderEffects.get(position);
+    if (!pending) return;
+    cancelAnimationFrame(pending.frame);
+    pendingSliderEffects.delete(position);
+    if (pending.mode !== currentViewMode) return;
+    applyFont(position, { saveState: false });
+    const callbacks = getPositionCallbacks(position);
+    if (callbacks?.buttons) callbacks.buttons();
+}
+
+function updateSliderEffects(position, immediate = false) {
+    if (!suppressUiStateSave) saveExtensionState();
+    if (!pendingSliderEffects.has(position)) {
+        pendingSliderEffects.set(position, {
+            mode: currentViewMode,
+            frame: requestAnimationFrame(() => flushSliderEffects(position))
+        });
+    }
+    if (immediate) flushSliderEffects(position);
+}
+
+function cancelSliderEffects() {
+    for (const pending of pendingSliderEffects.values()) cancelAnimationFrame(pending.frame);
+    pendingSliderEffects.clear();
 }
 
 // Migration: Remove derived font-loading fields from existing domain storage/cache.
@@ -3652,10 +3658,10 @@ function setupBasicFontControls() {
             const v = formatVal(this.value);
             if (textInput) textInput.value = v;
             if (valueDisplay) valueDisplay.textContent = v + getSuffix();
-            if (callbacks.buttons) callbacks.buttons();
-            callbacks.preview();
-            if (callbacks.save) saveExtensionState();
+            updateSliderEffects(position);
         });
+
+        slider.addEventListener('change', () => flushSliderEffects(position));
 
         if (textInput && options.clampMin != null) {
             const applyTextValue = function() {
@@ -3663,13 +3669,12 @@ function setupBasicFontControls() {
                 const max = Number(slider.max || options.clampMax);
                 const vv = clamp(this.value, min, max);
                 if (vv !== null) {
+                    const changed = group?.classList.contains('unset') || Number(slider.value) !== vv;
                     if (group) group.classList.remove('unset');
                     slider.value = String(vv);
                     this.value = String(vv);
                     if (valueDisplay) valueDisplay.textContent = vv + getSuffix();
-                    if (callbacks.buttons) callbacks.buttons();
-                    callbacks.preview();
-                    if (callbacks.save) saveExtensionState();
+                    if (changed) updateSliderEffects(position, true);
                 }
             };
             textInput.addEventListener('keydown', function(e) {
@@ -4671,6 +4676,7 @@ async function switchMode(newMode, forceInit = false, options = {}) {
 }
 
 async function performModeSwitch(newMode, options = {}) {
+    cancelSliderEffects();
     affoDebugLog(`🔄 performModeSwitch: Switching from ${currentViewMode} to ${newMode}`);
 
     document.body.classList.add('mode-switching');
@@ -5350,6 +5356,7 @@ function setupControlChangeListeners(panelId) {
     // Listen for changes on all inputs within the panel
     const inputs = panelElement.querySelectorAll('input, select');
     inputs.forEach(input => {
+        if (input.type === 'range') return; // Slider effects already update buttons.
         input.addEventListener('input', () => onPanelControlChange(panelId));
         input.addEventListener('change', () => onPanelControlChange(panelId));
     });
