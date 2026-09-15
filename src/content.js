@@ -4170,17 +4170,26 @@
           if (Object.keys(typeSet).length === 0) { finish(); return; }
           resetFixedPositionUiCache();
           var startedAt = getAffoNow();
+          var checkedRoot = null;
+          // A page can move the saved cursor into a dialog or remove it while
+          // we yield. Restart at the live root so traversal rechecks pruning
+          // and still reaches the remaining siblings.
+          if (root && walker && (!root.contains(walker.currentNode) || isInsideTmiPrunedSubtree(walker.currentNode))) {
+            walker.currentNode = root;
+            element = root;
+          }
           while (root || rootIndex < roots.length) {
             if (!root) {
               root = roots[rootIndex++];
               walker = null;
               element = root;
             }
-            if (!root || root.nodeType !== 1 || !document.contains(root) ||
+            if (!root || (root !== checkedRoot && (root.nodeType !== 1 || !document.contains(root) ||
                 isTmiPrunedSubtreeRoot(root) || isInsideTmiPrunedSubtree(root) ||
-                !isInOrContainsChatGptMessage(root)) {
+                !isInOrContainsChatGptMessage(root)))) {
               root = null;
             } else {
+              checkedRoot = root;
               if (!walker) {
                 walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
                   acceptNode: function (node) {
@@ -4189,11 +4198,6 @@
                     return isTmiPrunedSubtreeRoot(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
                   }
                 });
-              } else if (!root.contains(walker.currentNode)) {
-                // The page removed the cursor while we yielded. Restart at the
-                // live root so its remaining siblings are not stranded.
-                walker.currentNode = root;
-                element = root;
               }
               if (element && root.contains(element) && elementMayOwnTmiText(element)) {
                 var cs = window.getComputedStyle(element);

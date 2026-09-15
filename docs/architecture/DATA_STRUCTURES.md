@@ -2,6 +2,13 @@
 
 This document outlines the key data structures used in the A Font Face-off browser extension for font management and persistence.
 
+## Ephemeral scan and picker state
+
+These performance structures live only in their owning document and are never stored or synced:
+
+- `content.js`: `dynamicMutationJob` is `null` or `{ roots: Set<Element>, cancel: Function|null, promise: Promise|null }`. It owns queued mutation roots and the cancellation/completion of one serial, chunked scan pipeline.
+- `font-picker.js`: `renderedSections` contains `{ title, items: [{ node, searchName }], letter }` DOM references. A `catalogKey` signature invalidates it when the font lists or favorite names change; `lastQuery` skips repeated filters. Hidden rows stay cached until catalog replacement or popup teardown.
+
 ## Storage Systems
 
 The extension uses `browser.storage.local` for configuration, sync metadata, favorites, and UI state. WOFF2 font binaries for FontFace-only domains are cached separately in IndexedDB to avoid serializing large byte arrays through extension storage.

@@ -76,7 +76,7 @@ function harness(chatgpt = true) {
                     currentNode: root,
                     nextNode() {
                         const index = nodes.indexOf(this.currentNode);
-                        const next = nodes[index + 1];
+                        const next = nodes.slice(index + 1).find(node => !node.pruned);
                         if (next) this.currentNode = next;
                         return next || null;
                     }
@@ -203,6 +203,11 @@ test('yields large scans, serializes later batches, and scales only after classi
         root.children.push(p);
     }
     const scaled = [];
+    h.context.inlineObserverWanted = true;
+    h.context.inlineConfigs.sans = {};
+    h.context.applyInlineStylesInRoots = roots => {
+        assert.ok(roots.every(r => !r.children.length || r.children.every(p => p.attrs.has('data-affo-font-type'))));
+    };
     h.context.fontSizeScaleConfigs.sans = { fontSizeScale: 125 };
     h.context.getActiveFontSizeScaleTypes = () => ['sans'];
     h.context.applyFontSizeScaleInRoots = (_config, _type, roots) => {
@@ -249,4 +254,41 @@ test('yielded scans skip detached roots and types disabled between chunks', asyn
     h.flush();
     await done;
     assert.equal(h.classified.length, 1);
+});
+
+for (const change of ['remove', 'prune']) {
+    test('resumes past a cursor that the page changes between chunks: ' + change, async () => {
+        const h = harness(false);
+        h.context.clockStep = 10;
+        const root = paragraph();
+        root.children = Array.from({ length: 4 }, () => {
+            const p = paragraph();
+            p.parentElement = root;
+            text(p, 'Readable child paragraph');
+            return p;
+        });
+        const cursor = root.children[0];
+        const done = h.context.dispatchMeaningfulMutations([root]);
+        assert.equal(h.classified.length, 0, 'First chunk visits the textless root only');
+        if (change === 'remove') root.children.splice(0, 1);
+        else cursor.pruned = true;
+        for (let i = 0; i < 15 && h.context.dynamicMutationJob; i++) { h.flush(); await Promise.resolve(); }
+        await done;
+        assert.equal(h.classified.length, 3);
+        assert.equal(h.classified.includes(cursor), false);
+    });
+}
+
+test('disabling one type during a yielded scan leaves the other active type eligible', async () => {
+    const h = harness(false);
+    h.context.clockStep = 10;
+    h.context.getObservedTmiCssTypes = () => ['serif', 'sans'];
+    const roots = Array.from({ length: 3 }, () => { const p = paragraph(); text(p, 'Readable text'); return p; });
+    const done = h.context.dispatchMeaningfulMutations(roots);
+    assert.equal(roots[0].attrs.get('data-affo-font-type'), 'serif');
+    h.context.getObservedTmiCssTypes = () => ['sans'];
+    for (let i = 0; i < 10 && h.context.dynamicMutationJob; i++) { h.flush(); await Promise.resolve(); }
+    await done;
+    assert.equal(roots[1].attrs.get('data-affo-font-type'), 'sans');
+    assert.equal(roots[2].attrs.get('data-affo-font-type'), 'sans');
 });

@@ -15,6 +15,10 @@ for changing state, rather than reaching into popup globals. The factories remai
 scripts; Node tests can create isolated instances without a popup. ESLint does not declare
 popup globals in either module, so accidental cross-file dependencies are errors.
 
+### Font-picker search
+
+The picker builds rows, section headings, and alphabet links once per catalog/favorites change. Opening it awaits current favorites and checks a catalog signature, so changed favorites/custom/local fonts invalidate the cached rows. Search uses pre-normalized family names and changes `hidden` only where visibility differs. Empty sections and their alphabet links are hidden together; selection and alphabet jumps use delegated click handlers. Section positions are read only when a jump is requested, removing the previous layout reads after every search. Rows remain in DOM while filtered and are released with the popup document.
+
 ## Storage Operations
 
 ### Panel Helper Module
