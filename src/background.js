@@ -2682,6 +2682,20 @@ async function prepareFaceoffPageFontDraft(msg, sender) {
 }
 
 async function handleAffoRuntimeMessage(msg, sender) {
+    if (msg.type === 'affoOpenOptionsPage') {
+      try {
+        const optionsUrl = browser.runtime.getURL('options.html');
+        const tab = await browser.tabs.create({ url: optionsUrl, active: true });
+        if (tab && tab.id != null && typeof browser.tabs.update === 'function') {
+          await browser.tabs.update(tab.id, { active: true });
+        }
+        return { ok: true };
+      } catch (e) {
+        console.error('[AFFO Background] Could not open options page:', e);
+        return { ok: false, error: e && e.message ? e.message : String(e) };
+      }
+    }
+
   try {
     // Handle cache flush requests
     if (msg.type === 'flushFontCache') {

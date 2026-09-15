@@ -128,6 +128,7 @@
       query: wrapMethod(chromeApi.tabs, 'query'),
       get: wrapMethod(chromeApi.tabs, 'get'),
       create: wrapMethod(chromeApi.tabs, 'create'),
+      update: wrapMethod(chromeApi.tabs, 'update'),
       remove: wrapMethod(chromeApi.tabs, 'remove'),
       sendMessage: wrapMethod(chromeApi.tabs, 'sendMessage'),
       onUpdated: chromeApi.tabs.onUpdated,

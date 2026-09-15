@@ -709,6 +709,17 @@ async function openOptionsFromPopup() {
     // Chromium Android exposes openOptionsPage(), but its promise can remain
     // pending from a native action popup. Open the options tab directly there.
     const isAndroid = /Android/i.test(navigator.userAgent || '');
+    if (isAndroid) {
+        try {
+            const result = await browser.runtime.sendMessage({ type: 'affoOpenOptionsPage' });
+            if (result && result.ok !== false) {
+                closePopup();
+                return;
+            }
+        } catch (e) {
+            affoDebugWarn('[AFFO Popup] Background options open failed, trying tab fallback:', e);
+        }
+    }
     if (!isAndroid && browser.runtime && typeof browser.runtime.openOptionsPage === 'function') {
         try {
             await browser.runtime.openOptionsPage();

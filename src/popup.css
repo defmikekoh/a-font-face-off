@@ -389,7 +389,8 @@ body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: ce
     position: absolute;
     top: 8px;
     right: 10px;
-    z-index: 20;
+    /* Keep the gear touch target above an open controls panel. */
+    z-index: 1100;
     width: 34px;
     height: 34px;
     min-width: 34px;
