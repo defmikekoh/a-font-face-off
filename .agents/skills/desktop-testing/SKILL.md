@@ -334,8 +334,11 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 Before interpreting Android toolbar visibility, scrolling, or click failures, read
 [visible-page verification and reload comparisons](references/android-page-verification.md).
-Firefox onboarding or Home can cover a WebDriver-loaded page while DOM inspection
-still succeeds; a populated DOM does not establish a visible test surface.
+Firefox promotions or Home can cover a WebDriver-loaded page while DOM inspection
+still succeeds; a populated DOM does not establish a visible test surface. The
+harness passes `automationtest=true` to skip onboarding. Note10 Nightly 158.0a1
+needed no startup-prompt dismissal in the verified run; observed VPN/CFR prompts
+are still handled if present. See the reference for version-specific findings.
 
 For the disposable Android 16 emulator smoke lane, use:
 
@@ -355,7 +358,7 @@ Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness c
 
 Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
-After the reset and WebDriver inspection, the harness automatically restores the bookmarks maintained in [references/android-firefox-bookmarks.json](references/android-firefox-bookmarks.json). Restoration runs after `driver.quit()`, when Nightly has returned from geckodriver's temporary GeckoView surface to its normal fresh profile. Fenix does not support the WebExtensions bookmarks API and keeps its bookmark store outside Gecko's Places database, so the harness dismisses the two first-run screens, opens each listed URL, and uses resource/description-based ADB UI nodes to select **More options → Bookmark page**. It requires a visible `Saved in “Bookmarks”` confirmation, records the result in the JSON report, and force-stops Nightly afterward. This is a short, deterministic page-menu flow; do not replace it with fixed tap coordinates. Use `--skip-bookmarks` when a clean bookmark state is part of the test, or `--bookmarks <path>` for a deliberate alternate JSON list. Update the maintained list when the user asks to preserve another recurring Android Nightly test page.
+After the reset and WebDriver inspection, the harness automatically restores the bookmarks maintained in [references/android-firefox-bookmarks.json](references/android-firefox-bookmarks.json). Restoration runs after `driver.quit()`, when Nightly has returned from geckodriver's temporary GeckoView surface to its normal fresh profile. Fenix does not support the WebExtensions bookmarks API and keeps its bookmark store outside Gecko's Places database, so the harness launches with `automationtest=true`, dismisses any observed VPN/CFR prompt, opens each listed URL, and uses resource/description-based ADB UI nodes to select **More options → Bookmark page**. It requires a visible `Saved in “Bookmarks”` confirmation, records the result in the JSON report, and force-stops Nightly afterward. This is a short, deterministic page-menu flow; do not replace it with fixed tap coordinates. Use `--skip-bookmarks` when a clean bookmark state is part of the test, or `--bookmarks <path>` for a deliberate alternate JSON list. Update the maintained list when the user asks to preserve another recurring Android Nightly test page.
 
 Run the same checks without clearing Firefox data:
 

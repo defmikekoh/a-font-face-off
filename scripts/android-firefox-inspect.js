@@ -276,25 +276,30 @@ function findUiNode(nodes, attribute, value) {
     return nodes.find((node) => node[attribute] === value);
 }
 
-function dismissFenixOnboarding(args, report) {
+function dismissFenixStartupPrompts(args, report, phase) {
     const actions = [];
     for (let step = 0; step < 4; step += 1) {
         const nodes = dumpFenixUi(args);
-        const continueNode = findUiNode(nodes, 'text', 'Continue');
-        if (continueNode) {
-            tapUiNode(args, continueNode);
-            actions.push('Continue');
-            continue;
+        if (findUiNode(nodes, 'text', 'Welcome to Firefox')) {
+            throw new Error('Firefox onboarding was not skipped by automationtest. Check the Firefox build and ADB debugging before retrying.');
         }
-        const notNowNode = findUiNode(nodes, 'text', 'Not now');
+        const vpnPrompt = findUiNode(nodes, 'text', 'Try Firefox’s built-in VPN');
+        const notNowNode = vpnPrompt && findUiNode(nodes, 'text', 'Not now');
         if (notNowNode) {
             tapUiNode(args, notNowNode);
-            actions.push('Not now');
+            actions.push('VPN: Not now');
+            continue;
+        }
+        const cfrDismiss = findUiNode(nodes, 'resource-id', 'cfr.dismiss');
+        if (cfrDismiss) {
+            tapUiNode(args, cfrDismiss);
+            actions.push('cfr.dismiss');
             continue;
         }
         break;
     }
-    report.fenixOnboarding = { actions };
+    report.fenixStartupPrompts ??= [];
+    report.fenixStartupPrompts.push({ phase, actions });
 }
 
 function collectDevicePreflight(args) {
@@ -363,11 +368,17 @@ async function createAndroidFirefoxDriver(args) {
     const options = new firefox.Options()
         .enableMobile(args.packageName, args.activityName || null, args.serial);
     const mozOptions = options.get('moz:firefoxOptions');
+    // Explicit intent arguments replace geckodriver's default VIEW/about:blank
+    // arguments. Preserve those when adding the verified onboarding bypass.
+    mozOptions.androidIntentArguments = [
+        '-a', 'android.intent.action.VIEW', '-d', 'about:blank',
+        '--ez', 'automationtest', 'true',
+    ];
     if (mozOptions.deviceSerial) {
         mozOptions.androidDeviceSerial = mozOptions.deviceSerial;
         delete mozOptions.deviceSerial;
-        options.set('moz:firefoxOptions', mozOptions);
     }
+    options.set('moz:firefoxOptions', mozOptions);
 
     const geckodriverPath = args.geckodriverPath || findExecutableOnPath('geckodriver');
     if (!geckodriverPath) {
@@ -445,6 +456,9 @@ function openFenixUrl(args, url) {
         'android.intent.action.VIEW',
         '-d',
         url,
+        '--ez',
+        'automationtest',
+        'true',
         args.packageName,
     ]);
 }
@@ -471,7 +485,7 @@ function restoreBookmarksIfRequested(args, report) {
     const items = [];
     try {
         openFenixUrl(args, bookmarks[0] ? bookmarks[0].url : DEFAULT_URL);
-        dismissFenixOnboarding(args, report);
+        dismissFenixStartupPrompts(args, report, 'bookmarks');
 
         for (const bookmark of bookmarks) {
             openFenixUrl(args, bookmark.url);
@@ -781,6 +795,7 @@ async function main() {
             if (args.settleMs > 0) {
                 await driver.sleep(args.settleMs);
             }
+            dismissFenixStartupPrompts(args, report, 'inspection');
             report.inspection = await collectDomAndCss(driver, args.selectors);
 
             if (args.expectAffo && !report.inspection.affo.htmlDataAffoBase) {
