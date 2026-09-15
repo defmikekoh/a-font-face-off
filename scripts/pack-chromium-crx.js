@@ -7,10 +7,10 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const DEFAULT_SOURCE_DIR = path.join(ROOT, 'ztemp', 'edge-mv3-src');
-const DEFAULT_KEY_PATH = path.join(ROOT, 'ztemp', 'edge-mv3-key.pem');
-const DEFAULT_ZIP_PATH = path.join(ROOT, 'ztemp', 'edge-mv3.zip');
-const DEFAULT_OUTPUT_PATH = path.join(ROOT, 'web-ext-artifacts', 'a-font-face-off-edge-mv3.crx');
+const DEFAULT_SOURCE_DIR = path.join(ROOT, 'ztemp', 'chromium-mv3-src');
+const DEFAULT_KEY_PATH = path.join(ROOT, 'ztemp', 'chromium-mv3-key.pem');
+const DEFAULT_ZIP_PATH = path.join(ROOT, 'ztemp', 'chromium-mv3.zip');
+const DEFAULT_OUTPUT_PATH = path.join(ROOT, 'web-ext-artifacts', 'a-font-face-off-chromium-mv3.crx');
 const DEFAULT_PACK_PROFILE = path.join(ROOT, 'ztemp', 'chrome-pack-profile');
 const MAC_PACKERS = [
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -31,7 +31,7 @@ function parseArgs(argv) {
     keyPath: DEFAULT_KEY_PATH,
     zipPath: DEFAULT_ZIP_PATH,
     outputPath: DEFAULT_OUTPUT_PATH,
-    packerPath: process.env.AFFO_EDGE_CRX_PACKER || null
+    packerPath: process.env.AFFO_CHROMIUM_CRX_PACKER || null
   };
 
   for (let i = 2; i < argv.length; i += 1) {
@@ -87,7 +87,7 @@ function loadPrivateKey(keyPath) {
 
 function createZip(sourceDir, zipPath) {
   if (!fs.existsSync(path.join(sourceDir, 'manifest.json'))) {
-    throw new Error(`No manifest.json found in ${sourceDir}. Run npm run build:edge-mv3 first.`);
+    throw new Error(`No manifest.json found in ${sourceDir}. Run npm run build:chromium-mv3 first.`);
   }
 
   ensureDir(path.dirname(zipPath));
@@ -153,7 +153,7 @@ function findNativePacker(explicitPath) {
 
   throw new Error(
     'Could not find Chrome, Chromium, or Edge for native CRX packing. ' +
-    'Set AFFO_EDGE_CRX_PACKER or pass --packer /path/to/browser.'
+    'Set AFFO_CHROMIUM_CRX_PACKER or pass --packer /path/to/browser.'
   );
 }
 

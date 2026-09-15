@@ -20,7 +20,7 @@ Verified with Snapshot 8.2.4147.50 on Android 12. Check the installed version ea
 3. Copy the build contents (the `/.` matters when updating an existing directory):
 
    ```bash
-   adb -s RF8M81WSL1V push ztemp/edge-mv3-src/. /sdcard/Download/affo-mv3
+   adb -s RF8M81WSL1V push ztemp/chromium-mv3-src/. /sdcard/Download/affo-mv3
    adb -s RF8M81WSL1V shell monkey -p com.vivaldi.browser.snapshot -c android.intent.category.LAUNCHER 1
    ```
 
@@ -122,7 +122,7 @@ paths or install only the base split.
 ```bash
 adb -s emulator-5554 install-multiple ztemp/vivaldi-snapshot-base.apk ztemp/vivaldi-snapshot-chrome.apk
 npm run build:chromium
-adb -s emulator-5554 push ztemp/edge-mv3-src/. /sdcard/Download/affo-mv3
+adb -s emulator-5554 push ztemp/chromium-mv3-src/. /sdcard/Download/affo-mv3
 ```
 
 On this emulator, `monkey` returned an error about physical system keys without

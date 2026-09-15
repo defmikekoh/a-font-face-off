@@ -6,7 +6,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(ROOT, 'src');
-const OUT_DIR = path.join(ROOT, 'ztemp', 'edge-mv3-src');
+const OUT_DIR = path.join(ROOT, 'ztemp', 'chromium-mv3-src');
 
 const IGNORED_NAMES = new Set([
   '.DS_Store',
@@ -66,7 +66,7 @@ function buildManifest(sourceManifest) {
   delete manifest.browser_specific_settings;
   manifest.permissions = manifest.permissions.filter(permission => permission !== 'webRequestBlocking');
   manifest.permissions.push('declarativeNetRequestWithHostAccess');
-  manifest.background = { service_worker: 'edge-mv3-service-worker.js' };
+  manifest.background = { service_worker: 'chromium-mv3-service-worker.js' };
   return manifest;
 }
 
@@ -74,7 +74,7 @@ function writeServiceWorker(sourceManifest) {
   const scripts = sourceManifest.background.scripts;
   const importList = scripts.map(script => `  ${JSON.stringify(script)}`).join(',\n');
   const text = `'use strict';\n\nimportScripts(\n${importList}\n);\n`;
-  fs.writeFileSync(path.join(OUT_DIR, 'edge-mv3-service-worker.js'), text);
+  fs.writeFileSync(path.join(OUT_DIR, 'chromium-mv3-service-worker.js'), text);
 }
 
 function main() {
@@ -92,7 +92,7 @@ function main() {
   writeServiceWorker(sourceManifest);
   addHtmlClass('options.html', 'affo-chromium-options');
 
-  console.log(`Generated Chromium MV3 source (Chrome/Vivaldi/Edge): ${path.relative(ROOT, OUT_DIR)}`);
+  console.log(`Generated Chromium MV3 source (Chrome/Vivaldi and other Chromium browsers): ${path.relative(ROOT, OUT_DIR)}`);
 }
 
 if (require.main === module) main();

@@ -488,7 +488,7 @@ async function getHostnameByContentMessage(tab) {
     }
 }
 
-// Helper: get current active tab's hostname. Edge Android can open the popup
+// Helper: get current active tab's hostname. Chromium Android can open the popup
 // outside the page window, so use tab URL, explicit-tab script injection, and
 // content-script messaging before falling back to cached context.
 async function getActiveOrigin() {

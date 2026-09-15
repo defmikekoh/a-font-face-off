@@ -82,7 +82,7 @@ Logging rules:
 
 ## Shared MV3 Builds
 
-`src/manifest.json` is the Firefox MV3 baseline. `npm run build:latest` packages Firefox; `npm run build:chromium` generates the Chrome/Vivaldi/Edge directory at `ztemp/edge-mv3-src/`. The older `build:edge-mv3` command remains an alias for existing CRX workflows. Shared scripts use `browser.scripting` and `browser.action`; `browser-api.js` supplies Chromium Promise/messaging adaptation and leaves native Firefox APIs untouched. Preserve the per-domain aggressive setting and AUTHOR/USER CSS origins. See `docs/architecture/MV3.md`.
+`src/manifest.json` is the Firefox MV3 baseline. `npm run build:latest` packages Firefox; `npm run build:chromium` generates the Chrome/Vivaldi/Edge directory at `ztemp/chromium-mv3-src/`. The older `build:chromium-mv3` command remains an alias for existing CRX workflows. Shared scripts use `browser.scripting` and `browser.action`; `browser-api.js` supplies Chromium Promise/messaging adaptation and leaves native Firefox APIs untouched. Preserve the per-domain aggressive setting and AUTHOR/USER CSS origins. See `docs/architecture/MV3.md`.
 
 ## Architecture Deep Dives
 

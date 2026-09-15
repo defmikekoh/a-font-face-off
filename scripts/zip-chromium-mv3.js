@@ -6,10 +6,10 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const SOURCE_DIR = path.join(ROOT, 'ztemp', 'edge-mv3-src');
-const OUTPUT_PATH = path.join(ROOT, 'web-ext-artifacts', 'a-font-face-off-edge-mv3.zip');
+const SOURCE_DIR = path.join(ROOT, 'ztemp', 'chromium-mv3-src');
+const OUTPUT_PATH = path.join(ROOT, 'web-ext-artifacts', 'a-font-face-off-chromium-mv3.zip');
 
-const build = spawnSync(process.execPath, [path.join(__dirname, 'build-edge-mv3.js')], {
+const build = spawnSync(process.execPath, [path.join(__dirname, 'build-chromium-mv3.js')], {
   cwd: ROOT,
   stdio: 'inherit'
 });
@@ -17,7 +17,7 @@ if (build.error) throw build.error;
 if (build.status !== 0) throw new Error(`MV3 build exited with status ${build.status}`);
 
 if (!fs.existsSync(path.join(SOURCE_DIR, 'manifest.json'))) {
-  throw new Error('No manifest.json found. Run npm run build:edge-mv3 first.');
+  throw new Error('No manifest.json found. Run npm run build:chromium-mv3 first.');
 }
 
 fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });

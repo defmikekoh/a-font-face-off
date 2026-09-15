@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT_DIR = path.join(ROOT, 'ztemp', 'edge-smoke-mv3-src');
+const OUT_DIR = path.join(ROOT, 'ztemp', 'chromium-smoke-mv3-src');
 const ICON_SIZES = ['16', '32', '48', '128'];
 
 function ensureDir(dir) {
@@ -37,9 +37,9 @@ function buildManifest() {
 
   return {
     manifest_version: 3,
-    name: 'AFFO Edge MV3 Smoke',
+    name: 'AFFO Chromium MV3 Smoke',
     version: '0.0.1',
-    description: 'Minimal MV3 CRX install smoke test for Edge Android',
+    description: 'Minimal MV3 CRX install smoke test for Chromium Android',
     action: {
       default_title: 'AFFO Smoke',
       default_popup: 'popup.html',

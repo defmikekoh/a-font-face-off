@@ -1,6 +1,6 @@
 ---
 name: firefox-extension-testing
-description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox and Chrome for Testing, Vivaldi Snapshot on Android devices/emulators, and the Edge Canary Android MV3 build using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
+description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox and Chrome for Testing, Vivaldi Snapshot, and Chromium Android MV3 builds using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
 ---
 
 # A Font Face-off Extension Testing
@@ -453,12 +453,12 @@ Read [Vivaldi Snapshot testing](references/vivaldi-snapshot.md) for the verified
 
 Vivaldi Snapshot also passed the shared smoke suite and native-popup checks on `emulator-5554` (`AFFO_Pixel_API36`, Android 16). Read the [emulator findings](references/vivaldi-snapshot.md#android-16-emulator) before choosing this path. Reuse the installed emulator profile for iteration; the verified setup did not require app-data clearing.
 
-## Edge Canary Android MV3 Prototype
+## Chromium Android MV3
 
-Build the side-by-side Edge/Chrome MV3 prototype without modifying Firefox source:
+Build the shared Chromium MV3 package without modifying Firefox source:
 
 ```bash
-npm run build:edge-crx
+npm run build:chromium-crx
 ```
 
 Outputs:
@@ -472,7 +472,7 @@ Push a rebuilt CRX to the Note10:
 adb -s RF8M81WSL1V push web-ext-artifacts/a-font-face-off-edge-mv3.crx /sdcard/Download/a-font-face-off-edge-mv3.crx
 ```
 
-Edge Canary package/device details seen in testing:
+Chromium Android package/device details seen in testing:
 - Device: `RF8M81WSL1V` (Samsung Galaxy Note10)
 - Package: `com.microsoft.emmx.canary`
 - Stable extension ID from the local key: `jbomcpnpnenellkkkmhonikajmmalpig`

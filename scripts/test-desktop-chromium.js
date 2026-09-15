@@ -22,7 +22,7 @@ async function main() {
     const version = process.env.AFFO_CHROME_VERSION || '153.0.8010.36';
     const options = new chrome.Options()
         .setBrowserVersion(version)
-        .addArguments(`--user-data-dir=${profile}`, `--load-extension=${path.join(temp, 'edge-mv3-src')}`,
+        .addArguments(`--user-data-dir=${profile}`, `--load-extension=${path.join(temp, 'chromium-mv3-src')}`,
             '--no-first-run', '--no-default-browser-check', '--window-size=1000,800');
     if (process.env.AFFO_CHROME_HEADED !== '1') options.addArguments('--headless=new');
     let driver;

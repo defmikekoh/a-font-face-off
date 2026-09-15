@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const acorn = require('acorn');
-const { buildManifest } = require('../scripts/build-edge-mv3.js');
+const { buildManifest } = require('../scripts/build-chromium-mv3.js');
 
 const read = name => fs.readFileSync(require.resolve('../src/' + name), 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));

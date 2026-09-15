@@ -115,7 +115,7 @@
     runtime: {
       getURL: chromeApi.runtime.getURL.bind(chromeApi.runtime),
       getManifest: chromeApi.runtime.getManifest.bind(chromeApi.runtime),
-      // Keep the tab-opening workaround only on Android, where Edge's
+      // Keep the tab-opening workaround only on Android, where Chromium's
       // openOptionsPage callback may never settle.
       openOptionsPage: /Android/i.test(global.navigator && global.navigator.userAgent || '')
         ? undefined : wrapMethod(chromeApi.runtime, 'openOptionsPage'),
