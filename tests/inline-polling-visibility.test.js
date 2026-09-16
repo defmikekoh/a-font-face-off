@@ -43,6 +43,7 @@ function harness(hidden = false) {
         focusHandlers: [], focusHooksInstalled: false,
         INLINE_POLLING_TOTAL_MS: 180000, INLINE_POLLING_QUIET_STOP_MS: 45000,
         shouldUseInlineApply: () => true, debugLog() {}, maybeCleanupSharedDomObserver() {},
+        reapplyFontSizeScalesOnFocus() {},
         reapplyAllInlineStyles(options) { checks.push({ at: now, verifyFirst: !!options?.verifyFirst }); }
     });
     vm.runInContext(functions.join('\n'), context);

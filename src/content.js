@@ -1371,7 +1371,7 @@
 
   function filterFontSizeScaleTargets(fontType, targets) {
     var list = Array.prototype.slice.call(targets || []);
-    return fontType === 'body' ? list.filter(isBodyFontSizeScaleTarget) : list;
+    return fontType === 'body' ? list.filter(isBodyFontSizeScaleTarget) : filterInlineTmiTargets(fontType, list);
   }
 
   function getFontSizeScaleTargets(fontType) {
@@ -1547,7 +1547,8 @@
   }
 
   function reapplyFontSizeScalesAfterNavigation() {
-    var activeTypes = getActiveFontSizeScaleTypes();
+    // The shared recovery handler already scales types owned by inline apply.
+    var activeTypes = getActiveFontSizeScaleTypes().filter(function (ft) { return !inlineConfigs[ft]; });
     if (activeTypes.length === 0) return;
     var tmiTypes = activeTypes.filter(function (ft) { return ft !== 'body'; });
     if (tmiTypes.length > 0 && !usesHybridInlineTmiSelectors()) {
@@ -1558,7 +1559,14 @@
   }
 
   function reapplyFontSizeScalesOnFocus() {
-    reapplyActiveFontSizeScales();
+    getActiveFontSizeScaleTypes().forEach(function (ft) {
+      if (!inlineConfigs[ft]) applyFontSizeScale(fontSizeScaleConfigs[ft], ft);
+    });
+  }
+
+  function reapplyPageTypographyAfterNavigation() {
+    reapplyAllInlineStyles();
+    reapplyFontSizeScalesAfterNavigation();
   }
 
   // ---- Unified DOM-mutation dispatcher -------------------------------------
@@ -1586,6 +1594,18 @@
     return parent;
   }
 
+  function getHybridInlineMutationRoot(node) {
+    if (!usesHybridInlineTmiSelectors() || !node) return null;
+    var element = node.nodeType === 3 ? node.parentElement : node;
+    if (!element || element.nodeType !== 1 || !element.closest) return null;
+    if (node.nodeType === 3 && !elementHasOwnText(element)) return null;
+    if (node.nodeType === 1 && !isMeaningfulInlineAddedNode(node)) return null;
+    var selectors = ['serif', 'sans', 'mono'].filter(function (ft) {
+      return inlineConfigs[ft] || fontSizeScaleConfigs[ft];
+    }).map(getAffoSelector);
+    return selectors.length ? element.closest(selectors.join(', ')) : null;
+  }
+
   function ensureSharedDomObserver() {
     if (sharedDomObserver) return;
     sharedDomObserver = new MutationObserver(function (muts) {
@@ -1597,7 +1617,7 @@
         var m = muts[i];
         if (isInsideInteractiveSubtree(m.target)) continue;
         if (m.type === 'characterData') {
-          var textRoot = getChatGptStreamTextRoot(m.target);
+          var textRoot = getChatGptStreamTextRoot(m.target) || getHybridInlineMutationRoot(m.target);
           if (textRoot) {
             if (!newRoots) newRoots = [];
             newRoots.push(textRoot);
@@ -1609,7 +1629,7 @@
         for (var j = 0; j < added.length; j++) {
           var n = added[j];
           try {
-            var root = getChatGptStreamTextRoot(n);
+            var root = getChatGptStreamTextRoot(n) || getHybridInlineMutationRoot(n);
             if (root || isMeaningfulInlineAddedNode(n)) {
               if (!newRoots) newRoots = [];
               newRoots.push(root || n);
@@ -1630,7 +1650,7 @@
       // Keep a bounded batch window: continuous streaming must not postpone
       // classification indefinitely by resetting the timer for every token.
       if (sharedDomDebounceTimer) {
-        if (isChatGpt) return;
+        if (isChatGpt || usesHybridInlineTmiSelectors()) return;
         clearTimeout(sharedDomDebounceTimer);
       }
       sharedDomDebounceTimer = setTimeout(function () {
@@ -1641,7 +1661,7 @@
       }, INLINE_REAPPLY_DEBOUNCE_MS);
     });
     sharedDomObserver.observe(document.documentElement || document, {
-      childList: true, subtree: true, characterData: isChatGpt
+      childList: true, subtree: true, characterData: isChatGpt || usesHybridInlineTmiSelectors()
     });
     debugLog('[AFFO Content] Created unified DOM mutation observer');
   }
@@ -1686,17 +1706,16 @@
             for (var i = 0; i < inner.length; i++) matches.push(inner[i]);
           }
         } catch (_) { return; }
-        matches.forEach(function (el) {
-          if (ft === 'body') {
+        if (ft === 'body') {
+          matches.forEach(function (el) {
             applyAffoProtection(el, cfg.cssPropsObject);
             applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-          } else {
-            applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
-            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-            headingResetRoots.add(root);
-          }
-          applied++;
-        });
+          });
+          applied += matches.length;
+        } else {
+          applied += applyTmiProtectionToElements(matches, cfg, ft);
+          headingResetRoots.add(root);
+        }
       });
       if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
     });
@@ -1752,8 +1771,8 @@
   }
 
   function ensureFontSizeScaleObserver() {
-    registerSpaHandler(reapplyFontSizeScalesAfterNavigation);
-    registerFocusHandler(reapplyFontSizeScalesOnFocus);
+    registerSpaHandler(reapplyPageTypographyAfterNavigation);
+    registerFocusHandler(resumeInlineStylesOnFocus);
     ensureSharedDomObserver();
   }
 
@@ -1837,39 +1856,51 @@
   }
 
   // TMI-aware wrapper: detects computed-bold elements before overwriting, preserves weight 700
-  function applyTmiProtection(el, propsObj, effectiveWeight) {
+  function getTmiElementBoldness(el) {
     // Detect bold BEFORE applying — check prior-run marker or computed style.
     // Some publishers wrap non-bold text in <strong>, so tag semantics alone
     // are not a reliable signal for preserving a 700 weight.
-    var isBold = false;
     try {
       if (el.getAttribute('data-affo-was-bold') === 'true') {
-        isBold = true;
-      } else {
-        var cw = window.getComputedStyle(el).fontWeight;
-        isBold = isBoldFontWeightValue(cw);
+        return true;
       }
+      return isBoldFontWeightValue(window.getComputedStyle(el).fontWeight);
     } catch (_) { }
+    return false;
+  }
 
-    applyAffoProtection(el, propsObj);
+  function applyTmiProtectionToElements(elements, cfg, fontType) {
+    var targets = filterInlineTmiTargets(fontType, elements);
+    // Snapshot all inherited weights before any ancestor/previous sibling is
+    // styled. Do not cache non-bold results across React node reuse.
+    var boldness = targets.map(getTmiElementBoldness);
+    targets.forEach(function (el, index) {
+      applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight, boldness[index]);
+      applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
+    });
+    return targets.length;
+  }
 
-    // Restore bold weight so it isn't flattened to the custom weight
+  function applyTmiProtection(el, propsObj, effectiveWeight, isBold) {
+    if (isBold === undefined) isBold = getTmiElementBoldness(el);
+
+    // Resolve bold overrides before writing so recovery never temporarily
+    // replaces an already-correct bold weight or variation setting.
+    var finalProps = propsObj;
     if (isBold && effectiveWeight !== null) {
-      setImportantStyleIfChanged(el, 'font-weight', '700');
-      setImportantStyleIfChanged(el, '--affo-font-weight', '700');
-      setAttributeIfChanged(el, 'data-affo-font-weight', '700');
+      finalProps = Object.assign({}, propsObj, { 'font-weight': '700' });
       setAttributeIfChanged(el, 'data-affo-was-bold', 'true');
       var boldAxes = buildBoldAxisSettings({ variableAxes: extractVariationAxes(propsObj['font-variation-settings']) }, 700);
       if (boldAxes.length > 0) {
-        setImportantStyleIfChanged(el, 'font-variation-settings', boldAxes.join(', '));
-        setImportantStyleIfChanged(el, '--affo-font-variation-settings', boldAxes.join(', '));
-        setAttributeIfChanged(el, 'data-affo-font-variation-settings', boldAxes.join(', '));
+        finalProps['font-variation-settings'] = boldAxes.join(', ');
       } else {
+        delete finalProps['font-variation-settings'];
         el.style.removeProperty('font-variation-settings');
         el.style.removeProperty('--affo-font-variation-settings');
         el.removeAttribute('data-affo-font-variation-settings');
       }
     }
+    applyAffoProtection(el, finalProps);
   }
 
   function resetHeadingTypographyInMarkedSubtree(root) {
@@ -2068,10 +2099,9 @@
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
       } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
         var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
-        tmiElements.forEach(function (el) {
-          applyTmiProtection(el, cssPropsObject, inlineEffectiveWeight);
-          applyAffoTextColor(el, fontConfig.fontColor);
-        });
+        applyTmiProtectionToElements(tmiElements, {
+          cssPropsObject: cssPropsObject, inlineEffectiveWeight: inlineEffectiveWeight, fontConfig: fontConfig
+        }, fontType);
         resetHeadingTypographyInMarkedSubtree(document.body);
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
       }
@@ -2096,7 +2126,7 @@
 
       // Re-apply styles on SPA navigations (history API hooks)
       // Uses a single shared handler that iterates all active types
-      registerSpaHandler(reapplyAllInlineStyles);
+      registerSpaHandler(reapplyPageTypographyAfterNavigation);
 
       // Ensure shared polling timers are running
       ensureSharedInlinePolling();
@@ -2118,11 +2148,13 @@
     function addSample(el) {
       if (!el || !el.style || samples.indexOf(el) !== -1) return;
       if (fontType !== 'body' && el.closest && el.closest('h1, h2, h3, h4, h5, h6')) return;
+      if (usesHybridInlineTmiSelectors() && fontType !== 'body' && !isHybridInlineTarget(el, fontType, selector)) return;
       samples.push(el);
     }
     try {
       if (fontType === 'body' && !isChatGpt) addSample(document.body);
-      addSample(document.querySelector(selector));
+      addSample(document.querySelector(usesHybridInlineTmiSelectors() && fontType !== 'body'
+        ? ':is(' + selector + ')[data-affo-protected]' : selector));
       if (document.elementFromPoint) {
         var viewportElement = document.elementFromPoint(
           Math.max(0, Math.floor(window.innerWidth / 2)),
@@ -2195,16 +2227,15 @@
           tmiTypesToRewalk.push(ft);
           return;
         }
-        elements.forEach(function (el) {
-          if (ft === 'body') {
+        if (ft === 'body') {
+          elements.forEach(function (el) {
             applyAffoProtection(el, cfg.cssPropsObject);
             applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-          } else {
-            applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
-            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-            shouldResetHeadings = true;
-          }
-        });
+          });
+        } else {
+          applyTmiProtectionToElements(elements, cfg, ft);
+          shouldResetHeadings = true;
+        }
         applyFontSizeScale(cfg.fontConfig || {}, ft);
         elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
       } catch (e) {
@@ -2226,11 +2257,8 @@
             var cfg = inlineConfigs[ft];
             if (!cfg) return;
             var elements = document.querySelectorAll(getAffoSelector(ft));
-            elements.forEach(function (el) {
-              applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight);
-              applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-              shouldResetAfterRewalk = true;
-            });
+            applyTmiProtectionToElements(elements, cfg, ft);
+            shouldResetAfterRewalk = true;
             applyFontSizeScale(cfg.fontConfig || {}, ft);
             elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
           } catch (_) { }
@@ -2243,6 +2271,7 @@
   function isMeaningfulInlineAddedNode(node) {
     if (!node || node.nodeType !== 1) return false;
     if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
+    if (usesHybridInlineTmiSelectors() && elementHasOwnText(node)) return true;
     if (isInsideTmiPrunedSubtree(node)) return false;
     if (!isInOrContainsChatGptMessage(node)) return false;
 
@@ -2301,9 +2330,9 @@
   function resumeInlineStylesOnFocus() {
     if (document.hidden) return;
     checkExpiredInlineTypes();
-    if (Object.keys(inlineConfigs).length === 0) return;
     // Preserve full focus recovery, including elements outside the poller's sentinel sample.
-    reapplyAllInlineStyles();
+    if (Object.keys(inlineConfigs).length > 0) reapplyAllInlineStyles();
+    reapplyFontSizeScalesOnFocus();
     if (inlineObserverWanted) ensureSharedInlinePolling();
   }
 
@@ -2610,6 +2639,28 @@
   }
 
   var HYBRID_GUARD = ':not([data-affo-guard]):not([data-affo-guard] *)';
+
+  function isHybridInlineTarget(el, fontType, selector) {
+    if (fontType === 'mono' || elementHasOwnText(el)) return true;
+    // Skip structural wrappers whose children are independently targeted.
+    // Keep wrappers around other HTML elements: their text may need inherited
+    // typography (for example, a plain link without role/data-testid).
+    for (var i = 0; i < el.children.length; i++) {
+      var child = el.children[i];
+      if (INLINE_MEANINGFUL_IGNORE_TAGS[child.tagName] ||
+        child.namespaceURI !== 'http://www.w3.org/1999/xhtml' ||
+        child.hasAttribute('data-affo-guard')) continue;
+      if (!child.matches(selector)) return true;
+    }
+    return false;
+  }
+
+  function filterInlineTmiTargets(fontType, elements) {
+    var list = Array.prototype.slice.call(elements || []);
+    if (!usesHybridInlineTmiSelectors() || fontType === 'body') return list;
+    var selector = getAffoSelector(fontType);
+    return list.filter(function (el) { return isHybridInlineTarget(el, fontType, selector); });
+  }
 
   function addHybridGuard(sel) {
     return sel.split(',').map(function (s) { return s.trim() + HYBRID_GUARD; }).join(', ');
@@ -2954,17 +3005,64 @@
   var loadedCustomFontFaceKeys = {};
   var loadingCustomFontFaceKeys = {};
   var queuedCustomFontFaceKeys = {};
-  var lazyGoogleSubsetObservers = {};
+  var lazyGoogleSubsetObservers = {}; // fontName → { check, timeoutId }
+  var sharedLazySubsetObserver = null;
+  var sharedLazySubsetTimer = null;
+  var pendingLazySubsetRoots = new Set();
+
+  function ensureLazyGoogleSubsetObserver() {
+    if (sharedLazySubsetObserver) return;
+    sharedLazySubsetObserver = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        if (mutation.type === 'characterData') {
+          pendingLazySubsetRoots.add(mutation.target);
+        } else {
+          Array.prototype.forEach.call(mutation.addedNodes || [], function (node) {
+            if (node.nodeType === 3 || (node.nodeType === 1 && !INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName])) {
+              pendingLazySubsetRoots.add(node);
+            }
+          });
+        }
+      });
+      if (!pendingLazySubsetRoots.size || sharedLazySubsetTimer) return;
+      // A bounded window keeps continuous timeline updates from starving work.
+      sharedLazySubsetTimer = setTimeout(function () {
+        sharedLazySubsetTimer = null;
+        var live = new Set(Array.from(pendingLazySubsetRoots).filter(function (node) {
+          return document.contains(node);
+        }));
+        pendingLazySubsetRoots.clear();
+        var roots = Array.from(live).filter(function (node) {
+          for (var parent = node.parentElement; parent; parent = parent.parentElement) {
+            if (live.has(parent)) return false;
+          }
+          return true;
+        });
+        if (!roots.length) return;
+        // Each changed subtree is scanned once, regardless of active fonts.
+        var needed = scanNeededCodePoints(roots);
+        if (!needed.size) return;
+        Object.keys(lazyGoogleSubsetObservers).forEach(function (fontName) {
+          var record = lazyGoogleSubsetObservers[fontName];
+          if (record) record.check(needed);
+        });
+      }, FONTFACE_LAZY_SUBSET_DEBOUNCE_MS);
+    });
+    sharedLazySubsetObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
 
   function stopLazyGoogleSubsetObserver(fontName, reason) {
     var record = lazyGoogleSubsetObservers[fontName];
     if (!record) return;
-    try {
-      if (record.observer) record.observer.disconnect();
-      if (record.timeoutId) clearTimeout(record.timeoutId);
-      if (record.debounceId) clearTimeout(record.debounceId);
-    } catch (_) { }
+    if (record.timeoutId) clearTimeout(record.timeoutId);
     delete lazyGoogleSubsetObservers[fontName];
+    if (Object.keys(lazyGoogleSubsetObservers).length === 0) {
+      if (sharedLazySubsetObserver) sharedLazySubsetObserver.disconnect();
+      if (sharedLazySubsetTimer) clearTimeout(sharedLazySubsetTimer);
+      sharedLazySubsetObserver = null;
+      sharedLazySubsetTimer = null;
+      pendingLazySubsetRoots.clear();
+    }
     debugLog('[AFFO Content] Stopped lazy Google subset observer for ' + fontName + (reason ? ' (' + reason + ')' : ''));
   }
 
@@ -3542,7 +3640,7 @@
   }
 
   // Collect a snapshot of code points in the current document to choose subsets
-  function scanNeededCodePoints() {
+  function scanNeededCodePoints(roots) {
     var needed = new Set();
     var stats = {
       sampledCodeUnits: 0,
@@ -3554,30 +3652,42 @@
         var filterReject = window.NodeFilter ? window.NodeFilter.FILTER_REJECT : 2;
         var showText = window.NodeFilter ? window.NodeFilter.SHOW_TEXT : 4;
         var visibilityCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
-        var walker = document.createTreeWalker(document.body, showText, {
-          acceptNode: function (node) {
-            var text = node && node.nodeValue ? node.nodeValue : '';
-            if (!text || !text.trim()) return filterReject;
-            if (!node.parentElement || hasHiddenAncestorForFontSubsetScan(node.parentElement, visibilityCache)) return filterReject;
-            return filterAccept;
-          }
-        });
-        var node;
-        while ((node = walker.nextNode()) &&
-          stats.sampledCodeUnits < FONTFACE_SUBSET_SAMPLE_LIMIT &&
-          stats.scannedTextNodes < FONTFACE_VISIBLE_TEXT_NODE_LIMIT &&
-          (!FONTFACE_MAX_UNIQUE_CODEPOINTS || needed.size < FONTFACE_MAX_UNIQUE_CODEPOINTS)) {
-          stats.scannedTextNodes++;
-          addTextCodePoints(node.nodeValue || '', needed, stats);
+        function acceptTextNode(node) {
+          var text = node && node.nodeValue ? node.nodeValue : '';
+          if (!text || !text.trim()) return filterReject;
+          if (!node.parentElement || hasHiddenAncestorForFontSubsetScan(node.parentElement, visibilityCache)) return filterReject;
+          return filterAccept;
         }
+        function hasBudget() {
+          return stats.sampledCodeUnits < FONTFACE_SUBSET_SAMPLE_LIMIT &&
+            stats.scannedTextNodes < FONTFACE_VISIBLE_TEXT_NODE_LIMIT &&
+            (!FONTFACE_MAX_UNIQUE_CODEPOINTS || needed.size < FONTFACE_MAX_UNIQUE_CODEPOINTS);
+        }
+        (roots || [document.body]).some(function (root) {
+          if (!hasBudget()) return true;
+          if (root.nodeType === 3) {
+            if (acceptTextNode(root) === filterAccept) {
+              stats.scannedTextNodes++;
+              addTextCodePoints(root.nodeValue || '', needed, stats);
+            }
+          } else {
+            var walker = document.createTreeWalker(root, showText, { acceptNode: acceptTextNode });
+            var node;
+            while (hasBudget() && (node = walker.nextNode())) {
+              stats.scannedTextNodes++;
+              addTextCodePoints(node.nodeValue || '', needed, stats);
+            }
+          }
+          return false;
+        });
       }
 
-      if (needed.size === 0 && document.body && typeof document.body.textContent === 'string') {
+      if (!roots && needed.size === 0 && document.body && typeof document.body.textContent === 'string') {
         addTextCodePoints(document.body.textContent.slice(0, FONTFACE_SUBSET_SAMPLE_LIMIT), needed, stats);
       }
 
       // If nothing was captured (empty pages), bias toward basic Latin so pages still render
-      if (needed.size === 0) {
+      if (!roots && needed.size === 0) {
         addTextCodePoints('Hello', needed, stats);
       }
       debugLog(`[AFFO Content] Collected ${needed.size} visible code points from ${stats.sampledCodeUnits} sampled code units across ${stats.scannedTextNodes} text nodes`);
@@ -3975,12 +4085,7 @@
               }
 
               var remainingLazyUrls = lazyUrls.slice();
-              var lazyUrlToRanges = buildUrlToRanges(fontFaceEntriesForSelection);
-              var record = {
-                observer: null,
-                timeoutId: null,
-                debounceId: null
-              };
+              var record = { check: runLazySubsetCheck, timeoutId: null };
               lazyGoogleSubsetObservers[fontName] = record;
 
               function disconnect(reason) {
@@ -3994,58 +4099,12 @@
                 });
               }
 
-              function textMatchesRemainingLazyRanges(text, sampleLimit) {
-                if (!text || remainingLazyUrls.length === 0) return false;
-                var value = String(text);
-                var limit = Math.min(value.length, sampleLimit || FONTFACE_SUBSET_SAMPLE_LIMIT);
-                for (var i = 0; i < limit; i++) {
-                  var codePoint = value.codePointAt(i);
-                  if (!Number.isFinite(codePoint)) continue;
-                  for (var j = 0; j < remainingLazyUrls.length; j++) {
-                    if (rangesOverlap(lazyUrlToRanges[remainingLazyUrls[j]], codePoint, codePoint)) {
-                      return true;
-                    }
-                  }
-                  if (codePoint > 0xFFFF) i++;
-                }
-                return false;
-              }
-
-              function nodeMatchesRemainingLazyRanges(node) {
-                if (!node) return false;
-                if (node.nodeType === 3) return textMatchesRemainingLazyRanges(node.nodeValue || '');
-                if (node.nodeType !== 1) return false;
-                if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
-
-                var sampledChars = 0;
-                function scan(current) {
-                  if (!current || sampledChars >= FONTFACE_SUBSET_SAMPLE_LIMIT) return false;
-                  if (current.nodeType === 3) {
-                    var text = current.nodeValue || '';
-                    var remaining = FONTFACE_SUBSET_SAMPLE_LIMIT - sampledChars;
-                    if (textMatchesRemainingLazyRanges(text, remaining)) return true;
-                    sampledChars += Math.min(text.length, remaining);
-                    return false;
-                  }
-                  if (current.nodeType !== 1) return false;
-                  if (INLINE_MEANINGFUL_IGNORE_TAGS[current.tagName]) return false;
-                  for (var i = 0; i < current.childNodes.length; i++) {
-                    if (scan(current.childNodes[i])) return true;
-                    if (sampledChars >= FONTFACE_SUBSET_SAMPLE_LIMIT) return false;
-                  }
-                  return false;
-                }
-
-                return scan(node);
-              }
-
-              function runLazySubsetCheck(reason) {
+              function runLazySubsetCheck(neededCodePoints) {
                 if (remainingLazyUrls.length === 0) {
                   disconnect('all lazy subsets considered');
                   return;
                 }
 
-                var neededCodePoints = collectNeededCodePoints({ fresh: true });
                 var matchedUrls = selectUrlsByUnicodeRange(remainingLazyUrls, fontFaceEntriesForSelection, neededCodePoints, {
                   maxUrls: FONTFACE_MAX_SUBSET_DOWNLOADS,
                   fallbackWhenNoMatch: false
@@ -4054,7 +4113,7 @@
                 if (queuedLazyUrls.length === 0) return;
 
                 removeQueuedFromRemaining(queuedLazyUrls);
-                debugLog(`[AFFO Content] Lazy-loading ${queuedLazyUrls.length} newly needed WOFF2 subsets for ${fontName} (${reason}); ${remainingLazyUrls.length} still lazy`);
+                debugLog(`[AFFO Content] Lazy-loading ${queuedLazyUrls.length} newly needed WOFF2 subsets for ${fontName} (new matching text); ${remainingLazyUrls.length} still lazy`);
                 scheduleFontFaceDeferredWork(function () {
                   var lazyTimer = createAffoTimer('Lazy Google WOFF2 ' + fontName);
                   runWithConcurrency(queuedLazyUrls, 1, loadGoogleWoff2Url).then(function (results) {
@@ -4071,28 +4130,7 @@
                 }
               }
 
-              function scheduleLazySubsetCheck(reason) {
-                if (record.debounceId) clearTimeout(record.debounceId);
-                record.debounceId = setTimeout(function () {
-                  record.debounceId = null;
-                  runLazySubsetCheck(reason);
-                }, FONTFACE_LAZY_SUBSET_DEBOUNCE_MS);
-              }
-
-              record.observer = new MutationObserver(function (mutations) {
-                var hasLazyRangeChange = mutations.some(function (mutation) {
-                  if (mutation.type === 'characterData') {
-                    return textMatchesRemainingLazyRanges(mutation.target && mutation.target.nodeValue);
-                  }
-                  return Array.prototype.some.call(mutation.addedNodes || [], nodeMatchesRemainingLazyRanges);
-                });
-                if (hasLazyRangeChange) scheduleLazySubsetCheck('new matching text');
-              });
-              record.observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                characterData: true
-              });
+              ensureLazyGoogleSubsetObserver();
               record.timeoutId = setTimeout(function () {
                 disconnect('timeout');
               }, FONTFACE_LAZY_SUBSET_OBSERVER_MS);

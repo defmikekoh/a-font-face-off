@@ -10,14 +10,24 @@ Background script fetches WOFF2 with unicode-range filtering. Domain lists are c
 
 Direct DOM element styles with `!important`.
 
+TMI resolves bold weight and variation-axis overrides before writing protected properties, so an unchanged bold element is not rewritten to the configured weight and back to 700 during recovery.
+
+Each TMI target batch snapshots computed boldness before writing any styles, preserving inherited weights without interleaving reads and writes. Non-bold results are not cached across updates because x.com may reuse an element with different typography.
+
 ## Hybrid CSS Selectors
 
 `getHybridSelector(fontType)` returns broad, x.com-specific CSS selectors (targeting `data-testid`, `div[role]`, tweet patterns, etc.) instead of `[data-affo-font-type]` attribute selectors. This is necessary because x.com's aggressive SPA constantly recreates DOM nodes, causing walker-placed `data-affo-font-type` marks to disappear. The hybrid selectors match elements by semantic structure so inline-apply, MutationObserver, and polling can re-find and restyle elements without relying on marks persisting.
 
 Routed via `getAffoSelector()` which checks the `isXCom` flag. When x.com is also configured for inline apply, the hybrid selectors fully own TMI targeting: initial apply, mutation handling, SPA navigation, font-size scaling, and font-loaded reapply all skip the element walker.
 
+Hybrid selectors find candidates; inline application and percentage scaling then omit empty structural wrappers whose HTML children are already candidates. Elements owning text stay eligible, as do wrappers around unmatched HTML children that may need inherited typography. Mono targets retain their original coverage. Sentinel polling samples protected eligible candidates, so intentionally skipped wrappers do not cause repeated repairs. Added text nodes and character-data changes revisit their nearest active hybrid candidate, including short labels and previously empty elements.
+
 Body Contact percent font-size scaling also explicitly includes tweet author clusters (`article [data-testid="User-Name"]`) and their text-bearing descendants so display names, handles, and timestamps scale with tweet body text.
 
 ## SPA Resilience
 
 Single shared MutationObserver + shared polling interval for all active font types (via `inlineConfigs` registry), plus History API and visibility hooks. Mutation work is scoped to newly added roots. Polling checks a small set of sentinel elements first and only performs a full query/rewrite when protected inline values have changed. Rewrites themselves compare current values before touching style/attribute state, and heading resets run once per affected root rather than once per matched ancestor. Per-type expiry is tracked via `expiresAt` timestamps; shared infrastructure disconnects when all types expire or are removed.
+
+Navigation and focus recovery share handlers for inline application and percentage scaling. Inline recovery scales its own types; the remaining scale-only types run separately, including after inline configurations expire.
+
+Lazy Google font subsets use one additional shared observer across fonts. A bounded debounce collects added/changed roots, drops detached and nested duplicates, and samples visible code points once across those roots. All registered fonts select subsets from that sample; no per-font whole-page rescan is needed. Each font retains its own timeout, and the last removal disconnects the observer and clears queued roots.

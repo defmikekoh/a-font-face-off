@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const acorn = require('acorn');
 
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
-const names = new Set(['anyMutationConsumerActive', 'getChatGptStreamTextRoot', 'ensureSharedDomObserver',
+const names = new Set(['anyMutationConsumerActive', 'getChatGptStreamTextRoot', 'getHybridInlineMutationRoot', 'ensureSharedDomObserver',
     'maybeCleanupSharedDomObserver', 'dispatchMeaningfulMutations', 'isMeaningfulInlineAddedNode',
     'elementHasOwnText', 'directTextHasMinNonWhitespace', 'markTypesInRoots',
     'getMutationTmiTypes', 'drainMeaningfulMutations']);
