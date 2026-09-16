@@ -265,6 +265,17 @@ Package: org.mozilla.fenix (Firefox Nightly)
 
 Its Firefox profile may be cleared by `npm run test:android:emulator`.
 
+The emulator does not have Google Play Store installed. When Firefox Nightly,
+Vivaldi Snapshot, or Edge Canary is missing or needs updating there, copy the
+installed app from the attached Note10 over ADB instead of trying to use a
+store. Use `adb -s RF8M81WSL1V shell pm path <package>` on
+`RF8M81WSL1V`, pull every returned APK split into `ztemp/`, then install the
+matching set on `emulator-5554` with `adb -s emulator-5554 install-multiple`.
+Preserve the package and signing identity; do not mix splits from different app
+versions.
+The browser-specific references below contain the package names and any
+known split requirements.
+
 Obtain new explicit user approval before using any other device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
 #### Approval-compatible Note10 ADB
@@ -343,6 +354,11 @@ For the disposable Android 16 emulator smoke lane, use:
 ```bash
 npm run test:android:emulator
 ```
+
+For Firefox Nightly app updates specifically, use package
+`org.mozilla.fenix`; after installing the Note10 APK set, verify the installed
+version with `adb -s emulator-5554 shell dumpsys package org.mozilla.fenix`
+before starting the smoke lane.
 
 This builds the current XPI, clears only the emulator's Nightly profile,
 installs the add-on, opens the DeepView regression page, and asserts Android

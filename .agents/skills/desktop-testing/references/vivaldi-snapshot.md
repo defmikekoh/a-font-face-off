@@ -126,6 +126,10 @@ npm run build:chromium
 adb -s emulator-5554 push ztemp/chromium-mv3-src/. /sdcard/Download/affo-mv3
 ```
 
+The emulator has no Google Play Store, so repeat this Note10-to-emulator APK
+copy when Snapshot needs updating. Pull all paths returned by `pm path` and
+install the complete same-version split set; do not install only `base.apk`.
+
 On this emulator, `monkey` returned an error about physical system keys without
 opening the browser. Tapping the observed Vivaldi Snapshot launcher icon worked.
 Complete the existing Quick Start onboarding flow above; the smoke run used No

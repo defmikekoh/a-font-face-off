@@ -34,6 +34,12 @@ Record the installed browser version at the start of a run:
 adb -s RF8M81WSL1V shell dumpsys package com.microsoft.emmx.canary
 ```
 
+The Android 16 emulator has no Google Play Store. If Edge Canary is absent or
+needs updating there, copy the installed Note10 package over ADB: run
+`adb -s RF8M81WSL1V shell pm path com.microsoft.emmx.canary`, pull every APK
+split into `ztemp/`, and run `adb -s emulator-5554 install-multiple` with that
+complete same-version set. Do not mix splits or install only the base APK.
+
 ## Build and install
 
 Build the shared Chromium MV3 source and native-packed CRX:
