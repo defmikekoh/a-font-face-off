@@ -1,3 +1,4 @@
+/* global document */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -41,8 +42,58 @@ test('inline TMI applies, leaves equivalent CSS intact, and recovers damaged sty
             p.removeAttribute('data-affo-protected');
             window.dispatchEvent(new Event('focus'));`);
         await driver.wait(async () => driver.executeScript(`const p = document.getElementById('p499'); return p.hasAttribute('data-affo-protected') && p.style.color === 'rgb(255, 0, 0)' && p.style.fontFamily.includes('Georgia') && p.style.fontVariationSettings.includes('450');`), 15000);
+        // Size-only damage must survive the typography verification shortcut.
+        await driver.executeScript(`document.getElementById('p499').style.fontSize = '9px';
+            window.dispatchEvent(new Event('focus'));`);
+        await driver.wait(async () => driver.executeScript("return document.getElementById('p499').style.fontSize === '20px'"), 15000);
         await driver.executeScript(`const p = document.createElement('p'); p.id = 'added'; p.textContent = 'Dynamic readable text should be classified, protected and scaled after insertion.'; document.querySelector('main').append(p);`);
         await driver.wait(async () => driver.executeScript("const p = document.getElementById('added'); return p.getAttribute('data-affo-font-type') === 'serif' && p.hasAttribute('data-affo-protected') && p.style.fontSize === '20px';"), 15000);
+    } finally {
+        await teardown(driver, profileDir);
+        await new Promise(resolve => server.close(resolve));
+    }
+});
+
+test('three inline types batch initial and multi-root dynamic application with scaling', { timeout: 90000 }, async () => {
+    const types = ['serif', 'sans', 'mono'];
+    function section(id) {
+        return `<section id="${id}"><h2>Heading remains site typography</h2>` +
+            Array.from({ length: 90 }, (_, i) => `<p style="font-family:${['serif', 'sans-serif', 'monospace'][i % 3]};font-weight:${i % 5 === 0 ? 700 : 400}">Readable paragraph ${i} with enough content for family classification.</p>`).join('') + '</section>';
+    }
+    const server = http.createServer((_req, res) => {
+        res.setHeader('Content-Type', 'text/html');
+        res.end('<!doctype html><title>Three inline types</title><style>body{font-size:16px}</style><main>' + section('first') + section('second') + '</main>');
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    let driver, profileDir;
+    try {
+        ({ driver, profileDir } = await setup());
+        const url = `http://127.0.0.1:${server.address().port}/`;
+        await driver.get(url);
+        await openPopup(driver);
+        const entry = Object.fromEntries(types.map((type, i) => [type, {
+            fontName: ['Georgia', 'Arial', 'Courier New'][i], fontSource: 'local',
+            fontColor: '#ff0000', fontSizeScale: 125, variableAxes: { wght: 450 },
+        }]));
+        await popupExec(driver, `return browser.storage.local.set(${JSON.stringify({ affoInlineApplyDomains: ['127.0.0.1'], affoApplyMap: { '127.0.0.1': entry } })}).then(() => true);`);
+        await closePopup(driver);
+        await driver.get(url);
+        async function waitForTypes(total) {
+            await driver.wait(async () => driver.executeScript(function (expected) {
+                const paragraphs = [...document.querySelectorAll('p')];
+                return paragraphs.length === expected && paragraphs.every(p => p.hasAttribute('data-affo-protected') && p.style.fontSize === '20px' && p.style.color === 'rgb(255, 0, 0)');
+            }, total), 25000);
+            assert.deepEqual(await driver.executeScript("return ['serif','sans','mono'].map(type => document.querySelectorAll('p[data-affo-font-type=\"'+type+'\"]').length)"), [total / 3, total / 3, total / 3]);
+            assert.equal(await driver.executeScript("return [...document.querySelectorAll('p[data-affo-was-bold]')].every(p=>p.style.fontWeight==='700')"), true);
+        }
+        await waitForTypes(180);
+        await driver.executeScript(function (html) { document.querySelector('main').insertAdjacentHTML('beforeend', html); }, section('third') + section('fourth'));
+        await waitForTypes(360);
+        await driver.executeScript(`window.changedInlineStyles = 0;
+            new MutationObserver(records => { window.changedInlineStyles += records.length; }).observe(document.querySelector('main'), {subtree:true, attributes:true, attributeFilter:['style']});
+            window.dispatchEvent(new Event('focus'));`);
+        await driver.sleep(3000);
+        assert.equal(await driver.executeScript('return window.changedInlineStyles'), 0);
     } finally {
         await teardown(driver, profileDir);
         await new Promise(resolve => server.close(resolve));

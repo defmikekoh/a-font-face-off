@@ -107,6 +107,7 @@
   // Shared inline-apply infrastructure — single observer + single polling timer for all font types
   var inlineRecoveryPromise = null;
   var inlineRecoveryFullRequested = false;
+  var pendingTmiProtectionBatch = null;
   var inlineWorkQueue = [];
   var pendingInlineWorkChunk = null;
   var inlineCssValues = new Map();
@@ -1532,7 +1533,7 @@
     }
   }
 
-  async function applyInlineFontSizeScale(cfg, fontType, roots) {
+  async function applyInlineFontSizeScale(cfg, fontType, roots, verification) {
     if (inlineConfigs[fontType] !== cfg) return;
     var config = cfg.fontConfig || {};
     if (fontType === 'body') {
@@ -1543,11 +1544,16 @@
     if (hasFontSizeScale(config)) {
       fontSizeScaleConfigs[fontType] = config;
       var targets = roots ? getFontSizeScaleTargetsInRoots(fontType, roots) : getFontSizeScaleTargets(fontType);
-      await queueInlineWork(fontSizeScaleSteps(config, fontType, targets), cfg, fontType);
+      if (verification && !verification.full) {
+        // Scaling includes some unmarked links/emphasis descendants. Keep
+        // discovering those, but don't repeat the verified targets' DOM reads.
+        targets = targets.filter(function (el) { return !verification.checked.has(el) || verification.repairs.has(el); });
+      }
+      if (targets.length) await queueInlineWork(fontSizeScaleSteps(config, fontType, targets), cfg, fontType);
     } else if (!roots) {
       delete fontSizeScaleConfigs[fontType];
-      await queueInlineWork((function* () {
-        var previous = document.querySelectorAll('[' + getFontSizeScaleAttr(fontType, 'scaled') + ']');
+      var previous = document.querySelectorAll('[' + getFontSizeScaleAttr(fontType, 'scaled') + ']');
+      if (previous.length) await queueInlineWork((function* () {
         for (var el of previous) {
           if (el.isConnected) restoreScaledFontSizeElement(el, fontType);
           yield;
@@ -1728,41 +1734,20 @@
   // Apply inline styles only within the given added subtree roots (instead of
   // re-querying and re-writing every marked element in the document).
   async function applyInlineStylesInRoots(roots) {
-    var types = Object.keys(inlineConfigs);
-    if (types.length === 0) return;
-    var headingResetRoots = new Map();
-    for (var ft of types) {
+    var groups = [];
+    for (var ft of Object.keys(inlineConfigs)) {
       var cfg = inlineConfigs[ft];
-      if (!cfg) continue;
-      var selector = getAffoSelector(ft);
-      var applied = 0;
-      for (var root of roots) {
-        if (!root || root.nodeType !== 1) continue;
-        var matches = [];
-        try {
-          if (root.matches && root.matches(selector)) matches.push(root);
-          if (root.querySelectorAll) {
-            var inner = root.querySelectorAll(selector);
-            for (var i = 0; i < inner.length; i++) matches.push(inner[i]);
-          }
-        } catch (_) { continue; }
-        if (ft === 'body') {
-          matches.forEach(function (el) {
-            applyAffoProtection(el, cfg.cssPropsObject);
-            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-          });
-          applied += matches.length;
-        } else {
-          applied += await applyTmiProtectionToElements(matches, cfg, ft);
-          if (inlineConfigs[ft] !== cfg) break;
-          headingResetRoots.set(root, { cfg: cfg, fontType: ft });
-        }
+      if (ft !== 'body') {
+        groups.push({ roots: roots, cfg: cfg, fontType: ft });
+        continue;
       }
-      if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
+      // Body keeps its existing synchronous behavior.
+      for (var el of inlineGroupElements({ roots: roots, cfg: cfg, fontType: ft }, getAffoSelector(ft))) {
+        applyAffoProtection(el, cfg.cssPropsObject);
+        applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
+      }
     }
-    for (var [headingRoot, owner] of headingResetRoots) {
-      await resetHeadingTypographyInMarkedSubtree(headingRoot, owner.cfg, owner.fontType);
-    }
+    await applyTmiProtectionBatch(groups, roots);
   }
 
   function getMutationTmiTypes() {
@@ -1844,9 +1829,9 @@
 
   // One queue gives all TMI consumers a shared main-thread budget. Iterators
   // yield per element, keeping read snapshots ahead of their style writes.
-  function queueInlineWork(iterator, cfg, fontType) {
+  function queueInlineWork(iterator, cfg, fontType, batch) {
     return new Promise(function (resolve, reject) {
-      inlineWorkQueue.push({ iterator: iterator, cfg: cfg, fontType: fontType, resolve: resolve, reject: reject });
+      inlineWorkQueue.push({ iterator: iterator, cfg: cfg, fontType: fontType, batch: batch, resolve: resolve, reject: reject });
       if (!pendingInlineWorkChunk) scheduleInlineWorkChunk();
     });
   }
@@ -1861,7 +1846,7 @@
       while (inlineWorkQueue.length) {
         var job = inlineWorkQueue[0];
         try {
-          var result = inlineConfigs[job.fontType] === job.cfg
+          var result = job.batch || inlineConfigs[job.fontType] === job.cfg
             ? job.iterator.next() : { done: true, value: 0 };
           if (result.done) {
             inlineWorkQueue.shift();
@@ -1877,6 +1862,49 @@
     }
     pendingInlineWorkChunk = resume;
     timer = setTimeout(resume, 0);
+  }
+
+  function prepareInlineProperty(prop, value) {
+    return {
+      prop: prop, value: String(value), canonical: canonicalInlineValue(prop, value),
+      priority: 'important', customProp: '--affo-' + prop, attribute: 'data-affo-' + prop
+    };
+  }
+
+  function prepareInlineComparisons(cfg, fontType) {
+    var config = cfg.fontConfig || {};
+    return {
+      normal: cfg.tmiProtection ? cfg.tmiProtection.normalRecords : Object.entries(cfg.cssPropsObject).map(function (entry) {
+        return prepareInlineProperty(entry[0], entry[1]);
+      }),
+      bold: cfg.tmiProtection ? cfg.tmiProtection.boldRecords : null,
+      fontName: cfg.cssPropsObject['font-family'] == null ? null : String(cfg.cssPropsObject['font-family']),
+      color: config.fontColor ? prepareInlineProperty('color', config.fontColor) : null,
+      scale: hasFontSizeScale(config) ? {
+        factor: Number(config.fontSizeScale) / 100,
+        scaledAttr: getFontSizeScaleAttr(fontType, 'scaled'),
+        originalAttr: getFontSizeScaleAttr(fontType, 'original-computed'),
+        selector: getFontSizeScaleSelector(fontType)
+      } : null
+    };
+  }
+
+  function inlinePropertyNeedsRepair(el, record) {
+    return el.style.getPropertyValue(record.prop) !== record.canonical ||
+      el.style.getPropertyPriority(record.prop) !== record.priority ||
+      el.style.getPropertyValue(record.customProp) !== record.value ||
+      el.style.getPropertyPriority(record.customProp) !== record.priority ||
+      el.getAttribute(record.attribute) !== record.value;
+  }
+
+  function applyPreparedInlineProperty(el, record) {
+    if (el.style.getPropertyValue(record.prop) !== record.canonical || el.style.getPropertyPriority(record.prop) !== record.priority) {
+      el.style.setProperty(record.prop, record.value, record.priority);
+    }
+    if (el.style.getPropertyValue(record.customProp) !== record.value || el.style.getPropertyPriority(record.customProp) !== record.priority) {
+      el.style.setProperty(record.customProp, record.value, record.priority);
+    }
+    setAttributeIfChanged(el, record.attribute, record.value);
   }
 
   function setImportantStyleIfChanged(el, prop, value) {
@@ -1897,8 +1925,9 @@
     return true;
   }
 
-  function applyAffoProtection(el, propsObj, entries) {
-    (entries || Object.entries(propsObj)).forEach(function ([prop, value]) {
+  function applyAffoProtection(el, propsObj, entries, records) {
+    if (records) records.forEach(function (record) { applyPreparedInlineProperty(el, record); });
+    else (entries || Object.entries(propsObj)).forEach(function ([prop, value]) {
       setImportantStyleIfChanged(el, prop, value);
       setImportantStyleIfChanged(el, '--affo-' + prop, value);
       setAttributeIfChanged(el, 'data-affo-' + prop, value);
@@ -1915,8 +1944,9 @@
     return !(el.querySelector && el.querySelector('a'));
   }
 
-  function applyAffoTextColor(el, colorValue) {
+  function applyAffoTextColor(el, colorValue, record) {
     if (!colorValue || !canApplyAffoTextColor(el)) return;
+    if (record) { applyPreparedInlineProperty(el, record); return; }
     setImportantStyleIfChanged(el, 'color', colorValue);
     setImportantStyleIfChanged(el, '--affo-color', colorValue);
     setAttributeIfChanged(el, 'data-affo-color', colorValue);
@@ -1970,39 +2000,135 @@
     return false;
   }
 
-  function applyTmiProtectionToElements(elements, cfg, fontType, repairOnly) {
-    return queueInlineWork((function* () {
-      var targets = [];
-      var boldness = [];
-      var selector = getAffoSelector(fontType);
-      var hybrid = usesHybridInlineTmiSelectors();
-      // Snapshot all inherited weights before any ancestor is styled. Filtering
-      // and computed-style reads share the same budget as the write phase.
-      for (var i = 0; i < elements.length; i++) {
-        var el = elements[i];
-        if (el.isConnected && el.matches(selector) &&
-            (!hybrid || isHybridInlineTarget(el, fontType, selector)) &&
-            (!repairOnly || inlineElementNeedsRepair(el, cfg, fontType))) {
-          targets.push(el);
-          boldness.push(getTmiElementBoldness(el));
+  function applyTmiProtectionToElements(elements, cfg, fontType, repairOnly, headingRoots, roots) {
+    var group = { elements: elements, roots: roots, cfg: cfg, fontType: fontType, repairOnly: repairOnly };
+    return applyTmiProtectionBatch([group], headingRoots).then(function () { return group.applied || 0; });
+  }
+
+  function inlineGroupIsCurrent(group) {
+    return inlineConfigs[group.fontType] === group.cfg;
+  }
+
+  // Ready callers share the next queued batch. Once reading starts, new work
+  // gets its own batch; no application waits for a different font to load.
+  function applyTmiProtectionBatch(groups, headingRoots) {
+    if (!groups.length) return Promise.resolve();
+    var batch = pendingTmiProtectionBatch;
+    if (!batch) {
+      batch = { groups: [], headingRoots: new Set(), promise: null };
+      pendingTmiProtectionBatch = batch;
+      batch.promise = queueInlineWork(tmiProtectionBatchSteps(batch), null, null, true);
+    }
+    groups.forEach(function (group) { batch.groups.push(group); });
+    (headingRoots || []).forEach(function (root) { batch.headingRoots.add(root); });
+    return batch.promise;
+  }
+
+  function* inlineGroupElements(group, selector) {
+    if (group.discoveredElements) { yield* group.discoveredElements; return; }
+    if (group.elements) {
+      yield* group.elements;
+      return;
+    }
+    var seen = new Set();
+    for (var root of group.roots) {
+      if (!inlineGroupIsCurrent(group)) return;
+      if (!root || !root.isConnected) continue;
+      if (root.matches && root.matches(selector) && !seen.has(root)) {
+        seen.add(root);
+        yield root;
+      }
+      var elements = root.querySelectorAll(selector);
+      for (var el of elements) {
+        if (!seen.has(el)) { seen.add(el); yield el; }
+      }
+    }
+  }
+
+  function* discoverInlineBatchSources(batch) {
+    // x.com's hybrid selectors overlap; retain their independent routing.
+    if (isXCom) return;
+    var roots = new Map();
+    for (var group of batch.groups) {
+      if (group.elements || !inlineGroupIsCurrent(group)) continue;
+      group.discoveredElements = [];
+      for (var root of group.roots) {
+        if (!roots.has(root)) roots.set(root, new Map());
+        var types = roots.get(root);
+        if (!types.has(group.fontType)) types.set(group.fontType, new Set());
+        types.get(group.fontType).add(group);
+      }
+    }
+    var selector = '[data-affo-font-type]' + getArticleDeckExcludeSelector();
+    for (var [scope, owners] of roots) {
+      if (!scope || !scope.isConnected) continue;
+      var lists = [scope.matches && scope.matches(selector) ? [scope] : [], scope.querySelectorAll(selector)];
+      for (var list of lists) {
+        for (var el of list) {
+          var matching = owners.get(el.getAttribute('data-affo-font-type'));
+          if (matching) matching.forEach(function (owner) {
+            if (inlineGroupIsCurrent(owner)) owner.discoveredElements.push(el);
+          });
+          yield;
+        }
+      }
+    }
+  }
+
+  function* tmiProtectionBatchSteps(batch) {
+    if (pendingTmiProtectionBatch === batch) pendingTmiProtectionBatch = null;
+    var hybrid = usesHybridInlineTmiSelectors();
+    yield* discoverInlineBatchSources(batch);
+    var configStates = new Map();
+    // Every live root/type snapshots boldness before any batch typography write.
+    for (var group of batch.groups) {
+      group.targets = [];
+      group.boldness = [];
+      group.applied = 0;
+      group.candidates = 0;
+      if (!configStates.has(group.cfg)) configStates.set(group.cfg, { queued: new Set(), checked: new Set(), scale: { checked: new WeakSet(), repairs: new Set(), full: false } });
+      var state = configStates.get(group.cfg);
+      if (!group.repairOnly) state.scale.full = true;
+      group.scaleVerification = state.scale;
+      group.selector = getAffoSelector(group.fontType);
+      for (var el of inlineGroupElements(group, group.selector)) {
+        if (!inlineGroupIsCurrent(group)) break;
+        group.candidates++;
+        // A repair-only request must never suppress a later full application.
+        if (state.queued.has(el) || (group.repairOnly && state.checked.has(el))) { yield; continue; }
+        if (el.isConnected && el.matches(group.selector) && !el.closest('[data-affo-guard], .no-affo') &&
+            (!hybrid || isHybridInlineTarget(el, group.fontType, group.selector))) {
+          if (group.repairOnly && group.cfg.comparison.scale) {
+            state.scale.checked.add(el);
+            if (inlineFontSizeNeedsRepair(el, group.cfg)) state.scale.repairs.add(el);
+          }
+          if (!group.repairOnly || inlineTypographyNeedsRepair(el, group.cfg, group.fontType)) {
+            state.queued.add(el);
+            group.targets.push(el);
+            group.boldness.push(getTmiElementBoldness(el));
+          }
+          if (group.repairOnly) state.checked.add(el);
         }
         yield;
       }
-      var count = 0;
-      for (var j = 0; j < targets.length; j++) {
-        var target = targets[j];
-        // Pages may remove/reparent targets into a guard while we yield.
-        if (target.isConnected && target.matches(selector) &&
-            !target.closest('[data-affo-guard], .no-affo') &&
-            (!hybrid || isHybridInlineTarget(target, fontType, selector))) {
-          applyTmiProtection(target, cfg, boldness[j]);
-          applyAffoTextColor(target, cfg.fontConfig && cfg.fontConfig.fontColor);
-          count++;
+    }
+    for (group of batch.groups) {
+      for (var i = 0; i < group.targets.length; i++) {
+        if (!inlineGroupIsCurrent(group)) break;
+        var target = group.targets[i];
+        if (target.isConnected && target.matches(group.selector) && !target.closest('[data-affo-guard], .no-affo') &&
+            (!hybrid || isHybridInlineTarget(target, group.fontType, group.selector))) {
+          applyTmiProtection(target, group.cfg, group.boldness[i]);
+          applyAffoTextColor(target, group.cfg.fontConfig && group.cfg.fontConfig.fontColor, group.cfg.comparison.color);
+          group.applied++;
         }
         yield;
       }
-      return count;
-    })(), cfg, fontType);
+    }
+    // One heading pass per batch, after all typography writes and before scaling.
+    yield* resetHeadingTypographySteps(batch.headingRoots, function () {
+      return batch.groups.some(inlineGroupIsCurrent);
+    });
   }
 
   function prepareTmiProtection(propsObj, effectiveWeight) {
@@ -2016,7 +2142,9 @@
     return {
       normalEntries: Object.entries(propsObj),
       boldProps: boldProps,
-      boldEntries: Object.entries(boldProps)
+      boldEntries: Object.entries(boldProps),
+      normalRecords: Object.entries(propsObj).map(function (entry) { return prepareInlineProperty(entry[0], entry[1]); }),
+      boldRecords: Object.entries(boldProps).map(function (entry) { return prepareInlineProperty(entry[0], entry[1]); })
     };
   }
 
@@ -2028,9 +2156,11 @@
     var prepared = cfg.tmiProtection;
     var finalProps = cfg.cssPropsObject;
     var entries = prepared.normalEntries;
+    var records = prepared.normalRecords;
     if (isBold && cfg.inlineEffectiveWeight !== null) {
       finalProps = prepared.boldProps;
       entries = prepared.boldEntries;
+      records = prepared.boldRecords;
       setAttributeIfChanged(el, 'data-affo-was-bold', 'true');
       if (finalProps['font-variation-settings'] == null) {
         el.style.removeProperty('font-variation-settings');
@@ -2038,14 +2168,19 @@
         el.removeAttribute('data-affo-font-variation-settings');
       }
     }
-    applyAffoProtection(el, finalProps, entries);
+    applyAffoProtection(el, finalProps, entries, records);
   }
 
-  function resetHeadingTypographyInMarkedSubtree(root, cfg, fontType) {
-    return queueInlineWork((function* () {
-      if (!root || !root.querySelectorAll || !root.isConnected) return;
+  function* resetHeadingTypographySteps(roots, isCurrent) {
+    var seen = new Set();
+    for (var root of roots) {
+      if (!isCurrent()) return;
+      if (!root || !root.querySelectorAll || !root.isConnected) continue;
       var headings = root.querySelectorAll('h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *');
       for (var heading of headings) {
+        if (!isCurrent()) return;
+        if (seen.has(heading)) continue;
+        seen.add(heading);
         if (heading.isConnected && root.contains(heading) && !heading.closest('[data-affo-guard], .no-affo')) {
           setImportantStyleIfChanged(heading, 'font-family', 'revert');
           setImportantStyleIfChanged(heading, 'font-weight', 'revert');
@@ -2055,7 +2190,7 @@
         }
         yield;
       }
-    })(), cfg, fontType);
+    }
   }
 
   function hasAffoStyleNodes() {
@@ -2237,6 +2372,7 @@
       inlineConfig.tmiProtection = prepareTmiProtection(cssPropsObject, inlineEffectiveWeight);
     }
 
+    inlineConfig.comparison = prepareInlineComparisons(inlineConfig, fontType);
     inlineConfigs[fontType] = inlineConfig;
 
     // Apply styles to elements based on font type
@@ -2265,11 +2401,9 @@
         }
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
       } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
-        var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
-        await applyTmiProtectionToElements(tmiElements, inlineConfig, fontType);
+        var applied = await applyTmiProtectionToElements(null, inlineConfig, fontType, false, [document.body], [document.body]);
         if (inlineConfigs[fontType] !== inlineConfig) return false;
-        await resetHeadingTypographyInMarkedSubtree(document.body, inlineConfig, fontType);
-        elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
+        elementLog('Applied inline styles to ' + applied + ' ' + fontType + ' elements');
       }
     } catch (e) {
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
@@ -2335,43 +2469,42 @@
     return samples;
   }
 
-  function inlineElementNeedsRepair(el, cfg, fontType) {
-    var wasBold = fontType !== 'body' && el.getAttribute('data-affo-was-bold') === 'true';
-    var props = wasBold && cfg.tmiProtection && cfg.inlineEffectiveWeight !== null
-      ? cfg.tmiProtection.boldProps : cfg.cssPropsObject || {};
-    var propNames = Object.keys(props);
-    for (var i = 0; i < propNames.length; i++) {
-      var prop = propNames[i];
-      var expected = canonicalInlineValue(prop, props[prop]);
-      if (wasBold && prop === 'font-weight') expected = '700';
-      if (el.style.getPropertyValue(prop) !== expected || el.style.getPropertyPriority(prop) !== 'important' ||
-          el.style.getPropertyValue('--affo-' + prop) !== String(props[prop]) ||
-          el.style.getPropertyPriority('--affo-' + prop) !== 'important' ||
-          el.getAttribute('data-affo-' + prop) !== String(props[prop])) {
-        return true;
-      }
+  function inlineTypographyNeedsRepair(el, cfg, fontType) {
+    var comparison = cfg.comparison;
+    var wasBold = fontType !== 'body' && cfg.inlineEffectiveWeight !== null &&
+      el.getAttribute('data-affo-was-bold') === 'true';
+    var records = wasBold ? comparison.bold : comparison.normal;
+    for (var i = 0; i < records.length; i++) {
+      if (inlinePropertyNeedsRepair(el, records[i])) return true;
     }
-
     if (el.getAttribute('data-affo-protected') !== 'true') return true;
-    if (props['font-family'] != null && el.getAttribute('data-affo-font-name') !== String(props['font-family'])) return true;
+    if (comparison.fontName !== null && el.getAttribute('data-affo-font-name') !== comparison.fontName) return true;
+    if (comparison.color && canApplyAffoTextColor(el) && inlinePropertyNeedsRepair(el, comparison.color)) return true;
+    return false;
+  }
 
-    var color = cfg.fontConfig && cfg.fontConfig.fontColor;
-    if (color && canApplyAffoTextColor(el) &&
-      (el.style.getPropertyValue('color') !== canonicalInlineValue('color', color) || el.style.getPropertyPriority('color') !== 'important' ||
-       el.style.getPropertyValue('--affo-color') !== String(color) ||
-       el.style.getPropertyPriority('--affo-color') !== 'important' || el.getAttribute('data-affo-color') !== String(color))) {
+  function inlineFontSizeNeedsRepair(el, cfg) {
+    var scale = cfg.comparison.scale;
+    if (!scale || !el.matches(scale.selector)) return false;
+    var originalSize = Number(el.getAttribute(scale.originalAttr));
+    if (!el.hasAttribute(scale.scaledAttr) || !isFinite(originalSize) || originalSize <= 0) {
+      // A descendant intentionally inheriting its ancestor's scaled size has
+      // no own scale record. Match the scaling writer's no-compounding rule.
+      var ancestor = el.parentElement && el.parentElement.closest('[' + scale.scaledAttr + ']');
+      if (ancestor) {
+        var size = parseFloat(window.getComputedStyle(el).getPropertyValue('font-size'));
+        var ancestorSize = parseFloat(window.getComputedStyle(ancestor).getPropertyValue('font-size'));
+        if (isFinite(size) && isFinite(ancestorSize) && Math.abs(size - ancestorSize) < 0.05) return false;
+      }
       return true;
     }
+    var expected = +(originalSize * scale.factor).toFixed(3) + 'px';
+    return el.style.getPropertyValue('font-size') !== expected ||
+      el.style.getPropertyPriority('font-size') !== (shouldUseAggressive() ? 'important' : '');
+  }
 
-    if (hasFontSizeScale(cfg.fontConfig)) {
-      var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
-      var originalAttr = getFontSizeScaleAttr(fontType, 'original-computed');
-      var originalSize = Number(el.getAttribute(originalAttr));
-      if (!el.hasAttribute(scaledAttr) || !isFinite(originalSize) || originalSize <= 0) return true;
-      var expectedSize = +(originalSize * Number(cfg.fontConfig.fontSizeScale) / 100).toFixed(3) + 'px';
-      if (el.style.getPropertyValue('font-size') !== expectedSize) return true;
-    }
-    return false;
+  function inlineElementNeedsRepair(el, cfg, fontType) {
+    return inlineTypographyNeedsRepair(el, cfg, fontType) || inlineFontSizeNeedsRepair(el, cfg);
   }
 
   function inlineTypeNeedsRepair(fontType, cfg) {
@@ -2401,58 +2534,52 @@
 
   async function reapplyAllInlineStylesNow(options) {
     var verifyFirst = !!(options && options.verifyFirst);
-    var types = Object.keys(inlineConfigs);
-    if (types.length === 0) return;
+    var groups = [];
     var tmiTypesToRewalk = [];
-    for (var ft of types) {
-      try {
-        var cfg = inlineConfigs[ft];
-        if (!cfg) continue;
-        if (cfg.application) await cfg.application;
-        if (inlineConfigs[ft] !== cfg) continue;
-        if (verifyFirst && !inlineTypeNeedsRepair(ft, cfg)) continue;
+    var applications = [];
+    for (var ft of (options && options.fontTypes || Object.keys(inlineConfigs))) {
+      var cfg = inlineConfigs[ft];
+      if (!cfg) continue;
+      if (cfg.application) {
+        applications.push({ cfg: cfg, fontType: ft, promise: cfg.application });
+        continue; // Process ready types now, then verify this type after its Apply.
+      }
+      if (verifyFirst && !inlineTypeNeedsRepair(ft, cfg)) continue;
+      if (ft === 'body') {
         var elements = document.querySelectorAll(getAffoSelector(ft));
-        if (elements.length === 0 && ft !== 'body' && !usesHybridInlineTmiSelectors()) {
-          // No marked elements — DOM was likely replaced; queue a re-walk
-          tmiTypesToRewalk.push(ft);
-          continue;
-        }
-        if (ft === 'body') {
-          elements.forEach(function (el) {
-            applyAffoProtection(el, cfg.cssPropsObject);
-            applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-          });
-        } else {
-          await applyTmiProtectionToElements(elements, cfg, ft, true);
-          if (inlineConfigs[ft] !== cfg) continue;
-          await resetHeadingTypographyInMarkedSubtree(document.body, cfg, ft);
-        }
+        elements.forEach(function (el) {
+          applyAffoProtection(el, cfg.cssPropsObject);
+          applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
+        });
         await applyInlineFontSizeScale(cfg, ft);
-        elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
-      } catch (e) {
-        debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
+      } else {
+        groups.push({ roots: [document.body], cfg: cfg, fontType: ft, repairOnly: true });
       }
     }
-    // Re-walk any TMI types that lost their markers, then apply inline styles
-    if (tmiTypesToRewalk.length > 0) {
-      debugLog('[AFFO Content] Re-walking for inline types with 0 marked elements: ' + tmiTypesToRewalk.join(', '));
-      tmiTypesToRewalk.forEach(function (ft) {
-        elementWalkerCompleted[ft] = false;
-        elementWalkerRechecksScheduled[ft] = false;
+    await applyTmiProtectionBatch(groups, [document.body]);
+    for (var group of groups) {
+      if (!inlineGroupIsCurrent(group)) continue;
+      if (!group.candidates && !usesHybridInlineTmiSelectors()) tmiTypesToRewalk.push({ cfg: group.cfg, fontType: group.fontType });
+      else await applyInlineFontSizeScale(group.cfg, group.fontType, null, group.scaleVerification);
+    }
+    // Missing markers must be classified first; they don't delay ready groups.
+    if (tmiTypesToRewalk.length) {
+      var types = tmiTypesToRewalk.map(function (owner) { return owner.fontType; });
+      types.forEach(function (type) {
+        elementWalkerCompleted[type] = false;
+        elementWalkerRechecksScheduled[type] = false;
       });
-      await runElementWalkerAll(tmiTypesToRewalk);
-      for (ft of tmiTypesToRewalk) {
-        try {
-          cfg = inlineConfigs[ft];
-          if (!cfg) continue;
-          elements = document.querySelectorAll(getAffoSelector(ft));
-          await applyTmiProtectionToElements(elements, cfg, ft, true);
-          if (inlineConfigs[ft] !== cfg) continue;
-          await resetHeadingTypographyInMarkedSubtree(document.body, cfg, ft);
-          await applyInlineFontSizeScale(cfg, ft);
-          elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
-        } catch (_) { }
-      }
+      await runElementWalkerAll(types);
+      groups = tmiTypesToRewalk.filter(inlineGroupIsCurrent).map(function (owner) {
+        return { roots: [document.body], cfg: owner.cfg, fontType: owner.fontType, repairOnly: true };
+      });
+      await applyTmiProtectionBatch(groups, [document.body]);
+      for (group of groups) await applyInlineFontSizeScale(group.cfg, group.fontType, null, group.scaleVerification);
+    }
+    if (applications.length) {
+      await Promise.all(applications.map(function (owner) { return owner.promise; }));
+      var completedTypes = applications.filter(inlineGroupIsCurrent).map(function (owner) { return owner.fontType; });
+      if (completedTypes.length) await reapplyAllInlineStylesNow({ verifyFirst: verifyFirst, fontTypes: completedTypes });
     }
   }
 

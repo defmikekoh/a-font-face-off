@@ -6,6 +6,10 @@ const acorn = require('acorn');
 
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
 const names = new Set([
+    'discoverInlineBatchSources', 'inlineTypographyNeedsRepair', 'inlineFontSizeNeedsRepair',
+    'applyInlineFontSizeScale', 'reapplyAllInlineStylesNow',
+    'prepareInlineProperty', 'prepareInlineComparisons', 'inlinePropertyNeedsRepair', 'applyPreparedInlineProperty',
+    'applyTmiProtectionBatch', 'inlineGroupIsCurrent', 'inlineGroupElements', 'tmiProtectionBatchSteps', 'resetHeadingTypographySteps',
     'restorePreparedFontSwapAnchor', 'canonicalInlineValue', 'queueInlineWork', 'scheduleInlineWorkChunk', 'inlineElementNeedsRepair',
     'prepareTmiProtection', 'applyTmiProtection', 'applyAffoProtection', 'setImportantStyleIfChanged',
     'setAttributeIfChanged', 'isBoldFontWeightValue', 'buildBoldAxisSettings', 'extractVariationAxes',
@@ -28,9 +32,10 @@ assert.equal(functions.length, names.size);
 function harness(overrides) {
     const context = vm.createContext({
         inlineCssValues: new Map(), inlineCssParser: null,
-        inlineWorkQueue: [], pendingInlineWorkChunk: null, inlineConfigs: {},
+        inlineWorkQueue: [], pendingInlineWorkChunk: null, pendingTmiProtectionBatch: null, inlineConfigs: {},
         getAffoNow: () => performance.now(), setTimeout, clearTimeout,
-        usesHybridInlineTmiSelectors: () => false,
+        usesHybridInlineTmiSelectors: () => false, isXCom: false,
+        getArticleDeckExcludeSelector: () => '', shouldUseAggressive: () => false,
         getAffoSelector: () => '[data-affo-font-type]',
         hasFontSizeScale: () => false,
         document: { createElement: () => ({ style: {
@@ -53,7 +58,7 @@ test('TMI snapshots every weight before any style write and refreshes non-bold n
         applyAffoTextColor() {},
     });
     context.applyTmiProtection = (el, _cfg, bold) => events.push('write:' + el.id + ':' + bold);
-    context.inlineConfigs.sans = {};
+    context.inlineConfigs.sans = { comparison: {} };
     await context.applyTmiProtectionToElements(elements, context.inlineConfigs.sans, 'sans');
     assert.deepEqual(events, ['read:0', 'read:1', 'read:2', 'write:0:false', 'write:1:false', 'write:2:false']);
     events.length = 0;
@@ -177,11 +182,11 @@ function queuedHarness() {
         applyAffoTextColor() {},
     });
     context.applyTmiProtection = el => { time += 3; events.push('write:' + el.id); };
-    const cfg = {};
+    const cfg = { comparison: {} };
     context.inlineConfigs.sans = cfg;
     const elements = Array.from({ length: 9 }, (_, id) => ({
         id, isConnected: true, guarded: false, matches: () => true,
-        closest() { return this.guarded ? {} : null; }, getAttribute: () => null,
+        closest() { return this.guarded ? {} : null; }, getAttribute: key => key === 'data-affo-font-type' ? 'sans' : null,
     }));
     function flush() {
         const first = timers.entries().next().value;
@@ -223,7 +228,7 @@ for (const action of ['reset', 'replace']) {
         while (h.timers.size) h.flush();
         await first;
         assert.equal(h.events.filter(event => event.startsWith('write:')).length, writes);
-        const next = {};
+        const next = { comparison: {} };
         h.context.inlineConfigs.sans = next;
         const second = h.context.applyTmiProtectionToElements(h.elements, next, 'sans');
         while (h.timers.size) h.flush();
@@ -251,6 +256,7 @@ test('CSSOM-normalized comparison skips equivalent values but repairs changed va
         },
     };
     const cfg = { cssPropsObject: { 'font-family': '"Times New Roman", serif' }, fontConfig: { fontColor: '#ff0000' } };
+    cfg.comparison = context.prepareInlineComparisons(cfg, 'sans');
     attributes.set('data-affo-protected', 'true');
     attributes.set('data-affo-font-name', cfg.cssPropsObject['font-family']);
     attributes.set('data-affo-font-family', cfg.cssPropsObject['font-family']);
@@ -310,4 +316,194 @@ test('popup continuation advances one bounded chunk without double-running its t
     assert.equal(h.events.length, 3);
     while (h.timers.size) h.flush();
     assert.equal(await promise, 9);
+});
+
+test('one batch reads every root and type before writing, deduplicating overlapping roots', async () => {
+    const h = queuedHarness();
+    const serif = { comparison: {} };
+    h.context.inlineConfigs.serif = serif;
+    const rootA = { isConnected: true, matches: () => false, querySelectorAll: () => h.elements.slice(0, 3) };
+    const rootB = { isConnected: true, matches: () => false, querySelectorAll: () => h.elements.slice(2, 5) };
+    const promise = h.context.applyTmiProtectionBatch([
+        { roots: [rootA, rootB], cfg: h.cfg, fontType: 'sans' },
+        { elements: h.elements.slice(5), cfg: serif, fontType: 'serif' },
+    ]);
+    while (h.timers.size) h.flush();
+    await promise;
+    assert.deepEqual(h.events.slice(0, 9), h.elements.map(el => 'read:' + el.id));
+    assert.deepEqual(h.events.slice(9), h.elements.map(el => 'write:' + el.id));
+});
+
+test('ready calls coalesce before reading; a later call starts another batch', async () => {
+    const h = queuedHarness();
+    const serif = { comparison: {} };
+    const mono = { comparison: {} };
+    h.context.inlineConfigs.serif = serif;
+    h.context.inlineConfigs.mono = mono;
+    const one = h.context.applyTmiProtectionToElements(h.elements.slice(0, 3), h.cfg, 'sans');
+    const two = h.context.applyTmiProtectionToElements(h.elements.slice(3, 6), serif, 'serif');
+    assert.equal(h.context.inlineWorkQueue.length, 1);
+    h.flush();
+    const three = h.context.applyTmiProtectionToElements(h.elements.slice(6), mono, 'mono');
+    assert.equal(h.context.inlineWorkQueue.length, 2);
+    while (h.timers.size) h.flush();
+    assert.deepEqual(await Promise.all([one, two, three]), [3, 3, 3]);
+    assert.deepEqual(h.events.slice(0, 6), h.elements.slice(0, 6).map(el => 'read:' + el.id));
+    assert.deepEqual(h.events.slice(6, 12), h.elements.slice(0, 6).map(el => 'write:' + el.id));
+});
+
+test('resetting one batched type preserves other types and resets shared headings once', async () => {
+    const h = queuedHarness();
+    const serif = { comparison: {} };
+    h.context.inlineConfigs.serif = serif;
+    const headings = [{ isConnected: true, closest: () => null }];
+    let queries = 0, headingWrites = 0;
+    const root = { isConnected: true, contains: () => true, querySelectorAll() { queries++; return headings; } };
+    h.context.setImportantStyleIfChanged = () => { headingWrites++; };
+    const one = h.context.applyTmiProtectionToElements(h.elements.slice(0, 3), h.cfg, 'sans', false, [root]);
+    const two = h.context.applyTmiProtectionToElements(h.elements.slice(3, 6), serif, 'serif', false, [root]);
+    h.flush(); h.flush();
+    delete h.context.inlineConfigs.sans;
+    while (h.timers.size) h.flush();
+    assert.deepEqual(await Promise.all([one, two]), [0, 3]);
+    assert.equal(queries, 1);
+    assert.equal(headingWrites, 5);
+    assert.deepEqual(h.events.filter(event => event.startsWith('write:')), ['write:3', 'write:4', 'write:5']);
+});
+
+test('prepared comparison and write records avoid CSS normalization in the per-element path', () => {
+    const context = harness({});
+    const props = { 'font-family': 'Test', 'font-weight': 450, 'font-variation-settings': '"GRAD" 20' };
+    const cfg = { cssPropsObject: props, inlineEffectiveWeight: 450, tmiProtection: context.prepareTmiProtection(props, 450) };
+    cfg.comparison = context.prepareInlineComparisons(cfg, 'serif');
+    const values = new Map(), priorities = new Map(), attrs = new Map();
+    const el = {
+        style: {
+            getPropertyValue: key => values.get(key) || '', getPropertyPriority: key => priorities.get(key) || '',
+            setProperty(key, value, priority) { values.set(key, value); priorities.set(key, priority); },
+        },
+        getAttribute: key => attrs.get(key) || null, setAttribute(key, value) { attrs.set(key, value); },
+    };
+    context.canonicalInlineValue = () => { throw Error('Per-element normalization is unnecessary'); };
+    context.applyTmiProtection(el, cfg, true);
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'serif'), false);
+    values.set('font-variation-settings', '"GRAD" 1');
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'serif'), true);
+    context.applyTmiProtection(el, cfg, true);
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'serif'), false);
+});
+
+test('empty scale cleanup creates no queued job', async () => {
+    const cfg = { fontConfig: {} };
+    let jobs = 0, refreshes = 0;
+    const context = harness({
+        inlineConfigs: { sans: cfg }, fontSizeScaleConfigs: {},
+        document: { querySelectorAll: () => [] }, getFontSizeScaleAttr: () => 'data-scale',
+        refreshFontSizeScaleObserver: () => { refreshes++; },
+    });
+    context.queueInlineWork = () => { jobs++; return Promise.resolve(); };
+    await context.applyInlineFontSizeScale(cfg, 'sans');
+    assert.equal(jobs, 0);
+    assert.equal(refreshes, 1);
+});
+
+test('recovery handles ready types before waiting for an in-flight Apply, then verifies the completed type', async () => {
+    let finish;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const calls = [];
+    const sans = { application: pending }, serif = {};
+    const context = harness({
+        inlineConfigs: { sans, serif },
+        document: { body: {}, querySelectorAll: () => [{}] },
+    });
+    context.applyTmiProtectionBatch = async groups => { groups.forEach(group => { group.candidates = 1; }); calls.push(Array.from(groups, group => group.fontType)); };
+    context.applyInlineFontSizeScale = async () => {};
+    const recovery = context.reapplyAllInlineStylesNow({ verifyFirst: false });
+    await Promise.resolve(); await Promise.resolve();
+    assert.deepEqual(calls, [['serif']]);
+    delete sans.application;
+    finish();
+    await recovery;
+    assert.deepEqual(calls, [['serif'], ['sans']]);
+});
+
+test('duplicate pending groups verify and write each target once; full application wins over repair-only', async () => {
+    for (const order of [[true, false], [false, true], [true, true]]) {
+        const h = queuedHarness();
+        let checks = 0;
+        h.context.inlineTypographyNeedsRepair = () => { checks++; return false; };
+        const groups = order.map(repairOnly => ({ elements: h.elements, cfg: h.cfg, fontType: 'sans', repairOnly }));
+        const done = h.context.applyTmiProtectionBatch(groups);
+        while (h.timers.size) h.flush();
+        await done;
+        const expectedWrites = order.every(Boolean) ? 0 : h.elements.length;
+        assert.equal(h.events.filter(event => event.startsWith('write:')).length, expectedWrites);
+        assert.ok(checks <= h.elements.length, 'Overlapping repair groups must share verification');
+    }
+});
+
+test('marked roots are queried once and partitioned across three types; hybrid selectors stay independent', async () => {
+    for (const hybrid of [false, true]) {
+        const h = queuedHarness();
+        let queries = 0;
+        h.context.isXCom = hybrid;
+        h.context.usesHybridInlineTmiSelectors = () => hybrid;
+        h.context.isHybridInlineTarget = () => true;
+        const types = ['sans', 'serif', 'mono'];
+        const configs = types.map(() => ({ comparison: {} }));
+        types.forEach((type, index) => { h.context.inlineConfigs[type] = configs[index]; });
+        h.context.getAffoSelector = type => type;
+        h.elements.forEach((el, index) => {
+            el.getAttribute = name => name === 'data-affo-font-type' ? types[index % 3] : null;
+            el.matches = selector => selector === types[index % 3];
+        });
+        const root = { isConnected: true, matches: () => false, querySelectorAll(selector) {
+            queries++;
+            return hybrid ? h.elements.filter(el => el.matches(selector)) : h.elements;
+        } };
+        const done = h.context.applyTmiProtectionBatch(types.map((type, index) => ({ roots: [root], cfg: configs[index], fontType: type })));
+        while (h.timers.size) h.flush();
+        await done;
+        assert.equal(queries, hybrid ? 3 : 1);
+        assert.equal(h.events.filter(event => event.startsWith('write:')).length, 9);
+    }
+});
+
+test('scale verification ignores non-targets and intentional inheritance, but catches changed size and priority', () => {
+    const context = harness({ window: { getComputedStyle: el => ({ getPropertyValue: () => el.computed }) } });
+    const cfg = { comparison: { scale: { selector: 'scale', originalAttr: 'original', scaledAttr: 'scaled', factor: 1.25 } } };
+    const ancestor = { computed: '20px' };
+    const el = {
+        matches: () => false, getAttribute: () => null, hasAttribute: () => false,
+        parentElement: { closest: () => ancestor }, computed: '20px',
+        style: { getPropertyValue: () => '20px', getPropertyPriority: () => '' },
+    };
+    assert.equal(context.inlineFontSizeNeedsRepair(el, cfg), false, 'Marked nodes outside scaling selector must not trigger polling');
+    el.matches = () => true;
+    assert.equal(context.inlineFontSizeNeedsRepair(el, cfg), false, 'Inherited scaled pixels need no own scale record');
+    el.computed = '16px';
+    assert.equal(context.inlineFontSizeNeedsRepair(el, cfg), true);
+    el.hasAttribute = () => true; el.getAttribute = () => '16';
+    assert.equal(context.inlineFontSizeNeedsRepair(el, cfg), false);
+    context.shouldUseAggressive = () => true;
+    assert.equal(context.inlineFontSizeNeedsRepair(el, cfg), true, 'Important priority must be restored');
+});
+
+test('scale recovery reuses checked targets while retaining unmarked descendants', async () => {
+    const cfg = { fontConfig: { fontSizeScale: 125 } };
+    const targets = [{ name: 'intact' }, { name: 'damaged' }, { name: 'unmarked link' }];
+    const checks = { checked: new WeakSet(targets.slice(0, 2)), repairs: new Set([targets[1]]), full: false };
+    const context = harness({
+        inlineConfigs: { sans: cfg }, fontSizeScaleConfigs: {},
+        hasFontSizeScale: () => true, getFontSizeScaleTargets: () => targets,
+        refreshFontSizeScaleObserver() {},
+        fontSizeScaleSteps: (_config, _type, elements) => elements,
+    });
+    let visited;
+    context.queueInlineWork = async steps => { visited = Array.from(steps); };
+    await context.applyInlineFontSizeScale(cfg, 'sans', null, checks);
+    assert.deepEqual(visited, targets.slice(1));
+    checks.full = true;
+    await context.applyInlineFontSizeScale(cfg, 'sans', null, checks);
+    assert.deepEqual(visited, targets, 'A concurrent full Apply invalidates the scale shortcut');
 });
