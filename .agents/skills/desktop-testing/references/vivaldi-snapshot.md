@@ -1,8 +1,8 @@
 # Vivaldi Snapshot on Note10 and Android emulator
 
-## Note10 approved scope
+## Approved disposable scope
 
-The disposable target is Samsung Galaxy Note10 `RF8M81WSL1V`, package `com.vivaldi.browser.snapshot`. User authorization includes app/profile resets, force-stop/relaunch, and local extension install/reload for AFFO testing. Do not reset stable `com.vivaldi.browser`, another device, or another Android user/work profile under this authorization. Keep Snapshot signed out of browser Sync. Reset for clean-install tests; retain the session for iterative debugging.
+The disposable targets are Samsung Galaxy Note10 `RF8M81WSL1V` and configured Android emulator `emulator-5554`, package `com.vivaldi.browser.snapshot`. User authorization includes app/profile resets, force-stop/relaunch, and local extension install/reload for AFFO testing. Do not reset stable `com.vivaldi.browser`, another package, an unconfigured device, or another Android user/work profile under this authorization. Keep Snapshot signed out of browser Sync. Reset for clean-install tests; retain the session for iterative debugging.
 
 Do not use the Firefox geckodriver harness for Vivaldi. Use ADB for native UI and CDP for page/extension code. Verify visible popup layout with a screenshot as well as DOM measurements.
 
@@ -86,8 +86,9 @@ Verified on 2026-09-14: `emulator-5554`, AVD `AFFO_Pixel_API36` (Pixel 8,
 Google APIs ARM64, 1080×2400), Vivaldi Snapshot **8.2.4147.50**
 (`com.vivaldi.browser.snapshot`). The user requested this emulator smoke run;
 installation, local AFFO loading, and test-domain mutations were exercised.
-Reuse the installed profile. This run did not clear Vivaldi app data and does
-not expand the Note10-specific blanket reset authorization above.
+Reuse the installed profile. This run did not clear Vivaldi app data; future
+emulator clears are covered by the configured-emulator disposable authorization
+above.
 
 This is a useful option for repeatable Android Chromium checks when the issue
 does not depend on a particular physical phone. It does not establish Firefox
