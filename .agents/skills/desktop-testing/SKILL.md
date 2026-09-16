@@ -1,5 +1,5 @@
 ---
-name: firefox-extension-testing
+name: desktop-testing
 description: Test and inspect the A Font Face-off extension on Android Firefox Nightly, desktop Firefox and Chrome for Testing, Vivaldi Snapshot, and Chromium Android MV3 builds using Selenium, geckodriver, Firefox Developer Edition, Android WebDriver, ADB, and CRX build/install workflows. Unless the user specifies another platform, interpret reported AFFO problems and questions as Android Firefox Nightly behavior.
 ---
 
@@ -239,35 +239,33 @@ node .agents/skills/desktop-testing/desktop-firefox-inspect.js \
 
 Use `--dismiss` for a close control in the page and `--dismiss-frame '<iframe selector>::<close selector>'` when it lives inside a modal iframe. Both are optional and reported as clicked or not found; `--dismiss-timeout` controls how long the inspector waits for each control. When a modal's close selector is unknown, use repeated `--frame-selector` arguments to report candidate controls inside its iframe before choosing a dismissal selector. The inspector uses eager page loading so it can perform these actions once the DOM is ready even when long-running ads keep normal navigation open.
 
-### Android Firefox Inspection
+### Android Inspection
 
-#### Authorized Firefox Android Target
+#### Authorized Android Disposable Targets
 
-Android Selenium/geckodriver session creation clears the selected Firefox package data. Operations using that path, or explicit Firefox app/profile clearing, are pre-approved for this exact physical-device target:
+Android testing is disposable without additional approval for Firefox Nightly, Vivaldi Snapshot, and Edge Canary on both the Samsung Galaxy Note10 and the configured Android emulator:
 
 ```text
-Device:  RF8M81WSL1V (Samsung Galaxy Note10)
-Package: org.mozilla.fenix (Firefox Nightly)
+Firefox Nightly: org.mozilla.fenix
+Vivaldi Snapshot: com.vivaldi.browser.snapshot
+Edge Canary:     com.microsoft.emmx.canary
 ```
 
-The Firefox Nightly profile on that Note10 may be treated as disposable for AFFO debugging. Do not perform such operations against:
+This includes force-stop/relaunch, app/profile-data clearing, and local extension install/reload/removal for AFFO testing. Use serial `RF8M81WSL1V` for the Note10 or `emulator-5554` for the configured emulator. Do not perform such operations against:
 
-- Any other Firefox package on the Note10, including Firefox Release or Beta.
-- `org.mozilla.fenix` or any Firefox package on another phone, tablet, emulator, or Android user/work profile.
+- Any other browser package.
+- An unconfigured device or Android user/work profile.
 
-The disposable Android 16 emulator is an explicit exception for the opt-in
-emulator smoke lane:
+The configured Android 16 emulator is an authorized disposable target:
 
 ```text
 Device:  emulator-5554 (AFFO_Pixel_API36, Android 16/API 36)
 Package: org.mozilla.fenix (Firefox Nightly)
 ```
 
-Its Firefox profile may be cleared by `npm run test:android:emulator`. This
-exception does not authorize profile clearing on the physical S23 Ultra or TCL
-NxtPaper devices.
+Its Firefox profile may be cleared by `npm run test:android:emulator`.
 
-Obtain new explicit user approval before using an unapproved device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
+Obtain new explicit user approval before using any other device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
 #### Approval-compatible Note10 ADB
 
@@ -282,7 +280,7 @@ adb -s RF8M81WSL1V shell uiautomator dump /sdcard/affo-ui.xml
 adb -s RF8M81WSL1V pull /sdcard/affo-ui.xml ztemp/affo-ui.xml
 ```
 
-Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, app force-stop, installs, pushes, forward changes, and package/profile clearing—outside read-only ADB prefix approvals unless the user separately approves the exact operation.
+Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, installs, pushes, and forward changes—outside read-only ADB prefix approvals. Force-stop, installs, and package/profile clearing are authorized for the disposable browser/package pairs listed above; obtain approval for other targets.
 
 #### scrcpy visual companion
 
@@ -445,7 +443,7 @@ Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()`
 
 ## Vivaldi Snapshot Android — device and emulator testing
 
-The user explicitly authorizes disposable AFFO testing on **Note10 `RF8M81WSL1V` + `com.vivaldi.browser.snapshot`**. This includes force-stop/relaunch, clearing Snapshot app/profile data, and installing/reloading the local AFFO Chromium build for tests. No additional reset confirmation is needed for this pair. Vivaldi stable (`com.vivaldi.browser`), other devices, and other Android users/work profiles are outside this approval.
+Vivaldi Snapshot is an authorized disposable AFFO target on the Note10 and configured Android emulator. This includes force-stop/relaunch, clearing Snapshot app/profile data, and installing/reloading the local AFFO Chromium build for tests. No additional reset confirmation is needed for these targets. Vivaldi stable (`com.vivaldi.browser`), other browser packages, and unconfigured devices or Android users/work profiles are outside this approval.
 
 Use resets for clean-install tests; preserve the test session for ordinary iteration. A Snapshot reset clears its tabs, settings, installed extensions, and login state. Do not sign the disposable profile into browser Sync.
 
