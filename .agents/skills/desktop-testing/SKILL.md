@@ -449,43 +449,16 @@ The user explicitly authorizes disposable AFFO testing on **Note10 `RF8M81WSL1V`
 
 Use resets for clean-install tests; preserve the test session for ordinary iteration. A Snapshot reset clears its tabs, settings, installed extensions, and login state. Do not sign the disposable profile into browser Sync.
 
-Read [Vivaldi Snapshot testing](references/vivaldi-snapshot.md) for the verified installation, CDP, and test workflow. `npm run build:chromium` generates the shared build at `ztemp/edge-mv3-src/`. The Firefox geckodriver harness remains Firefox-only; do not pass the Vivaldi package to it.
+Read [Vivaldi Snapshot testing](references/vivaldi-snapshot.md) for the verified installation, CDP, and test workflow. `npm run build:chromium` generates the shared build at `ztemp/chromium-mv3-src/`. The Firefox geckodriver harness remains Firefox-only; do not pass the Vivaldi package to it.
 
 Vivaldi Snapshot also passed the shared smoke suite and native-popup checks on `emulator-5554` (`AFFO_Pixel_API36`, Android 16). Read the [emulator findings](references/vivaldi-snapshot.md#android-16-emulator) before choosing this path. Reuse the installed emulator profile for iteration; the verified setup did not require app-data clearing.
 
 ## Chromium Android MV3
 
-Build the shared Chromium MV3 package without modifying Firefox source:
-
-```bash
-npm run build:chromium-crx
-```
-
-Outputs:
-- Generated source: `ztemp/edge-mv3-src/`
-- Native-packed CRX: `web-ext-artifacts/a-font-face-off-edge-mv3.crx`
-- Stable local CRX key: `ztemp/edge-mv3-key.pem`
-
-Push a rebuilt CRX to the Note10:
-
-```bash
-adb -s RF8M81WSL1V push web-ext-artifacts/a-font-face-off-edge-mv3.crx /sdcard/Download/a-font-face-off-edge-mv3.crx
-```
-
-Chromium Android package/device details seen in testing:
-- Device: `RF8M81WSL1V` (Samsung Galaxy Note10)
-- Package: `com.microsoft.emmx.canary`
-- Stable extension ID from the local key: `jbomcpnpnenellkkkmhonikajmmalpig`
-
-Install path on device:
-1. Edge Canary → Settings → About → tap version 5 times.
-2. Developer Options → `Extension install by crx`.
-3. Pick the CRX from Downloads.
-4. A successful install shows a permissions prompt and then appears in Edge menu → Extensions.
-
-If selecting a CRX silently returns to the previous page, assume the CRX did not register. Native-packed CRX files from Chromium/Chrome/Edge worked; a hand-written CRX3 file was accepted by the picker but ignored.
-
-Avoid Edge Canary's extension Details page if it hangs. The extension menu may show only Details and Permissions, so use the AFFO popup gear/options path or in-page toolbar/Quick Pick where available.
+Use the shared Chromium MV3 build for Edge Canary and Vivaldi Snapshot. For
+Edge-specific installation, disposable-profile authorization, CDP attachment,
+native-popup inspection, and layout verification, read
+[Edge Canary Android testing](references/edge-canary.md).
 
 ### Edge WebDAV Sync
 

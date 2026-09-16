@@ -54,6 +54,10 @@ html.affo-mobile.affo-popup-panel body {
 /* Edge Android clips native action popups to the available WebView viewport
    (which is shorter than the 600px panel height on some phones). Let the
    popup fill that viewport so the footer remains visible. */
+html.affo-mobile.affo-popup-panel.affo-edge-panel {
+    height: 100%;
+}
+
 html.affo-mobile.affo-popup-panel.affo-edge-panel body {
     height: 100%;
     min-height: 0;
@@ -719,7 +723,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
 }
 
 /* Scrollable panel content area */
-.panel-body { flex: 1 1 auto; overflow-y: auto; }
+.panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .panel-body { scrollbar-width: none; -ms-overflow-style: none; }
 .panel-body::-webkit-scrollbar { width: 0; height: 0; }
 
