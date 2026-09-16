@@ -32,13 +32,21 @@ assert.equal(functions.length, names.size);
 function harness(overrides) {
     const context = vm.createContext({
         inlineCssValues: new Map(), inlineCssParser: null,
+        inlineWorkChannel: null, inlineWorkChunkSequence: 0,
+        MessageChannel: class {
+            constructor() {
+                this.port1 = {};
+                this.port2 = { postMessage: data => setTimeout(() => this.port1.onmessage({ data }), 0) };
+            }
+        },
         inlineWorkQueue: [], pendingInlineWorkChunk: null, pendingTmiProtectionBatch: null, inlineConfigs: {},
         getAffoNow: () => performance.now(), setTimeout, clearTimeout,
+        requestAnimationFrame: fn => setTimeout(fn, 0), cancelAnimationFrame: clearTimeout,
         usesHybridInlineTmiSelectors: () => false, isXCom: false,
         getArticleDeckExcludeSelector: () => '', shouldUseAggressive: () => false,
         getAffoSelector: () => '[data-affo-font-type]',
         hasFontSizeScale: () => false,
-        document: { createElement: () => ({ style: {
+        document: { addEventListener() {}, createElement: () => ({ style: {
             value: '', set cssText(_value) { this.value = ''; },
             setProperty(_prop, value) { this.value = value; },
             getPropertyValue() { return this.value; },
@@ -173,15 +181,25 @@ test('non-inline TMI navigation retains classification before scaling', () => {
 function queuedHarness() {
     const timers = new Map();
     const events = [];
+    const visibility = {};
     let time = 0, id = 0;
     const context = harness({
-        setTimeout(fn) { timers.set(++id, fn); return id; },
+        MessageChannel: class {
+            constructor() {
+                this.port1 = {};
+                this.port2 = { postMessage: data => timers.set(++id, () => this.port1.onmessage({ data })) };
+            }
+        },
+        requestAnimationFrame(fn) { timers.set(++id, fn); return id; },
+        cancelAnimationFrame(key) { timers.delete(key); },
+        setTimeout() { throw new Error('Inline work must not chain timers'); },
         clearTimeout(key) { timers.delete(key); },
         getAffoNow() { return time; },
         window: { getComputedStyle(el) { time += 3; events.push('read:' + el.id); return { fontWeight: '400' }; } },
         applyAffoTextColor() {},
     });
     context.applyTmiProtection = el => { time += 3; events.push('write:' + el.id); };
+    context.document.addEventListener = (name, fn) => { visibility[name] = fn; };
     const cfg = { comparison: {} };
     context.inlineConfigs.sans = cfg;
     const elements = Array.from({ length: 9 }, (_, id) => ({
@@ -192,7 +210,7 @@ function queuedHarness() {
         const first = timers.entries().next().value;
         if (first) { timers.delete(first[0]); first[1](); }
     }
-    return { context, cfg, elements, events, timers, flush };
+    return { context, cfg, elements, events, timers, flush, visibility };
 }
 
 test('inline queue yields during reads and writes, rechecks guards, and settles after all writes', async () => {
@@ -240,7 +258,7 @@ test('CSSOM-normalized comparison skips equivalent values but repairs changed va
     const values = new Map(), priorities = new Map(), attributes = new Map();
     let parses = 0, writes = 0;
     const context = harness({
-        document: { createElement: () => ({ style: {
+        document: { addEventListener() {}, createElement: () => ({ style: {
             value: '', set cssText(_value) { this.value = ''; },
             setProperty(_prop, value) { parses++; this.value = value.replace('"Times New Roman"', 'Times New Roman').replace('#ff0000', 'rgb(255, 0, 0)'); },
             getPropertyValue() { return this.value; },
@@ -306,13 +324,15 @@ test('font-swap restoration waits for replacement application to finish', async 
     assert.equal(restores, 1);
 });
 
-test('popup continuation advances one bounded chunk without double-running its timer', async () => {
+test('popup continuation advances one bounded chunk without stale messages advancing the next chunk', async () => {
     const h = queuedHarness();
     const promise = h.context.applyTmiProtectionToElements(h.elements, h.cfg, 'sans');
     const resume = h.context.pendingInlineWorkChunk;
     resume();
     assert.equal(h.events.length, 3);
     resume();
+    assert.equal(h.events.length, 3);
+    h.flush(); // The old posted message must not execute the new continuation.
     assert.equal(h.events.length, 3);
     while (h.timers.size) h.flush();
     assert.equal(await promise, 9);
@@ -506,4 +526,18 @@ test('scale recovery reuses checked targets while retaining unmarked descendants
     checks.full = true;
     await context.applyInlineFontSizeScale(cfg, 'sans', null, checks);
     assert.deepEqual(visited, targets, 'A concurrent full Apply invalidates the scale shortcut');
+});
+
+test('hiding a tab wakes a pending animation chunk and completes through message tasks', async () => {
+    const h = queuedHarness();
+    const promise = h.context.applyTmiProtectionToElements(h.elements, h.cfg, 'sans');
+    h.flush(); // First message schedules an animation frame.
+    assert.equal(h.events.length, 3);
+    h.timers.clear(); // Simulate the browser withholding that frame while hidden.
+    h.context.document.hidden = true;
+    h.context.requestAnimationFrame = () => { throw new Error('Hidden work must not wait for frames'); };
+    h.visibility.visibilitychange();
+    while (h.timers.size) h.flush();
+    assert.equal(await promise, 9);
+    assert.equal(h.context.pendingInlineWorkChunk, null);
 });

@@ -110,6 +110,8 @@
   var pendingTmiProtectionBatch = null;
   var inlineWorkQueue = [];
   var pendingInlineWorkChunk = null;
+  var inlineWorkChannel = null;
+  var inlineWorkChunkSequence = 0;
   var inlineCssValues = new Map();
   var inlineCssParser = null;
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
@@ -1837,11 +1839,23 @@
   }
 
   function scheduleInlineWorkChunk() {
-    var timer;
+    if (!inlineWorkChannel) {
+      inlineWorkChannel = new MessageChannel();
+      inlineWorkChannel.port1.onmessage = function (event) {
+        if (event.data === inlineWorkChunkSequence && pendingInlineWorkChunk) pendingInlineWorkChunk();
+      };
+      document.addEventListener('visibilitychange', function () {
+        // A tab can hide after requesting a frame. Resume through a task so
+        // completion does not depend on a suspended animation callback.
+        if (document.hidden && pendingInlineWorkChunk) inlineWorkChannel.port2.postMessage(inlineWorkChunkSequence);
+      });
+    }
+    var sequence = ++inlineWorkChunkSequence;
+    var frame;
     function resume() {
       if (pendingInlineWorkChunk !== resume) return;
       pendingInlineWorkChunk = null;
-      clearTimeout(timer);
+      if (frame != null) cancelAnimationFrame(frame);
       var started = getAffoNow();
       while (inlineWorkQueue.length) {
         var job = inlineWorkQueue[0];
@@ -1861,7 +1875,11 @@
       if (inlineWorkQueue.length) scheduleInlineWorkChunk();
     }
     pendingInlineWorkChunk = resume;
-    timer = setTimeout(resume, 0);
+    // Avoid nested timer clamps, but give rendering a turn every other chunk:
+    // a continuous message stream can delay Firefox's rendering opportunities.
+    // The sequence also discards messages superseded by popup continuation.
+    if (sequence % 2 === 0 && !document.hidden) frame = requestAnimationFrame(resume);
+    else inlineWorkChannel.port2.postMessage(sequence);
   }
 
   function prepareInlineProperty(prop, value) {

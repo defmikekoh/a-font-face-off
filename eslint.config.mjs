@@ -44,6 +44,7 @@ export default [
                 CustomEvent: "readonly",
                 NodeFilter: "readonly",
                 MutationObserver: "readonly",
+                MessageChannel: "readonly",
                 ResizeObserver: "readonly",
                 HTMLElement: "readonly",
                 Event: "readonly",
