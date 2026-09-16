@@ -41,13 +41,14 @@ function createHarness({ content = false, android = false } = {}) {
         location: { hostname: 'example.com' },
         document: {
             dispatchEvent(event) {
-                const { fontType } = event.detail;
-                calls.push({ event: event.type, detail: clone(event.detail) });
+                const { fontType } = event.detail || {};
+                calls.push({ event: event.type, detail: clone(event.detail || {}) });
                 if (event.type === 'affo-prepare-font-swap') page.window.__affoFontSwapDone[fontType] = { done: true, success: true };
                 if (event.type === 'affo-restore-font-swap') page.window.__affoFontSwapDone['restore-' + fontType] = { done: true, success: true };
                 if (event.type === 'affo-continue-walker') page.window.__affoWalkerDone[fontType] = { done: true, count: 3 };
             }
         },
+        Event: class { constructor(type) { this.type = type; } },
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
     }, { codeGeneration: { strings: false, wasm: false } });
     if (!content) {

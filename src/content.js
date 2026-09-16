@@ -105,6 +105,12 @@
   }
 
   // Shared inline-apply infrastructure — single observer + single polling timer for all font types
+  var inlineRecoveryPromise = null;
+  var inlineRecoveryFullRequested = false;
+  var inlineWorkQueue = [];
+  var pendingInlineWorkChunk = null;
+  var inlineCssValues = new Map();
+  var inlineCssParser = null;
   var inlineConfigs = {}; // fontType → { cssPropsObject, inlineEffectiveWeight, expiresAt }
   var sharedInlineTimers = []; // shared timer IDs (monitoring interval, switch timer, etc.)
   var sharedInlineCleanupTimer = null; // final teardown timer for inline observer/config lifecycle
@@ -1437,6 +1443,13 @@
   }
 
   function applyFontSizeScaleToTargets(fontConfig, fontType, targets) {
+    var steps = fontSizeScaleSteps(fontConfig, fontType, targets);
+    var result;
+    do { result = steps.next(); } while (!result.done);
+    return result.value;
+  }
+
+  function* fontSizeScaleSteps(fontConfig, fontType, targets) {
     var scale = Number(fontConfig.fontSizeScale);
     var scaledAttr = getFontSizeScaleAttr(fontType, 'scaled');
     var computedAttr = getFontSizeScaleAttr(fontType, 'original-computed');
@@ -1446,14 +1459,15 @@
     var count = 0;
 
     try {
-      targets.forEach(function (el) {
-        if (!el || !el.style) return;
+      for (var el of targets) {
+        yield;
+        if (!el || !el.style || !el.isConnected || el.closest('[data-affo-guard], .no-affo')) continue;
 
         var originalSize = Number(el.getAttribute(computedAttr));
         if (!el.hasAttribute(scaledAttr) || !isFinite(originalSize) || originalSize <= 0) {
           var computed = window.getComputedStyle(el);
           originalSize = parseFloat(computed.getPropertyValue('font-size'));
-          if (!isFinite(originalSize) || originalSize <= 0) return;
+          if (!isFinite(originalSize) || originalSize <= 0) continue;
 
           // A late-added inline descendant may already inherit the scaled px
           // size of a text-owning ancestor. In that case no direct write is
@@ -1461,7 +1475,7 @@
           var scaledAncestor = el.parentElement && el.parentElement.closest('[' + scaledAttr + ']');
           if (scaledAncestor) {
             var ancestorSize = parseFloat(window.getComputedStyle(scaledAncestor).getPropertyValue('font-size'));
-            if (isFinite(ancestorSize) && Math.abs(ancestorSize - originalSize) < 0.05) return;
+            if (isFinite(ancestorSize) && Math.abs(ancestorSize - originalSize) < 0.05) continue;
           }
 
           var originalInline = el.style.getPropertyValue('font-size');
@@ -1471,13 +1485,14 @@
           el.setAttribute(priorityAttr, originalPriority || '');
           el.setAttribute(scaledAttr, 'true');
         }
-      });
+      }
 
-      targets.forEach(function (el) {
-        if (!el || !el.style || !el.hasAttribute(scaledAttr)) return;
+      for (el of targets) {
+        yield;
+        if (!el || !el.style || !el.isConnected || !el.hasAttribute(scaledAttr) || el.closest('[data-affo-guard], .no-affo')) continue;
 
-        var originalSize = Number(el.getAttribute(computedAttr));
-        if (!isFinite(originalSize) || originalSize <= 0) return;
+        originalSize = Number(el.getAttribute(computedAttr));
+        if (!isFinite(originalSize) || originalSize <= 0) continue;
 
         var scaledSize = +(originalSize * scale / 100).toFixed(3);
         var scaledValue = scaledSize + 'px';
@@ -1486,7 +1501,7 @@
           el.style.setProperty('font-size', scaledValue, priority);
           count++;
         }
-      });
+      }
     } catch (e) {
       debugLog('[AFFO Content] Error applying font size scale for ' + fontType + ':', e);
     }
@@ -1515,6 +1530,31 @@
     if (count > 0) {
       elementLog('[AFFO Content] Incrementally scaled ' + count + ' new ' + fontType + ' elements');
     }
+  }
+
+  async function applyInlineFontSizeScale(cfg, fontType, roots) {
+    if (inlineConfigs[fontType] !== cfg) return;
+    var config = cfg.fontConfig || {};
+    if (fontType === 'body') {
+      if (roots) applyFontSizeScaleInRoots(config, fontType, roots);
+      else applyFontSizeScale(config, fontType);
+      return;
+    }
+    if (hasFontSizeScale(config)) {
+      fontSizeScaleConfigs[fontType] = config;
+      var targets = roots ? getFontSizeScaleTargetsInRoots(fontType, roots) : getFontSizeScaleTargets(fontType);
+      await queueInlineWork(fontSizeScaleSteps(config, fontType, targets), cfg, fontType);
+    } else if (!roots) {
+      delete fontSizeScaleConfigs[fontType];
+      await queueInlineWork((function* () {
+        var previous = document.querySelectorAll('[' + getFontSizeScaleAttr(fontType, 'scaled') + ']');
+        for (var el of previous) {
+          if (el.isConnected) restoreScaledFontSizeElement(el, fontType);
+          yield;
+        }
+      })(), cfg, fontType);
+    }
+    if (inlineConfigs[fontType] === cfg) refreshFontSizeScaleObserver();
   }
 
   function clearFontSizeScalesNotInEntry(entry) {
@@ -1687,17 +1727,17 @@
 
   // Apply inline styles only within the given added subtree roots (instead of
   // re-querying and re-writing every marked element in the document).
-  function applyInlineStylesInRoots(roots) {
+  async function applyInlineStylesInRoots(roots) {
     var types = Object.keys(inlineConfigs);
     if (types.length === 0) return;
-    var headingResetRoots = new Set();
-    types.forEach(function (ft) {
+    var headingResetRoots = new Map();
+    for (var ft of types) {
       var cfg = inlineConfigs[ft];
-      if (!cfg) return;
+      if (!cfg) continue;
       var selector = getAffoSelector(ft);
       var applied = 0;
-      roots.forEach(function (root) {
-        if (!root || root.nodeType !== 1) return;
+      for (var root of roots) {
+        if (!root || root.nodeType !== 1) continue;
         var matches = [];
         try {
           if (root.matches && root.matches(selector)) matches.push(root);
@@ -1705,7 +1745,7 @@
             var inner = root.querySelectorAll(selector);
             for (var i = 0; i < inner.length; i++) matches.push(inner[i]);
           }
-        } catch (_) { return; }
+        } catch (_) { continue; }
         if (ft === 'body') {
           matches.forEach(function (el) {
             applyAffoProtection(el, cfg.cssPropsObject);
@@ -1713,13 +1753,16 @@
           });
           applied += matches.length;
         } else {
-          applied += applyTmiProtectionToElements(matches, cfg, ft);
-          headingResetRoots.add(root);
+          applied += await applyTmiProtectionToElements(matches, cfg, ft);
+          if (inlineConfigs[ft] !== cfg) break;
+          headingResetRoots.set(root, { cfg: cfg, fontType: ft });
         }
-      });
+      }
       if (applied > 0) elementLog('Applied inline styles to ' + applied + ' newly added ' + ft + ' elements');
-    });
-    headingResetRoots.forEach(resetHeadingTypographyInMarkedSubtree);
+    }
+    for (var [headingRoot, owner] of headingResetRoots) {
+      await resetHeadingTypographyInMarkedSubtree(headingRoot, owner.cfg, owner.fontType);
+    }
   }
 
   function getMutationTmiTypes() {
@@ -1763,10 +1806,13 @@
       await markTypesInRoots(topRoots, getMutationTmiTypes(), job);
       if (dynamicMutationJob !== job) return;
       topRoots = topRoots.filter(function (root) { return document.contains(root); });
-      if (inlineObserverWanted) applyInlineStylesInRoots(topRoots);
-      getActiveFontSizeScaleTypes().forEach(function (fontType) {
-        applyFontSizeScaleInRoots(fontSizeScaleConfigs[fontType], fontType, topRoots);
-      });
+      if (inlineObserverWanted) await applyInlineStylesInRoots(topRoots);
+      if (dynamicMutationJob !== job) return;
+      for (var fontType of getActiveFontSizeScaleTypes()) {
+        if (inlineConfigs[fontType]) await applyInlineFontSizeScale(inlineConfigs[fontType], fontType, topRoots);
+        else applyFontSizeScaleInRoots(fontSizeScaleConfigs[fontType], fontType, topRoots);
+        if (dynamicMutationJob !== job) return;
+      }
     }
   }
 
@@ -1780,12 +1826,67 @@
     maybeCleanupSharedDomObserver();
   }
 
+  // CSSOM serialization is engine-specific (quotes, colors, axis formatting).
+  // Parse expected values off-document and cache a bounded set of comparisons.
+  function canonicalInlineValue(prop, value) {
+    var text = String(value);
+    if (prop.indexOf('--') === 0) return text;
+    var key = prop + '\0' + text;
+    if (inlineCssValues.has(key)) return inlineCssValues.get(key);
+    if (!inlineCssParser) inlineCssParser = document.createElement('span').style;
+    inlineCssParser.cssText = '';
+    inlineCssParser.setProperty(prop, text, 'important');
+    var canonical = inlineCssParser.getPropertyValue(prop);
+    if (inlineCssValues.size >= 256) inlineCssValues.clear();
+    inlineCssValues.set(key, canonical);
+    return canonical;
+  }
+
+  // One queue gives all TMI consumers a shared main-thread budget. Iterators
+  // yield per element, keeping read snapshots ahead of their style writes.
+  function queueInlineWork(iterator, cfg, fontType) {
+    return new Promise(function (resolve, reject) {
+      inlineWorkQueue.push({ iterator: iterator, cfg: cfg, fontType: fontType, resolve: resolve, reject: reject });
+      if (!pendingInlineWorkChunk) scheduleInlineWorkChunk();
+    });
+  }
+
+  function scheduleInlineWorkChunk() {
+    var timer;
+    function resume() {
+      if (pendingInlineWorkChunk !== resume) return;
+      pendingInlineWorkChunk = null;
+      clearTimeout(timer);
+      var started = getAffoNow();
+      while (inlineWorkQueue.length) {
+        var job = inlineWorkQueue[0];
+        try {
+          var result = inlineConfigs[job.fontType] === job.cfg
+            ? job.iterator.next() : { done: true, value: 0 };
+          if (result.done) {
+            inlineWorkQueue.shift();
+            job.resolve(result.value);
+          }
+        } catch (error) {
+          inlineWorkQueue.shift();
+          job.reject(error);
+        }
+        if (getAffoNow() - started >= 8) break;
+      }
+      if (inlineWorkQueue.length) scheduleInlineWorkChunk();
+    }
+    pendingInlineWorkChunk = resume;
+    timer = setTimeout(resume, 0);
+  }
+
   function setImportantStyleIfChanged(el, prop, value) {
-    var normalized = String(value);
+    var normalized = canonicalInlineValue(prop, value);
     if (el.style.getPropertyValue(prop) === normalized && el.style.getPropertyPriority(prop) === 'important') {
       return false;
     }
-    el.style.setProperty(prop, normalized, 'important');
+    // Let CSSOM handle the original value, including ignoring invalid input.
+    // Writing an empty parse result would incorrectly remove a valid style.
+    el.style.setProperty(prop, String(value), 'important');
     return true;
   }
 
@@ -1796,8 +1897,8 @@
     return true;
   }
 
-  function applyAffoProtection(el, propsObj) {
-    Object.entries(propsObj).forEach(function ([prop, value]) {
+  function applyAffoProtection(el, propsObj, entries) {
+    (entries || Object.entries(propsObj)).forEach(function ([prop, value]) {
       setImportantStyleIfChanged(el, prop, value);
       setImportantStyleIfChanged(el, '--affo-' + prop, value);
       setAttributeIfChanged(el, 'data-affo-' + prop, value);
@@ -1869,51 +1970,92 @@
     return false;
   }
 
-  function applyTmiProtectionToElements(elements, cfg, fontType) {
-    var targets = filterInlineTmiTargets(fontType, elements);
-    // Snapshot all inherited weights before any ancestor/previous sibling is
-    // styled. Do not cache non-bold results across React node reuse.
-    var boldness = targets.map(getTmiElementBoldness);
-    targets.forEach(function (el, index) {
-      applyTmiProtection(el, cfg.cssPropsObject, cfg.inlineEffectiveWeight, boldness[index]);
-      applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
-    });
-    return targets.length;
+  function applyTmiProtectionToElements(elements, cfg, fontType, repairOnly) {
+    return queueInlineWork((function* () {
+      var targets = [];
+      var boldness = [];
+      var selector = getAffoSelector(fontType);
+      var hybrid = usesHybridInlineTmiSelectors();
+      // Snapshot all inherited weights before any ancestor is styled. Filtering
+      // and computed-style reads share the same budget as the write phase.
+      for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (el.isConnected && el.matches(selector) &&
+            (!hybrid || isHybridInlineTarget(el, fontType, selector)) &&
+            (!repairOnly || inlineElementNeedsRepair(el, cfg, fontType))) {
+          targets.push(el);
+          boldness.push(getTmiElementBoldness(el));
+        }
+        yield;
+      }
+      var count = 0;
+      for (var j = 0; j < targets.length; j++) {
+        var target = targets[j];
+        // Pages may remove/reparent targets into a guard while we yield.
+        if (target.isConnected && target.matches(selector) &&
+            !target.closest('[data-affo-guard], .no-affo') &&
+            (!hybrid || isHybridInlineTarget(target, fontType, selector))) {
+          applyTmiProtection(target, cfg, boldness[j]);
+          applyAffoTextColor(target, cfg.fontConfig && cfg.fontConfig.fontColor);
+          count++;
+        }
+        yield;
+      }
+      return count;
+    })(), cfg, fontType);
   }
 
-  function applyTmiProtection(el, propsObj, effectiveWeight, isBold) {
+  function prepareTmiProtection(propsObj, effectiveWeight) {
+    var boldProps = propsObj;
+    if (effectiveWeight !== null) {
+      boldProps = Object.assign({}, propsObj, { 'font-weight': '700' });
+      var boldAxes = buildBoldAxisSettings({ variableAxes: extractVariationAxes(propsObj['font-variation-settings']) }, 700);
+      if (boldAxes.length > 0) boldProps['font-variation-settings'] = boldAxes.join(', ');
+      else delete boldProps['font-variation-settings'];
+    }
+    return {
+      normalEntries: Object.entries(propsObj),
+      boldProps: boldProps,
+      boldEntries: Object.entries(boldProps)
+    };
+  }
+
+  function applyTmiProtection(el, cfg, isBold) {
     if (isBold === undefined) isBold = getTmiElementBoldness(el);
 
     // Resolve bold overrides before writing so recovery never temporarily
     // replaces an already-correct bold weight or variation setting.
-    var finalProps = propsObj;
-    if (isBold && effectiveWeight !== null) {
-      finalProps = Object.assign({}, propsObj, { 'font-weight': '700' });
+    var prepared = cfg.tmiProtection;
+    var finalProps = cfg.cssPropsObject;
+    var entries = prepared.normalEntries;
+    if (isBold && cfg.inlineEffectiveWeight !== null) {
+      finalProps = prepared.boldProps;
+      entries = prepared.boldEntries;
       setAttributeIfChanged(el, 'data-affo-was-bold', 'true');
-      var boldAxes = buildBoldAxisSettings({ variableAxes: extractVariationAxes(propsObj['font-variation-settings']) }, 700);
-      if (boldAxes.length > 0) {
-        finalProps['font-variation-settings'] = boldAxes.join(', ');
-      } else {
-        delete finalProps['font-variation-settings'];
+      if (finalProps['font-variation-settings'] == null) {
         el.style.removeProperty('font-variation-settings');
         el.style.removeProperty('--affo-font-variation-settings');
         el.removeAttribute('data-affo-font-variation-settings');
       }
     }
-    applyAffoProtection(el, finalProps);
+    applyAffoProtection(el, finalProps, entries);
   }
 
-  function resetHeadingTypographyInMarkedSubtree(root) {
-    if (!root || !root.querySelectorAll) return;
-    try {
-      root.querySelectorAll('h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *').forEach(function (heading) {
-        setImportantStyleIfChanged(heading, 'font-family', 'revert');
-        setImportantStyleIfChanged(heading, 'font-weight', 'revert');
-        setImportantStyleIfChanged(heading, 'font-stretch', 'revert');
-        setImportantStyleIfChanged(heading, 'font-style', 'revert');
-        setImportantStyleIfChanged(heading, 'font-variation-settings', 'normal');
-      });
-    } catch (_) { }
+  function resetHeadingTypographyInMarkedSubtree(root, cfg, fontType) {
+    return queueInlineWork((function* () {
+      if (!root || !root.querySelectorAll || !root.isConnected) return;
+      var headings = root.querySelectorAll('h1, h2, h3, h4, h5, h6, h1 *, h2 *, h3 *, h4 *, h5 *, h6 *');
+      for (var heading of headings) {
+        if (heading.isConnected && root.contains(heading) && !heading.closest('[data-affo-guard], .no-affo')) {
+          setImportantStyleIfChanged(heading, 'font-family', 'revert');
+          setImportantStyleIfChanged(heading, 'font-weight', 'revert');
+          setImportantStyleIfChanged(heading, 'font-stretch', 'revert');
+          setImportantStyleIfChanged(heading, 'font-style', 'revert');
+          setImportantStyleIfChanged(heading, 'font-variation-settings', 'normal');
+        }
+        yield;
+      }
+    })(), cfg, fontType);
   }
 
   function hasAffoStyleNodes() {
@@ -2007,6 +2149,19 @@
   }
 
   function applyInlineStyles(fontConfig, fontType) {
+    var promise = applyInlineStylesNow(fontConfig, fontType).catch(function (error) {
+      console.error('[AFFO Content] Inline application failed:', error);
+      return false;
+    });
+    var cfg = inlineConfigs[fontType];
+    if (cfg) {
+      cfg.application = promise;
+      promise.then(function () { if (cfg.application === promise) delete cfg.application; });
+    }
+    return promise;
+  }
+
+  async function applyInlineStylesNow(fontConfig, fontType) {
     elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
     var inlineTimer = createAffoTimer('Inline apply ' + fontType + ' ' + (fontConfig.fontName || ''));
     sharedInlineLastActivityAt = Date.now();
@@ -2072,6 +2227,18 @@
       cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
 
+    var inlineConfig = {
+      cssPropsObject: cssPropsObject,
+      inlineEffectiveWeight: inlineEffectiveWeight,
+      fontConfig: fontConfig,
+      expiresAt: Date.now() + 180000 // 3 minutes
+    };
+    if (fontType !== 'body') {
+      inlineConfig.tmiProtection = prepareTmiProtection(cssPropsObject, inlineEffectiveWeight);
+    }
+
+    inlineConfigs[fontType] = inlineConfig;
+
     // Apply styles to elements based on font type
     try {
       if (fontType === 'body') {
@@ -2099,25 +2266,23 @@
         elementLog(`Applied inline styles to ${bodyElements.length} body elements`);
       } else if (fontType === 'serif' || fontType === 'sans' || fontType === 'mono') {
         var tmiElements = document.querySelectorAll(getAffoSelector(fontType));
-        applyTmiProtectionToElements(tmiElements, {
-          cssPropsObject: cssPropsObject, inlineEffectiveWeight: inlineEffectiveWeight, fontConfig: fontConfig
-        }, fontType);
-        resetHeadingTypographyInMarkedSubtree(document.body);
+        await applyTmiProtectionToElements(tmiElements, inlineConfig, fontType);
+        if (inlineConfigs[fontType] !== inlineConfig) return false;
+        await resetHeadingTypographyInMarkedSubtree(document.body, inlineConfig, fontType);
         elementLog('Applied inline styles to ' + tmiElements.length + ' ' + fontType + ' elements');
       }
     } catch (e) {
       console.error(`[AFFO Content] Error applying inline styles for ${fontType}:`, e);
+      return false;
     }
-    applyFontSizeScale(fontConfig, fontType);
+    if (inlineConfigs[fontType] !== inlineConfig) return false;
+    await applyInlineFontSizeScale(inlineConfig, fontType);
+    if (inlineConfigs[fontType] !== inlineConfig) return false;
     inlineTimer.mark('style-set', Object.keys(cssPropsObject).length + ' props');
 
     // Register this type into the shared inline config registry
-    inlineConfigs[fontType] = {
-      cssPropsObject: cssPropsObject,
-      inlineEffectiveWeight: inlineEffectiveWeight,
-      fontConfig: fontConfig,
-      expiresAt: Date.now() + 180000 // 3 minutes
-    };
+    inlineConfig.expiresAt = Date.now() + 180000;
+    inlineConfigs[fontType] = inlineConfig;
 
     // Add SPA resilience for x.com and other dynamic sites
     try {
@@ -2140,6 +2305,7 @@
       console.error(`[AFFO Content] Error setting up SPA resilience for ${fontType}:`, e);
     }
     inlineTimer.end();
+    return true;
   }
 
   function getInlineVerificationElements(fontType) {
@@ -2171,21 +2337,29 @@
 
   function inlineElementNeedsRepair(el, cfg, fontType) {
     var wasBold = fontType !== 'body' && el.getAttribute('data-affo-was-bold') === 'true';
-    var props = cfg.cssPropsObject || {};
+    var props = wasBold && cfg.tmiProtection && cfg.inlineEffectiveWeight !== null
+      ? cfg.tmiProtection.boldProps : cfg.cssPropsObject || {};
     var propNames = Object.keys(props);
     for (var i = 0; i < propNames.length; i++) {
       var prop = propNames[i];
-      var expected = String(props[prop]);
+      var expected = canonicalInlineValue(prop, props[prop]);
       if (wasBold && prop === 'font-weight') expected = '700';
-      if (wasBold && prop === 'font-variation-settings') continue;
-      if (el.style.getPropertyValue(prop) !== expected || el.style.getPropertyPriority(prop) !== 'important') {
+      if (el.style.getPropertyValue(prop) !== expected || el.style.getPropertyPriority(prop) !== 'important' ||
+          el.style.getPropertyValue('--affo-' + prop) !== String(props[prop]) ||
+          el.style.getPropertyPriority('--affo-' + prop) !== 'important' ||
+          el.getAttribute('data-affo-' + prop) !== String(props[prop])) {
         return true;
       }
     }
 
+    if (el.getAttribute('data-affo-protected') !== 'true') return true;
+    if (props['font-family'] != null && el.getAttribute('data-affo-font-name') !== String(props['font-family'])) return true;
+
     var color = cfg.fontConfig && cfg.fontConfig.fontColor;
     if (color && canApplyAffoTextColor(el) &&
-      (el.style.getPropertyValue('color') !== String(color) || el.style.getPropertyPriority('color') !== 'important')) {
+      (el.style.getPropertyValue('color') !== canonicalInlineValue('color', color) || el.style.getPropertyPriority('color') !== 'important' ||
+       el.style.getPropertyValue('--affo-color') !== String(color) ||
+       el.style.getPropertyPriority('--affo-color') !== 'important' || el.getAttribute('data-affo-color') !== String(color))) {
       return true;
     }
 
@@ -2211,21 +2385,37 @@
   // Polling uses a small sentinel sample first; full queries and writes happen
   // only when x.com has actually replaced or modified protected styles.
   function reapplyAllInlineStyles(options) {
+    if (!(options && options.verifyFirst)) inlineRecoveryFullRequested = true;
+    if (inlineRecoveryPromise) return inlineRecoveryPromise;
+    inlineRecoveryPromise = (async function () {
+      do {
+        var full = inlineRecoveryFullRequested;
+        inlineRecoveryFullRequested = false;
+        await reapplyAllInlineStylesNow({ verifyFirst: !full });
+      } while (inlineRecoveryFullRequested);
+    })().catch(function (error) {
+      debugWarn('[AFFO Content] Inline recovery failed:', error);
+    }).finally(function () { inlineRecoveryPromise = null; });
+    return inlineRecoveryPromise;
+  }
+
+  async function reapplyAllInlineStylesNow(options) {
     var verifyFirst = !!(options && options.verifyFirst);
     var types = Object.keys(inlineConfigs);
     if (types.length === 0) return;
     var tmiTypesToRewalk = [];
-    var shouldResetHeadings = false;
-    types.forEach(function (ft) {
+    for (var ft of types) {
       try {
         var cfg = inlineConfigs[ft];
-        if (!cfg) return;
-        if (verifyFirst && !inlineTypeNeedsRepair(ft, cfg)) return;
+        if (!cfg) continue;
+        if (cfg.application) await cfg.application;
+        if (inlineConfigs[ft] !== cfg) continue;
+        if (verifyFirst && !inlineTypeNeedsRepair(ft, cfg)) continue;
         var elements = document.querySelectorAll(getAffoSelector(ft));
         if (elements.length === 0 && ft !== 'body' && !usesHybridInlineTmiSelectors()) {
           // No marked elements — DOM was likely replaced; queue a re-walk
           tmiTypesToRewalk.push(ft);
-          return;
+          continue;
         }
         if (ft === 'body') {
           elements.forEach(function (el) {
@@ -2233,16 +2423,16 @@
             applyAffoTextColor(el, cfg.fontConfig && cfg.fontConfig.fontColor);
           });
         } else {
-          applyTmiProtectionToElements(elements, cfg, ft);
-          shouldResetHeadings = true;
+          await applyTmiProtectionToElements(elements, cfg, ft, true);
+          if (inlineConfigs[ft] !== cfg) continue;
+          await resetHeadingTypographyInMarkedSubtree(document.body, cfg, ft);
         }
-        applyFontSizeScale(cfg.fontConfig || {}, ft);
+        await applyInlineFontSizeScale(cfg, ft);
         elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements');
       } catch (e) {
         debugLog('[AFFO Content] Error re-applying inline styles for ' + ft + ':', e);
       }
-    });
-    if (shouldResetHeadings) resetHeadingTypographyInMarkedSubtree(document.body);
+    }
     // Re-walk any TMI types that lost their markers, then apply inline styles
     if (tmiTypesToRewalk.length > 0) {
       debugLog('[AFFO Content] Re-walking for inline types with 0 marked elements: ' + tmiTypesToRewalk.join(', '));
@@ -2250,21 +2440,19 @@
         elementWalkerCompleted[ft] = false;
         elementWalkerRechecksScheduled[ft] = false;
       });
-      runElementWalkerAll(tmiTypesToRewalk).then(function () {
-        var shouldResetAfterRewalk = false;
-        tmiTypesToRewalk.forEach(function (ft) {
-          try {
-            var cfg = inlineConfigs[ft];
-            if (!cfg) return;
-            var elements = document.querySelectorAll(getAffoSelector(ft));
-            applyTmiProtectionToElements(elements, cfg, ft);
-            shouldResetAfterRewalk = true;
-            applyFontSizeScale(cfg.fontConfig || {}, ft);
-            elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
-          } catch (_) { }
-        });
-        if (shouldResetAfterRewalk) resetHeadingTypographyInMarkedSubtree(document.body);
-      });
+      await runElementWalkerAll(tmiTypesToRewalk);
+      for (ft of tmiTypesToRewalk) {
+        try {
+          cfg = inlineConfigs[ft];
+          if (!cfg) continue;
+          elements = document.querySelectorAll(getAffoSelector(ft));
+          await applyTmiProtectionToElements(elements, cfg, ft, true);
+          if (inlineConfigs[ft] !== cfg) continue;
+          await resetHeadingTypographyInMarkedSubtree(document.body, cfg, ft);
+          await applyInlineFontSizeScale(cfg, ft);
+          elementLog('Re-applied inline styles to ' + elements.length + ' ' + ft + ' elements after re-walk');
+        } catch (_) { }
+      }
     }
   }
 
@@ -2872,7 +3060,11 @@
     return prepared.snapshot;
   }
 
-  function restorePreparedFontSwapAnchor(fontType) {
+  async function restorePreparedFontSwapAnchor(fontType) {
+    // Config replacement can occur while a previous application is yielding.
+    while (inlineConfigs[fontType] && inlineConfigs[fontType].application) {
+      await inlineConfigs[fontType].application;
+    }
     var snapshot = getPreparedFontSwapAnchor(fontType);
     delete preparedFontSwapAnchors[fontType];
     return AFFOFontSwapUtils.restoreViewportAnchorAfterLayout(snapshot, window);
@@ -4703,7 +4895,7 @@
       });
     }
 
-    return readinessForApply.then(function (readiness) {
+    return readinessForApply.then(async function (readiness) {
       if (!readiness.ready) {
         debugWarn(`[AFFO Content] ${fontType} font was not ready; applying configured CSS with browser fallback:`, readiness.error);
       }
@@ -4712,7 +4904,8 @@
 
       if (css) {
         if (shouldUseInlineApply()) {
-          applyInlineStyles(fontConfig, fontType);
+          if (walkerPromise) await walkerPromise;
+          if (!await applyInlineStyles(fontConfig, fontType)) return false;
         } else if (isResolvedSrouletteCssTarget(entry, fontType)) {
           requestSrouletteCssInsert(fontType, css);
           applyFontSizeScale(fontConfig, fontType);
@@ -5105,6 +5298,7 @@
         function removeExistingAffoStylesForStorageChange(nextEntry) {
           ['body', 'serif', 'sans', 'mono'].forEach(function (fontType) {
             if (hasMeaningfulFontConfig(nextEntry && nextEntry[fontType])) return;
+            delete inlineConfigs[fontType];
             var id = 'a-font-face-off-style-' + fontType;
             try {
               var n = document.getElementById(id);
@@ -5197,6 +5391,7 @@
       } else if (message.type === 'resetFonts') {
         try {
           // Remove the font style element for this panel
+          delete inlineConfigs[message.panelId];
           const styleId = 'a-font-face-off-style-' + message.panelId;
           const styleElement = document.getElementById(styleId);
           if (styleElement) {
@@ -5296,6 +5491,10 @@
         window.__affoWalkerDone[ft] = { done: true, count: 0 };
       });
     }
+  });
+
+  document.addEventListener('affo-continue-inline', function () {
+    if (pendingInlineWorkChunk) pendingInlineWorkChunk();
   });
 
   document.addEventListener('affo-continue-walker', function (evt) {

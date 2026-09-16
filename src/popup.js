@@ -593,7 +593,10 @@ function pollFontSwapBridgeResult(resultKey, timeoutMs) {
     return new Promise((resolve) => {
         function poll() {
             executeScriptInTargetTab({
-                func: (key) => window.__affoFontSwapDone && window.__affoFontSwapDone[key],
+                func: (key) => {
+                    document.dispatchEvent(new Event('affo-continue-inline'));
+                    return window.__affoFontSwapDone && window.__affoFontSwapDone[key];
+                },
                 args: [resultKey]
             }).then(result => {
                 const value = result && result[0];

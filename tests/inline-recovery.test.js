@@ -6,7 +6,8 @@ const acorn = require('acorn');
 
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
 const names = new Set([
-    'applyTmiProtection', 'applyAffoProtection', 'setImportantStyleIfChanged',
+    'restorePreparedFontSwapAnchor', 'canonicalInlineValue', 'queueInlineWork', 'scheduleInlineWorkChunk', 'inlineElementNeedsRepair',
+    'prepareTmiProtection', 'applyTmiProtection', 'applyAffoProtection', 'setImportantStyleIfChanged',
     'setAttributeIfChanged', 'isBoldFontWeightValue', 'buildBoldAxisSettings', 'extractVariationAxes',
     'ensureFontSizeScaleObserver', 'reapplyPageTypographyAfterNavigation',
     'reapplyFontSizeScalesAfterNavigation', 'reapplyFontSizeScalesOnFocus',
@@ -25,29 +26,43 @@ function collect(node) {
 collect(acorn.parse(source, { ecmaVersion: 2022 }));
 assert.equal(functions.length, names.size);
 function harness(overrides) {
-    const context = vm.createContext(overrides);
+    const context = vm.createContext({
+        inlineCssValues: new Map(), inlineCssParser: null,
+        inlineWorkQueue: [], pendingInlineWorkChunk: null, inlineConfigs: {},
+        getAffoNow: () => performance.now(), setTimeout, clearTimeout,
+        usesHybridInlineTmiSelectors: () => false,
+        getAffoSelector: () => '[data-affo-font-type]',
+        hasFontSizeScale: () => false,
+        document: { createElement: () => ({ style: {
+            value: '', set cssText(_value) { this.value = ''; },
+            setProperty(_prop, value) { this.value = value; },
+            getPropertyValue() { return this.value; },
+        } }) },
+        ...overrides,
+    });
     vm.runInContext(functions.join('\n'), context);
     return context;
 }
 
-test('TMI snapshots every weight before any style write and refreshes non-bold nodes on reuse', () => {
+test('TMI snapshots every weight before any style write and refreshes non-bold nodes on reuse', async () => {
     const events = [];
-    const elements = [0, 1, 2].map(id => ({ id, weight: '400', getAttribute: () => null }));
+    const elements = [0, 1, 2].map(id => ({ id, weight: '400', getAttribute: () => null, isConnected: true, matches: () => true, closest: () => null }));
     const context = harness({
         window: { getComputedStyle(el) { events.push('read:' + el.id); return { fontWeight: el.weight }; } },
         filterInlineTmiTargets: (_, targets) => targets,
         applyAffoTextColor() {},
     });
-    context.applyTmiProtection = (el, _props, _weight, bold) => events.push('write:' + el.id + ':' + bold);
-    context.applyTmiProtectionToElements(elements, {}, 'sans');
+    context.applyTmiProtection = (el, _cfg, bold) => events.push('write:' + el.id + ':' + bold);
+    context.inlineConfigs.sans = {};
+    await context.applyTmiProtectionToElements(elements, context.inlineConfigs.sans, 'sans');
     assert.deepEqual(events, ['read:0', 'read:1', 'read:2', 'write:0:false', 'write:1:false', 'write:2:false']);
     events.length = 0;
     elements[1].weight = '700';
-    context.applyTmiProtectionToElements(elements, {}, 'sans');
+    await context.applyTmiProtectionToElements(elements, context.inlineConfigs.sans, 'sans');
     assert.equal(events[4], 'write:1:true', 'Reused nodes must not retain a cached non-bold result');
 });
 
-for (const settings of [undefined, '"wght" 400, "wdth" 90']) {
+for (const settings of [undefined, '"wght" 400, "wdth" 90', '"wght" 400, "GRAD" 50']) {
     test(`bold recovery writes final values once and unchanged recovery does not mutate (${settings})`, () => {
         const styles = new Map(), attrs = new Map(), writes = [];
         const el = {
@@ -65,15 +80,36 @@ for (const settings of [undefined, '"wght" 400, "wdth" 90']) {
         const props = { 'font-family': 'Test', 'font-weight': 400 };
         if (settings) props['font-variation-settings'] = settings;
         const original = { ...props };
-        context.applyTmiProtection(el, props, 400);
+        const cfg = { cssPropsObject: props, inlineEffectiveWeight: 400, tmiProtection: context.prepareTmiProtection(props, 400) };
+        context.buildBoldAxisSettings = () => { throw new Error('Axes must be prepared before per-element application'); };
+        context.applyTmiProtection(el, cfg);
         assert.deepEqual(writes.filter(([key]) => key === 'font-weight'), [['font-weight', '700']]);
-        assert.equal(styles.get('font-variation-settings').value, settings ? '"wght" 700, "wdth" 90' : '"wght" 700');
+        assert.equal(styles.get('font-variation-settings').value, settings ? settings.replace('"wght" 400', '"wght" 700') : '"wght" 700');
         assert.deepEqual(props, original, 'Shared configuration remains unchanged');
         writes.length = 0;
-        context.applyTmiProtection(el, props, 400);
+        context.applyTmiProtection(el, cfg);
         assert.deepEqual(writes, [], 'Already-correct protected state must not be mutated');
     });
 }
+
+test('prepared protection preserves normal properties and leaves unspecified weight alone', () => {
+    const context = harness({});
+    const props = { 'font-family': 'Test', 'font-variation-settings': '"GRAD" 50' };
+    const cfg = { cssPropsObject: props, inlineEffectiveWeight: null, tmiProtection: context.prepareTmiProtection(props, null) };
+    const calls = [];
+    context.applyAffoProtection = (_el, finalProps, entries) => calls.push({ finalProps, entries });
+    context.applyTmiProtection({}, cfg, true);
+    context.applyTmiProtection({}, cfg, false);
+    for (const call of calls) {
+        assert.equal(call.finalProps, props);
+        assert.deepEqual(Array.from(call.entries, entry => Array.from(entry)), Object.entries(props));
+        assert.equal(call.finalProps['font-weight'], undefined);
+    }
+    const weighted = context.prepareTmiProtection({ ...props, 'font-weight': 450 }, 450);
+    assert.equal(weighted.boldProps['font-weight'], '700');
+    assert.equal(weighted.boldProps['font-variation-settings'], '"GRAD" 50, "wght" 700');
+    assert.equal(context.prepareTmiProtection({ ...props, 'font-weight': 500 }, 500).normalEntries.find(([key]) => key === 'font-weight')[1], 500);
+});
 
 function recoveryHarness() {
     const calls = [], spa = new Set(), focus = new Set();
@@ -127,4 +163,151 @@ test('non-inline TMI navigation retains classification before scaling', () => {
     };
     h.context.reapplyPageTypographyAfterNavigation();
     assert.deepEqual(h.calls, ['walk', 'sans', 'body']);
+});
+
+function queuedHarness() {
+    const timers = new Map();
+    const events = [];
+    let time = 0, id = 0;
+    const context = harness({
+        setTimeout(fn) { timers.set(++id, fn); return id; },
+        clearTimeout(key) { timers.delete(key); },
+        getAffoNow() { return time; },
+        window: { getComputedStyle(el) { time += 3; events.push('read:' + el.id); return { fontWeight: '400' }; } },
+        applyAffoTextColor() {},
+    });
+    context.applyTmiProtection = el => { time += 3; events.push('write:' + el.id); };
+    const cfg = {};
+    context.inlineConfigs.sans = cfg;
+    const elements = Array.from({ length: 9 }, (_, id) => ({
+        id, isConnected: true, guarded: false, matches: () => true,
+        closest() { return this.guarded ? {} : null; }, getAttribute: () => null,
+    }));
+    function flush() {
+        const first = timers.entries().next().value;
+        if (first) { timers.delete(first[0]); first[1](); }
+    }
+    return { context, cfg, elements, events, timers, flush };
+}
+
+test('inline queue yields during reads and writes, rechecks guards, and settles after all writes', async () => {
+    const h = queuedHarness();
+    let done = false;
+    const promise = h.context.applyTmiProtectionToElements(h.elements, h.cfg, 'sans').then(count => { done = true; return count; });
+    h.flush();
+    assert.equal(h.events.length, 3);
+    assert.equal(done, false);
+    h.flush(); h.flush();
+    assert.equal(h.events.length, 9);
+    assert.ok(h.events.every(event => event.startsWith('read:')));
+    h.elements[4].isConnected = false;
+    h.elements[5].guarded = true;
+    h.flush();
+    assert.equal(done, false);
+    while (h.timers.size) h.flush();
+    assert.equal(await promise, 7);
+    assert.equal(h.events.includes('write:4'), false);
+    assert.equal(h.events.includes('write:5'), false);
+    assert.equal(h.context.pendingInlineWorkChunk, null);
+});
+
+for (const action of ['reset', 'replace']) {
+    test(`inline queue stops stale writes on ${action} and continues newer work`, async () => {
+        const h = queuedHarness();
+        const first = h.context.applyTmiProtectionToElements(h.elements, h.cfg, 'sans');
+        h.flush(); h.flush(); h.flush(); h.flush();
+        const writes = h.events.filter(event => event.startsWith('write:')).length;
+        assert.equal(writes, 3);
+        if (action === 'reset') delete h.context.inlineConfigs.sans;
+        else h.context.inlineConfigs.sans = {};
+        while (h.timers.size) h.flush();
+        await first;
+        assert.equal(h.events.filter(event => event.startsWith('write:')).length, writes);
+        const next = {};
+        h.context.inlineConfigs.sans = next;
+        const second = h.context.applyTmiProtectionToElements(h.elements, next, 'sans');
+        while (h.timers.size) h.flush();
+        assert.equal(await second, 9);
+    });
+}
+
+test('CSSOM-normalized comparison skips equivalent values but repairs changed values and priority', () => {
+    const values = new Map(), priorities = new Map(), attributes = new Map();
+    let parses = 0, writes = 0;
+    const context = harness({
+        document: { createElement: () => ({ style: {
+            value: '', set cssText(_value) { this.value = ''; },
+            setProperty(_prop, value) { parses++; this.value = value.replace('"Times New Roman"', 'Times New Roman').replace('#ff0000', 'rgb(255, 0, 0)'); },
+            getPropertyValue() { return this.value; },
+        } }) },
+        canApplyAffoTextColor: () => true,
+    });
+    const el = {
+        getAttribute: name => attributes.get(name) || null,
+        style: {
+            getPropertyValue: prop => values.get(prop) || '',
+            getPropertyPriority: prop => priorities.get(prop) || '',
+            setProperty(prop, value, priority) { writes++; values.set(prop, value); priorities.set(prop, priority); },
+        },
+    };
+    const cfg = { cssPropsObject: { 'font-family': '"Times New Roman", serif' }, fontConfig: { fontColor: '#ff0000' } };
+    attributes.set('data-affo-protected', 'true');
+    attributes.set('data-affo-font-name', cfg.cssPropsObject['font-family']);
+    attributes.set('data-affo-font-family', cfg.cssPropsObject['font-family']);
+    attributes.set('data-affo-color', '#ff0000');
+    values.set('--affo-font-family', cfg.cssPropsObject['font-family']);
+    values.set('--affo-color', '#ff0000');
+    priorities.set('--affo-font-family', 'important');
+    priorities.set('--affo-color', 'important');
+    values.set('font-family', 'Times New Roman, serif'); priorities.set('font-family', 'important');
+    values.set('color', 'rgb(255, 0, 0)'); priorities.set('color', 'important');
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'sans'), false);
+    context.setImportantStyleIfChanged(el, 'font-family', cfg.cssPropsObject['font-family']);
+    context.setImportantStyleIfChanged(el, 'color', cfg.fontConfig.fontColor);
+    assert.equal(writes, 0);
+    assert.equal(parses, 2, 'Parsed expectations are reused across verification and writes');
+    priorities.set('font-family', '');
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'sans'), true);
+    context.setImportantStyleIfChanged(el, 'font-family', cfg.cssPropsObject['font-family']);
+    values.set('font-family', 'Other');
+    assert.equal(context.inlineElementNeedsRepair(el, cfg, 'sans'), true);
+    context.setImportantStyleIfChanged(el, 'font-family', cfg.cssPropsObject['font-family']);
+    assert.equal(writes, 2);
+    for (let i = 0; i < 300; i++) context.canonicalInlineValue('font-weight', i);
+    assert.ok(context.inlineCssValues.size <= 256);
+});
+
+test('font-swap restoration waits for replacement application to finish', async () => {
+    let finishFirst, finishSecond;
+    const first = new Promise(resolve => { finishFirst = resolve; });
+    const second = new Promise(resolve => { finishSecond = resolve; });
+    let restores = 0;
+    const context = harness({
+        inlineConfigs: { sans: { application: first } },
+        preparedFontSwapAnchors: { sans: {} },
+        getPreparedFontSwapAnchor: () => 'anchor', window: {},
+        AFFOFontSwapUtils: { restoreViewportAnchorAfterLayout(anchor) { assert.equal(anchor, 'anchor'); restores++; return true; } },
+    });
+    const completion = context.restorePreparedFontSwapAnchor('sans');
+    assert.equal(restores, 0);
+    context.inlineConfigs.sans = { application: second };
+    finishFirst();
+    await Promise.resolve();
+    assert.equal(restores, 0);
+    delete context.inlineConfigs.sans.application;
+    finishSecond();
+    assert.equal(await completion, true);
+    assert.equal(restores, 1);
+});
+
+test('popup continuation advances one bounded chunk without double-running its timer', async () => {
+    const h = queuedHarness();
+    const promise = h.context.applyTmiProtectionToElements(h.elements, h.cfg, 'sans');
+    const resume = h.context.pendingInlineWorkChunk;
+    resume();
+    assert.equal(h.events.length, 3);
+    resume();
+    assert.equal(h.events.length, 3);
+    while (h.timers.size) h.flush();
+    assert.equal(await promise, 9);
 });

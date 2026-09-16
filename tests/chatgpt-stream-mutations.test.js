@@ -214,6 +214,7 @@ test('yields large scans, serializes later batches, and scales only after classi
         scaled.push(...roots);
         assert.ok(roots.every(r => !r.children.length || r.children.every(p => p.attrs.has('data-affo-font-type'))));
     };
+    h.context.applyInlineFontSizeScale = (_cfg, type, roots) => h.context.applyFontSizeScaleInRoots(_cfg, type, roots);
     const done = h.context.dispatchMeaningfulMutations([root, root.children[0]]);
     assert.ok(h.classified.length < 8);
     assert.equal(scaled.length, 0);

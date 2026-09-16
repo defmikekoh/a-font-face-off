@@ -91,7 +91,7 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 - **`ensureSharedInlineObserver()`** — Creates the shared MutationObserver on first call. Callback loops `addedNodes` once, then iterates `Object.keys(inlineConfigs)` to match selectors and apply per-type protection.
 - **`ensureSharedInlinePolling()`** — Creates shared polling timers (frequency ramp: fast → slow → stop) on first call. Each tick verifies sentinel elements for all active types before requesting any full rewrite.
 - Hidden tabs cancel periodic timers through one document visibility listener; mutations or explicit Apply do not start polling while hidden. The lifecycle deadline still expires on wall-clock time. `resumeInlineStylesOnFocus()` drops expired configs, preserves full focus-recovery styling, and resumes polling only while monitoring remains active. The elapsed fast/slow phase is preserved across visibility changes. Explicit Apply and mutation-driven styling remain available while hidden.
-- **`reapplyAllInlineStyles()`** — Shared SPA/focus handler that re-applies inline styles for all active types. Its polling mode skips types whose sampled protected values are intact.
+- **`reapplyAllInlineStyles()`** — Shared SPA/focus handler. Polling skips types whose sampled protected values are intact; TMI recovery checks every candidate and protects only damaged targets. Concurrent recovery requests share a promise, with a full-recovery request preserved if it arrives during polling recovery.
 - **`checkExpiredInlineTypes()`** — Removes types whose `expiresAt` has passed from `inlineConfigs`. Calls `cleanupSharedInlineInfra()` when no types remain.
 - **`cleanupSharedInlineInfra()`** — Disconnects the shared observer and clears all shared timers.
 
@@ -105,7 +105,11 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 
 ### Style Application
 - **`applyAffoProtection(el, propsObj)`** — Applies all CSS properties from `propsObj` to an element with `!important`, plus `--affo-` custom properties and `data-affo-` attributes for resilience. Existing matching values are left untouched to avoid redundant style/attribute mutations.
-- **`applyTmiProtection(el, propsObj, effectiveWeight)`** — Wraps `applyAffoProtection` with bold detection. Checks tag name, `data-affo-was-bold` marker, or computed `fontWeight >= 700` before applying, then restores weight to 700 for bold elements.
+- **`prepareTmiProtection(propsObj, effectiveWeight)`** — Prepares normal/bold property entries and bold axis overrides once per inline config. Initial apply, subtree application, and recovery reuse these values.
+- **`applyTmiProtection(el, cfg, isBold)`** — Uses the prepared normal or bold properties. Boldness comes from the prior bold marker or computed font weight, snapshotted before writing the target batch; non-bold results are not cached across node reuse.
+- **`canonicalInlineValue(prop, value)`** — Uses a detached CSSStyleDeclaration and a bounded 256-entry cache to compare browser-serialized values. Both unchanged-write checks and recovery use it, so harmless font-family quote removal and hex-to-RGB color serialization do not trigger repairs. Custom property strings retain their original values. Recovery also verifies protection metadata and prepared bold axes.
+- **`queueInlineWork()`** — Runs TMI filtering/boldness reads, protection writes, heading resets, and size-scaling read/write passes through one shared queue with an 8 ms budget. The budget is checked between elements; native selector queries and individual DOM operations cannot be interrupted. All boldness reads for a target batch precede its writes. Config identity cancels obsolete work after replacement, removal, or reset; disconnected/guarded targets are skipped when resuming. Mutation dispatch awaits application before scaling and draining the next batch.
+- **Apply completion** — `applyInlineStyles()` returns a promise recorded on the active config. Viewport-anchor restoration waits for it, and popup font-swap polling can advance one queued chunk through `affo-continue-inline` when source-tab timers are suspended. Body application and non-inline scaling retain their synchronous paths.
 
 ## Bold Override Strategy
 
