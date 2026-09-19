@@ -818,7 +818,7 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         assert.equal(pushed['local.example'].body.fontName, 'Inter');
     });
 
-    it('syncs the Deep View JavaScript-blocking default when the setting is absent', async () => {
+    it('syncs the example.com JavaScript-blocking default when the setting is absent', async () => {
         const harness = createHarness({
             localSeed: {
                 affoApplyMap: {},
@@ -832,7 +832,7 @@ describe('Google Drive domain sync (per-domain merge)', () => {
 
         const listPut = harness.calls.put.find((call) => call.name === 'block-javascript-domains.json');
         assert.ok(listPut, 'expected the absent-setting default to be pushed');
-        assert.deepEqual(JSON.parse(listPut.content), ['thedeepview.com']);
+        assert.deepEqual(JSON.parse(listPut.content), ['example.com']);
     });
 
     it('merges remote domains when remote is newer instead of clobbering local-only domains', async () => {

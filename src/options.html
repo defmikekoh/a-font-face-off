@@ -886,7 +886,7 @@
         <button id="save-aggressive">Save Domains</button>
         <span id="status-aggressive" class="status"></span>
       </div>
-      <div class="hint">On these domains, apply fonts with !important to override strong site styles. Leave empty for normal specificity.</div>
+      <div class="hint">On these domains, apply fonts with !important to override strong site styles. Leave empty for normal specificity. Default: www.thedeepview.com.</div>
     </div>
 
     <div class="section">
@@ -897,7 +897,7 @@
         <button id="save-inline">Save Domains</button>
         <span id="status-inline" class="status"></span>
       </div>
-      <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com.</div>
+      <div class="hint">On these domains, apply fonts via inline styles to resist CSP and SPA overrides. Default: x.com, www.thedeepview.com.</div>
     </div>
 
     <div class="section">
@@ -908,7 +908,7 @@
         <button id="save-ffonly">Save Domains</button>
         <span id="status-ffonly" class="status"></span>
       </div>
-      <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com.</div>
+      <div class="hint">On these domains, the extension loads fonts via FontFace only (no css2 @import or &lt;link&gt;), to avoid strict CSP blocks. Default: x.com, www.thedeepview.com.</div>
     </div>
 
     <div class="section">
@@ -935,13 +935,13 @@
 
     <div class="section">
       <div class="section-title">Block JavaScript Domains</div>
-      <textarea id="block-javascript-domains" placeholder="One domain per line (e.g., thedeepview.com)"></textarea>
+      <textarea id="block-javascript-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
       <div class="row">
         <button id="reset-block-javascript">Reset to Default</button>
         <button id="save-block-javascript">Save Domains</button>
         <span id="status-block-javascript" class="status"></span>
       </div>
-      <div class="hint">On these domains and their subdomains, AFFO adds <code>Content-Security-Policy: script-src 'none'</code> to top-level pages. This disables page JavaScript and may break interactive features. Reload the page after changing this list. Default: thedeepview.com.</div>
+      <div class="hint">On these domains and their subdomains, AFFO adds <code>Content-Security-Policy: script-src 'none'</code> to top-level pages. This disables page JavaScript and may break interactive features. Reload the page after changing this list. Default: example.com.</div>
     </div>
 
     <div class="section">

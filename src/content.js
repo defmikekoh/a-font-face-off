@@ -39,8 +39,8 @@
   } catch (_) { }
 
   // Helper functions for font loading
-  var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
-  var inlineApplyDomains = ['x.com']; // Will be loaded from storage
+  var fontFaceOnlyDomains = ['x.com', 'www.thedeepview.com']; // Will be loaded from storage
+  var inlineApplyDomains = ['x.com', 'www.thedeepview.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
 
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production
@@ -380,7 +380,7 @@
 
   // Load FontFace-only domains, inline apply domains, aggressive domains, wait-for-it
   // domains, and ignore-comments domains from storage.
-  var aggressiveDomains = [];
+  var aggressiveDomains = ['www.thedeepview.com'];
   var waitForItDomains = [];
   var ignoreCommentsDomains = [];
   var substackRouletteBeigeDisabledDomains = [];
@@ -4845,10 +4845,15 @@
       runElementWalkerAll(toSchedule);
     }
 
+    var timedRecheckPending = false;
     // ChatGPT's scoped mutation observer covers streamed/lazy turns. Other
     // small pages retain one delayed safety pass instead of two full rescans.
     if (!isChatGpt && lastWalkElementCount < LARGE_PAGE_ELEMENT_THRESHOLD) {
-      setTimeout(recheck, 700);
+      timedRecheckPending = true;
+      setTimeout(function () {
+        timedRecheckPending = false;
+        recheck();
+      }, 700);
     } else {
       debugLog('[AFFO Content] Skipping timed walker rechecks for ' + currentOrigin + ' (' + lastWalkElementCount + ' elements)');
     }
@@ -4856,7 +4861,11 @@
     // An already-resolved FontFaceSet.ready promise would immediately trigger a
     // redundant second full walk. Recheck only while page fonts are still loading.
     if (document.fonts && document.fonts.status === 'loading' && document.fonts.ready) {
-      document.fonts.ready.then(recheck).catch(function () { });
+      document.fonts.ready.then(function () {
+        // The pending safety pass will see these ready fonts too. Keep its
+        // original timing so it still catches late hydration/lazy content.
+        if (!timedRecheckPending) recheck();
+      }).catch(function () { });
     }
   }
 

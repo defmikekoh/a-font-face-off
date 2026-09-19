@@ -2461,7 +2461,7 @@ function generateFontControls(position, fontName) {
 // getEffectiveItalic, buildCustomAxisSettings are now in config-utils.js
 
 // Domain detection for inline apply domains
-let inlineApplyDomains = ['x.com']; // Will be loaded from storage
+let inlineApplyDomains = ['x.com', 'www.thedeepview.com']; // Will be loaded from storage
 
 // Load inline apply domains from storage
 try {
@@ -2478,7 +2478,7 @@ function shouldUseInlineApply(origin) {
 }
 
 // Domain detection for aggressive override domains
-let aggressiveDomains = []; // Will be loaded from storage
+let aggressiveDomains = ['www.thedeepview.com']; // Will be loaded from storage
 
 // Load aggressive domains from storage
 try {

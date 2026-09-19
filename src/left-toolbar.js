@@ -1137,9 +1137,9 @@
             const domainData = applyMap[origin] || {};
 
             const domainLists = {
-                ffonly: data.affoFontFaceOnlyDomains || [],
-                inline: data.affoInlineApplyDomains || [],
-                aggressive: data.affoAggressiveDomains || [],
+                ffonly: data.affoFontFaceOnlyDomains || ['x.com', 'www.thedeepview.com'],
+                inline: data.affoInlineApplyDomains || ['x.com', 'www.thedeepview.com'],
+                aggressive: data.affoAggressiveDomains || ['www.thedeepview.com'],
                 waitforit: data.affoWaitForItDomains || [],
                 ignorecomments: data.affoIgnoreCommentsDomains || [],
                 substackbeigedisabled: data.affoSubstackRouletteBeigeDisabledDomains || [],

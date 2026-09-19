@@ -113,9 +113,9 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 | `affoFaceoffPageFontDraft` | One-shot page-font config waiting to open in Face-off top; removed by popup startup and never synced | `{ createdAt, sourceTabId, sourceUrl, config: { fontName, variableAxes, fontFaceRule }, fontDefinition: { axes, defaults, ranges } }` |
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
-| `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading | `["x.com"]` |
+| `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading; absent-setting default shown | `["x.com", "www.thedeepview.com"]` |
 | `affoFontFaceOnlyDomainsMeta` | Per-origin sync metadata for FontFace-only domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
-| `affoInlineApplyDomains` | Domains requiring inline style application | `["x.com"]` |
+| `affoInlineApplyDomains` | Domains requiring inline style application; absent-setting default shown | `["x.com", "www.thedeepview.com"]` |
 | `affoInlineApplyDomainsMeta` | Per-origin sync metadata for inline-apply domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
@@ -126,14 +126,14 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 | `gfFamilyListTimestamp` | Timestamp for family-list cache age checks | `1699999999999` |
 | `affoLocalFonts` | User-managed local desktop font family names | `["Iowan Old Style", "Aptos"]` |
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
-| `affoAggressiveDomains` | Domains where CSS uses `!important` | `["example.com"]` |
+| `affoAggressiveDomains` | Domains where CSS uses `!important`; absent-setting default shown | `["www.thedeepview.com"]` |
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
 | `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoIgnoreCommentsDomains` | Domains where AFFO skips comment threads | `["example.com"]` |
 | `affoIgnoreCommentsDomainsMeta` | Per-origin sync metadata for Ignore Comments domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
-| `affoBlockJavaScriptDomains` | Domains and subdomains whose top-level HTML responses receive `Content-Security-Policy: script-src 'none'`; absent-setting default is `thedeepview.com` | `["thedeepview.com"]` |
-| `affoBlockJavaScriptDomainsMeta` | Per-origin sync metadata for Block JavaScript domains | `{ version: 1, byOrigin: { "thedeepview.com": { modified: 1700000000000 } } }` |
+| `affoBlockJavaScriptDomains` | Domains and subdomains whose top-level HTML responses receive `Content-Security-Policy: script-src 'none'`; absent-setting default is `example.com` | `["example.com"]` |
+| `affoBlockJavaScriptDomainsMeta` | Per-origin sync metadata for Block JavaScript domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoPreservedFonts` | Font families never replaced (icon fonts) | `["Font Awesome 5 Free", "Material Icons", "bootstrap-icons"]` |
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |

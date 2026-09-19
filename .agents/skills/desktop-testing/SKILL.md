@@ -278,6 +278,10 @@ known split requirements.
 
 Obtain new explicit user approval before using any other device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
+#### Keep Note10 awake throughout testing
+
+For every Note10 `RF8M81WSL1V` test, keep its screen awake throughout navigation, waits, profiling, and cleanup. This is the user's standing preference. Record the original `stay_on_while_plugged_in` value, enable `adb -s RF8M81WSL1V shell svc power stayon usb`, wake the screen, and keep USB power connected. Restore and verify the exact original value after testing, including failure paths; harnesses should use `try/finally`. Follow the [Note10 keep-awake procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing). The harness's one-time preflight wake does not keep the device awake for later waits. Exclude sleep-interrupted runs from performance comparisons.
+
 #### Approval-compatible Note10 ADB
 
 For direct ADB work on the approved Note10, put the literal serial in every command and run exactly one ADB command per tool call. Do not use an environment variable for the serial. Do not use pipes, redirects, `&&`, `||`, `;`, command substitution, loops, or a shell wrapper around ADB. Those forms do not match narrow command-prefix approvals reliably and obscure which device operation is authorized.
@@ -454,7 +458,7 @@ Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()`
 - **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
 - **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
 - **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
-- **Device asleep → `Failed to decode response from marionette`.** The harness now wakes the device during preflight; for manual workflows use `adb -s RF8M81WSL1V shell input keyevent KEYCODE_WAKEUP`.
+- **Device asleep → `Failed to decode response from marionette` or stalled navigation.** Follow the Note10 whole-session keep-awake procedure above; the harness preflight wake alone is insufficient.
 - **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.
 
 ## Vivaldi Snapshot Android — device and emulator testing

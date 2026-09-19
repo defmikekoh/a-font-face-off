@@ -8,7 +8,7 @@
     return;
   }
 
-  var DEFAULT_DOMAINS = Object.freeze(['thedeepview.com']);
+  var DEFAULT_DOMAINS = Object.freeze(['example.com']);
   var CSP_HEADER_NAME = 'Content-Security-Policy';
   var CSP_HEADER_VALUE = "script-src 'none'";
   var DNR_RULE_ID = 81001;

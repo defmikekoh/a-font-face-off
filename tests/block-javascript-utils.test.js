@@ -12,8 +12,8 @@ const {
 } = require('../src/block-javascript-utils.js');
 
 describe('Block JavaScript domain policy', () => {
-    it('uses the actual Deep View domain as the absent-setting default', () => {
-        assert.deepEqual(Array.from(DEFAULT_DOMAINS), ['thedeepview.com']);
+    it('uses only example.com as the absent-setting default', () => {
+        assert.deepEqual(Array.from(DEFAULT_DOMAINS), ['example.com']);
     });
 
     it('normalizes, de-duplicates, and sorts configured domains', () => {

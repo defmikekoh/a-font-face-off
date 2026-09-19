@@ -211,9 +211,9 @@
   const DEFAULT_SERIF = ['PT Serif', 'mencken-std'];
   const DEFAULT_SANS = ['Apercu Pro'];
   const DEFAULT_PRESERVED = ['Font Awesome 5 Free', 'Font Awesome 5 Brands', 'Font Awesome 6 Free', 'Font Awesome 6 Brands', 'FontAwesome', 'Material Icons', 'Material Icons Outlined', 'Material Icons Round', 'Material Icons Sharp', 'Material Symbols Outlined', 'Material Symbols Rounded', 'Material Symbols Sharp', 'bootstrap-icons', 'remixicon', 'icomoon'];
-  const DEFAULT_FFONLY = ['x.com'];
-  const DEFAULT_INLINE = ['x.com'];
-  const DEFAULT_AGGRESSIVE = [];
+  const DEFAULT_FFONLY = ['x.com', 'www.thedeepview.com'];
+  const DEFAULT_INLINE = ['x.com', 'www.thedeepview.com'];
+  const DEFAULT_AGGRESSIVE = ['www.thedeepview.com'];
   const DEFAULT_WAITFORIT = [];
   const DEFAULT_IGNORE_COMMENTS = [];
   const DEFAULT_BLOCK_JAVASCRIPT = AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();

@@ -2105,21 +2105,24 @@ async function runSync(options = {}) {
       localMetaStorageKey: FFONLY_DOMAINS_META_KEY,
       filename: SYNC_FFONLY_DOMAINS_NAME,
       metaFilename: SYNC_FFONLY_DOMAINS_META_NAME,
-      label: 'FontFace-only domains'
+      label: 'FontFace-only domains',
+      defaultOrigins: ['x.com', 'www.thedeepview.com']
     },
     {
       key: INLINE_DOMAINS_KEY,
       localMetaStorageKey: INLINE_DOMAINS_META_KEY,
       filename: SYNC_INLINE_DOMAINS_NAME,
       metaFilename: SYNC_INLINE_DOMAINS_META_NAME,
-      label: 'Inline apply domains'
+      label: 'Inline apply domains',
+      defaultOrigins: ['x.com', 'www.thedeepview.com']
     },
     {
       key: AGGRESSIVE_DOMAINS_KEY,
       localMetaStorageKey: AGGRESSIVE_DOMAINS_META_KEY,
       filename: SYNC_AGGRESSIVE_DOMAINS_NAME,
       metaFilename: SYNC_AGGRESSIVE_DOMAINS_META_NAME,
-      label: 'Aggressive domains'
+      label: 'Aggressive domains',
+      defaultOrigins: ['www.thedeepview.com']
     },
     {
       key: WAITFORIT_DOMAINS_KEY,
@@ -3089,7 +3092,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
         await removeTrackedSrouletteCss(tabId, [position]);
 
-        const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || [];
+        const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || ['www.thedeepview.com'];
         const aggressive = aggressiveDomains.includes(origin);
 
         // Run DOM walker via content script message
