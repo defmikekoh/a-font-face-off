@@ -4,33 +4,38 @@ This file provides guidance to Codex, Claude Code (claude.ai/code), and Gemini w
 
 ## Project Overview
 
-A Font Face-off is a shared Manifest V3 browser extension for Firefox and Chromium (Chrome, Vivaldi, and Edge) that replaces and compares fonts on web pages in real-time. No font files are bundled; all fonts are fetched at runtime from Google Fonts or custom CDN hosts. The extension uses a single injected `<style>` element (Facade pattern) rather than per-node DOM mutations.
+A Font Face-off is a shared Manifest V3 browser extension for Firefox and Chromium (Chrome, Vivaldi, and Edge) that replaces and compares fonts on web pages in real-time. No font files are bundled; remote fonts are fetched at runtime from Google Fonts or custom CDN hosts, and local desktop fonts are also supported. Font application uses per-type styles, element-walker attributes, inline styles on configured domains, and tracked `browser.scripting.insertCSS` calls for Sroulette TMI targets. See `docs/architecture/CONTENT_SCRIPT.md` for the application paths.
 
 ## Key Commands
 
-- `npm run build` — Build extension with web-ext (toggles AFFO_DEBUG to false, builds, toggles back to true)
-- `npm run build:latest` — Build and copy to `web-ext-artifacts/latest.xpi`
-- `npm run gf:update` — Update Google Fonts metadata into `data/gf-axis-registry.json`
+- `npm run build` — Build extension with web-ext (toggles AFFO_DEBUG to false, builds, restores true after a successful build)
+- `npm run build:latest` — Build Firefox extension as `web-ext-artifacts/latest.xpi`
+- `npm run gf:update` — Update Google Fonts metadata into `src/data/gf-axis-registry.json`
 - `npm run lint` — Run ESLint across all source files
 - `npm test` — Run unit tests (Node's built-in test runner, `node:test`)
+- `npm run test:integration` — Build Firefox extension and run integration tests serially with Selenium/geckodriver
+- `npm run test:chrome` — Build Chromium extension and run desktop Chromium tests
 
 ## Development Guidelines
 
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
-- Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.claude/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
+- Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.agents/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - The canonical desktop/Android extension-testing skill directory is `.agents/skills/desktop-testing/`; `.claude/skills/desktop-testing` is a symlink to it for Claude Code discovery. Edit the canonical `.agents` files rather than duplicating or relocating them without a deliberate compatibility change.
 - **Safety boundary:** Android Selenium/geckodriver clears the selected Firefox package data when creating a session. Disposable browser testing is pre-approved on Samsung Galaxy Note10 `RF8M81WSL1V` for Firefox Nightly (`org.mozilla.fenix`), Vivaldi Snapshot (`com.vivaldi.browser.snapshot`), and Edge Canary (`com.microsoft.emmx.canary`). Snapshot and Canary permission includes app/profile resets, force-stop/relaunch, local extension install/reload/removal, and the developer settings needed for extension testing. Vivaldi stable (`com.vivaldi.browser`), Edge stable, other browser packages, devices, and Android users/work profiles require new explicit approval for destructive testing. The Firefox harness remains Firefox-only. (Tooling behavior, device specifics, and which paths are/aren't destructive are documented in the `desktop-testing` and `firefox-extension-debug` skills.)
 - Generally, don't create fallbacks to fix errors unless specifically told to.
-- ESLint config (`eslint.config.mjs`) uses flat config format — all `files` patterns must use `src/` prefix (e.g., `"src/*.js"`). Without it, rules silently don't apply.
+- ESLint config (`eslint.config.mjs`) uses flat config format — `files` patterns are relative to the config file. Use `src/` for extension source (e.g., `"src/*.js"`), `scripts/` for scripts, and `tests/` for tests; incorrect paths can silently leave rules unapplied.
 
 ## Source Files (in `src/` — no build step, no ES modules, raw JS served directly)
 
 | File | Role |
 |---|---|
 | `src/config-utils.js` | Pure logic functions shared between popup.js and Node tests |
+| `src/local-font-utils.js` | Shared helpers for user-managed local desktop font names and local font source metadata |
 | `src/sroulette-utils.js` | Shared Substack Roulette helpers for pools, targets, intent storage, and pseudo-favorite metadata |
 | `src/popup-panel-utils.js` | Popup panel state, Sroulette comparison, and Apply All planning helpers |
 | `src/popup.js` | Primary UI logic: font selection, axis controls, mode switching, favorites, state management |
+| `src/favorites.js` | Favorites UI and storage, with private state and explicit popup callbacks |
+| `src/font-picker.js` | Font picker UI, with private state and explicit popup callbacks |
 | `src/popup.html` / `src/popup.css` | Extension popup markup and styles. Shell is a 3-rectangle flex column (tabs / `#preview-region` / `#panel-grips`); see `docs/architecture/POPUP.md` → Shell Layout |
 | `src/popup-context.js` | Loaded first in `popup.html` `<head>` (external because the extension CSP blocks inline scripts); tags `<html>` with `affo-mobile` on Android so popup.css sizes the desktop panel vs the full-viewport Android popup/tab |
 | `src/content.js` | Injected into pages; font application, element walker, SPA resilience |
@@ -59,18 +64,22 @@ Core keys: `affoApplyMap` (domain font configs), `affoUIState` (current UI state
 
 ## Font Config "No Key" Architecture
 
-Only store properties with actual values — no nulls, no defaults. `fontName` is always present when configured; `variableAxes` is always an object (even if empty `{}`). Primitive properties like `fontSize`, `fontColor` only appear when explicitly set. `letterSpacing` (em units, range -0.05 to 0.15) uses `!= null` checks everywhere since `0` is a valid value (falsy in JS).
+Only store properties with actual values — no nulls, no defaults. `fontName` is always present in a configured font. Normalized configs always contain a `variableAxes` object (even if empty `{}`), but `buildPayload()` omits empty axes from domain storage. Primitive properties like `fontSize`, `fontColor` only appear when explicitly set. `letterSpacing` (em units, range -0.05 to 0.15) uses `!= null` checks everywhere since `0` is a valid value (falsy in JS).
 
-## Config Pipeline (popup.js)
+`fontSize` (absolute px) and `fontSizeScale` (percentage of each matched element's original computed size) are mutually exclusive. Local fonts use `fontSource: 'local'`.
 
-- `getCurrentUIConfig(position)` — reads current UI state into canonical config
-- `normalizeConfig(raw)` — converts external data (favorites, domain storage, legacy formats) into canonical config
-- `buildPayload(position, config?)` — builds payload for domain storage; does NOT include `fontFaceRule` or `css2Url`
-- `resolveCss2Url(fontName, options?)` — asks the background runtime to derive Google Fonts CSS2 URLs; only short-lived in-memory memoization is used
+Sroulette domain entries store pool/target intent in `affoApplyMap[origin].sroulette`. Resolve the sampled font at runtime; do not persist the random result. See `docs/architecture/DATA_STRUCTURES.md` for the schema.
+
+## Config Pipeline
+
+- `getCurrentUIConfig(position)` (`popup.js`) — reads current UI state into canonical config
+- `normalizeConfig(raw)` (`config-utils.js`) — converts external data (favorites, domain storage, legacy formats) into canonical config
+- `buildPayload(position, config?)` (`popup.js`) — builds payload for domain storage; does NOT include `fontFaceRule` or `css2Url`
+- `resolveCss2Url(fontName, options?)` (`popup.js`) — asks the background runtime to derive Google Fonts CSS2 URLs; only short-lived in-memory memoization is used
 
 ## Debug Flag
 
-`AFFO_DEBUG` constant at top of `popup.js`, `content.js`, `background.js`, `left-toolbar.js` controls logging. Toggled by `scripts/set-debug.js` (automatically set to false during build, true otherwise).
+`AFFO_DEBUG` flag at top of `popup.js`, `content.js`, `background.js`, `left-toolbar.js` controls logging. `npm run build` uses `scripts/set-debug.js` to set it to false before packaging and restore true after a successful build. If a build fails after disabling debug, restore it with `node scripts/set-debug.js true` before continuing local development.
 
 Logging rules:
 
