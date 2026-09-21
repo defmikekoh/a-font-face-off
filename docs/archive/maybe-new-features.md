@@ -161,7 +161,7 @@ A smaller custom-font setup improvement comes from Font Replacer: paste a font-f
 
 **AFFO delta:** Extend WhatFont with “Try on this element,” then optionally save a selector target. Show how many elements the target matches before saving. Examples include a newsletter's title, pull quotes, or an application's editor pane.
 
-**Effort: large.** A temporary element-only experiment is easier than durable selectors. For saved rules, offer inspectable selectors and explicit exclusions; handle invalid selectors and changed page markup visibly. Reuse Facade ownership rather than creating a second unrelated style editor.
+**Effort: large.** A temporary element-only experiment is easier than durable selectors. For saved rules, offer inspectable selectors and explicit exclusions; handle invalid selectors and changed page markup visibly. Reuse the existing font-application and style-cleanup paths.
 
 #### B2. Script-aware font composition and opt-in RTL adjustments
 

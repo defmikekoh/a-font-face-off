@@ -1,4 +1,4 @@
-# A Font (Facade) Face‑off — Font Application Notes
+# A Font Face‑off — Font Application Notes
 
 This document explains how the extension applies your chosen fonts to web pages, why it’s fast (even on late‑hydration sites and e‑ink devices), and where the logic lives in the codebase.
 
