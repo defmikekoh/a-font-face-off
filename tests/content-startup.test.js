@@ -31,14 +31,16 @@ async function harness(data = {}, host = 'www.tomsguide.com', body = true) {
     return { context, document, listeners, flush, mutate: () => mutation(), disconnected: () => disconnected };
 }
 
-it('unset enables only the exact default hostname; an empty saved list disables it', async () => {
+it('early startup is the default; only exact after-parsing or Wait For It domains delay it', async () => {
     for (const [data, host, expected] of [
         [{}, 'www.tomsguide.com', true],
         [{}, 'x.com', true],
         [{}, 'www.thedeepview.com', true],
-        [{}, 'tomsguide.com', false],
-        [{ affoApplyEarlyDomains: [] }, 'www.tomsguide.com', false],
-        [{ affoApplyEarlyDomains: ['example.com'] }, 'example.com', true],
+        [{}, 'tomsguide.com', true],
+        [{ affoApplyAfterParsingDomains: [] }, 'www.tomsguide.com', true],
+        [{ affoApplyAfterParsingDomains: ['example.com'] }, 'example.com', false],
+        [{ affoApplyAfterParsingDomains: ['example.com'] }, 'www.example.com', true],
+        [{ affoApplyEarlyDomains: [] }, 'example.com', true],
         [{ affoWaitForItDomains: ['www.tomsguide.com'] }, 'www.tomsguide.com', false]
     ]) {
         const h = await harness(data, host);

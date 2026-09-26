@@ -597,42 +597,44 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
         assert.ok(buttonInfo.isButton, 'Faceoff button should be a button element');
         assert.ok(buttonInfo.isClickable, 'Faceoff button should be clickable');
     });
-    it('Apply Early replaces Wait For It and preserves unset defaults when toggled', async () => {
+    it('Apply After Parsing defaults off, replaces Apply Early, and toggles the exclusion list', async () => {
         await ensureQuickPickAvailable();
         const origin = await getCurrentOrigin();
         await openPopup(driver);
-        await popupExec(driver, "return browser.storage.local.remove('affoApplyEarlyDomains').then(() => true);");
+        await popupExec(driver, "return browser.storage.local.remove('affoApplyAfterParsingDomains').then(() => true);");
         await popupExec(driver, `return browser.storage.local.set({affoWaitForItDomains:[${JSON.stringify(origin)}]}).then(() => true);`);
         await closePopup(driver);
         await clickFaceoffButton();
         await driver.wait(async () => driver.executeScript(
-            "return !!document.getElementById('affo-quick-pick-apply-early') && document.getElementById('affo-quick-pick-overlay').style.display !== 'none'"
+            "return !!document.getElementById('affo-quick-pick-apply-after-parsing') && document.getElementById('affo-quick-pick-overlay').style.display !== 'none'"
         ), 5000);
         assert.equal(await driver.executeScript("return !!document.getElementById('affo-quick-pick-waitforit')"), false);
-        await driver.executeScript("document.getElementById('affo-quick-pick-apply-early').click();");
+        assert.equal(await driver.executeScript("return !!document.getElementById('affo-quick-pick-apply-early')"), false);
+        assert.equal(await driver.executeScript("return document.getElementById('affo-quick-pick-apply-after-parsing').checked"), false);
+        await driver.executeScript("document.getElementById('affo-quick-pick-apply-after-parsing').click();");
         await driver.wait(async () => driver.executeScript(
             "return document.getElementById('affo-quick-pick-message').textContent.includes('Reload the page')"
         ), 5000);
         await closeQuickPickMenu();
         await openPopup(driver);
-        const stored = await popupExec(driver, "return browser.storage.local.get(['affoApplyEarlyDomains','affoWaitForItDomains']);");
-        assert.deepEqual(Array.from(stored.affoApplyEarlyDomains).sort(),
-            ['www.tomsguide.com', 'x.com', 'www.thedeepview.com', origin].sort());
+        const stored = await popupExec(driver, "return browser.storage.local.get(['affoApplyAfterParsingDomains','affoWaitForItDomains']);");
+        assert.deepEqual(Array.from(stored.affoApplyAfterParsingDomains).sort(),
+            [origin]);
         assert.equal(stored.affoWaitForItDomains.includes(origin), false);
         await closePopup(driver);
         await clickFaceoffButton();
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('affo-quick-pick-apply-early').checked"
+            "return document.getElementById('affo-quick-pick-apply-after-parsing').checked"
         ), 5000);
-        await driver.executeScript("document.getElementById('affo-quick-pick-apply-early').click();");
+        await driver.executeScript("document.getElementById('affo-quick-pick-apply-after-parsing').click();");
         await driver.wait(async () => driver.executeScript(
             "return document.getElementById('affo-quick-pick-message').textContent.includes('Reload the page')"
         ), 5000);
         await closeQuickPickMenu();
         await openPopup(driver);
-        const after = await popupExec(driver, "return browser.storage.local.get('affoApplyEarlyDomains');");
-        assert.deepEqual(Array.from(after.affoApplyEarlyDomains).sort(),
-            ['www.tomsguide.com', 'x.com', 'www.thedeepview.com'].sort());
+        const after = await popupExec(driver, "return browser.storage.local.get('affoApplyAfterParsingDomains');");
+        assert.deepEqual(Array.from(after.affoApplyAfterParsingDomains).sort(),
+            []);
         await closePopup(driver);
     });
 

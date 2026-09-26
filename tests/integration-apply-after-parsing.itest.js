@@ -9,7 +9,7 @@ let server;
 let url;
 const host = '127.0.0.1';
 
-describe('Apply Early saved-font startup', { concurrency: false }, () => {
+describe('Apply After Parsing saved-font startup', { concurrency: false }, () => {
     before(async () => {
         server = http.createServer((req, res) => {
             if (req.url === '/slow.js') {
@@ -46,10 +46,10 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
         if (server) await new Promise(resolve => server.close(resolve));
     });
 
-    async function seed(type, early, wait = []) {
+    async function seed(type, afterParsing, wait = []) {
         await openPopup(driver);
         await popupExec(driver, `return browser.storage.local.set(${JSON.stringify({
-            affoApplyEarlyDomains: early,
+            affoApplyAfterParsingDomains: afterParsing,
             affoWaitForItDomains: wait,
             affoApplyMap: { [host]: { [type]: { fontName: 'Georgia', fontSource: 'local', variableAxes: {} } } }
         })}).then(() => true);`);
@@ -58,7 +58,7 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
 
     for (const type of ['body', 'sans']) {
         it(`restores ${type} before parsing finishes and covers later content`, async () => {
-            await seed(type, [host]);
+            await seed(type, []);
             await driver.get(url);
             assert.equal(await driver.executeScript('return window.earlyApplied'), true);
             await driver.wait(async () => driver.executeScript(
@@ -67,8 +67,8 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
         });
     }
 
-    it('an explicit empty list preserves normal startup', async () => {
-        await seed('body', []);
+    it('listed domains wait until parsing finishes', async () => {
+        await seed('body', [host]);
         await driver.get(url);
         assert.equal(await driver.executeScript('return window.earlyApplied'), false);
         await driver.wait(async () => driver.executeScript(
@@ -84,31 +84,30 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
             "return !!document.querySelector('style[id^=\"a-font-face-off-style-\"]')"
         ), false);
     });
-    it('options show the unset default, save empty, reset, and resolve conflicting lists', async () => {
+    it('options default empty, save exclusions, reset, and resolve Wait For It conflicts', async () => {
         await openPopup(driver);
         const optionsUrl = await popupExec(driver, "return browser.runtime.getURL('options.html');");
-        await popupExec(driver, "return browser.storage.local.remove(['affoApplyEarlyDomains', 'affoWaitForItDomains']).then(() => true);");
+        await popupExec(driver, "return browser.storage.local.remove(['affoApplyAfterParsingDomains', 'affoWaitForItDomains']).then(() => true);");
         await closePopup(driver);
         await driver.get(optionsUrl);
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
+            "return document.getElementById('apply-after-parsing-domains')?.value === ''"
         ), 5000);
-        await driver.executeScript("document.getElementById('apply-early-domains').value = ''; document.getElementById('save-apply-early').click();");
+        await driver.executeScript("document.getElementById('apply-after-parsing-domains').value = 'www.tomsguide.com'; document.getElementById('save-apply-after-parsing').click();");
         await driver.wait(async () => driver.executeAsyncScript(
-            "const done = arguments[arguments.length - 1]; browser.storage.local.get('affoApplyEarlyDomains').then(d => done(Array.isArray(d.affoApplyEarlyDomains) && d.affoApplyEarlyDomains.length === 0));"
-        ), 5000);
-        await driver.executeScript("document.getElementById('reset-apply-early').click();");
-        await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
+            "const done = arguments[arguments.length - 1]; browser.storage.local.get('affoApplyAfterParsingDomains').then(d => done(d.affoApplyAfterParsingDomains?.includes('www.tomsguide.com')));"
         ), 5000);
         await driver.executeScript("document.getElementById('waitforit-domains').value = 'www.tomsguide.com'; document.getElementById('save-waitforit').click();");
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === 'x.com\\nwww.thedeepview.com'"
+            "return document.getElementById('apply-after-parsing-domains').value === ''"
         ), 5000);
-        await driver.executeScript("document.getElementById('reset-apply-early').click();");
+        await driver.executeScript("document.getElementById('apply-after-parsing-domains').value = 'www.tomsguide.com'; document.getElementById('save-apply-after-parsing').click();");
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('waitforit-domains').value === '' && document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
+            "return document.getElementById('waitforit-domains').value === ''"
+        ), 5000);
+        await driver.executeScript("document.getElementById('reset-apply-after-parsing').click();");
+        await driver.wait(async () => driver.executeAsyncScript(
+            "const done = arguments[arguments.length - 1]; browser.storage.local.get('affoApplyAfterParsingDomains').then(d => done(d.affoApplyAfterParsingDomains?.length === 0 && document.getElementById('apply-after-parsing-domains').value === ''));"
         ), 5000);
     });
-
 });

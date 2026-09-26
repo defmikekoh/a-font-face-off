@@ -120,13 +120,13 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. The TMI walker stamps computed-bold marked nodes with `data-affo-was-bold="true"` so CSS-mode TMI can keep marked links/spans out of the non-bold rule, and inline reapply cycles can detect them without re-reading computed style every time.
 
 
-### Apply Early startup
+### Apply After Parsing startup
 
-The main content-script group loads at `document_start`. Its runtime waits for
-`document.readyState !== 'loading'` on normal domains. On exact hostnames in
-`affoApplyEarlyDomains` (unset defaults: `www.tomsguide.com`, `x.com`, `www.thedeepview.com`), it instead starts
-as soon as both head and body exist. Wait For It takes precedence if lists overlap.
-An explicit empty array disables early application everywhere.
+The main content-script group loads at `document_start` and normally starts as
+soon as head and body exist. Exact hostnames in `affoApplyAfterParsingDomains`
+wait for `document.readyState !== 'loading'`. The unset default is an empty list:
+early application is enabled everywhere. Wait For It takes precedence and
+suppresses automatic application.
 
 Both paths use the same initialization, saved-config restoration, font-readiness
 gate, and observers. Early TMI mutation batches use a bounded debounce while
@@ -135,7 +135,8 @@ Existing original-font markers are retained. Late site CSS can still cause
 temporary mismatches; early application adds work during page startup and can
 cause layout shifts. Settings changes take effect on the next navigation/reload.
 
-Quick Pick exposes Apply Early in place of Wait For It. Enabling it removes the
-current hostname from Wait For It; changing it requires a page reload. Wait For It
-remains available in Options. Quick Pick preserves the effective default list
-when first saving an unset domain list.
+Options and Quick Pick expose Apply After Parsing. Enabling it removes the
+current hostname from Wait For It; Wait For It remains in Options.
+The former Apply Early setting and its sync files are no longer consumed.
+Old allowlists cannot express the new exclusion policy and are not inverted or
+migrated; all domains start early unless explicitly added to the new list.

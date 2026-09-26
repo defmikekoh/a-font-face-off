@@ -1041,7 +1041,7 @@
         const checkboxDefs = [
             { id: 'affo-quick-pick-inline', label: 'Inline Apply Domain' },
             { id: 'affo-quick-pick-ffonly', label: 'FontFace-only Domain' },
-            { id: 'affo-quick-pick-apply-early', label: 'Apply Early Domain' },
+            { id: 'affo-quick-pick-apply-after-parsing', label: 'Apply After Parsing' },
             { id: 'affo-quick-pick-ignore-comments', label: 'Ignore Comments Domain' },
             { id: 'affo-quick-pick-substack-beige-disabled', label: 'Disable Substack Beige', substackOnly: true },
         ];
@@ -1127,7 +1127,7 @@
             const origin = location.hostname;
             const data = await browserAPI.storage.local.get([
                 'affoFavorites', 'affoFavoritesOrder', 'affoApplyMap',
-                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoApplyEarlyDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains',
+                'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoApplyAfterParsingDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains',
                 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans',
                 'affoSyncBackend'
             ]);
@@ -1140,7 +1140,7 @@
                 ffonly: data.affoFontFaceOnlyDomains || ['x.com'],
                 inline: data.affoInlineApplyDomains || ['x.com'],
                 aggressive: data.affoAggressiveDomains || ['www.thedeepview.com'],
-                applyearly: data.affoApplyEarlyDomains || ['www.tomsguide.com', 'x.com', 'www.thedeepview.com'],
+                applyafterparsing: data.affoApplyAfterParsingDomains || [],
                 ignorecomments: data.affoIgnoreCommentsDomains || [],
                 substackbeigedisabled: data.affoSubstackRouletteBeigeDisabledDomains || [],
             };
@@ -1262,7 +1262,7 @@
             { id: 'affo-quick-pick-ffonly', key: 'affoFontFaceOnlyDomains', listKey: 'ffonly' },
             { id: 'affo-quick-pick-inline', key: 'affoInlineApplyDomains', listKey: 'inline' },
             { id: 'affo-quick-pick-aggressive', key: 'affoAggressiveDomains', listKey: 'aggressive' },
-            { id: 'affo-quick-pick-apply-early', key: 'affoApplyEarlyDomains', listKey: 'applyearly' },
+            { id: 'affo-quick-pick-apply-after-parsing', key: 'affoApplyAfterParsingDomains', listKey: 'applyafterparsing' },
             { id: 'affo-quick-pick-ignore-comments', key: 'affoIgnoreCommentsDomains', listKey: 'ignorecomments' },
             { id: 'affo-quick-pick-substack-beige-disabled', key: 'affoSubstackRouletteBeigeDisabledDomains', listKey: 'substackbeigedisabled', substackOnly: true },
         ];
@@ -1289,13 +1289,13 @@
                     current = current.filter(d => d !== currentOrigin);
                 }
                 const changes = { [cfg.key]: current };
-                if (cfg.listKey === 'applyearly' && cb.checked) {
+                if (cfg.listKey === 'applyafterparsing' && cb.checked) {
                     changes.affoWaitForItDomains = (storageData.affoWaitForItDomains || [])
                         .filter(domain => domain !== currentOrigin);
                 }
                 await browserAPI.storage.local.set(changes);
-                if (cfg.listKey === 'applyearly' && message) {
-                    setQuickPickMessage(message, 'Reload the page for Apply Early changes to take effect.');
+                if (cfg.listKey === 'applyafterparsing' && message) {
+                    setQuickPickMessage(message, 'Reload the page for Apply After Parsing changes to take effect.');
                 }
             };
         }

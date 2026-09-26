@@ -3,17 +3,17 @@
 // Popup applies user-origin CSS after coordinating readiness with this script.
 
 (async function () {
-  // Apply Early starts the same runtime as soon as head/body exist. Other
-  // domains retain document-end timing; Wait For It takes precedence.
-  var startupSettings = await browser.storage.local.get(['affoApplyEarlyDomains', 'affoWaitForItDomains']);
-  var applyEarlyDomains = Array.isArray(startupSettings.affoApplyEarlyDomains)
-    ? startupSettings.affoApplyEarlyDomains : ['www.tomsguide.com', 'x.com', 'www.thedeepview.com'];
-  var applyEarly = applyEarlyDomains.includes(location.hostname) &&
+  // Start as soon as head/body exist unless this hostname opts into waiting
+  // until parsing finishes. Wait For It takes precedence over automatic apply.
+  var startupSettings = await browser.storage.local.get(['affoApplyAfterParsingDomains', 'affoWaitForItDomains']);
+  var applyAfterParsingDomains = Array.isArray(startupSettings.affoApplyAfterParsingDomains)
+    ? startupSettings.affoApplyAfterParsingDomains : [];
+  var startBeforeParsing = !applyAfterParsingDomains.includes(location.hostname) &&
     !(startupSettings.affoWaitForItDomains || []).includes(location.hostname);
   await new Promise(function (resolve) {
     var observer;
     function ready() {
-      if (!document.body || !document.head || (!applyEarly && document.readyState === 'loading')) return;
+      if (!document.body || !document.head || (!startBeforeParsing && document.readyState === 'loading')) return;
       if (observer) observer.disconnect();
       document.removeEventListener('readystatechange', ready);
       resolve();
@@ -1719,7 +1719,7 @@
       // Keep a bounded batch window: continuous streaming must not postpone
       // classification indefinitely by resetting the timer for every token.
       if (sharedDomDebounceTimer) {
-        if (isChatGpt || usesHybridInlineTmiSelectors() || (applyEarly && document.readyState === 'loading')) return;
+        if (isChatGpt || usesHybridInlineTmiSelectors() || (startBeforeParsing && document.readyState === 'loading')) return;
         clearTimeout(sharedDomDebounceTimer);
       }
       sharedDomDebounceTimer = setTimeout(function () {
@@ -5322,7 +5322,7 @@
         reapplyStoredFonts();
         // Parsing can populate elements that were empty during the early pass.
         // Preserve existing markers so replacement fonts are not reclassified.
-        if (applyEarly && document.readyState === 'loading') {
+        if (startBeforeParsing && document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function () {
             if (!lastReappliedEntry) return;
             var types = getActiveTmiFontTypes(lastReappliedEntry);

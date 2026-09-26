@@ -836,14 +836,14 @@ describe('Google Drive domain sync (per-domain merge)', () => {
     });
 
     for (const explicitEmpty of [false, true]) {
-        it('syncs Apply Early ' + (explicitEmpty ? 'explicit empty list' : 'unset default'), async () => {
+        it('syncs Apply After Parsing ' + (explicitEmpty ? 'explicit empty list' : 'unset default'), async () => {
             const harness = createHarness({
                 localSeed: {
                     affoApplyMap: {},
                     affoSyncMeta: { lastSync: 0, items: {} },
                     ...(explicitEmpty ? {
-                        affoApplyEarlyDomains: [],
-                        affoApplyEarlyDomainsMeta: {
+                        affoApplyAfterParsingDomains: [],
+                        affoApplyAfterParsingDomainsMeta: {
                             version: 1,
                             byOrigin: { 'www.tomsguide.com': { modified: 1000, deletedAt: 1000 } }
                         }
@@ -852,9 +852,13 @@ describe('Google Drive domain sync (per-domain merge)', () => {
                 remoteManifest: null
             });
             assert.equal((await harness.runSync()).ok, true);
-            const listPut = harness.calls.put.find(call => call.name === 'apply-early-domains.json');
-            assert.ok(listPut);
-            assert.deepEqual(JSON.parse(listPut.content), explicitEmpty ? [] : ['www.thedeepview.com', 'www.tomsguide.com', 'x.com']);
+            const listPut = harness.calls.put.find(call => call.name === 'apply-after-parsing-domains.json');
+            if (explicitEmpty) {
+                assert.ok(listPut);
+                assert.deepEqual(JSON.parse(listPut.content), []);
+            } else {
+                assert.equal(listPut, undefined, 'Unset empty defaults need no remote write');
+            }
         });
     }
 
