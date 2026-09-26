@@ -835,6 +835,29 @@ describe('Google Drive domain sync (per-domain merge)', () => {
         assert.deepEqual(JSON.parse(listPut.content), ['example.com']);
     });
 
+    for (const explicitEmpty of [false, true]) {
+        it('syncs Apply Early ' + (explicitEmpty ? 'explicit empty list' : 'unset default'), async () => {
+            const harness = createHarness({
+                localSeed: {
+                    affoApplyMap: {},
+                    affoSyncMeta: { lastSync: 0, items: {} },
+                    ...(explicitEmpty ? {
+                        affoApplyEarlyDomains: [],
+                        affoApplyEarlyDomainsMeta: {
+                            version: 1,
+                            byOrigin: { 'www.tomsguide.com': { modified: 1000, deletedAt: 1000 } }
+                        }
+                    } : {})
+                },
+                remoteManifest: null
+            });
+            assert.equal((await harness.runSync()).ok, true);
+            const listPut = harness.calls.put.find(call => call.name === 'apply-early-domains.json');
+            assert.ok(listPut);
+            assert.deepEqual(JSON.parse(listPut.content), explicitEmpty ? [] : ['www.tomsguide.com']);
+        });
+    }
+
     it('merges remote domains when remote is newer instead of clobbering local-only domains', async () => {
         const harness = createHarness({
             localSeed: {

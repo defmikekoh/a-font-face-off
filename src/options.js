@@ -215,6 +215,7 @@
   const DEFAULT_INLINE = ['x.com', 'www.thedeepview.com'];
   const DEFAULT_AGGRESSIVE = ['www.thedeepview.com'];
   const DEFAULT_WAITFORIT = [];
+  const DEFAULT_APPLY_EARLY = ['www.tomsguide.com'];
   const DEFAULT_IGNORE_COMMENTS = [];
   const DEFAULT_BLOCK_JAVASCRIPT = AFFOBlockJavascriptUtils.DEFAULT_DOMAINS.slice();
   const DEFAULT_SUBSTACK_ROULETTE_BEIGE_DISABLED = [];
@@ -1208,6 +1209,7 @@
         'affoInlineApplyDomains',
         'affoAggressiveDomains',
         'affoWaitForItDomains',
+        'affoApplyEarlyDomains',
         'affoIgnoreCommentsDomains',
         'affoBlockJavaScriptDomains',
         'affoSubstackRoulette',
@@ -1240,6 +1242,7 @@
       document.getElementById('inline-domains').value = toTextarea(inline);
       const aggressive = Array.isArray(data.affoAggressiveDomains) ? data.affoAggressiveDomains : DEFAULT_AGGRESSIVE.slice();
       document.getElementById('aggressive-domains').value = toTextarea(aggressive);
+      document.getElementById('apply-early-domains').value = toTextarea(Array.isArray(data.affoApplyEarlyDomains) ? data.affoApplyEarlyDomains : DEFAULT_APPLY_EARLY);
       const waitforit = Array.isArray(data.affoWaitForItDomains) ? data.affoWaitForItDomains : DEFAULT_WAITFORIT.slice();
       document.getElementById('waitforit-domains').value = toTextarea(waitforit);
       const ignoreComments = Array.isArray(data.affoIgnoreCommentsDomains) ? data.affoIgnoreCommentsDomains : DEFAULT_IGNORE_COMMENTS.slice();
@@ -1409,11 +1412,34 @@
     } catch (e) {}
   }
 
+  async function saveApplyEarlyList(list, status) {
+    const data = await browser.storage.local.get('affoWaitForItDomains');
+    const waitforit = (data.affoWaitForItDomains || []).filter(domain => !list.includes(domain));
+    await browser.storage.local.set({ affoApplyEarlyDomains: list, affoWaitForItDomains: waitforit });
+    document.getElementById('apply-early-domains').value = toTextarea(list);
+    document.getElementById('waitforit-domains').value = toTextarea(waitforit);
+    const s = document.getElementById('status-apply-early');
+    s.textContent = status;
+    setTimeout(() => { s.textContent = ''; }, 1500);
+  }
+
+  async function saveApplyEarly() {
+    await saveApplyEarlyList(fromTextarea(document.getElementById('apply-early-domains').value), 'Saved');
+  }
+
+  async function resetApplyEarly() {
+    await saveApplyEarlyList(DEFAULT_APPLY_EARLY.slice(), 'Reset');
+  }
+
   async function saveWaitForIt(){
     try {
       const raw = document.getElementById('waitforit-domains').value;
       const list = fromTextarea(raw);
-      await browser.storage.local.set({ affoWaitForItDomains: list });
+      const data = await browser.storage.local.get('affoApplyEarlyDomains');
+      const early = (Array.isArray(data.affoApplyEarlyDomains) ? data.affoApplyEarlyDomains : DEFAULT_APPLY_EARLY)
+        .filter(domain => !list.includes(domain));
+      await browser.storage.local.set({ affoWaitForItDomains: list, affoApplyEarlyDomains: early });
+      document.getElementById('apply-early-domains').value = toTextarea(early);
       const s = document.getElementById('status-waitforit'); s.textContent = 'Saved'; setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {}
   }
@@ -1631,6 +1657,7 @@
       document.getElementById('ff-only-domains').value = toTextarea(DEFAULT_FFONLY);
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       document.getElementById('aggressive-domains').value = toTextarea(DEFAULT_AGGRESSIVE);
+      document.getElementById('apply-early-domains').value = toTextarea(DEFAULT_APPLY_EARLY);
       document.getElementById('waitforit-domains').value = toTextarea(DEFAULT_WAITFORIT);
       document.getElementById('ignore-comments-domains').value = toTextarea(DEFAULT_IGNORE_COMMENTS);
       document.getElementById('block-javascript-domains').value = toTextarea(DEFAULT_BLOCK_JAVASCRIPT);
@@ -1702,6 +1729,8 @@
     document.getElementById('reset-inline').addEventListener('click', resetInline);
     document.getElementById('save-aggressive').addEventListener('click', saveAggressive);
     document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
+    document.getElementById('save-apply-early').addEventListener('click', saveApplyEarly);
+    document.getElementById('reset-apply-early').addEventListener('click', resetApplyEarly);
     document.getElementById('save-waitforit').addEventListener('click', saveWaitForIt);
     document.getElementById('reset-waitforit').addEventListener('click', resetWaitForIt);
     document.getElementById('save-ignore-comments').addEventListener('click', saveIgnoreComments);

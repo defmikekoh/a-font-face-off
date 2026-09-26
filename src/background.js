@@ -33,6 +33,11 @@ const SYNC_INLINE_DOMAINS_NAME = 'inline-apply-domains.json';
 const SYNC_INLINE_DOMAINS_META_NAME = 'inline-apply-domains-meta.json';
 const SYNC_AGGRESSIVE_DOMAINS_NAME = 'aggressive-domains.json';
 const SYNC_AGGRESSIVE_DOMAINS_META_NAME = 'aggressive-domains-meta.json';
+const SYNC_APPLY_EARLY_DOMAINS_NAME = 'apply-early-domains.json';
+const SYNC_APPLY_EARLY_DOMAINS_META_NAME = 'apply-early-domains-meta.json';
+const APPLY_EARLY_DOMAINS_KEY = 'affoApplyEarlyDomains';
+const APPLY_EARLY_DOMAINS_META_KEY = 'affoApplyEarlyDomainsMeta';
+const DEFAULT_APPLY_EARLY_DOMAINS = ['www.tomsguide.com'];
 const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_NAME = 'ignore-comments-domains.json';
@@ -2125,6 +2130,14 @@ async function runSync(options = {}) {
       defaultOrigins: ['www.thedeepview.com']
     },
     {
+      key: APPLY_EARLY_DOMAINS_KEY,
+      localMetaStorageKey: APPLY_EARLY_DOMAINS_META_KEY,
+      filename: SYNC_APPLY_EARLY_DOMAINS_NAME,
+      metaFilename: SYNC_APPLY_EARLY_DOMAINS_META_NAME,
+      label: 'Apply Early domains',
+      defaultOrigins: DEFAULT_APPLY_EARLY_DOMAINS
+    },
+    {
       key: WAITFORIT_DOMAINS_KEY,
       localMetaStorageKey: WAITFORIT_DOMAINS_META_KEY,
       filename: SYNC_WAITFORIT_DOMAINS_NAME,
@@ -3273,6 +3286,27 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     }).catch((e) => {
       affoDebugWarn('[AFFO Background] Failed to update ignore-comments domains metadata:', e);
       markLocalItemModified(SYNC_IGNORE_COMMENTS_DOMAINS_NAME).then(() => scheduleAutoSync());
+    });
+  }
+  if (changes[APPLY_EARLY_DOMAINS_KEY] && isUserChange(APPLY_EARLY_DOMAINS_KEY) && storageValueChanged(changes[APPLY_EARLY_DOMAINS_KEY])) {
+    const applyEarlyChange = changes[APPLY_EARLY_DOMAINS_KEY];
+    const normalizedChange = {
+      oldValue: Array.isArray(applyEarlyChange.oldValue)
+        ? applyEarlyChange.oldValue
+        : DEFAULT_APPLY_EARLY_DOMAINS,
+      newValue: Array.isArray(applyEarlyChange.newValue)
+        ? applyEarlyChange.newValue
+        : DEFAULT_APPLY_EARLY_DOMAINS
+    };
+    markDomainOriginArrayModified(normalizedChange, {
+      localMetaStorageKey: APPLY_EARLY_DOMAINS_META_KEY,
+      syncArrayFilename: SYNC_APPLY_EARLY_DOMAINS_NAME,
+      syncMetaFilename: SYNC_APPLY_EARLY_DOMAINS_META_NAME
+    }).then((changed) => {
+      if (changed) scheduleAutoSync();
+    }).catch((e) => {
+      affoDebugWarn('[AFFO Background] Failed to update Apply Early domains metadata:', e);
+      markLocalItemModified(SYNC_APPLY_EARLY_DOMAINS_NAME).then(() => scheduleAutoSync());
     });
   }
   if (changes[BLOCK_JAVASCRIPT_DOMAINS_KEY] && isUserChange(BLOCK_JAVASCRIPT_DOMAINS_KEY) && storageValueChanged(changes[BLOCK_JAVASCRIPT_DOMAINS_KEY])) {

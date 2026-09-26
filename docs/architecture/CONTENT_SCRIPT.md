@@ -118,3 +118,19 @@ var sharedInlineTimers = [];     // shared timer IDs (monitoring intervals, swit
 ## Bold Override Strategy
 
 Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`) only need `font-weight: 700 !important`. Registered axes (`font-stretch`, `font-style`) inherit from the parent element naturally via CSS cascade. Custom axes are included in the bold rule's `font-variation-settings` if any exist. The TMI walker stamps computed-bold marked nodes with `data-affo-was-bold="true"` so CSS-mode TMI can keep marked links/spans out of the non-bold rule, and inline reapply cycles can detect them without re-reading computed style every time.
+
+
+### Apply Early startup
+
+The main content-script group loads at `document_start`. Its runtime waits for
+`document.readyState !== 'loading'` on normal domains. On exact hostnames in
+`affoApplyEarlyDomains` (unset default: `www.tomsguide.com`), it instead starts
+as soon as both head and body exist. Wait For It takes precedence if lists overlap.
+An explicit empty array disables early application everywhere.
+
+Both paths use the same initialization, saved-config restoration, font-readiness
+gate, and observers. Early TMI mutation batches use a bounded debounce while
+parsing, followed by a DOMContentLoaded safety scan for newly populated text.
+Existing original-font markers are retained. Late site CSS can still cause
+temporary mismatches; early application adds work during page startup and can
+cause layout shifts. Settings changes take effect on the next navigation/reload.

@@ -2,7 +2,28 @@
 // Content script: persisted font loading/application, cleanup, and storage monitoring.
 // Popup applies user-origin CSS after coordinating readiness with this script.
 
-(function () {
+(async function () {
+  // Apply Early starts the same runtime as soon as head/body exist. Other
+  // domains retain document-end timing; Wait For It takes precedence.
+  var startupSettings = await browser.storage.local.get(['affoApplyEarlyDomains', 'affoWaitForItDomains']);
+  var applyEarlyDomains = Array.isArray(startupSettings.affoApplyEarlyDomains)
+    ? startupSettings.affoApplyEarlyDomains : ['www.tomsguide.com'];
+  var applyEarly = applyEarlyDomains.includes(location.hostname) &&
+    !(startupSettings.affoWaitForItDomains || []).includes(location.hostname);
+  await new Promise(function (resolve) {
+    var observer;
+    function ready() {
+      if (!document.body || !document.head || (!applyEarly && document.readyState === 'loading')) return;
+      if (observer) observer.disconnect();
+      document.removeEventListener('readystatechange', ready);
+      resolve();
+    }
+    observer = new MutationObserver(ready);
+    observer.observe(document, { childList: true, subtree: true });
+    document.addEventListener('readystatechange', ready);
+    ready();
+  });
+
   // Classify page base font (serif vs sans) once per doc — used for diagnostics/heuristics
   try {
     if (!document.documentElement.hasAttribute('data-affo-base')) {
@@ -1698,7 +1719,7 @@
       // Keep a bounded batch window: continuous streaming must not postpone
       // classification indefinitely by resetting the timer for every token.
       if (sharedDomDebounceTimer) {
-        if (isChatGpt || usesHybridInlineTmiSelectors()) return;
+        if (isChatGpt || usesHybridInlineTmiSelectors() || (applyEarly && document.readyState === 'loading')) return;
         clearTimeout(sharedDomDebounceTimer);
       }
       sharedDomDebounceTimer = setTimeout(function () {
@@ -5299,6 +5320,17 @@
       // Wait For It domains skip auto-reapply; fonts applied on demand via toolbar long-press.
       if (!waitForItDomains.includes(currentOrigin)) {
         reapplyStoredFonts();
+        // Parsing can populate elements that were empty during the early pass.
+        // Preserve existing markers so replacement fonts are not reclassified.
+        if (applyEarly && document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function () {
+            if (!lastReappliedEntry) return;
+            var types = getActiveTmiFontTypes(lastReappliedEntry);
+            types.forEach(function (ft) { elementWalkerCompleted[ft] = false; });
+            runElementWalkerAll(types);
+            reapplyActiveFontSizeScales(['body'].concat(types));
+          }, { once: true });
+        }
       }
 
       // Set up SPA navigation hooks for normal TMI mode (non-inline-apply domains)
@@ -5706,4 +5738,6 @@
     }).catch(function () { });
   });
 
-})();
+})().catch(function (error) {
+  console.error('[AFFO Content] Initialization failed:', error);
+});

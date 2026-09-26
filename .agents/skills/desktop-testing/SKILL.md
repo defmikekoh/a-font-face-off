@@ -51,7 +51,7 @@ Android Firefox inspection also requires ADB and an authorized Android device.
 
 1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
 2. Use desktop Firefox Selenium/geckodriver for repeatable native-popup and shared content-script checks. Run `npm run test:chrome` for changes affecting Chromium MV3 behavior: the API adapter, background service worker, messaging, injection, DNR, or shared popup/apply/reset paths. For changes crossing both engines, use relevant Firefox integration tests plus Chrome smoke.
-3. For a bug in the current Android session, use the existing Firefox DevTools/RDP connection when available so its cache, settings, and failing page survive. Use the Android Firefox WebDriver harness for reproducible seeded runs; session creation clears the selected package data. Read [live-session inspection and Apply timing](references/live-session-inspection.md) for build checks, popup targeting, and completion evidence.
+3. For a bug in the current Android session, use the existing Firefox DevTools/RDP connection when available so its cache, settings, and failing page survive. Use the Android Firefox WebDriver harness for reproducible seeded runs; session creation clears the selected package data. Read [live-session inspection and Apply timing](references/live-session-inspection.md) for build checks, popup targeting, and completion evidence. For intermittent native reload hangs and Firefox sampling profiles, read [native reload reproduction and profiling](references/android-native-profiling.md).
 4. Use desktop Chrome through the Codex Chrome Extension when the user's real Chrome profile/session is the fastest way to inspect already-open or authenticated desktop pages: original DOM, selectors, overlays, console logs, screenshots, and baseline computed styles. Treat this as reconnaissance, and verify AFFO/Firefox-specific conclusions in Firefox.
 5. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
 6. Use Vivaldi Snapshot on the Note10 or the configured Android 16 emulator for shared Chromium MV3 verification (see the Snapshot reference below for each target’s scope and setup), or Edge Canary for Edge-specific behavior; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
@@ -440,7 +440,7 @@ const popupHandle = await driver.wait(async () => {
 await driver.switchTo().window(popupHandle);
 ```
 
-Fenix may classify the resulting extension tab as a privileged browsing context. In that context, `executeScript` and `executeAsyncScript` can fail with `not supported for privileged browsing contexts`. Read it with native WebDriver element commands instead:
+Fenix may classify the resulting extension tab as a privileged browsing context. In that context, `executeScript` and `executeAsyncScript` can fail with `not supported for privileged browsing contexts`. Try native WebDriver element commands when supported:
 
 ```js
 const { By, until } = require('selenium-webdriver');
@@ -451,6 +451,8 @@ const activeMode = await driver.findElement(By.css('[data-mode].active')).getDom
 ```
 
 Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()` returns an empty string for elements hidden by the current panel layout. Prefer `getDomAttribute(...)` for literal attributes and `getProperty(...)` for DOM properties; avoid helpers that fall back to injected JavaScript in the privileged tab.
+
+On Note10 Nightly 158.0a1 (September 2026), even `findElement`/`findElements` in a popup tab could fail with `The command does not support browsing contexts in privileged scope`. If element commands are rejected too, use fresh ADB UI nodes/screenshots for visible controls or an available RDP extension target; do not keep retrying the same unsupported WebDriver path. See [native interaction and profiling](references/android-native-profiling.md).
 
 **Note10 measurement gotchas (learned the hard way):**
 

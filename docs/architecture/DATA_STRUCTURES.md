@@ -128,6 +128,8 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important`; absent-setting default shown | `["www.thedeepview.com"]` |
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
+| `affoApplyEarlyDomains` | Exact hostnames that initialize content as soon as head/body exist. Unset: `["www.tomsguide.com"]`; empty array disables everywhere. Wait For It wins on overlap. Reload required. | `["www.tomsguide.com"]` |
+| `affoApplyEarlyDomainsMeta` | Per-origin sync metadata for Apply Early domains | `{ version: 1, byOrigin: { "www.tomsguide.com": { modified: 1700000000000 } } }` |
 | `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
 | `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
 | `affoIgnoreCommentsDomains` | Domains where AFFO skips comment threads | `["example.com"]` |
@@ -203,6 +205,8 @@ The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is defe
 | `inline-apply-domains-meta.json` | `affoInlineApplyDomainsMeta` | Per-origin merge metadata for inline apply domain list |
 | `aggressive-domains.json` | `affoAggressiveDomains` | Aggressive `!important` domain list |
 | `aggressive-domains-meta.json` | `affoAggressiveDomainsMeta` | Per-origin merge metadata for aggressive domain list |
+| `apply-early-domains.json` | `affoApplyEarlyDomains` | Apply Early domain list |
+| `apply-early-domains-meta.json` | `affoApplyEarlyDomainsMeta` | Per-origin merge metadata for Apply Early domain list |
 | `waitforit-domains.json` | `affoWaitForItDomains` | Wait For It domain list |
 | `waitforit-domains-meta.json` | `affoWaitForItDomainsMeta` | Per-origin merge metadata for Wait For It domain list |
 | `ignore-comments-domains.json` | `affoIgnoreCommentsDomains` | Ignore Comments domain list |

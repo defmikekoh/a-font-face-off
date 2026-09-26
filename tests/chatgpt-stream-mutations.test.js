@@ -48,6 +48,7 @@ function harness(chatgpt = true) {
     let now = 0;
     const context = vm.createContext({
         isChatGpt: chatgpt,
+        applyEarly: false,
         sharedDomObserver: null, sharedDomDebounceTimer: null, pendingMeaningfulRoots: new Set(),
         dynamicMutationJob: null, fontSizeScaleConfigs: {},
         usesHybridInlineTmiSelectors: () => false,

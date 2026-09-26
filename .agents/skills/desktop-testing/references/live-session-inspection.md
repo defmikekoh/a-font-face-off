@@ -18,6 +18,8 @@ From a real extension page, inspect `browser.tabs.query({})`, `browser.extension
 
 Verify updated popup code and page code separately. Fetching `browser.runtime.getURL('content.js')` proves the packaged resource changed; it does not prove an already-open page re-executed it. Reload/reopen the relevant contexts and verify the changed runtime behavior before calling an observation a regression or a fix. Functions inside content.js's IIFE are not globals: `typeof somePrivateHelper === 'undefined'` is not evidence that an old version is loaded.
 
+For exact close/reopen/reload reproduction and sampling-profile capture, use [native reload reproduction and profiling](android-native-profiling.md).
+
 ## Direct Firefox RDP details
 
 Use a working client or Firefox DevTools. The exploratory scripts under `ztemp/` are temporary task artifacts, not a maintained skill API.
