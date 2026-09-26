@@ -7,7 +7,7 @@
   // domains retain document-end timing; Wait For It takes precedence.
   var startupSettings = await browser.storage.local.get(['affoApplyEarlyDomains', 'affoWaitForItDomains']);
   var applyEarlyDomains = Array.isArray(startupSettings.affoApplyEarlyDomains)
-    ? startupSettings.affoApplyEarlyDomains : ['www.tomsguide.com'];
+    ? startupSettings.affoApplyEarlyDomains : ['www.tomsguide.com', 'x.com', 'www.thedeepview.com'];
   var applyEarly = applyEarlyDomains.includes(location.hostname) &&
     !(startupSettings.affoWaitForItDomains || []).includes(location.hostname);
   await new Promise(function (resolve) {
@@ -60,8 +60,8 @@
   } catch (_) { }
 
   // Helper functions for font loading
-  var fontFaceOnlyDomains = ['x.com', 'www.thedeepview.com']; // Will be loaded from storage
-  var inlineApplyDomains = ['x.com', 'www.thedeepview.com']; // Will be loaded from storage
+  var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
+  var inlineApplyDomains = ['x.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
 
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production

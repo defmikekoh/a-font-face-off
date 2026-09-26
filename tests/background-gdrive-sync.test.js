@@ -854,7 +854,7 @@ describe('Google Drive domain sync (per-domain merge)', () => {
             assert.equal((await harness.runSync()).ok, true);
             const listPut = harness.calls.put.find(call => call.name === 'apply-early-domains.json');
             assert.ok(listPut);
-            assert.deepEqual(JSON.parse(listPut.content), explicitEmpty ? [] : ['www.tomsguide.com']);
+            assert.deepEqual(JSON.parse(listPut.content), explicitEmpty ? [] : ['www.thedeepview.com', 'www.tomsguide.com', 'x.com']);
         });
     }
 

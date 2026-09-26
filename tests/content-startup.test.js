@@ -34,6 +34,8 @@ async function harness(data = {}, host = 'www.tomsguide.com', body = true) {
 it('unset enables only the exact default hostname; an empty saved list disables it', async () => {
     for (const [data, host, expected] of [
         [{}, 'www.tomsguide.com', true],
+        [{}, 'x.com', true],
+        [{}, 'www.thedeepview.com', true],
         [{}, 'tomsguide.com', false],
         [{ affoApplyEarlyDomains: [] }, 'www.tomsguide.com', false],
         [{ affoApplyEarlyDomains: ['example.com'] }, 'example.com', true],

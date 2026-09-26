@@ -37,7 +37,7 @@ const SYNC_APPLY_EARLY_DOMAINS_NAME = 'apply-early-domains.json';
 const SYNC_APPLY_EARLY_DOMAINS_META_NAME = 'apply-early-domains-meta.json';
 const APPLY_EARLY_DOMAINS_KEY = 'affoApplyEarlyDomains';
 const APPLY_EARLY_DOMAINS_META_KEY = 'affoApplyEarlyDomainsMeta';
-const DEFAULT_APPLY_EARLY_DOMAINS = ['www.tomsguide.com'];
+const DEFAULT_APPLY_EARLY_DOMAINS = ['www.tomsguide.com', 'x.com', 'www.thedeepview.com'];
 const SYNC_WAITFORIT_DOMAINS_NAME = 'waitforit-domains.json';
 const SYNC_WAITFORIT_DOMAINS_META_NAME = 'waitforit-domains-meta.json';
 const SYNC_IGNORE_COMMENTS_DOMAINS_NAME = 'ignore-comments-domains.json';
@@ -2111,7 +2111,7 @@ async function runSync(options = {}) {
       filename: SYNC_FFONLY_DOMAINS_NAME,
       metaFilename: SYNC_FFONLY_DOMAINS_META_NAME,
       label: 'FontFace-only domains',
-      defaultOrigins: ['x.com', 'www.thedeepview.com']
+      defaultOrigins: ['x.com']
     },
     {
       key: INLINE_DOMAINS_KEY,
@@ -2119,7 +2119,7 @@ async function runSync(options = {}) {
       filename: SYNC_INLINE_DOMAINS_NAME,
       metaFilename: SYNC_INLINE_DOMAINS_META_NAME,
       label: 'Inline apply domains',
-      defaultOrigins: ['x.com', 'www.thedeepview.com']
+      defaultOrigins: ['x.com']
     },
     {
       key: AGGRESSIVE_DOMAINS_KEY,

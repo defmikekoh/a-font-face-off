@@ -113,9 +113,9 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 | `affoFaceoffPageFontDraft` | One-shot page-font config waiting to open in Face-off top; removed by popup startup and never synced | `{ createdAt, sourceTabId, sourceUrl, config: { fontName, variableAxes, fontFaceRule }, fontDefinition: { axes, defaults, ranges } }` |
 | `affoKnownSerif` | User-defined serif font families | `["PT Serif", "Times New Roman"]` |
 | `affoKnownSans` | User-defined sans-serif font families | `["Inter", "Arial"]` |
-| `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading; absent-setting default shown | `["x.com", "www.thedeepview.com"]` |
+| `affoFontFaceOnlyDomains` | Domains requiring FontFace-only loading; absent-setting default shown | `["x.com"]` |
 | `affoFontFaceOnlyDomainsMeta` | Per-origin sync metadata for FontFace-only domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
-| `affoInlineApplyDomains` | Domains requiring inline style application; absent-setting default shown | `["x.com", "www.thedeepview.com"]` |
+| `affoInlineApplyDomains` | Domains requiring inline style application; absent-setting default shown | `["x.com"]` |
 | `affoInlineApplyDomainsMeta` | Per-origin sync metadata for inline-apply domains | `{ version: 1, byOrigin: { "x.com": { modified: 1700000000000 } } }` |
 | `affoFavorites` | User's favorite font configurations | `[{fontName: "Inter", fontSize: 16}]` |
 | `affoFavoritesOrder` | Order of favorite configurations | `[0, 2, 1]` |
@@ -128,7 +128,7 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 | `affoCustomFontsCss` | Custom font @font-face CSS override | `"@font-face { ... }"` |
 | `affoAggressiveDomains` | Domains where CSS uses `!important`; absent-setting default shown | `["www.thedeepview.com"]` |
 | `affoAggressiveDomainsMeta` | Per-origin sync metadata for aggressive domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |
-| `affoApplyEarlyDomains` | Exact hostnames that initialize content as soon as head/body exist. Unset: `["www.tomsguide.com"]`; empty array disables everywhere. Wait For It wins on overlap. Reload required. | `["www.tomsguide.com"]` |
+| `affoApplyEarlyDomains` | Exact hostnames that initialize content as soon as head/body exist. Unset: `["www.tomsguide.com", "x.com", "www.thedeepview.com"]`; empty array disables everywhere. Wait For It wins on overlap. Reload required. | `["www.tomsguide.com", "x.com", "www.thedeepview.com"]` |
 | `affoApplyEarlyDomainsMeta` | Per-origin sync metadata for Apply Early domains | `{ version: 1, byOrigin: { "www.tomsguide.com": { modified: 1700000000000 } } }` |
 | `affoWaitForItDomains` | Domains that use "Wait For It" delayed apply mode | `["example.com"]` |
 | `affoWaitForItDomainsMeta` | Per-origin sync metadata for Wait For It domains | `{ version: 1, byOrigin: { "example.com": { modified: 1700000000000 } } }` |

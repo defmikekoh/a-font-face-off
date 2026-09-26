@@ -124,7 +124,7 @@ Bold elements (`<strong>`, `<b>`, or elements with computed `font-weight >= 700`
 
 The main content-script group loads at `document_start`. Its runtime waits for
 `document.readyState !== 'loading'` on normal domains. On exact hostnames in
-`affoApplyEarlyDomains` (unset default: `www.tomsguide.com`), it instead starts
+`affoApplyEarlyDomains` (unset defaults: `www.tomsguide.com`, `x.com`, `www.thedeepview.com`), it instead starts
 as soon as both head and body exist. Wait For It takes precedence if lists overlap.
 An explicit empty array disables early application everywhere.
 
@@ -134,3 +134,8 @@ parsing, followed by a DOMContentLoaded safety scan for newly populated text.
 Existing original-font markers are retained. Late site CSS can still cause
 temporary mismatches; early application adds work during page startup and can
 cause layout shifts. Settings changes take effect on the next navigation/reload.
+
+Quick Pick exposes Apply Early in place of Wait For It. Enabling it removes the
+current hostname from Wait For It; changing it requires a page reload. Wait For It
+remains available in Options. Quick Pick preserves the effective default list
+when first saving an unset domain list.

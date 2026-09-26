@@ -91,7 +91,7 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
         await closePopup(driver);
         await driver.get(optionsUrl);
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com'"
+            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
         ), 5000);
         await driver.executeScript("document.getElementById('apply-early-domains').value = ''; document.getElementById('save-apply-early').click();");
         await driver.wait(async () => driver.executeAsyncScript(
@@ -99,15 +99,15 @@ describe('Apply Early saved-font startup', { concurrency: false }, () => {
         ), 5000);
         await driver.executeScript("document.getElementById('reset-apply-early').click();");
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com'"
+            "return document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
         ), 5000);
         await driver.executeScript("document.getElementById('waitforit-domains').value = 'www.tomsguide.com'; document.getElementById('save-waitforit').click();");
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('apply-early-domains').value === ''"
+            "return document.getElementById('apply-early-domains').value === 'x.com\\nwww.thedeepview.com'"
         ), 5000);
         await driver.executeScript("document.getElementById('reset-apply-early').click();");
         await driver.wait(async () => driver.executeScript(
-            "return document.getElementById('waitforit-domains').value === '' && document.getElementById('apply-early-domains').value === 'www.tomsguide.com'"
+            "return document.getElementById('waitforit-domains').value === '' && document.getElementById('apply-early-domains').value === 'www.tomsguide.com\\nx.com\\nwww.thedeepview.com'"
         ), 5000);
     });
 
