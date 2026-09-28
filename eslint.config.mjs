@@ -481,7 +481,7 @@ export default [
 
     // Build/tooling scripts (Node context)
     {
-        files: ["scripts/**/*.js"],
+        files: ["scripts/**/*.js", ".github/scripts/**/*.cjs"],
         ...js.configs.recommended,
         languageOptions: {
             ecmaVersion: 2022,

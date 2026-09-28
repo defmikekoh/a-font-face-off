@@ -17,7 +17,9 @@ The Chromium builder copies the shared source, disables diagnostic logging in th
 
 [`scripts/pack-chromium-crx.js`](../../scripts/pack-chromium-crx.js) uses a local Chromium, Chrome, or Edge binary's native `--pack-extension` implementation. Earlier Chromium Canary Android testing found that a hand-written CRX3 package was silently ignored, while native packing produced the expected permission prompt and installed extension. Override browser detection with `AFFO_CHROMIUM_CRX_PACKER=/path/to/browser` or `npm run pack:chromium-crx -- --packer /path/to/browser`.
 
-The manually dispatched [`chromium-crx-prerelease.yml`](../../.github/workflows/chromium-crx-prerelease.yml) workflow publishes to the moving `chromium-test-latest` prerelease. It appends `GITHUB_RUN_NUMBER + 100` as the generated manifest version's fourth component and uploads `a-font-face-off-chromium-mv3-<version>.crx`. Configure `CHROMIUM_CRX_PRIVATE_KEY_PEM` with the same signing key for stable IDs; `GDRIVE_CLIENT_ID` and `GDRIVE_CLIENT_SECRET` supply the generated Google Drive configuration.
+The manually dispatched [`chromium-crx-prerelease.yml`](../../.github/workflows/chromium-crx-prerelease.yml) workflow publishes to the moving `chromium-test-latest` prerelease. It reserves the next version with a `chromium-build/<version>` tag, using `GITHUB_RUN_NUMBER + 100` as a minimum fourth component, retains five reservations and signed packages, and uploads `a-font-face-off-chromium-mv3-<version>.crx`. Configure `CHROMIUM_CRX_PRIVATE_KEY_PEM` with the same signing key for stable IDs; `GDRIVE_CLIENT_ID` and `GDRIVE_CLIENT_SECRET` supply the generated Google Drive configuration.
+
+See [release automation](../RELEASING.md) for required secrets, validation, version reservation, and download summaries.
 
 For device installation and troubleshooting, see the [Chromium Android testing instructions](../../.agents/skills/desktop-testing/SKILL.md#chromium-android-mv3) or the [Vivaldi Snapshot workflow](../../.agents/skills/desktop-testing/references/vivaldi-snapshot.md). Snapshot supports loading the unpacked Chromium build directly.
 

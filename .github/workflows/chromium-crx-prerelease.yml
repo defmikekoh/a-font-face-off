@@ -1,188 +1,92 @@
-name: Build prerelease Chromium Android CRX
-
-concurrency:
-  group: chromium-crx-prerelease-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: write
+name: Build Chromium Android CRX prerelease
 
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
+concurrency:
+  group: affo-chromium-prerelease
+  cancel-in-progress: false
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    env:
+      RELEASE_TARGET: chromium
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
-          cache: 'npm'
+          node-version: '24'
+          cache: npm
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq zip
-
-      - name: Locate native CRX packer
-        run: |
-          set -euo pipefail
-          for bin in google-chrome google-chrome-stable chromium chromium-browser microsoft-edge; do
-            if command -v "$bin" >/dev/null 2>&1; then
-              packer="$(command -v "$bin")"
-              echo "AFFO_CHROMIUM_CRX_PACKER=$packer" >> "$GITHUB_ENV"
-              echo "Using CRX packer: $packer"
-              exit 0
-            fi
-          done
-          echo "No Chrome/Chromium/Edge binary found for native CRX packing." >&2
-          exit 1
-
-      - name: Create gdrive-config.js from secrets
-        run: |
-          printf "const GDRIVE_CLIENT_ID = '%s';\nconst GDRIVE_CLIENT_SECRET = '%s';\n" \
-            "$GDRIVE_CLIENT_ID" "$GDRIVE_CLIENT_SECRET" > src/gdrive-config.js
+      - name: Check required secrets and create build configuration
         env:
           GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
           GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
-
-      - name: Create CRX private key from secret
-        run: |
-          set -euo pipefail
-          if [ -z "${CHROMIUM_CRX_PRIVATE_KEY_PEM:-}" ]; then
-            echo "CHROMIUM_CRX_PRIVATE_KEY_PEM is required so CRX builds keep a stable extension ID." >&2
-            exit 1
-          fi
-          mkdir -p ztemp
-          printf '%s' "$CHROMIUM_CRX_PRIVATE_KEY_PEM" > ztemp/chromium-mv3-key.pem
-          chmod 600 ztemp/chromium-mv3-key.pem
-        env:
           CHROMIUM_CRX_PRIVATE_KEY_PEM: ${{ secrets.CHROMIUM_CRX_PRIVATE_KEY_PEM }}
+        run: node .github/scripts/prepare-release-config.cjs
 
-      - name: Install deps, lint, and test
+      - name: Install dependencies and validate
         run: |
           npm ci
           npm run lint
+          npm run lint:workflows
           npm test
+
+      - name: Locate native CRX packer
+        run: |
+          packer="$(command -v google-chrome)"
+          echo "AFFO_CHROMIUM_CRX_PACKER=$packer" >> "$GITHUB_ENV"
+          "$packer" --version
 
       - name: Build Chromium MV3 source
         run: |
+          trap 'node scripts/set-debug.js true' EXIT
           node scripts/set-debug.js false
-          npm run build:chromium-mv3
+          npm run build:chromium
 
-      - name: Bump generated manifest version
-        run: |
-          set -euo pipefail
-          MF="ztemp/chromium-mv3-src/manifest.json"
-          base=$(jq -r .version "$MF" | cut -d. -f1-3)
-          if ! echo "$base" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "ERROR: manifest.json version must start with three numeric components" >&2
-            exit 1
-          fi
-          rn="$((GITHUB_RUN_NUMBER + 100))"
-          new_version="${base}.${rn}"
-          jq --arg v "$new_version" '.version = $v' "$MF" > "$MF.tmp" && mv "$MF.tmp" "$MF"
-          echo "New Chromium MV3 version: $(jq -r .version "$MF")"
-
-      - name: Capture version
-        id: ver
-        run: |
-          MF="ztemp/chromium-mv3-src/manifest.json"
-          echo "v=$(jq -r .version "$MF")" >> "$GITHUB_OUTPUT"
-          echo "Version: $(jq -r .version "$MF")"
-
-      - name: Pack CRX
-        run: npm run pack:chromium-crx
-
-      - name: Add version to CRX filename
-        run: cp web-ext-artifacts/a-font-face-off-chromium-mv3.crx "web-ext-artifacts/a-font-face-off-chromium-mv3-${{ steps.ver.outputs.v }}.crx"
-
-      - name: Upload CRX artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: chromium-crx-${{ steps.ver.outputs.v }}
-          path: web-ext-artifacts/a-font-face-off-chromium-mv3-${{ steps.ver.outputs.v }}.crx
-
-      - name: Move chromium-test-latest tag to this commit
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch --tags --force
-          git tag -f chromium-test-latest "$GITHUB_SHA"
-          git push -f origin chromium-test-latest
-
-      - name: Create/Update "latest" release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: chromium-test-latest
-          target_commitish: ${{ github.sha }}
-          name: Chromium Android test (latest) ${{ steps.ver.outputs.v }}
-          body: |
-            Draft Edge/Chrome MV3 CRX build for Android testing.
-            Version: ${{ steps.ver.outputs.v }}
-            Commit: ${{ github.sha }}
-          draft: false
-          prerelease: true
-          make_latest: false
-          files: web-ext-artifacts/a-font-face-off-chromium-mv3-${{ steps.ver.outputs.v }}.crx
+      - name: Reserve next version and retain five reservation tags
+        id: version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prune old assets from chromium-test-latest release
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          echo "Pruning old assets..."
-          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/chromium-test-latest"
-          RELEASE_JSON=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$API_URL")
-          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
-          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
-            echo "No release found for tag chromium-test-latest."
-            exit 0
-          fi
-          ASSET_IDS=($(echo "$RELEASE_JSON" | jq -r '.assets | sort_by(.created_at) | reverse | .[5:] | .[].id'))
-          if [ ${#ASSET_IDS[@]} -eq 0 ]; then
-            echo "No old assets to delete."
-            exit 0
-          fi
-          for AID in "${ASSET_IDS[@]}"; do
-            echo "Deleting asset ID $AID..."
-            curl -sSL -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$AID"
-          done
+          export RELEASE_REVISION_FLOOR="$((GITHUB_RUN_NUMBER + 100))"
+          node .github/scripts/prepare-release.cjs ztemp/chromium-mv3-src/manifest.json
 
-      - name: Print direct link and QR to latest CRX
+      - name: Pack versioned CRX
+        run: npm run pack:chromium-crx -- --out "web-ext-artifacts/a-font-face-off-chromium-mv3-${RELEASE_VERSION}.crx"
+
+      - name: Retain signed package before publishing
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: chromium-${{ steps.version.outputs.version }}
+          path: web-ext-artifacts/a-font-face-off-chromium-mv3-${{ steps.version.outputs.version }}.crx
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish rolling prerelease, download link, and local QR image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/publish-release.cjs "web-ext-artifacts/a-font-face-off-chromium-mv3-${RELEASE_VERSION}.crx"
+
+      - name: Keep five newest signed release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/prune-release-assets.cjs
+
+      - name: Remove CRX signing key
+        if: always()
         run: |
-          set -euo pipefail
-          echo "Fetching latest (tagged) release download URL..."
-          API_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/chromium-test-latest"
-
-          attempts=3
-          attempt=1
-          while [ $attempt -le $attempts ]; do
-            echo "Attempt $attempt/$attempts: Checking for CRX release asset..."
-            DOWNLOAD_URL=$(curl -sL "$API_URL" | jq -r --arg name "a-font-face-off-chromium-mv3-${{ steps.ver.outputs.v }}.crx" '.assets[] | select(.name == $name) | .browser_download_url' | head -n 1)
-            if [ -n "$DOWNLOAD_URL" ]; then
-              echo "Asset found!"
-              break
-            fi
-            if [ $attempt -lt $attempts ]; then
-              echo "No CRX asset found yet, waiting 10 seconds..."
-              sleep 10
-            fi
-            attempt=$((attempt+1))
-          done
-
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "No CRX asset found for latest tagged release after $attempts attempts." >&2
-            exit 1
-          fi
-          echo "Direct download URL: $DOWNLOAD_URL"
-          echo
-          echo "QR code for mobile download:"
-          curl -s "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${DOWNLOAD_URL}" --output qrcode.png
-          echo "data:image/png;base64,$(base64 -w0 qrcode.png)"
+          node -e "require('node:fs').rmSync('ztemp/chromium-mv3-key.pem', { force: true })"
