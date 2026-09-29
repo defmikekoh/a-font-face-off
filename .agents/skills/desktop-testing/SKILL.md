@@ -278,6 +278,12 @@ known split requirements.
 
 Obtain new explicit user approval before using any other device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
 
+#### TCL NxtPaper 11 Plus — Firefox Nightly
+
+The user authorizes disposable testing on TCL NxtPaper 11 Plus `A06B4A57AA34353` (ADB model `9469X`) with Firefox Nightly `org.mozilla.fenix`. This includes Selenium/geckodriver sessions that clear package data, app/profile resets, force-stop/relaunch, and local extension install/reload/removal for AFFO and Essential Buttons Toolbar testing. Preserve existing sessions for ordinary inspection. Firefox Beta `org.mozilla.firefox_beta`, other packages, and Android users/work profiles are not included.
+
+The inspector's built-in allowlist currently names the Note10. For this already-authorized TCL pair, pass `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-data --allow-unapproved-target`; the override uses this standing authorization and does not require asking again. Keep ADB commands explicitly targeted. Record and restore any temporary awake/rotation settings in cleanup.
+
 #### Keep Note10 awake throughout testing
 
 For every Note10 `RF8M81WSL1V` test, keep its screen awake throughout navigation, waits, profiling, and cleanup. This is the user's standing preference. Record the original `stay_on_while_plugged_in` value, enable `adb -s RF8M81WSL1V shell svc power stayon usb`, wake the screen, and keep USB power connected. Restore and verify the exact original value after testing, including failure paths; harnesses should use `try/finally`. Follow the [Note10 keep-awake procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing). The harness's one-time preflight wake does not keep the device awake for later waits. Exclude sleep-interrupted runs from performance comparisons.
@@ -333,7 +339,7 @@ Firefox startup stall, missing/covered toolbar, popup-to-tab transition, touch
 target, keyboard, scroll, or other behavior that structured inspection cannot
 represent.
 
-The harness enforces the approved serial/package pair. Only after fresh explicit approval for a different target may you pass `--allow-unapproved-target`; `--allow-clear-package-data` alone is not sufficient.
+The harness allowlist currently names the Note10 pair. The TCL Nightly pair documented above already has standing authorization for `--allow-unapproved-target`. Other targets require explicit authorization; `--allow-clear-package-data` alone is not sufficient.
 
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
 
@@ -372,7 +378,7 @@ child ADB processes, run it in an environment that can access the shared ADB
 daemon; if sandboxing blocks ADB startup, rerun with elevated execution
 approval.
 
-Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; this approval applies only to Nightly on the Note10 identified above.
+Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; use only the authorized Nightly device/package pairs documented above.
 
 Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
