@@ -741,7 +741,7 @@
 
   function getTmiPrunedSubtreeSelector() {
     // Preserve ChatGPT's original broad footer pruning in its hot walker path.
-    return isChatGpt ? TMI_CHATGPT_PRUNED_SUBTREE_SELECTOR : TMI_PRUNED_SUBTREE_SELECTOR;
+    return isChatGpt ? TMI_CHATGPT_PRUNED_SUBTREE_SELECTOR + ', ' + CHATGPT_UI_SELECTOR : TMI_PRUNED_SUBTREE_SELECTOR;
   }
 
   function isTmiPrunedSubtreeRoot(node) {
@@ -1245,7 +1245,10 @@
 
   var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
   var isChatGpt = isHostOrSubdomain(currentOrigin, 'chatgpt.com');
-  var CHATGPT_MESSAGE_ROOT_SELECTOR = '[data-message-author-role]';
+  // Use semantic application content, independent of private message markup.
+  var CHATGPT_CONTENT_ROOT_SELECTOR = ':is(main, [role="main"])';
+  var CHATGPT_UI_SELECTOR = 'header, [role="toolbar"], [role="button"], [contenteditable]:not([contenteditable="false"]), [role="textbox"], input, select, textarea, label, [role="dialog"], [aria-modal="true"]';
+  var CHATGPT_UI_EXCLUDE = ':not(:is(' + CHATGPT_UI_SELECTOR + ')):not(:is(' + CHATGPT_UI_SELECTOR + ') *)';
   var BODY_UI_SUBTREE_EXCLUDE = ':not(nav):not(nav *):not(footer):not(footer *):not(aside):not(aside *):not(form):not(form *):not([role="navigation"]):not([role="navigation"] *):not([role="banner"]):not([role="banner"] *):not([role="contentinfo"]):not([role="contentinfo"] *):not([role="complementary"]):not([role="complementary"] *)';
   var BODY_CODE_EXCLUDE = ':not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *):not(tt):not(tt *)';
   function usesHybridInlineTmiSelectors() {
@@ -1258,8 +1261,8 @@
   function getBodyTargetSelector(extraExclude) {
     var exclude = getBodyExcludeSelector() + (extraExclude || '');
     if (isChatGpt) {
-      var root = 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR;
-      return root + exclude + ', ' + root + ' *' + exclude;
+      var root = 'body ' + CHATGPT_CONTENT_ROOT_SELECTOR;
+      return root + ' *' + exclude + CHATGPT_UI_EXCLUDE;
     }
     return 'body ' + exclude;
   }
@@ -1271,28 +1274,28 @@
 
   function getBodySemanticSelector(selector) {
     return isChatGpt
-      ? 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR + ' ' + selector
+      ? 'body ' + CHATGPT_CONTENT_ROOT_SELECTOR + ' ' + selector + CHATGPT_UI_EXCLUDE
       : 'body ' + selector;
   }
 
-  function isInOrContainsChatGptMessage(node) {
+  function isInOrContainsChatGptContent(node) {
     if (!isChatGpt) return true;
     var element = closestElementForNode(node);
     if (!element) return false;
     try {
-      if (element.matches && element.matches(CHATGPT_MESSAGE_ROOT_SELECTOR)) return true;
-      if (element.closest && element.closest(CHATGPT_MESSAGE_ROOT_SELECTOR)) return true;
-      return !!(element.querySelector && element.querySelector(CHATGPT_MESSAGE_ROOT_SELECTOR));
+      if (element.matches && element.matches(CHATGPT_CONTENT_ROOT_SELECTOR)) return true;
+      if (element.closest && element.closest(CHATGPT_CONTENT_ROOT_SELECTOR)) return true;
+      return !!(element.querySelector && element.querySelector(CHATGPT_CONTENT_ROOT_SELECTOR));
     } catch (_) {
       return false;
     }
   }
 
-  function isInsideChatGptMessage(node) {
+  function isInsideChatGptContent(node) {
     if (!isChatGpt) return true;
     var element = closestElementForNode(node);
     try {
-      return !!(element && element.closest && element.closest(CHATGPT_MESSAGE_ROOT_SELECTOR));
+      return !!(element && element.closest && element.closest(CHATGPT_CONTENT_ROOT_SELECTOR));
     } catch (_) {
       return false;
     }
@@ -1308,7 +1311,7 @@
   function getBodyFontSizeScaleExtraSelector() {
     var guard = ':not(.no-affo):not([data-affo-guard]):not([data-affo-guard] *)' + getCommentExcludeSelector() + DROP_CAP_EXCLUDE;
     if (isChatGpt) {
-      return 'body ' + CHATGPT_MESSAGE_ROOT_SELECTOR + ' :is(h1, h2, h3, h4, h5, h6)' + guard;
+      return 'body ' + CHATGPT_CONTENT_ROOT_SELECTOR + ' :is(h1, h2, h3, h4, h5, h6)' + guard + CHATGPT_UI_EXCLUDE;
     }
     var nonChrome = ':not(nav *):not(footer *):not(aside *):not(button *):not(form *):not([role="navigation"] *):not([role="contentinfo"] *):not([role="complementary"] *):not([role="dialog"] *):not(.site-header *):not(.sidebar *):not(.toc *):not([class*="widget"]):not([class*="widget"] *)';
     var contentScope = ':is(main, article, [role="main"], .post, .post-content, .entry-content, .article, .story, .content, .markup, .available-content)';
@@ -1658,7 +1661,7 @@
     if (!isChatGpt || !node || node.nodeType !== 3 || getObservedTmiCssTypes().length === 0) return null;
     var parent = node.parentElement;
     if (!parent || parent.hasAttribute('data-affo-font-type')) return null;
-    if (!isInsideChatGptMessage(parent) || isInsideTmiPrunedSubtree(parent)) return null;
+    if (!isInsideChatGptContent(parent) || isInsideTmiPrunedSubtree(parent)) return null;
     if (!elementHasOwnText(parent)) return null;
     return parent;
   }
@@ -2627,7 +2630,7 @@
     if (INLINE_MEANINGFUL_IGNORE_TAGS[node.tagName]) return false;
     if (usesHybridInlineTmiSelectors() && elementHasOwnText(node)) return true;
     if (isInsideTmiPrunedSubtree(node)) return false;
-    if (!isInOrContainsChatGptMessage(node)) return false;
+    if (!isInOrContainsChatGptContent(node)) return false;
 
     // Ignore pure SVG tree additions (icon swaps, etc.) to avoid noisy re-applies.
     if (node.namespaceURI === 'http://www.w3.org/2000/svg') return false;
@@ -4615,7 +4618,7 @@
             }
             if (!root || (root !== checkedRoot && (root.nodeType !== 1 || !document.contains(root) ||
                 isTmiPrunedSubtreeRoot(root) || isInsideTmiPrunedSubtree(root) ||
-                !isInOrContainsChatGptMessage(root)))) {
+                !isInOrContainsChatGptContent(root)))) {
               root = null;
             } else {
               checkedRoot = root;
@@ -4628,7 +4631,7 @@
                   }
                 });
               }
-              if (element && root.contains(element) && elementMayOwnTmiText(element)) {
+              if (element && root.contains(element) && elementMayOwnTmiText(element) && isInsideChatGptContent(element)) {
                 var cs = window.getComputedStyle(element);
                 if (cs.display !== 'none' && cs.visibility !== 'hidden') {
                   markElementForTypes(element, cs, typeSet, null);
@@ -4658,7 +4661,7 @@
     var className = element.className || '';
     var style = element.style.fontFamily || '';
 
-    if (!isInsideChatGptMessage(element)) return null;
+    if (!isInsideChatGptContent(element)) return null;
 
     // Fixed-position subtrees are page UI rather than reading content. This
     // catches overlays whose markup lacks role="dialog" / aria-modal, including
@@ -4846,7 +4849,7 @@
 
   function getElementWalkerRoot() {
     if (isChatGpt) {
-      return document.querySelector('main') || document.body;
+      return document.querySelector(CHATGPT_CONTENT_ROOT_SELECTOR) || document.body;
     }
     return document.body;
   }
@@ -4950,6 +4953,11 @@
           var element;
 
           while ((element = walker.nextNode())) {
+            // Reject out-of-scope text before reading computed styles.
+            if (!isInsideChatGptContent(element)) {
+              if (getAffoNow() - chunkStartedAt >= WALKER_YIELD_BUDGET_MS) break;
+              continue;
+            }
             // Single getComputedStyle call per element — used for both visibility check and font type detection
             var cs;
             var shouldMark = true;

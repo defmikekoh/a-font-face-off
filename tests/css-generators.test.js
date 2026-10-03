@@ -85,17 +85,21 @@ describe('css-generators application chrome and ChatGPT scoping', () => {
         assert.match(css, /:not\(\[role="navigation"\] \*\)/);
     });
 
-    it('scopes body-contact CSS to stable ChatGPT message roots', () => {
+    it('scopes body-contact CSS to semantic ChatGPT main content', () => {
         const css = generateBodyContactCSS(payload, false, false, 'chatgpt.com');
-        assert.match(css, /body \[data-message-author-role\]/);
+        assert.match(css, /body :is\(main, \[role="main"\]\)/);
         assert.doesNotMatch(css, /^body, body /);
-        assert.doesNotMatch(css, /#prompt-textarea/);
-        assert.match(css, /body \[data-message-author-role\] strong/);
+        assert.doesNotMatch(css, /data-message-author-role|data-chatgpt-selection|data-markdown-text-style/);
+        assert.ok(css.includes('[contenteditable]:not([contenteditable="false"])'));
+        assert.ok(css.includes('[role="textbox"]'));
+        assert.ok(css.includes('[role="toolbar"]'));
+        assert.ok(css.startsWith('body :is(main, [role="main"]) *'), 'Do not apply to main itself and inherit into excluded UI');
+        assert.match(css, /body :is\(main, \[role="main"\]\).* strong/);
     });
 
     it('applies the same ChatGPT scope to face-off body CSS and subdomains', () => {
         const css = generateBodyCSS(payload, false, false, 'team.chatgpt.com');
-        assert.match(css, /body \[data-message-author-role\]/);
+        assert.match(css, /body :is\(main, \[role="main"\]\)/);
         assert.doesNotMatch(css, /^body, body /);
     });
 });

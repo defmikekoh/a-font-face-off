@@ -36,7 +36,9 @@ const HEADING_SELECTOR = ':is(h1, h2, h3, h4, h5, h6)';
 const HEADING_TREE_EXCLUDE = `:not(${HEADING_SELECTOR}):not(${HEADING_SELECTOR} *)`;
 const UI_SUBTREE_EXCLUDE = ':not(nav):not(nav *):not(footer):not(footer *):not(aside):not(aside *):not(form):not(form *):not([role="navigation"]):not([role="navigation"] *):not([role="banner"]):not([role="banner"] *):not([role="contentinfo"]):not([role="contentinfo"] *):not([role="complementary"]):not([role="complementary"] *)';
 const BODY_CODE_EXCLUDE = ':not(pre):not(pre *):not(code):not(code *):not(kbd):not(kbd *):not(samp):not(samp *):not(tt):not(tt *)';
-const CHATGPT_MESSAGE_SELECTOR = 'body [data-message-author-role]';
+const CHATGPT_CONTENT_SELECTOR = 'body :is(main, [role="main"])';
+const CHATGPT_UI_SELECTOR = 'header, [role="toolbar"], [role="button"], [contenteditable]:not([contenteditable="false"]), [role="textbox"], input, select, textarea, label, [role="dialog"], [aria-modal="true"]';
+const CHATGPT_UI_EXCLUDE = ':not(:is(' + CHATGPT_UI_SELECTOR + ')):not(:is(' + CHATGPT_UI_SELECTOR + ') *)';
 
 function getIgnoreCommentsExclude(ignoreComments) {
     if (!ignoreComments) return '';
@@ -100,7 +102,7 @@ function isChatGptHostname(hostname) {
 
 function buildBodyScopedSelector(exclude, hostname) {
     if (isChatGptHostname(hostname)) {
-        return `${CHATGPT_MESSAGE_SELECTOR}${exclude}, ${CHATGPT_MESSAGE_SELECTOR} *${exclude}`;
+        return `${CHATGPT_CONTENT_SELECTOR} *${exclude}${CHATGPT_UI_EXCLUDE}`;
     }
     return `body ${exclude}`;
 }
@@ -111,7 +113,7 @@ function buildBodyGeneralSelector(scopedSelector, hostname) {
 
 function buildBodySemanticSelector(selector, hostname) {
     return isChatGptHostname(hostname)
-        ? `${CHATGPT_MESSAGE_SELECTOR} ${selector}`
+        ? `${CHATGPT_CONTENT_SELECTOR} ${selector}${CHATGPT_UI_EXCLUDE}`
         : `body ${selector}`;
 }
 

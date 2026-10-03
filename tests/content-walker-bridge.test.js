@@ -36,6 +36,7 @@ function createWalker() {
         resetFixedPositionUiCache() {},
         getElementWalkerRoot: () => null,
         isTmiPrunedSubtreeRoot: () => false,
+        isInsideChatGptContent: () => true,
         elementMayOwnTmiText: () => true,
         markElementForTypes(element, style, types, counts) {
             marked.push(element.index);
@@ -59,6 +60,20 @@ function createWalker() {
 }
 
 describe('popup TMI walker bridge', () => {
+    it('skips computed-style reads outside main content while preserving chunk progress', async () => {
+        const harness = createWalker();
+        const reads = [];
+        harness.context.isInsideChatGptContent = element => element.index === 2;
+        harness.context.window.getComputedStyle = element => {
+            reads.push(element.index);
+            return { display: 'block', visibility: 'visible' };
+        };
+        const completion = harness.context.runElementWalkerAll(['sans']);
+        for (let index = 0; index < 3; index++) harness.dispatch('affo-continue-walker', 'sans');
+        await completion;
+        assert.deepEqual(reads, [2]);
+        assert.deepEqual(harness.marked, [2]);
+    });
     it('finishes a chunked scan through popup polls when source-tab timers never fire', async () => {
         const harness = createWalker();
         harness.dispatch('affo-run-walker', 'serif');

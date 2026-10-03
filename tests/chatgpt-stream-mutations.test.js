@@ -59,8 +59,8 @@ function harness(chatgpt = true) {
         isInsideInteractiveSubtree: node => !!(node.parentElement || node).pruned,
         isInsideTmiPrunedSubtree: node => node.pruned,
         isTmiPrunedSubtreeRoot: node => node.pruned,
-        isInsideChatGptMessage: node => node.message,
-        isInOrContainsChatGptMessage: node => !chatgpt || node.message,
+        isInsideChatGptContent: node => node.message,
+        isInOrContainsChatGptContent: node => !chatgpt || node.message,
         resetFixedPositionUiCache() {},
         elementMayOwnTmiText: node => node.childNodes.some(child => /\S/.test(child.nodeValue || '')),
         markElementForTypes(node, _cs, types) {
