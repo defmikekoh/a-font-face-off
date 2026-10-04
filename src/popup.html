@@ -330,7 +330,7 @@
                 </div>
             </div>
             <div class="control-group unset" data-control="weight">
-                <label for="body-font-weight">Font Weight:</label>
+                <label for="body-font-weight" title="Requests the CSS weight for font face selection. An active wght axis overrides the rendered weight for fonts that support it.">Font Weight <span class="axis-tag">(font-weight)</span>:</label>
                 <div class="control-row input-row">
                     <span class="axis-reset-btn" data-control="weight" title="Reset weight">↻</span>
                     <span id="body-font-weight-value" class="axis-readonly-input" aria-live="polite">400</span>
@@ -338,6 +338,7 @@
                 <div class="control-row slider-row">
                     <input type="range" id="body-font-weight" min="100" max="900" step="50" value="400" class="slider-input">
                 </div>
+                <span id="body-font-weight-override" class="weight-override-hint hidden" role="status"></span>
             </div>
             <div class="control-group unset" data-control="style">
                 <label for="body-font-style">Font Style:</label>

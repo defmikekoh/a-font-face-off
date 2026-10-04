@@ -2375,7 +2375,7 @@
     }
 
     // Registered axes → high-level CSS properties
-    var inlineEffectiveWeight = getEffectiveWeight(fontConfig);
+    var inlineEffectiveWeight = getRequestedCssWeight(fontConfig);
     if (inlineEffectiveWeight !== null) {
       cssPropsObject['font-weight'] = inlineEffectiveWeight;
     }
@@ -2810,7 +2810,9 @@
   // Registered axes use high-level CSS properties (font-weight, font-stretch, font-style)
   // AND are included in font-variation-settings to bypass @font-face descriptor clamping.
 
-  function getEffectiveWeight(config) {
+  // This is the face-selection weight, not necessarily the rendered weight:
+  // an explicit variableAxes.wght is emitted separately and overrides it.
+  function getRequestedCssWeight(config) {
     if (config.fontWeight != null && isFinite(Number(config.fontWeight))) return Number(config.fontWeight);
     if (config.variableAxes && config.variableAxes.wght != null && isFinite(Number(config.variableAxes.wght))) return Number(config.variableAxes.wght);
     return null;
@@ -2882,7 +2884,7 @@
 
     var customAxes = buildAllAxisSettings(fontConfig);
     var boldAxes = buildBoldAxisSettings(fontConfig, 700);
-    var effectiveWeight = getEffectiveWeight(fontConfig);
+    var effectiveWeight = getRequestedCssWeight(fontConfig);
     var effectiveWdth = getEffectiveWidth(fontConfig);
     var effectiveSlnt = getEffectiveSlant(fontConfig);
     var effectiveItal = getEffectiveItalic(fontConfig);
@@ -3290,7 +3292,7 @@
     if (!weightInfo || !fontConfig) return true;
 
     var wantedWeights = [];
-    var effectiveWeight = getEffectiveWeight(fontConfig);
+    var effectiveWeight = getRequestedCssWeight(fontConfig);
     wantedWeights.push(effectiveWeight != null ? effectiveWeight : 400);
     wantedWeights.push(700); // keep bold descendants fast and correct
 

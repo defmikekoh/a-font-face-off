@@ -255,12 +255,12 @@ undefined  // No font configured (not null or empty object)
   "fontSizeScale": 112,               // Percent-based size scaling (only if set; mutually exclusive with fontSize)
   "lineHeight": 1.5,                  // Line height (only if set)
   "letterSpacing": 0.05,             // Letter spacing in em (only if set; 0 is valid)
-  "fontWeight": 400,                  // Font weight (only if set)
+  "fontWeight": 400,                  // Requested CSS weight (only if set; independent of wght)
   "fontStyle": "italic",              // Static style (only if set; "normal" is omitted)
   "fontColor": "#333333",             // Font color (only if set, NOT 'default')
   "fontSource": "local",              // Only for user-managed local desktop fonts
   "variableAxes": {                   // ALWAYS present (even if empty {})
-    "wght": 400,                      // Weight axis (only if modified from default)
+    "wght": 400,                      // Explicit rendered-weight axis override (only if activated)
     "slnt": -10                       // Slant axis (only if the font exposes it)
   }
 }

@@ -1329,7 +1329,7 @@ if (typeof window !== 'undefined') {
 const axisInfo = {
     wght: {
         name: "Weight",
-        description: "Adjust the style from lighter to bolder in typographic color, by varying stroke weights, spacing and kerning, and other aspects of the type. This typically changes overall width, and so may be used in conjunction with Width and Grade axes."
+        description: "Directly controls the variable font's weight axis, overriding Font Weight for fonts that support wght. Reset this axis to use Font Weight again. Changes to stroke weight may also change spacing and overall width."
     },
     wdth: {
         name: "Width",
@@ -2457,7 +2457,7 @@ function generateFontControls(position, fontName) {
 
 // formatAxisValue, generateBodyCSS are now in css-generators.js
 
-// REGISTERED_AXES, getEffectiveWeight, getEffectiveWidth, getEffectiveSlant,
+// REGISTERED_AXES, getRequestedCssWeight, getExplicitAxisWeight, getEffectiveWidth, getEffectiveSlant,
 // getEffectiveItalic, buildCustomAxisSettings are now in config-utils.js
 
 // Domain detection for inline apply domains
@@ -2881,13 +2881,24 @@ function restoreFontSettings(position, fontName) {
     }
 }
 
+function updateWeightOverrideHint(position, config) {
+    const hint = document.getElementById(`${position}-font-weight-override`);
+    if (!hint) return;
+    const axisWeight = config ? getExplicitAxisWeight(config) : null;
+    const overridden = config && config.fontWeight != null && axisWeight !== null;
+    hint.classList.toggle('hidden', !overridden);
+    hint.textContent = overridden ? `Overridden by wght: ${axisWeight}` : '';
+    hint.title = overridden ? 'For fonts supporting wght, the axis controls rendered weight. Font Weight still controls face selection and fonts without this axis.' : '';
+}
+
 function applyFont(position, { saveState = true } = {}) {
+    const cfg = getCurrentUIConfig(position);
+    updateWeightOverrideHint(position, cfg);
     const textElement = document.getElementById(`${position}-font-text`);
     const nameElement = document.getElementById(`${position}-font-name`);
     if (!textElement || !nameElement) return;
     if (isPanelShowingSroulette(position)) return;
 
-    const cfg = getCurrentUIConfig(position);
     const GENERIC = { serif: 'serif', sans: 'sans-serif', mono: 'monospace' };
     const genericFamily = GENERIC[position] || 'serif';
 
@@ -2915,7 +2926,8 @@ function applyFont(position, { saveState = true } = {}) {
     else if (cfg.fontSize) style += ` font-size: ${cfg.fontSize}px;`;
     if (cfg.lineHeight) style += ` line-height: ${cfg.lineHeight};`;
     if (cfg.letterSpacing != null) style += ` letter-spacing: ${cfg.letterSpacing}em;`;
-    if (cfg.fontWeight) style += ` font-weight: ${cfg.fontWeight};`;
+    const requestedCssWeight = getRequestedCssWeight(cfg);
+    if (requestedCssWeight !== null) style += ` font-weight: ${requestedCssWeight};`;
     if (cfg.fontStyle === 'italic') style += ' font-style: italic;';
     if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
 

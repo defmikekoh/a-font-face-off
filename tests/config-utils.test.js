@@ -7,7 +7,8 @@ const {
     getAffoBrowserActionTitleEntries,
     formatAffoBrowserActionTitle,
     determineButtonState,
-    getEffectiveWeight,
+    getRequestedCssWeight,
+    getExplicitAxisWeight,
     getEffectiveWidth,
     getEffectiveSlant,
     getEffectiveItalic,
@@ -50,7 +51,7 @@ describe('normalizeConfig', () => {
     it('preserves midpoint static font weights', () => {
         const result = normalizeConfig({ fontName: 'Inter', fontWeight: '450' });
         assert.equal(result.fontWeight, 450);
-        assert.equal(getEffectiveWeight(result), 450);
+        assert.equal(getRequestedCssWeight(result), 450);
     });
 
     it('handles legacy fontSizePx property', () => {
@@ -278,28 +279,40 @@ describe('determineButtonState', () => {
     });
 });
 
-// ── getEffectiveWeight ───────────────────────────────────────────────────────
+// ── getRequestedCssWeight ───────────────────────────────────────────────────────
 
-describe('getEffectiveWeight', () => {
+describe('getRequestedCssWeight', () => {
     it('returns fontWeight when set', () => {
-        assert.equal(getEffectiveWeight({ fontWeight: 700 }), 700);
+        assert.equal(getRequestedCssWeight({ fontWeight: 700 }), 700);
     });
 
     it('falls back to variableAxes.wght', () => {
-        assert.equal(getEffectiveWeight({ variableAxes: { wght: 500 } }), 500);
+        assert.equal(getRequestedCssWeight({ variableAxes: { wght: 500 } }), 500);
     });
 
-    it('prefers fontWeight over variableAxes.wght', () => {
-        assert.equal(getEffectiveWeight({ fontWeight: 300, variableAxes: { wght: 500 } }), 300);
+    it('keeps the requested CSS weight separate from the explicit axis override', () => {
+        assert.equal(getRequestedCssWeight({ fontWeight: 300, variableAxes: { wght: 500 } }), 300);
+        assert.equal(getExplicitAxisWeight({ fontWeight: 300, variableAxes: { wght: 500 } }), 500);
     });
 
     it('coerces string values', () => {
-        assert.equal(getEffectiveWeight({ fontWeight: '600' }), 600);
+        assert.equal(getRequestedCssWeight({ fontWeight: '600' }), 600);
     });
 
     it('returns null when neither set', () => {
-        assert.equal(getEffectiveWeight({}), null);
-        assert.equal(getEffectiveWeight({ variableAxes: {} }), null);
+        assert.equal(getRequestedCssWeight({}), null);
+        assert.equal(getRequestedCssWeight({ variableAxes: {} }), null);
+    });
+});
+
+describe('getExplicitAxisWeight', () => {
+    it('ignores the basic CSS weight when the axis is unset', () => {
+        assert.equal(getExplicitAxisWeight({ fontWeight: 300 }), null);
+    });
+
+    it('coerces numeric axis values and rejects invalid ones', () => {
+        assert.equal(getExplicitAxisWeight({ variableAxes: { wght: '470' } }), 470);
+        assert.equal(getExplicitAxisWeight({ variableAxes: { wght: 'invalid' } }), null);
     });
 });
 

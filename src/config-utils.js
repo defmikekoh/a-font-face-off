@@ -174,10 +174,16 @@ function determineButtonState(changeCount, allDefaults, domainHasApplied) {
 
 // ── Variable-axis helpers ────────────────────────────────────────────────────
 
-function getEffectiveWeight(payload) {
-    if (payload.fontWeight != null && isFinite(Number(payload.fontWeight))) return Number(payload.fontWeight);
+// Requested CSS weight selects a face; an explicit wght axis can override its
+// rendered weight. Keep both values independent when both controls are active.
+function getExplicitAxisWeight(payload) {
     if (payload.variableAxes && payload.variableAxes.wght != null && isFinite(Number(payload.variableAxes.wght))) return Number(payload.variableAxes.wght);
     return null;
+}
+
+function getRequestedCssWeight(payload) {
+    if (payload.fontWeight != null && isFinite(Number(payload.fontWeight))) return Number(payload.fontWeight);
+    return getExplicitAxisWeight(payload);
 }
 
 function getEffectiveWidth(payload) {
@@ -239,7 +245,8 @@ if (typeof module !== 'undefined' && module.exports) {
         getAffoBrowserActionTitleEntries,
         formatAffoBrowserActionTitle,
         determineButtonState,
-        getEffectiveWeight,
+        getRequestedCssWeight,
+        getExplicitAxisWeight,
         getEffectiveWidth,
         getEffectiveSlant,
         getEffectiveItalic,

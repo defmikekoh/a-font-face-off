@@ -281,7 +281,7 @@ function generateBodyCSS(payload, aggressive, ignoreComments, hostname) {
         css += (css ? '\n' : '') + `${colorSel}{color:${payload.fontColor}${imp};}`;
     }
 
-    const effectiveWt = getEffectiveWeight(payload);
+    const effectiveWt = getRequestedCssWeight(payload);
     if (effectiveWt !== null) {
         let weightRule = `font-weight:${effectiveWt}${imp}`;
         if (allAxes.length > 0) {
@@ -382,7 +382,7 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments, hostname) {
         lines.push(`${colorSelector} { color: ${payload.fontColor}${imp}; }`);
     }
 
-    const effectiveWeight = getEffectiveWeight(payload);
+    const effectiveWeight = getRequestedCssWeight(payload);
     if (effectiveWeight) {
         let weightProps = `font-weight: ${effectiveWeight}${imp}`;
         if (allAxes.length > 0) {
@@ -427,7 +427,7 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
 
     const allAxes = buildAllAxisSettings(payload);
     const boldAxes = buildBoldAxisSettings(payload, 700);
-    const effectiveWeight = getEffectiveWeight(payload);
+    const effectiveWeight = getRequestedCssWeight(payload);
 
     // Comprehensive rule for non-bold marked elements
     const nonBoldProps = [];

@@ -28,7 +28,8 @@ Registered OpenType axes map to high-level CSS properties AND are also included 
 
 ## Helper Functions
 
-- **`getEffectiveWeight(config)`** — Returns numeric weight or `null`. Checks `config.fontWeight` first (basic weight control), falls back to `config.variableAxes.wght` (variable axis slider).
+- **`getRequestedCssWeight(config)`** — Returns the numeric CSS face-selection weight or `null`. Checks `config.fontWeight` first, otherwise uses `config.variableAxes.wght`. An explicit `wght` is emitted independently in `font-variation-settings` and controls rendered weight for fonts supporting the axis.
+- **`getExplicitAxisWeight(config)`** — Reads only `config.variableAxes.wght`; used to explain the override in the popup.
 - **`getEffectiveWidth(config)`** — Same pattern for wdth. Checks `config.wdthVal` then `config.variableAxes.wdth`. (Legacy `wdthVal` only exists in old stored domain data; new payloads use `variableAxes` exclusively.)
 - **`getEffectiveSlant(config)`** — Same pattern for slnt. (Legacy `slntVal` — same note as wdth.)
 - **`getEffectiveItalic(config)`** — Returns `1` for static `fontStyle: "italic"`, then falls back to legacy `italVal` / `variableAxes.ital` for backward compatibility.

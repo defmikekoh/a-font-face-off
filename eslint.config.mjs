@@ -81,7 +81,8 @@ export default [
                 REGISTERED_AXES: "readonly",
                 normalizeConfig: "readonly",
                 determineButtonState: "readonly",
-                getEffectiveWeight: "readonly",
+                getRequestedCssWeight: "readonly",
+                getExplicitAxisWeight: "readonly",
                 getEffectiveWidth: "readonly",
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",
@@ -179,7 +180,7 @@ export default [
                 isFinite: "readonly",
                 module: "readonly",
                 // From config-utils.js
-                getEffectiveWeight: "readonly",
+                getRequestedCssWeight: "readonly",
                 getEffectiveWidth: "readonly",
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",

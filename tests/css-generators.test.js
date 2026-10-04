@@ -10,6 +10,31 @@ const {
     generateThirdManInCSS,
 } = require('../src/css-generators.js');
 
+describe('independent CSS weight and axis override', () => {
+    const generators = [
+        generateBodyCSS,
+        generateBodyContactCSS,
+        (payload, aggressive) => generateThirdManInCSS('sans', payload, aggressive)
+    ];
+
+    for (const [index, generate] of generators.entries()) {
+        it(`preserves face-selection weight, axis override, and bold in generator ${index}`, () => {
+            const css = generate({ fontName: 'Test', fontWeight: 300, variableAxes: { wght: 470, wdth: 90 } }, true);
+            assert.match(css, /font-weight:\s*300 !important/);
+            assert.match(css, /font-variation-settings:\s*"wght" 470, "wdth" 90 !important/);
+            assert.match(css, /font-weight:\s*700 !important/);
+            assert.match(css, /font-variation-settings:\s*"wght" 700, "wdth" 90 !important/);
+        });
+
+        it(`returns to CSS weight after removing the axis in generator ${index}`, () => {
+            const css = generate({ fontName: 'Test', fontWeight: 300, variableAxes: { wdth: 90 } }, false);
+            assert.match(css, /font-weight:\s*300/);
+            const normalRules = css.split('\n').filter(rule => !/font-weight:\s*700/.test(rule));
+            assert.doesNotMatch(normalRules.join('\n'), /"wght"/);
+        });
+    }
+});
+
 describe('css-generators ignore comments selectors', () => {
     const payload = {
         fontName: 'Spectral',

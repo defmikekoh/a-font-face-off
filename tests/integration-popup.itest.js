@@ -96,10 +96,10 @@ describe('Integration tests', () => {
         `);
         assert.equal(defaults.topHeading, 'ABeeZee');
         assert.equal(defaults.topDisplay, 'ABeeZee');
-        assert.match(defaults.topPreviewStyle, /font-family:\s*"ABeeZee"/);
+        assert.match(defaults.topPreviewStyle, /font-family:\s*"?ABeeZee"?\s*,/);
         assert.equal(defaults.bottomHeading, 'Zilla Slab Highlight');
         assert.equal(defaults.bottomDisplay, 'Zilla Slab Highlight');
-        assert.match(defaults.bottomPreviewStyle, /font-family:\s*"Zilla Slab Highlight"/);
+        assert.match(defaults.bottomPreviewStyle, /font-family:\s*"?Zilla Slab Highlight"?\s*,/);
         assert.equal(defaults.topMinHeight, '0px');
         assert.equal(defaults.bottomMinHeight, '0px');
         assert.equal(defaults.topOverscrollBehavior, 'contain');
@@ -184,7 +184,7 @@ describe('Integration tests', () => {
 
         assert.equal(result.heading, 'Rubik');
         assert.equal(result.display, 'Rubik');
-        assert.match(result.previewStyle, /font-family:\s*"Rubik"/);
+        assert.match(result.previewStyle, /font-family:\s*"?Rubik"?\s*,/);
     });
 
     it('switches to third-man-in mode', async () => {
@@ -515,6 +515,7 @@ describe('Integration tests', () => {
                     sourceUrl: location.href,
                     config: {
                         fontName: 'Ephemeral Test Font',
+                        fontWeight: 300,
                         fontSize: 17,
                         lineHeight: 1.45,
                         variableAxes: { wght: 500 },
@@ -541,7 +542,27 @@ describe('Integration tests', () => {
                     active: !document.querySelector('#top-font-controls .control-group[data-axis="wght"]')?.classList.contains('unset')
                 };
                 const topPreviewStyle = document.getElementById('top-font-text')?.getAttribute('style') || '';
+                const weightHint = document.getElementById('top-font-weight-override');
+                const initialWeightHint = { text: weightHint.textContent, hidden: weightHint.classList.contains('hidden') };
                 document.querySelector('#top-font-controls .control-group[data-axis="wght"] .axis-reset-btn')?.click();
+                const resetAxisValue = document.getElementById('top-wght').value;
+                const resetWeight = {
+                    cssWeight: document.getElementById('top-font-text').style.fontWeight,
+                    variations: document.getElementById('top-font-text').style.fontVariationSettings,
+                    hintHidden: weightHint.classList.contains('hidden'),
+                    config: getCurrentUIConfig('top')
+                };
+                document.querySelector('#top-font-controls .axis-reset-btn[data-control="weight"]').click();
+                const axis = document.getElementById('top-wght');
+                axis.value = 470;
+                axis.dispatchEvent(new Event('input', { bubbles: true }));
+                axis.dispatchEvent(new Event('change', { bubbles: true }));
+                const axisOnly = {
+                    cssWeight: document.getElementById('top-font-text').style.fontWeight,
+                    variations: document.getElementById('top-font-text').style.fontVariationSettings,
+                    hintHidden: weightHint.classList.contains('hidden'),
+                    config: getCurrentUIConfig('top')
+                };
                 return {
                     activeMode: document.querySelector('[data-mode].active')?.dataset?.mode,
                     topFont: document.getElementById('top-font-display')?.textContent.trim(),
@@ -549,10 +570,13 @@ describe('Integration tests', () => {
                     topFontSize: document.getElementById('top-font-size-text')?.value,
                     topLineHeight: document.getElementById('top-line-height-text')?.value,
                     topPreviewStyle,
+                    initialWeightHint,
+                    resetWeight,
+                    axisOnly,
                     topApplyDisabled: document.getElementById('apply-top')?.disabled,
                     topSaveDisabled: document.getElementById('top-save-favorite-bar')?.disabled,
                     topAxis,
-                    resetAxisValue: document.getElementById('top-wght')?.value,
+                    resetAxisValue,
                     injectedRule: !!document.getElementById('affo-custom-font-Ephemeral-Test-Font'),
                     draftPresent: !!stored.affoFaceoffPageFontDraft,
                     savedTopFont: stored.affoUIState?.faceoff?.topFont?.fontName
@@ -566,7 +590,18 @@ describe('Integration tests', () => {
         assert.equal(state.topFontSize, '17');
         assert.equal(state.topLineHeight, '1.45');
         assert.match(state.topPreviewStyle, /Ephemeral Test Font/);
-        assert.doesNotMatch(state.topPreviewStyle, /font-weight/);
+        assert.match(state.topPreviewStyle, /font-weight:\s*300/);
+        assert.deepEqual(state.initialWeightHint, { text: 'Overridden by wght: 500', hidden: false });
+        assert.equal(state.resetWeight.cssWeight, '300');
+        assert.equal(state.resetWeight.variations, '');
+        assert.equal(state.resetWeight.hintHidden, true);
+        assert.equal(state.resetWeight.config.fontWeight, 300);
+        assert.equal(state.resetWeight.config.variableAxes.wght, undefined);
+        assert.equal(state.axisOnly.cssWeight, '470');
+        assert.equal(state.axisOnly.variations, '"wght" 470');
+        assert.equal(state.axisOnly.hintHidden, true);
+        assert.equal(state.axisOnly.config.fontWeight, undefined);
+        assert.equal(state.axisOnly.config.variableAxes.wght, 470);
         assert.match(state.topPreviewStyle, /font-variation-settings:\s*"wght" 500/);
         assert.equal(state.topApplyDisabled, true);
         assert.equal(state.topSaveDisabled, true);
