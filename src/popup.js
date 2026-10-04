@@ -1341,11 +1341,11 @@ const axisInfo = {
     },
     ital: {
         name: "Italic",
-        description: "Adjust the style from roman to italic. This can be provided as a continuous range within a single font file, like most axes, or as a toggle between two roman and italic files that form a family as a pair."
+        description: "Controls the selected variable font's italic design: usually 0 for upright and 1 for italic. This explicit axis overrides the italic axis implied by Font Style. It is independent of the slnt angle. Reset it to use Font Style again."
     },
     slnt: {
         name: "Slant",
-        description: "Adjust the style from upright to slanted. Negative values produce right-leaning forms, also known to typographers as an 'oblique' style. Positive values produce left-leaning forms, also called a 'backslanted' or 'reverse oblique' style."
+        description: "Controls the selected variable font's slant angle, independently of its italic design. Negative values lean right; positive values lean left. With Font Style set to Italic, this applies an explicit angle to the selected italic face."
     },
     GRAD: {
         name: "Grade",
@@ -2891,9 +2891,26 @@ function updateWeightOverrideHint(position, config) {
     hint.title = overridden ? 'For fonts supporting wght, the axis controls rendered weight. Font Weight still controls face selection and fonts without this axis.' : '';
 }
 
+function updateStyleAxesHint(position, config) {
+    const hint = document.getElementById(`${position}-font-style-axes`);
+    if (!hint) return;
+    const axes = config && config.variableAxes;
+    const parts = [];
+    if (axes && axes.ital != null && Number.isFinite(Number(axes.ital))) {
+        parts.push(`Italic axis: ${axes.ital} controls italic design`);
+    }
+    if (axes && axes.slnt != null && Number.isFinite(Number(axes.slnt))) {
+        const angle = String(axes.slnt).replace('-', '−');
+        parts.push(`${config.fontStyle === 'italic' ? 'Italic face with explicit slant' : 'Explicit slant'}: ${angle}°`);
+    }
+    hint.classList.toggle('hidden', parts.length === 0);
+    hint.textContent = parts.join(' · ');
+}
+
 function applyFont(position, { saveState = true } = {}) {
     const cfg = getCurrentUIConfig(position);
     updateWeightOverrideHint(position, cfg);
+    updateStyleAxesHint(position, cfg);
     const textElement = document.getElementById(`${position}-font-text`);
     const nameElement = document.getElementById(`${position}-font-name`);
     if (!textElement || !nameElement) return;
@@ -2928,7 +2945,8 @@ function applyFont(position, { saveState = true } = {}) {
     if (cfg.letterSpacing != null) style += ` letter-spacing: ${cfg.letterSpacing}em;`;
     const requestedCssWeight = getRequestedCssWeight(cfg);
     if (requestedCssWeight !== null) style += ` font-weight: ${requestedCssWeight};`;
-    if (cfg.fontStyle === 'italic') style += ' font-style: italic;';
+    const requestedStyle = getRequestedFontStyle(cfg);
+    if (requestedStyle !== null) style += ` font-style: ${requestedStyle};`;
     if (cfg.fontColor) style += ` color: ${cfg.fontColor};`;
 
     if (cfg.variableAxes && Object.keys(cfg.variableAxes).length > 0) {

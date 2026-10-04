@@ -50,18 +50,12 @@ function normalizeConfig(raw) {
     // Copy variable axes with Number coercion
     if (raw.variableAxes && typeof raw.variableAxes === 'object') {
         Object.entries(raw.variableAxes).forEach(([axis, value]) => {
-            if (axis === 'ital') {
-                const numericValue = Number(value);
-                if (numericValue >= 1 && !config.fontStyle) config.fontStyle = 'italic';
-                if (numericValue === 0 || numericValue >= 1) return;
-            }
             config.variableAxes[axis] = Number(value);
         });
     }
-    // Legacy compat: fold wdthVal/slntVal into variableAxes; italVal is now a static style.
+    // Legacy compat: fold wdthVal/slntVal into variableAxes.
     if (raw.wdthVal != null && !('wdth' in config.variableAxes)) config.variableAxes.wdth = Number(raw.wdthVal);
     if (raw.slntVal != null && !('slnt' in config.variableAxes)) config.variableAxes.slnt = Number(raw.slntVal);
-    if (raw.italVal != null && Number(raw.italVal) >= 1 && !config.fontStyle) config.fontStyle = 'italic';
 
     return config;
 }
@@ -200,9 +194,17 @@ function getEffectiveSlant(payload) {
 
 function getEffectiveItalic(payload) {
     if (payload.fontStyle === 'italic') return 1;
-    if (payload.italVal != null && isFinite(Number(payload.italVal))) return Number(payload.italVal);
     if (payload.variableAxes && payload.variableAxes.ital != null && isFinite(Number(payload.variableAxes.ital))) return Number(payload.variableAxes.ital);
     return null;
+}
+
+// font-style requests a face; explicit ital/slnt settings remain independent.
+// OpenType slnt and CSS oblique angles use opposite signs.
+function getRequestedFontStyle(payload) {
+    const italic = getEffectiveItalic(payload);
+    if (italic !== null && italic >= 1) return 'italic';
+    const slant = getEffectiveSlant(payload);
+    return slant !== null ? `oblique ${-slant}deg` : null;
 }
 
 // Returns '"axis" value' strings for ALL axes (registered + custom).
@@ -250,6 +252,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getEffectiveWidth,
         getEffectiveSlant,
         getEffectiveItalic,
+        getRequestedFontStyle,
         buildAllAxisSettings,
         buildCustomAxisSettings,
     };

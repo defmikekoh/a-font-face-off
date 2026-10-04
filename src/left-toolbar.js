@@ -169,7 +169,6 @@
                 fontConfig.fontName,
                 fontConfig.fontWeight == null ? '' : fontConfig.fontWeight,
                 fontConfig.fontStyle || '',
-                fontConfig.italVal == null ? '' : fontConfig.italVal,
                 fontConfig.variableAxes && fontConfig.variableAxes.wght,
                 fontConfig.variableAxes && fontConfig.variableAxes.ital
             ]);

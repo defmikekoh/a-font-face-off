@@ -237,7 +237,8 @@ function _whatFont() {
                 // oblique Ndeg → slnt axis
                 var obliqueMatch = fontStyle.match(/oblique\s+(-?[\d.]+)deg/);
                 if (obliqueMatch) {
-                    axes.slnt = parseFloat(obliqueMatch[1]);
+                    // CSS oblique and OpenType slnt use opposite angle signs.
+                    axes.slnt = -parseFloat(obliqueMatch[1]);
                 }
             }
 

@@ -261,7 +261,8 @@ undefined  // No font configured (not null or empty object)
   "fontSource": "local",              // Only for user-managed local desktop fonts
   "variableAxes": {                   // ALWAYS present (even if empty {})
     "wght": 400,                      // Explicit rendered-weight axis override (only if activated)
-    "slnt": -10                       // Slant axis (only if the font exposes it)
+    "slnt": -10,                      // OpenType angle; CSS oblique uses the opposite sign
+    "ital": 0                         // Explicit italic-axis override; 0 is preserved independently of fontStyle
   }
 }
 ```

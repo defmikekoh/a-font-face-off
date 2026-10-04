@@ -450,7 +450,11 @@
     var weightRange = getFontWeightRange(block);
     addAxis('wght', weightRange, 400);
     addAxis('wdth', getDescriptorRange(block, 'font-stretch', /-?\d+(?:\.\d+)?%/g), 100);
-    addAxis('slnt', getDescriptorRange(block, 'font-style', /-?\d+(?:\.\d+)?deg/g), 0);
+    var cssSlantRange = getDescriptorRange(block, 'font-style', /-?\d+(?:\.\d+)?deg/g);
+    // Convert the descriptor's CSS angles to an ascending OpenType slnt range.
+    addAxis('slnt', cssSlantRange && cssSlantRange.map(function (value) {
+      return value === 0 ? 0 : -value;
+    }).reverse(), 0);
 
     return { axes: axes, defaults: defaults, ranges: ranges };
   }

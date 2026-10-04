@@ -238,7 +238,7 @@ describe('page-font-utils', () => {
         assert.deepEqual(definition, {
             axes: ['wght', 'wdth', 'slnt'],
             defaults: { wght: 400, wdth: 100, slnt: 0 },
-            ranges: { wght: [200, 900], wdth: [75, 125], slnt: [-12, 0] }
+            ranges: { wght: [200, 900], wdth: [75, 125], slnt: [0, 12] }
         });
     });
 

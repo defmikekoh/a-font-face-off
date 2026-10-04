@@ -230,9 +230,26 @@ describe('css-generators static italic style', () => {
             fontName: 'Roboto Flex',
             variableAxes: { slnt: -10 },
         }, false);
-        assert.match(css, /font-style: oblique -10deg/);
+        assert.match(css, /font-style: oblique 10deg/);
         assert.match(css, /font-variation-settings: "slnt" -10/);
     });
+
+    for (const generate of [generateBodyCSS, generateBodyContactCSS, payload => generateThirdManInCSS('sans', payload, false)]) {
+        it('retains upright-axis overrides and removes zero slant for emphasis without guessing an angle', () => {
+            const css = generate({ fontName: 'Test', fontStyle: 'italic', variableAxes: { ital: 0, slnt: 0, wght: 470 } }, false);
+            assert.match(css, /"ital" 0, "slnt" 0, "wght" 470/);
+            const emphasis = css.split('\n').filter(rule => /font-style: italic/.test(rule) && /"ital" 1/.test(rule));
+            assert.ok(emphasis.length > 0);
+            assert.doesNotMatch(emphasis.join('\n'), /"slnt"/);
+            assert.match(emphasis.join('\n'), /"wght" 700/);
+        });
+
+        it('clears inherited zero slant when it is the only axis on emphasis', () => {
+            const css = generate({ fontName: 'Test', variableAxes: { slnt: 0 } }, false);
+            assert.match(css, /font-style: italic; font-variation-settings: normal/);
+            assert.doesNotMatch(css, /"slnt" -10/);
+        });
+    }
 });
 
 describe('css-generators third-man-in text sizing', () => {

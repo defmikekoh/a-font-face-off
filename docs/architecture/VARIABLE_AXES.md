@@ -19,6 +19,14 @@ Basic **Font Weight (`font-weight`)** stores `fontWeight`, the requested CSS wei
 
 Google Fonts `ital` in a CSS2 URL can mean "request the static italic files for this family"; that does not make it a variable axis. Static italic is stored as the basic primitive `fontStyle: "italic"`. A slider is created only for tags that appear in the family metadata `axes` list, such as `slnt` on the small set of slanted variable families.
 
+### Style, italic design, and slant
+
+`fontStyle: "italic"` requests an italic face. Explicit `variableAxes.ital` controls the selected variable font's italic design and is preserved independently, including 0 (upright) and 1 (italic). Explicit axis values are never folded into the basic style. With no basic italic request, `ital >= 1` also requests an italic face.
+
+`variableAxes.slnt` controls the angle independently of the italic design. OpenType and CSS use opposite angle signs: `"slnt" -10` corresponds to `font-style: oblique 10deg`. The popup, generated/inline page CSS, WhatFont detection, and descriptor-derived ranges use this conversion. Explicit zero requests `oblique 0deg` when no italic face is requested. With basic Italic active, CSS requests the italic face and retains the explicit slant axis.
+
+The popup explains active `ital`/`slnt` axes beside Font Style. Emphasis rules set an existing `ital` axis to 1 and retain nonzero slant. They remove an explicit zero-slant override and let `font-style: italic` select a supported face/axis value rather than guessing −10°. If no axes remain, they emit `font-variation-settings: normal` to clear the inherited override. The browser handles the font's supported range; no derived range metadata is stored in configs.
+
 ## WhatFont Axis Detection
 
 WhatFont (`whatfont_core.js`) detects registered axes by reading their high-level CSS properties (`font-weight`, `font-stretch`, `font-style`) and mapping non-default values back to axis tags, since browsers don't expose them in `font-variation-settings`.

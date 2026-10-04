@@ -1421,7 +1421,8 @@ body.body-contact #font-comparison {
     color: #6c757d;
 }
 
-.weight-override-hint {
+.weight-override-hint,
+.style-axes-hint {
     font-size: 11px;
     color: #6c757d;
 }

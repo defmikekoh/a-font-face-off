@@ -144,8 +144,9 @@ function buildItalicProps(payload, imp, weightOverride) {
         const axes = { ...payload.variableAxes };
         // Force true italic via ital axis when the payload already has it.
         if (axes.ital !== undefined) axes.ital = 1;
-        // Force slant if available and at default
-        if (axes.slnt !== undefined && Number(axes.slnt) === 0) axes.slnt = -10;
+        // Release an upright override so font-style can choose a supported
+        // italic/oblique face or axis value instead of guessing a slant angle.
+        if (axes.slnt !== undefined && Number(axes.slnt) === 0) delete axes.slnt;
         // Override weight for bold-italic
         if (weightOverride && axes.wght !== undefined) axes.wght = weightOverride;
 
@@ -153,7 +154,7 @@ function buildItalicProps(payload, imp, weightOverride) {
             .filter(([, v]) => isFinite(Number(v)))
             .map(([axis, value]) => `"${axis}" ${value}`)
             .join(', ');
-        if (settings) props.push(`font-variation-settings: ${settings}${imp}`);
+        props.push(`font-variation-settings: ${settings || 'normal'}${imp}`);
     }
     return props;
 }
@@ -262,13 +263,8 @@ function generateBodyCSS(payload, aggressive, ignoreComments, hostname) {
     if (effectiveWdth !== null) {
         decl.push(`font-stretch:${effectiveWdth}%${imp}`);
     }
-    const effectiveItal = getEffectiveItalic(payload);
-    const effectiveSlnt = getEffectiveSlant(payload);
-    if (effectiveItal !== null && effectiveItal >= 1) {
-        decl.push(`font-style:italic${imp}`);
-    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        decl.push(`font-style:oblique ${effectiveSlnt}deg${imp}`);
-    }
+    const requestedStyle = getRequestedFontStyle(payload);
+    if (requestedStyle !== null) decl.push(`font-style:${requestedStyle}${imp}`);
     // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
     const allAxes = buildAllAxisSettings(payload);
     const boldAxes = buildBoldAxisSettings(payload, 700);
@@ -360,13 +356,9 @@ function generateBodyContactCSS(payload, aggressive, ignoreComments, hostname) {
         styleRule += ` font-stretch: ${effectiveWdth}%${imp};`;
         hasStyleRuleProps = true;
     }
-    const effectiveItal = getEffectiveItalic(payload);
-    const effectiveSlnt = getEffectiveSlant(payload);
-    if (effectiveItal !== null && effectiveItal >= 1) {
-        styleRule += ` font-style: italic${imp};`;
-        hasStyleRuleProps = true;
-    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        styleRule += ` font-style: oblique ${effectiveSlnt}deg${imp};`;
+    const requestedStyle = getRequestedFontStyle(payload);
+    if (requestedStyle !== null) {
+        styleRule += ` font-style: ${requestedStyle}${imp};`;
         hasStyleRuleProps = true;
     }
     const allAxes = buildAllAxisSettings(payload);
@@ -439,13 +431,8 @@ function generateThirdManInCSS(fontType, payload, aggressive) {
     if (effectiveWdth !== null) {
         nonBoldProps.push(`font-stretch: ${effectiveWdth}%${imp}`);
     }
-    const effectiveItal = getEffectiveItalic(payload);
-    const effectiveSlnt = getEffectiveSlant(payload);
-    if (effectiveItal !== null && effectiveItal >= 1) {
-        nonBoldProps.push(`font-style: italic${imp}`);
-    } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        nonBoldProps.push(`font-style: oblique ${effectiveSlnt}deg${imp}`);
-    }
+    const requestedStyle = getRequestedFontStyle(payload);
+    if (requestedStyle !== null) nonBoldProps.push(`font-style: ${requestedStyle}${imp}`);
     if (allAxes.length > 0) {
         nonBoldProps.push(`font-variation-settings: ${allAxes.join(', ')}${imp}`);
     }

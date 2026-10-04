@@ -611,4 +611,55 @@ describe('Integration tests', () => {
         assert.equal(state.draftPresent, false, 'one-shot page-font draft should be removed after opening');
         assert.equal(state.savedTopFont, 'Lora', 'ephemeral top font should not replace saved Face-off state');
     });
+    it('restores independent italic/slant axes and clears their hints on reset', async () => {
+        const state = await popupExec(driver, `
+            return (async () => {
+                const definition = getEffectiveFontDefinition('Ephemeral Test Font');
+                definition.axes = ['wght', 'ital', 'slnt'];
+                definition.defaults = { wght: 400, ital: 0, slnt: 0 };
+                definition.ranges = { wght: [200, 900], ital: [0, 1], slnt: [-5, 5] };
+                definition.steps = { wght: 1, ital: 1, slnt: 1 };
+                await applyFontConfig('top', {
+                    fontName: 'Ephemeral Test Font', fontStyle: 'italic',
+                    variableAxes: { ital: 0, slnt: -5 }
+                });
+                const preview = document.getElementById('top-font-text');
+                const hint = document.getElementById('top-font-style-axes');
+                const restored = {
+                    style: preview.style.fontStyle,
+                    axes: preview.style.fontVariationSettings,
+                    hint: hint.textContent,
+                    hidden: hint.classList.contains('hidden'),
+                    payload: await buildPayload('top')
+                };
+                document.querySelector('#top-font-controls [data-axis="ital"] .axis-reset-btn').click();
+                const withoutItal = { hint: hint.textContent, config: getCurrentUIConfig('top') };
+                document.querySelector('#top-font-controls [data-axis="slnt"] .axis-reset-btn').click();
+                const reset = { style: preview.style.fontStyle, hidden: hint.classList.contains('hidden'), config: getCurrentUIConfig('top') };
+                document.querySelector('#top-font-controls .axis-reset-btn[data-control="style"]').click();
+                const slant = document.getElementById('top-slnt');
+                slant.value = 3;
+                slant.dispatchEvent(new Event('input', { bubbles: true }));
+                slant.dispatchEvent(new Event('change', { bubbles: true }));
+                const slantOnly = { style: preview.style.fontStyle, axes: preview.style.fontVariationSettings, hint: hint.textContent };
+                return { restored, withoutItal, reset, slantOnly };
+            })();
+        `);
+        assert.equal(state.restored.style, 'italic');
+        assert.match(state.restored.axes, /"ital" 0/);
+        assert.match(state.restored.axes, /"slnt" -5/);
+        assert.match(state.restored.hint, /Italic axis: 0 controls italic design/);
+        assert.match(state.restored.hint, /Italic face with explicit slant: −5°/);
+        assert.equal(state.restored.hidden, false);
+        assert.deepEqual(state.restored.payload.variableAxes, { ital: 0, slnt: -5 });
+        assert.equal(state.restored.payload.fontStyle, 'italic');
+        assert.equal(state.withoutItal.config.variableAxes.ital, undefined);
+        assert.doesNotMatch(state.withoutItal.hint, /Italic axis/);
+        assert.equal(state.reset.style, 'italic');
+        assert.equal(state.reset.hidden, true);
+        assert.deepEqual(state.reset.config.variableAxes, {});
+        assert.equal(state.slantOnly.style, 'oblique -3deg');
+        assert.equal(state.slantOnly.axes, '"slnt" 3');
+        assert.equal(state.slantOnly.hint, 'Explicit slant: 3°');
+    });
 });

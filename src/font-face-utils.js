@@ -254,7 +254,6 @@ function getConfiguredFontFaceWeight(fontConfig) {
 function getConfiguredFontFaceStyle(fontConfig) {
     var config = fontConfig || {};
     if (config.fontStyle === 'italic') return 'italic';
-    if (config.italVal != null && Number(config.italVal) >= 1) return 'italic';
     if (config.variableAxes && config.variableAxes.ital != null && Number(config.variableAxes.ital) >= 1) return 'italic';
     return 'normal';
 }

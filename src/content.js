@@ -2389,13 +2389,8 @@
     if (inlineEffectiveWdth !== null) {
       cssPropsObject['font-stretch'] = inlineEffectiveWdth + '%';
     }
-    var inlineEffectiveItal = getEffectiveItalic(fontConfig);
-    var inlineEffectiveSlnt = getEffectiveSlant(fontConfig);
-    if (inlineEffectiveItal !== null && inlineEffectiveItal >= 1) {
-      cssPropsObject['font-style'] = 'italic';
-    } else if (inlineEffectiveSlnt !== null && inlineEffectiveSlnt !== 0) {
-      cssPropsObject['font-style'] = 'oblique ' + inlineEffectiveSlnt + 'deg';
-    }
+    var inlineRequestedStyle = getRequestedFontStyle(fontConfig);
+    if (inlineRequestedStyle !== null) cssPropsObject['font-style'] = inlineRequestedStyle;
 
     // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
     var inlineCustomAxes = buildAllAxisSettings(fontConfig);
@@ -2832,9 +2827,15 @@
 
   function getEffectiveItalic(config) {
     if (config.fontStyle === 'italic') return 1;
-    if (config.italVal != null && isFinite(Number(config.italVal))) return Number(config.italVal);
     if (config.variableAxes && config.variableAxes.ital != null && isFinite(Number(config.variableAxes.ital))) return Number(config.variableAxes.ital);
     return null;
+  }
+
+  function getRequestedFontStyle(config) {
+    var italic = getEffectiveItalic(config);
+    if (italic !== null && italic >= 1) return 'italic';
+    var slant = getEffectiveSlant(config);
+    return slant !== null ? 'oblique ' + (-slant) + 'deg' : null;
   }
 
   // Returns array of '"axis" value' strings for ALL axes (registered + custom).
@@ -2886,8 +2887,7 @@
     var boldAxes = buildBoldAxisSettings(fontConfig, 700);
     var effectiveWeight = getRequestedCssWeight(fontConfig);
     var effectiveWdth = getEffectiveWidth(fontConfig);
-    var effectiveSlnt = getEffectiveSlant(fontConfig);
-    var effectiveItal = getEffectiveItalic(fontConfig);
+    var requestedStyle = getRequestedFontStyle(fontConfig);
 
     if (fontType === 'body') {
       var bodySelector = getBodyTargetSelector(':not([class*="__whatfont_"])');
@@ -2905,11 +2905,7 @@
       if (fontConfig.letterSpacing != null) cssProps.push('letter-spacing: ' + fontConfig.letterSpacing + 'em' + imp);
       // Registered axes → high-level CSS properties
       if (effectiveWdth !== null) cssProps.push('font-stretch: ' + effectiveWdth + '%' + imp);
-      if (effectiveItal !== null && effectiveItal >= 1) {
-        cssProps.push('font-style: italic' + imp);
-      } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        cssProps.push('font-style: oblique ' + effectiveSlnt + 'deg' + imp);
-      }
+      if (requestedStyle !== null) cssProps.push('font-style: ' + requestedStyle + imp);
       // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
       if (customAxes.length > 0) {
         cssProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);
@@ -2950,11 +2946,7 @@
       }
       // Registered axes → high-level CSS properties
       if (effectiveWdth !== null) nonBoldProps.push('font-stretch: ' + effectiveWdth + '%' + imp);
-      if (effectiveItal !== null && effectiveItal >= 1) {
-        nonBoldProps.push('font-style: italic' + imp);
-      } else if (effectiveSlnt !== null && effectiveSlnt !== 0) {
-        nonBoldProps.push('font-style: oblique ' + effectiveSlnt + 'deg' + imp);
-      }
+      if (requestedStyle !== null) nonBoldProps.push('font-style: ' + requestedStyle + imp);
       // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
       if (customAxes.length > 0) {
         nonBoldProps.push('font-variation-settings: ' + customAxes.join(', ') + imp);

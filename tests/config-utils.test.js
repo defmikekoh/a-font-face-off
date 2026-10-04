@@ -12,6 +12,7 @@ const {
     getEffectiveWidth,
     getEffectiveSlant,
     getEffectiveItalic,
+    getRequestedFontStyle,
     buildAllAxisSettings,
     buildCustomAxisSettings,
 } = require('../src/config-utils.js');
@@ -109,24 +110,26 @@ describe('normalizeConfig', () => {
         assert.deepEqual(result.variableAxes, { wght: 700, wdth: 75, CASL: 1 });
     });
 
-    it('folds legacy wdthVal/slntVal into variableAxes and italVal into fontStyle', () => {
+    it('folds legacy wdthVal/slntVal into variableAxes', () => {
         const result = normalizeConfig({
             fontName: 'Inter',
             wdthVal: 80,
             slntVal: -12,
-            italVal: 1,
         });
         assert.deepEqual(result.variableAxes, { wdth: 80, slnt: -12 });
-        assert.equal(result.fontStyle, 'italic');
     });
 
-    it('maps legacy variableAxes.ital toggle to static fontStyle', () => {
+    it('preserves an explicit ital axis independently of the basic style', () => {
         const result = normalizeConfig({
             fontName: 'IBM Plex Serif',
             variableAxes: { ital: 1, wght: 700 },
         });
-        assert.deepEqual(result.variableAxes, { wght: 700 });
-        assert.equal(result.fontStyle, 'italic');
+        assert.deepEqual(result.variableAxes, { ital: 1, wght: 700 });
+        assert.equal(result.fontStyle, undefined);
+        assert.equal(getRequestedFontStyle(result), 'italic');
+        const uprightOverride = normalizeConfig({ fontStyle: 'italic', variableAxes: { ital: 0 } });
+        assert.equal(uprightOverride.fontStyle, 'italic');
+        assert.deepEqual(uprightOverride.variableAxes, { ital: 0 });
     });
 
     it('preserves fractional ital axis values as variable axes', () => {
@@ -355,16 +358,26 @@ describe('getEffectiveItalic', () => {
         assert.equal(getEffectiveItalic({ fontStyle: 'italic' }), 1);
     });
 
-    it('returns italVal when set', () => {
-        assert.equal(getEffectiveItalic({ italVal: 1 }), 1);
-    });
-
     it('falls back to variableAxes.ital', () => {
         assert.equal(getEffectiveItalic({ variableAxes: { ital: 1 } }), 1);
     });
 
     it('returns null when neither set', () => {
         assert.equal(getEffectiveItalic({}), null);
+    });
+});
+
+describe('requested font style and independent axes', () => {
+    it('converts both slant directions and explicit zero to CSS angles', () => {
+        assert.equal(getRequestedFontStyle({ variableAxes: { slnt: -10 } }), 'oblique 10deg');
+        assert.equal(getRequestedFontStyle({ variableAxes: { slnt: 8 } }), 'oblique -8deg');
+        assert.equal(getRequestedFontStyle({ variableAxes: { slnt: 0 } }), 'oblique 0deg');
+    });
+
+    it('keeps italic face selection when a slant or upright-axis override is active', () => {
+        assert.equal(getRequestedFontStyle({ fontStyle: 'italic', variableAxes: { ital: 0, slnt: -5 } }), 'italic');
+        assert.equal(getRequestedFontStyle({ variableAxes: { ital: 1, slnt: -5 } }), 'italic');
+        assert.equal(getRequestedFontStyle({}), null);
     });
 });
 

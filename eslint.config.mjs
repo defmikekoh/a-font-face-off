@@ -86,6 +86,7 @@ export default [
                 getEffectiveWidth: "readonly",
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",
+                getRequestedFontStyle: "readonly",
                 buildCustomAxisSettings: "readonly",
                 buildAllAxisSettings: "readonly",
                 // From css-generators.js (loaded before popup.js)
@@ -184,6 +185,7 @@ export default [
                 getEffectiveWidth: "readonly",
                 getEffectiveSlant: "readonly",
                 getEffectiveItalic: "readonly",
+                getRequestedFontStyle: "readonly",
                 buildCustomAxisSettings: "readonly",
                 buildAllAxisSettings: "readonly",
             },

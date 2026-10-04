@@ -148,8 +148,8 @@ function affoBuildCss2UrlFromEntry(fontName, entry) {
         const upper = filtered.filter(tag => /^[A-Z]+$/.test(tag)).sort();
         const orderedTags = [...lower, ...upper];
         const hasItal = orderedTags.includes('ital');
-        const makeTuple = italVal => orderedTags.map(tag => {
-            if (tag === 'ital') return String(italVal);
+        const makeTuple = italicValue => orderedTags.map(tag => {
+            if (tag === 'ital') return String(italicValue);
             const range = entry.ranges[tag];
             return `${range[0]}..${range[1]}`;
         }).join(',');
