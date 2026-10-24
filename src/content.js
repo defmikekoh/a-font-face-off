@@ -63,6 +63,9 @@
   var fontFaceOnlyDomains = ['x.com']; // Will be loaded from storage
   var inlineApplyDomains = ['x.com']; // Will be loaded from storage
   var currentOrigin = location.hostname;
+  var activePathScope = currentOrigin;
+  var pathScopeGeneration = 0;
+  var hasDirectoryScopes = false;
 
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production
   var AFFO_DEBUG = true;
@@ -1939,7 +1942,17 @@
       el.getAttribute(record.attribute) !== record.value;
   }
 
+  function rememberOriginalInlineProperty(el, prop) {
+    if (!hasDirectoryScopes) return;
+    if (!el.__affoOriginalInline) el.__affoOriginalInline = new Map();
+    if (!el.__affoOriginalInline.has(prop)) {
+      el.__affoOriginalInline.set(prop, [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)]);
+    }
+  }
+
   function applyPreparedInlineProperty(el, record) {
+    rememberOriginalInlineProperty(el, record.prop);
+    rememberOriginalInlineProperty(el, record.customProp);
     if (el.style.getPropertyValue(record.prop) !== record.canonical || el.style.getPropertyPriority(record.prop) !== record.priority) {
       el.style.setProperty(record.prop, record.value, record.priority);
     }
@@ -1950,6 +1963,7 @@
   }
 
   function setImportantStyleIfChanged(el, prop, value) {
+    rememberOriginalInlineProperty(el, prop);
     var normalized = canonicalInlineValue(prop, value);
     if (el.style.getPropertyValue(prop) === normalized && el.style.getPropertyPriority(prop) === 'important') {
       return false;
@@ -1994,7 +2008,7 @@
     setAttributeIfChanged(el, 'data-affo-color', colorValue);
   }
 
-  function clearAffoProtection(el) {
+  function clearAffoProtection(el, preserveInline) {
     if (!el || !el.style) return;
     [
       'font-family',
@@ -2007,8 +2021,10 @@
       'font-style',
       'font-variation-settings'
     ].forEach(function (prop) {
-      el.style.removeProperty(prop);
-      el.style.removeProperty('--affo-' + prop);
+      if (!preserveInline) {
+        el.style.removeProperty(prop);
+        el.style.removeProperty('--affo-' + prop);
+      }
       if (el.removeAttribute) el.removeAttribute('data-affo-' + prop);
     });
     if (el.removeAttribute) {
@@ -5044,6 +5060,7 @@
   }
 
   function applyReadyFontConfig(entry, fontConfig, fontType, css, walkerPromise) {
+    var scopeGeneration = pathScopeGeneration;
     var readinessPromise = fontConfig.fontName
       ? waitForConfiguredFontReady(fontConfig, fontType)
       : Promise.resolve();
@@ -5073,6 +5090,7 @@
     }
 
     return readinessForApply.then(async function (readiness) {
+      if (scopeGeneration !== pathScopeGeneration) return false;
       if (!readiness.ready) {
         debugWarn(`[AFFO Content] ${fontType} font was not ready; applying configured CSS with browser fallback:`, readiness.error);
       }
@@ -5173,7 +5191,7 @@
       // Fallback for pages that applied a concrete stored font before this listener cached it.
       browser.storage.local.get('affoApplyMap').then(function (data) {
         var map = data && data.affoApplyMap ? data.affoApplyMap : {};
-        var entry = map[currentOrigin];
+        var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
         reapplyCustomFontEntry(entry);
       }).catch(function (e) {
         debugLog(`[AFFO Content] Error re-applying styles after custom font load:`, e);
@@ -5211,7 +5229,9 @@
       }
       localFontNames = normalizeLocalFontsValue(data.affoLocalFonts || []);
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
-      var entry = map[origin];
+      var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
+      activePathScope = globalThis.AFFOScopeUtils.resolveKey(map, location);
+      hasDirectoryScopes = Object.keys(map).some(function (key) { return key.startsWith(currentOrigin + '/'); });
       if (!entry) {
         lastReappliedEntry = null;
         requestSrouletteCssRemoval();
@@ -5354,6 +5374,49 @@
     }).catch(function () { });
   } catch (e) { }
 
+  // History APIs run in the page realm on some browsers, so the background also
+  // signals URL changes. Compare resolved keys to avoid touching same-scope navigation.
+  async function refreshPathScope() {
+    var data = await browser.storage.local.get('affoApplyMap');
+    var map = data.affoApplyMap || {};
+    hasDirectoryScopes = Object.keys(map).some(function (key) { return key.startsWith(currentOrigin + '/'); });
+    var key = globalThis.AFFOScopeUtils.resolveKey(map, location);
+    if (key === activePathScope) return;
+    activePathScope = key;
+    var generation = ++pathScopeGeneration;
+    var response = await sendBackgroundMessage({ type: 'affoClearPageCss' });
+    if (!response || !response.success) throw new Error('Could not clear previous directory CSS');
+    if (generation !== pathScopeGeneration) return;
+    inlineConfigs = {};
+    cleanupSharedInlineInfra();
+    clearAllFontSizeScales();
+    clearObservedTmiCssTypes();
+    cleanupSharedTmiCssObserver();
+    removeSubstackRouletteEnhancements();
+    ['body', 'serif', 'sans', 'mono'].forEach(function (type) {
+      var style = document.getElementById('a-font-face-off-style-' + type);
+      if (style) style.remove();
+    });
+    document.querySelectorAll('[data-affo-protected], [data-affo-color]').forEach(function (el) {
+      var originals = el.__affoOriginalInline;
+      clearAffoProtection(el, true);
+      if (originals) originals.forEach(function (value, prop) {
+        if (value[0]) el.style.setProperty(prop, value[0], value[1]);
+        else el.style.removeProperty(prop);
+      });
+      delete el.__affoOriginalInline;
+    });
+    lastReappliedEntry = null;
+    var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
+    if (!entry || waitForItDomains.includes(currentOrigin)) return;
+    var effective = await resolveSrouletteEntry(entry);
+    if (generation !== pathScopeGeneration) return;
+    resetWalkerStateForEntry(effective);
+    reapplyStoredFontsFromEntry(effective);
+  }
+
+  registerSpaHandler(function () { refreshPathScope().catch(debugWarn); });
+
   // Storage change listener - only handles cleanup
   try {
     browser.storage.onChanged.addListener(function (changes, area) {
@@ -5394,7 +5457,7 @@
             browser.storage.local.get(['affoApplyMap']).then(function (data) {
               try {
                 var map = data && data.affoApplyMap ? data.affoApplyMap : {};
-                var entry = map[origin];
+                var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
 
                 ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
                   try {
@@ -5429,7 +5492,7 @@
           browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites']).then(function (data) {
             try {
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
-              var entry = map[origin];
+              var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
               if (entry && hasSrouletteIntent(entry)) {
                 ['a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
                   try {
@@ -5472,8 +5535,12 @@
         }
         var oldMap = changes.affoApplyMap.oldValue || {};
         var newMap = changes.affoApplyMap.newValue || {};
-        var oldEntry = oldMap[origin];
-        var entry = newMap[origin];
+        var oldEntry = globalThis.AFFOScopeUtils.getEntry(oldMap, location);
+        var entry = globalThis.AFFOScopeUtils.getEntry(newMap, location);
+        if (globalThis.AFFOScopeUtils.resolveKey(newMap, location) !== activePathScope) {
+          refreshPathScope().catch(debugWarn);
+          return;
+        }
 
         // Skip if this origin's config didn't actually change
         if (JSON.stringify(oldEntry) === JSON.stringify(entry)) {
@@ -5532,7 +5599,12 @@
   // Message listener - handles cleanup, readiness coordination, and walker requests.
   try {
     browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-      if (message.type === 'affoGetPageInfo') {
+      if (message.type === 'affoRefreshPathScope') {
+        refreshPathScope().then(function () { sendResponse({ success: true }); }).catch(function (error) {
+          sendResponse({ success: false, error: error.message });
+        });
+        return true;
+      } else if (message.type === 'affoGetPageInfo') {
         sendResponse({
           ok: true,
           success: true,
@@ -5727,7 +5799,7 @@
   document.addEventListener('affo-wait-for-it-apply', function () {
     browser.storage.local.get('affoApplyMap').then(function (data) {
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
-      var entry = map[location.hostname];
+      var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
       if (entry) {
         debugLog('[AFFO Content] Wait For It: manually applying fonts for', location.hostname);
         resolveSrouletteEntry(entry).then(function (effectiveEntry) {

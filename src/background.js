@@ -273,6 +273,44 @@ function isSroulettePool(value) {
   return AFFOSroulette.isPool(value);
 }
 
+// Keep popup/Quick Pick CSS removable after the popup closes or the MV3 worker
+// restarts. Each tab has its own session key; the existing tab queue serializes writes.
+function pageCssSessionKey(tabId) {
+  return 'affoPageCss:' + tabId;
+}
+
+async function updateTrackedPageCss(tabId, css, insert) {
+  return withSrouletteCssTracking(tabId, async () => {
+    const key = pageCssSessionKey(tabId);
+    const data = await browser.storage.session.get(key);
+    const rules = new Set(data[key] || []);
+    if (insert) {
+      await browser.scripting.insertCSS({ target: { tabId }, css, origin: 'USER' });
+      rules.add(css);
+    } else {
+      await browser.scripting.removeCSS({ target: { tabId }, css, origin: 'USER' });
+      rules.delete(css);
+    }
+    await browser.storage.session.set({ [key]: Array.from(rules) });
+  });
+}
+
+function insertTrackedPageCss(tabId, css) {
+  return updateTrackedPageCss(tabId, css, true);
+}
+
+async function clearTrackedPageCss(tabId) {
+  await withSrouletteCssTracking(tabId, async () => {
+    const key = pageCssSessionKey(tabId);
+    const data = await browser.storage.session.get(key);
+    for (const css of data[key] || []) {
+      await browser.scripting.removeCSS({ target: { tabId }, css, origin: 'USER' });
+    }
+    await browser.storage.session.remove(key);
+    await removeTrackedSrouletteCssNow(tabId);
+  });
+}
+
 function isSrouletteTarget(value) {
   return AFFOSroulette.isTarget(value);
 }
@@ -345,6 +383,7 @@ async function insertTrackedSrouletteCssNow(tabId, target, css) {
 try {
   if (browser.tabs && browser.tabs.onRemoved) {
     browser.tabs.onRemoved.addListener(tabId => {
+      browser.storage.session.remove(pageCssSessionKey(tabId)).catch(() => {});
       withSrouletteCssTracking(tabId, () => {
         srouletteInsertedCssByTab.delete(tabId);
       }).catch(error => affoDebugWarn('[AFFO Background] CSS tracking cleanup failed:', error));
@@ -365,7 +404,7 @@ function getAffoBrowserActionOriginFromUrl(url) {
 
 function getAffoBrowserActionTitleForTab(tab, applyMap) {
   const origin = getAffoBrowserActionOriginFromUrl(tab && tab.url);
-  const domainData = origin && applyMap && applyMap[origin] ? applyMap[origin] : null;
+  const domainData = origin ? globalThis.AFFOScopeUtils.getEntry(applyMap, tab.url) : null;
   const formatter = typeof globalThis !== 'undefined' && typeof globalThis.formatAffoBrowserActionTitle === 'function'
     ? globalThis.formatAffoBrowserActionTitle
     : null;
@@ -432,6 +471,9 @@ function initAffoBrowserActionTitleUpdates() {
     }
     if (browser.tabs && browser.tabs.onUpdated) {
       browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (changeInfo && changeInfo.url) {
+          browser.tabs.sendMessage(tabId, { type: 'affoRefreshPathScope' }).catch(() => {});
+        }
         if (changeInfo && changeInfo.url && tab && tab.active) {
           updateAffoBrowserActionTitleForTab(tab);
         } else if (changeInfo && changeInfo.url && tabId != null) {
@@ -3039,6 +3081,23 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    if (msg.type === 'affoInsertPageCss' || msg.type === 'affoRemovePageCss' || msg.type === 'affoClearPageCss') {
+      try {
+        // An Android popup opened as an extension tab has its own sender.tab.
+        // Popup insert/remove operations explicitly name the original page tab.
+        const tabId = msg.type === 'affoClearPageCss' ? sender.tab && sender.tab.id : msg.tabId;
+        if (tabId == null) return { success: false, error: 'Missing tab' };
+        if (msg.type === 'affoClearPageCss') await clearTrackedPageCss(tabId);
+        else {
+          if (typeof msg.css !== 'string' || !msg.css.trim()) return { success: false, error: 'Missing CSS' };
+          await updateTrackedPageCss(tabId, msg.css, msg.type === 'affoInsertPageCss');
+        }
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+
     // Content scripts resolve Sroulette locally, then ask background to inject
     // user-origin CSS so page style churn cannot temporarily outrank AFFO.
     if (msg.type === 'affoInsertSrouletteCss') {
@@ -3074,7 +3133,8 @@ async function handleAffoRuntimeMessage(msg, sender) {
     // Handle quick-apply favorite from toolbar
     if (msg.type === 'quickApplyFavorite') {
       try {
-        const { origin, fontConfig, position } = msg;
+        const { fontConfig, position } = msg;
+        let origin = msg.origin;
         const tabId = sender.tab ? sender.tab.id : null;
 
         if (!origin || !fontConfig || !position || !tabId) {
@@ -3098,6 +3158,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
         // Save to storage
         const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
         const applyMap = result[APPLY_MAP_KEY] || {};
+        if (sender.tab && sender.tab.url) origin = globalThis.AFFOScopeUtils.resolveKey(applyMap, sender.tab.url);
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][position] = payload;
         clearSrouletteIntentForTarget(applyMap[origin], position);
@@ -3106,14 +3167,14 @@ async function handleAffoRuntimeMessage(msg, sender) {
         await removeTrackedSrouletteCss(tabId, [position]);
 
         const aggressiveDomains = result[AGGRESSIVE_DOMAINS_KEY] || ['www.thedeepview.com'];
-        const aggressive = aggressiveDomains.includes(origin);
+        const aggressive = aggressiveDomains.includes(origin.split('/')[0]);
 
         // Run DOM walker via content script message
         await browser.tabs.sendMessage(tabId, { type: 'runElementWalker', fontType: position });
 
         // Generate and inject CSS
         const css = generateThirdManInCSS(position, payload, aggressive);
-        await browser.scripting.insertCSS({ target: { tabId }, css, origin: 'USER' });
+        await insertTrackedPageCss(tabId, css);
 
         affoDebugLog('[AFFO Background] Quick-apply font applied to', position, 'on', origin);
         return { success: true };
@@ -3127,7 +3188,8 @@ async function handleAffoRuntimeMessage(msg, sender) {
     // the synced on/off intent; content.js resolves a fresh random font locally.
     if (msg.type === 'quickApplySroulette') {
       try {
-        const { origin, position, pool } = msg;
+        const { position, pool } = msg;
+        let origin = msg.origin;
         const tabId = sender.tab ? sender.tab.id : null;
 
         if (!origin || !isSrouletteTarget(position) || !isSroulettePool(pool) || !tabId) {
@@ -3136,6 +3198,7 @@ async function handleAffoRuntimeMessage(msg, sender) {
 
         const result = await browser.storage.local.get(APPLY_MAP_KEY);
         const applyMap = result[APPLY_MAP_KEY] || {};
+        if (sender.tab && sender.tab.url) origin = globalThis.AFFOScopeUtils.resolveKey(applyMap, sender.tab.url);
         if (!applyMap[origin]) applyMap[origin] = {};
 
         if (!setSrouletteIntentForTarget(applyMap[origin], position, pool)) {

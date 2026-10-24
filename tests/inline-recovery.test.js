@@ -8,7 +8,7 @@ const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
 const names = new Set([
     'discoverInlineBatchSources', 'inlineTypographyNeedsRepair', 'inlineFontSizeNeedsRepair',
     'applyInlineFontSizeScale', 'reapplyAllInlineStylesNow',
-    'prepareInlineProperty', 'prepareInlineComparisons', 'inlinePropertyNeedsRepair', 'applyPreparedInlineProperty',
+    'prepareInlineProperty', 'prepareInlineComparisons', 'inlinePropertyNeedsRepair', 'applyPreparedInlineProperty', 'rememberOriginalInlineProperty',
     'applyTmiProtectionBatch', 'inlineGroupIsCurrent', 'inlineGroupElements', 'tmiProtectionBatchSteps', 'resetHeadingTypographySteps',
     'restorePreparedFontSwapAnchor', 'canonicalInlineValue', 'queueInlineWork', 'scheduleInlineWorkChunk', 'inlineElementNeedsRepair',
     'prepareTmiProtection', 'applyTmiProtection', 'applyAffoProtection', 'setImportantStyleIfChanged',
@@ -31,6 +31,7 @@ collect(acorn.parse(source, { ecmaVersion: 2022 }));
 assert.equal(functions.length, names.size);
 function harness(overrides) {
     const context = vm.createContext({
+        hasDirectoryScopes: false,
         inlineCssValues: new Map(), inlineCssParser: null,
         inlineWorkChannel: null, inlineWorkChunkSequence: 0,
         MessageChannel: class {

@@ -19,7 +19,21 @@ var focusHandlers = [];              // Array of callbacks invoked on focus/visi
 
 ## Storage Change Listener
 
-The `affoApplyMap` storage change listener diffs `oldValue[origin]` vs `newValue[origin]` using `JSON.stringify` comparison. Only tears down and reapplies styles when the current origin's config actually changed, avoiding unnecessary work on tabs showing unrelated domains.
+The `affoApplyMap` storage change listener resolves the current URL through
+`scope-utils.js` in both maps and diffs the selected entries using `JSON.stringify`.
+Unrelated hostname or directory changes do not reapply fonts. The popup, toolbar
+visibility/early warming, Quick Pick, and browser action title use the same resolver.
+
+`refreshPathScope()` runs on SPA hooks and background `tabs.onUpdated` URL messages.
+When the selected directory key changes, it removes previous injected CSS, inline
+protection, scaling, and style elements before applying the new entry. Inline
+properties are snapshotted only on hosts with configured directories, allowing
+navigation out of an inline scope to restore the original page styles. A generation
+counter prevents an older font download from applying after a scope transition.
+Popup and Quick Pick USER-origin CSS is routed through background tracking and
+stored as arrays of CSS strings in `storage.session['affoPageCss:' + tabId]`, so
+directory cleanup works after the popup closes or the MV3 worker restarts. These
+session records are removed on scope cleanup and tab close and are never synced.
 
 For explicit Sroulette domain entries, `affoApplyMap[origin].sroulette` is materialized in memory before reapply, including on Substack. `content-sroulette-runtime.js` owns the materialization and tracked-CSS message helpers; `content.js` decides when to resolve/reapply during page load, storage changes, SPA hooks, and focus hooks. Each explicit target (`body`, `serif`, `sans`, or `mono`) samples a fresh favorite from the configured Substack Roulette serif/sans pool; the sampled font is not written back to storage, so page load and pool/favorite changes can reroll without sync churn. For TMI `serif`/`sans`/`mono` materializations, content.js asks background.js to inject the generated Sroulette CSS with tracked `scripting.insertCSS` calls at author and user origins; background.js tracks that per tab so replaced or cleared Sroulette targets can remove the exact previous CSS. Native Substack Roulette is a separate automatic path used only when the domain has no saved font entry; it applies serif/sans plus its beige and text-dimming enhancements.
 

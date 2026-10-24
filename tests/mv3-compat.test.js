@@ -26,7 +26,13 @@ function createHarness({ content = false, android = false } = {}) {
             getManifest: () => ({ manifest_version: 3 }),
             onMessage: event(),
             openOptionsPage: cb => { calls.push('options'); cb(); },
-            sendMessage: (msg, cb) => cb(msg)
+            sendMessage: (msg, cb) => {
+                if (msg.type === 'affoInsertPageCss' || msg.type === 'affoRemovePageCss') {
+                    const key = msg.type === 'affoInsertPageCss' ? 'insert' : 'remove';
+                    calls.push({ [key]: { css: msg.css, target: { tabId: msg.tabId }, origin: 'USER' } });
+                    cb({ success: true });
+                } else cb(msg);
+            }
         },
         storage: {
             local: {

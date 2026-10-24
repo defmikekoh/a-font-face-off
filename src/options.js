@@ -1202,6 +1202,7 @@
   async function load(){
     try {
       const data = await browser.storage.local.get([
+        'affoApplyMap',
         'affoKnownSerif',
         'affoKnownSans',
         'affoPreservedFonts',
@@ -1240,6 +1241,7 @@
       document.getElementById('ff-only-domains').value = toTextarea(ffonly);
       const inline = Array.isArray(data.affoInlineApplyDomains) ? data.affoInlineApplyDomains : DEFAULT_INLINE.slice();
       document.getElementById('inline-domains').value = toTextarea(inline);
+      document.getElementById('font-path-scopes').value = Object.keys(data.affoApplyMap || {}).filter(key => key.includes('/')).sort().join('\n');
       const aggressive = Array.isArray(data.affoAggressiveDomains) ? data.affoAggressiveDomains : DEFAULT_AGGRESSIVE.slice();
       document.getElementById('aggressive-domains').value = toTextarea(aggressive);
       document.getElementById('apply-after-parsing-domains').value = toTextarea(Array.isArray(data.affoApplyAfterParsingDomains) ? data.affoApplyAfterParsingDomains : DEFAULT_APPLY_AFTER_PARSING);
@@ -1393,6 +1395,19 @@
       document.getElementById('inline-domains').value = toTextarea(DEFAULT_INLINE);
       const s = document.getElementById('status-inline'); s.textContent = 'Reset'; setTimeout(() => { s.textContent = ''; }, 1500);
     } catch (e) {}
+  }
+
+  async function saveFontPathScopes() {
+    const status = document.getElementById('status-font-path-scopes');
+    try {
+      const data = await browser.storage.local.get('affoApplyMap');
+      const map = globalThis.AFFOScopeUtils.updatePathScopes(data.affoApplyMap || {}, document.getElementById('font-path-scopes').value.split(/\r?\n/));
+      await browser.storage.local.set({ affoApplyMap: map });
+      document.getElementById('font-path-scopes').value = Object.keys(map).filter(key => key.includes('/')).sort().join('\n');
+      status.textContent = 'Saved. Reload open pages.';
+    } catch (error) {
+      status.textContent = error.message;
+    }
   }
 
   async function saveAggressive(){
@@ -1727,6 +1742,7 @@
     document.getElementById('reset-ffonly').addEventListener('click', resetFFOnly);
     document.getElementById('save-inline').addEventListener('click', saveInline);
     document.getElementById('reset-inline').addEventListener('click', resetInline);
+    document.getElementById('save-font-path-scopes').addEventListener('click', saveFontPathScopes);
     document.getElementById('save-aggressive').addEventListener('click', saveAggressive);
     document.getElementById('reset-aggressive').addEventListener('click', resetAggressive);
     document.getElementById('save-apply-after-parsing').addEventListener('click', saveApplyAfterParsing);

@@ -253,7 +253,7 @@
                 'affoWaitForItDomains'
             ]);
             const applyMap = data.affoApplyMap || {};
-            const domainData = applyMap[location.hostname];
+            const domainData = globalThis.AFFOScopeUtils.getEntry(applyMap, location);
             return data.affoCurrentView === 'faceoff' ||
                 hasDomainAppliedFontState(domainData) ||
                 hasAutoSubstackRouletteState(data);
@@ -495,7 +495,7 @@
                 'affoLocalFonts'
             ]).then(data => {
                 const map = data.affoApplyMap || {};
-                const entry = map[origin];
+                const entry = globalThis.AFFOScopeUtils.getEntry(map, location);
 
                 if (!entry) return;
 
@@ -1133,7 +1133,7 @@
             const favorites = data.affoFavorites || {};
             const order = data.affoFavoritesOrder || [];
             const applyMap = data.affoApplyMap || {};
-            const domainData = applyMap[origin] || {};
+            const domainData = globalThis.AFFOScopeUtils.getEntry(applyMap, location) || {};
 
             const domainLists = {
                 ffonly: data.affoFontFaceOnlyDomains || ['x.com'],

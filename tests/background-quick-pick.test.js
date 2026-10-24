@@ -84,6 +84,7 @@ function loadBackground(seed = {}, options = {}) {
     const browserStub = {
         storage: {
             local: storage.local,
+            session: createStorage().local,
             onChanged: storage.onChanged
         },
         runtime: {
@@ -153,6 +154,7 @@ function loadBackground(seed = {}, options = {}) {
         Promise,
         Date,
         AFFOSroulette,
+        AFFOScopeUtils: require('../src/scope-utils.js'),
         AFFOPageFontUtils,
         affoParseGfMetadataText: () => ({}),
         affoGetMetadataFamilies: () => [],
@@ -350,6 +352,33 @@ describe('background WhatFont Face-off draft', () => {
 });
 
 describe('background quick-pick Sroulette', () => {
+    it('resolves Quick Pick and action titles from the longest directory scope', async () => {
+        const { context, storage } = loadBackground({ affoApplyMap: {
+            'example.com': { body: { fontName: 'Domain' } },
+            'example.com/wiki/': {},
+            'example.com/wiki/admin/': { body: { fontName: 'Admin' } }
+        } });
+        const sender = { tab: { id: 7, url: 'https://example.com/wiki/article' } };
+        const result = await context.self.affoHandleRuntimeMessage({ type: 'quickApplySroulette', origin: 'example.com', position: 'serif', pool: 'sans' }, sender);
+        assert.equal(result.success, true);
+        assert.deepEqual(storage.data.affoApplyMap['example.com/wiki/'], { sroulette: { serif: { pool: 'sans' } } });
+        assert.equal(storage.data.affoApplyMap['example.com'].body.fontName, 'Domain');
+        assert.equal(context.self.affoGetBrowserActionTitleForTab({ url: 'https://example.com/wiki/admin/users' }, storage.data.affoApplyMap), 'AFFO - B: Admin');
+    });
+
+    it('removes popup CSS on directory change after the background restarts', async () => {
+        const first = loadBackground();
+        const result = await first.context.self.affoHandleRuntimeMessage({ type: 'affoInsertPageCss', tabId: 7, css: 'p {color:red}' }, { tab: { id: 99, url: 'moz-extension://test/popup.html' } });
+        assert.equal(result.success, true);
+        assert.equal(first.cssOps[0].tabId, 7, 'Use source tab rather than Android popup tab');
+        const restarted = loadBackground();
+        await restarted.context.browser.storage.session.set(await first.context.browser.storage.session.get(null));
+        const cleared = await restarted.context.self.affoHandleRuntimeMessage({ type: 'affoClearPageCss' }, { tab: { id: 7 } });
+        assert.equal(cleared.success, true);
+        assert.deepEqual(restarted.cssOps, [{ op: 'removeCSS', tabId: 7, details: { css: 'p {color:red}', origin: 'USER' } }]);
+        assert.deepEqual(await restarted.context.browser.storage.session.get(null), {});
+    });
+
     it('stores synced Sroulette intent without a resolved font', async () => {
         const { context, storage } = loadBackground({
             affoApplyMap: {

@@ -879,6 +879,17 @@
     </div>
 
     <div class="section">
+      <div class="section-title">Path-specific Font Settings</div>
+      <label for="font-path-scopes">Domains with separate directory settings</label>
+      <textarea id="font-path-scopes" placeholder="foodomain.com/wiki/&#10;foodomain.com/jira/"></textarea>
+      <div class="row">
+        <button id="save-font-path-scopes">Save Directories</button>
+        <span id="status-font-path-scopes" class="status" role="status"></span>
+      </div>
+      <div class="hint">One domain and directory per line. Visit a directory and use Apply or Quick Pick to change its fonts separately. New directories start with their currently inherited settings. The longest matching directory wins, including its child pages; other pages use the domain settings. Paths are case-sensitive. Removing a line deletes that directory's saved settings and restores inheritance. Reload open pages after changing this list.</div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Aggressive Override Domains</div>
       <textarea id="aggressive-domains" placeholder="One domain per line (e.g., example.com)"></textarea>
       <div class="row">
@@ -1030,6 +1041,7 @@
   </div>
 
   <script src="browser-api.js"></script>
+    <script src="scope-utils.js"></script>
 
   <script src="block-javascript-utils.js"></script>
   <script src="messaging-utils.js"></script>

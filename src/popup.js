@@ -491,7 +491,7 @@ async function getHostnameByContentMessage(tab) {
 // Helper: get current active tab's hostname. Chromium Android can open the popup
 // outside the page window, so use tab URL, explicit-tab script injection, and
 // content-script messaging before falling back to cached context.
-async function getActiveOrigin() {
+async function getActiveHostname() {
     const contextDomain = getContextDomainFromUrl();
     if (contextDomain) {
         window.currentTabHostname = contextDomain;
@@ -518,6 +518,22 @@ async function getActiveOrigin() {
     }
 
     return normalizeHostname(window.currentTabHostname);
+}
+
+// The selected storage scope follows the source page, including popups opened in a tab.
+async function getActiveOrigin() {
+    const hostname = await getActiveHostname();
+    if (!hostname) return null;
+    let tab = await getTargetTabForPopup().catch(() => null);
+    if (tab && !tab.url && tab.id != null) tab = await browser.tabs.get(tab.id).catch(() => tab);
+    let href = tab && tab.url;
+    if (!getHostnameFromUrl(href)) {
+        const result = await executeScriptInTargetTab({ func: () => location.href }).catch(() => null);
+        href = result && result[0];
+    }
+    if (!getHostnameFromUrl(href)) return hostname;
+    const data = await browser.storage.local.get('affoApplyMap');
+    return globalThis.AFFOScopeUtils.resolveKey(data.affoApplyMap || {}, href);
 }
 
 // Update domain display in the preview domain rink
@@ -663,13 +679,17 @@ async function restoreFontSwapInTargetTab(fontType) {
 async function insertCSSInTargetTab(options) {
     const tab = await getTargetTabForPopup();
     if (!tab || tab.id == null) throw new Error('No target tab available');
-    return browser.scripting.insertCSS({ ...options, target: { tabId: tab.id }, origin: 'USER' });
+    const result = await browser.runtime.sendMessage({ type: 'affoInsertPageCss', tabId: tab.id, css: options.css });
+    if (!result || !result.success) throw new Error(result && result.error || 'Could not insert page CSS');
+    return result;
 }
 
 async function removeCSSInTargetTab(options) {
     const tab = await getTargetTabForPopup();
     if (!tab || tab.id == null) throw new Error('No target tab available');
-    return browser.scripting.removeCSS({ ...options, target: { tabId: tab.id }, origin: 'USER' });
+    const result = await browser.runtime.sendMessage({ type: 'affoRemovePageCss', tabId: tab.id, css: options.css });
+    if (!result || !result.success) throw new Error(result && result.error || 'Could not remove page CSS');
+    return result;
 }
 
 // Helper: send message to the correct tab (source tab if available, otherwise active tab)
@@ -2474,7 +2494,7 @@ try {
 } catch (e) {}
 
 function shouldUseInlineApply(origin) {
-    return AFFOPopupPanelUtils.shouldContentOwnPageApply(origin, inlineApplyDomains);
+    return AFFOPopupPanelUtils.shouldContentOwnPageApply(origin && origin.split('/')[0], inlineApplyDomains);
 }
 
 // Domain detection for aggressive override domains
@@ -2491,7 +2511,7 @@ try {
 } catch (e) {}
 
 function shouldUseAggressive(origin) {
-    return aggressiveDomains.includes(origin);
+    return aggressiveDomains.includes(origin && origin.split('/')[0]);
 }
 
 let ignoreCommentsDomains = []; // Will be loaded from storage
@@ -2506,7 +2526,7 @@ try {
 } catch (e) {}
 
 function shouldIgnoreComments(origin) {
-    return ignoreCommentsDomains.includes(origin);
+    return ignoreCommentsDomains.includes(origin && origin.split('/')[0]);
 }
 
 // Element walker is now handled entirely in content.js via message passing
@@ -2565,10 +2585,10 @@ async function applyFontToPage(position, config) {
             let css;
             if (position === 'body') {
                 // Use Body Contact CSS generation
-                css = generateBodyContactCSS(payload, aggressive, ignoreComments, origin);
+                css = generateBodyContactCSS(payload, aggressive, ignoreComments, origin.split('/')[0]);
             } else {
                 // Use existing generateBodyCSS for face-off mode
-                css = generateBodyCSS(payload, aggressive, ignoreComments, origin);
+                css = generateBodyCSS(payload, aggressive, ignoreComments, origin.split('/')[0]);
             }
 
             if (css) {
@@ -3622,7 +3642,7 @@ async function initializePopupPageContext() {
             });
         } else {
             // Fall back to getting domain from active tab
-            window.currentTabHostname = await getActiveOrigin();
+            window.currentTabHostname = await getActiveHostname();
             window.sourceTabId = null; // Will use current active tab
             affoDebugLog('🌐 Current tab hostname from active tab:', window.currentTabHostname);
         }
@@ -4299,10 +4319,12 @@ function clearApplyMapForOrigin(origin, fontType = null) {
             } else {
                 // Clear entire domain
                 affoDebugLog(`🔴 clearApplyMapForOrigin: Clearing entire domain "${origin}"`);
-                delete applyMap[origin];
+                if (origin.includes('/')) applyMap[origin] = {};
+                else delete applyMap[origin];
             }
             if (applyMap[origin] && Object.keys(applyMap[origin]).length === 0) {
-                delete applyMap[origin];
+                if (origin.includes('/')) applyMap[origin] = {};
+                else delete applyMap[origin];
             }
         }
         affoDebugLog(`🔴 clearApplyMapForOrigin: New applyMap after clear:`, applyMap);

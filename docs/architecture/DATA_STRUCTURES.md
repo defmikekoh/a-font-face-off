@@ -31,6 +31,27 @@ In both Firefox and Chromium MV3 builds, `browser.storage.session` stores `affoS
 **Purpose**: Stores fonts and Sroulette intent applied to specific domains across all modes (Body Contact, Third Man In)
 **Key**: `affoApplyMap`
 
+Keys are exact hostnames or hostname + directory, e.g. `foodomain.com`,
+`foodomain.com/wiki/`, and `foodomain.com/jira/`. Directory keys are configured
+in Settings → Path-specific Font Settings and normalized to a trailing slash.
+Matching uses the longest directory prefix on the same hostname, with segment
+boundaries: `/wiki` and `/wiki/page` match `/wiki/`, but `/wikipedia` does not.
+Paths are case-sensitive; query strings and fragments are ignored. As with existing
+hostname keys, schemes and ports do not distinguish saved settings.
+If no directory matches, the hostname entry applies. Entries replace the whole
+scope; individual font targets are not merged with parent settings.
+
+New directory entries copy the currently inherited entry, including Sroulette
+intent. Reset keeps an empty `{}` directory entry, which explicitly applies no
+saved fonts. Removing the directory in Settings deletes its entry and restores
+parent/domain inheritance. Existing hostname entries need no migration. These
+directory keys use the existing per-key sync metadata and tombstones.
+
+Popup/Quick Pick CSS tracking uses session-only keys `affoPageCss:<tabId>` in
+`browser.storage.session`, each holding an array of exact USER-origin CSS strings.
+They survive background restarts, are removed on directory transitions/tab close,
+and are excluded from local-storage exports and cloud sync.
+
 ```javascript
 {
   "example.com": {
