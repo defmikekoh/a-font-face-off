@@ -180,6 +180,7 @@ function _whatFont() {
             this.size = TypeInfo.roundFloatWithPxUnit(this.element.css('font-size'));
             this.lineHeight = TypeInfo.roundFloatWithPxUnit(this.element.css('line-height'));
             this.letterSpacing = this.element.css('letter-spacing');
+            this.letterSpacingEm = parseFloat(this.letterSpacing) / parseFloat(computedStyle.fontSize);
             this.color = this.element.css('color');
             this.filter = computedStyle.getPropertyValue('filter');
             this.effectiveColor = TypeInfo.toCssColor(TypeInfo.applyBrightnessFilter(TypeInfo.parseColor(this.color), this.filter));
@@ -750,7 +751,11 @@ function _whatFont() {
 
             var lsRow = $(newPanel).find(".letter_spacing_row");
             if (ls && ls !== 'normal' && parseFloat(ls) !== 0) {
-                $(newPanel).find(".letter_spacing>dd").text(ls);
+                var spacingText = ls;
+                if (isFinite(typeInfo.letterSpacingEm)) {
+                    spacingText += ' (' + parseFloat(typeInfo.letterSpacingEm.toFixed(4)) + 'em)';
+                }
+                $(newPanel).find(".letter_spacing>dd").text(spacingText);
                 lsRow.show();
             } else {
                 lsRow.hide();
