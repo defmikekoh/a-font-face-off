@@ -164,7 +164,7 @@ and are excluded from local-storage exports and cloud sync.
 | `affoSubstackRouletteBeigeDisabledDomains` | Domains where Substack Roulette keeps original backgrounds instead of applying the default beige layer | `["example.substack.com"]` |
 | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin sync metadata for Substack Roulette beige disabled domains | `{ version: 1, byOrigin: { "example.substack.com": { modified: 1700000000000 } } }` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
-| `affoSyncMeta` | Local sync metadata and remote revision fingerprints | `{ lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
+| `affoSyncMeta` | Local sync metadata, destination identity, remote revisions, and whole-file content baselines | `{ remoteScope: '["gdrive","app-folder"]', lastSync: 1700000000000, items: { "domains.json": { modified: 1700000000000, remoteRev: "app-folder:domains.json:v3" } } }` |
 | `affoGDriveAuthStatus` | Local-only Google Drive auth recovery state used when refresh-token renewal fails. Preserves backend selection while prompting reconnect. Not synced. | `{ state: "reconnect_required", reason: "invalid_grant", detail: "Token has been expired or revoked.", errorSubtype: "", updatedAt: 1700000000000, message: "Google Drive authorization expired (Token has been expired or revoked.). Reconnect Google Drive." }` |
 | `affoGDriveFolderSuffix` | Optional Google Drive sync folder suffix | `"dev"` creates remote folder `A Font Face-off dev` |
 | `affoWebDavFolderSuffix` | Optional WebDAV sync folder suffix, independent from Google Drive | `"Chrome"` creates remote folder `A Font Face-off Chrome` |
@@ -192,6 +192,7 @@ The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is defe
 
 ```javascript
 {
+  "remoteScope": "[\"gdrive\",\"app-folder\"]",
   "lastSync": 1700000000000,
   "items": {
     "domains.json": {
@@ -206,8 +207,11 @@ The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is defe
 }
 ```
 
-- `modified`: last known write time for the item
+- `remoteScope` (local-only): JSON-encoded destination identity: `["gdrive", folderId]` or `["webdav", folderUrl, username]` (empty username for anonymous access). Never includes a password. A destination change clears revision/content baselines and `lastSync`, while preserving local modification timestamps and settings. Legacy metadata without a scope is adopted on the first run; revisions from the other provider are discarded.
+- `modified`: last known write time for the item. Whole-file local edits advance this monotonically, including multiple edits within the same millisecond.
 - `remoteRev` (optional): backend-specific revision fingerprint used for optimistic concurrency checks before overwriting remote files (`<fileId>:v<version>` for Google Drive, `webdav-etag:<strong-etag>` for WebDAV when the server provides a quoted strong ETag; weak `W/` validators are not stored)
+- `remoteHash` (optional, local-only): `sha256:<64 lowercase hex digits>` for the remote whole-file contents last applied, successfully uploaded, or read as the baseline for an initial upload. JSON objects are recursively key-sorted before hashing; array order and CSS text remain significant. `"missing"` records an observed absent remote file. This allows WebDAV to recover an ETag change only when the remote contents still match the baseline or the desired upload. It also prevents a failed first upload from treating a competing file creation as a fresh unguarded upload on retry. These hashes and the destination identity are not written to the remote manifest.
+- An acknowledged remote revision and hash advance together even when a concurrent local edit has a newer `modified` timestamp. Failed uploads never acknowledge the attempted payload; skipped incoming writes never acknowledge data that was not applied.
 
 ### Cloud Sync Remote File Mapping
 

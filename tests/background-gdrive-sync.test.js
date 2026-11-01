@@ -269,6 +269,8 @@ function createWebDavHarness({
     onGet,
     putEtagMode = 'strong',
     omitPutResponseEtag = false,
+    asyncOnChanged = false,
+    clock = Date,
 }) {
     const seed = {
         affoSyncBackend: 'webdav',
@@ -279,10 +281,11 @@ function createWebDavHarness({
         affoLegacySyncDataConsent: true,
         ...localSeed,
     };
-    const storage = createStorageStub(seed);
+    const storage = createStorageStub(seed, { asyncOnChanged });
     const calls = {
         put: [],
         get: [],
+        notifications: [],
     };
     const remote = {
         files: JSON.parse(JSON.stringify(remoteFiles || {})),
@@ -326,7 +329,7 @@ function createWebDavHarness({
         },
         runtime: {
             getManifest: () => ({ manifest_version: 3, permissions: ['webRequestBlocking'] }),
-            sendMessage() { return Promise.resolve(); },
+            sendMessage(message) { calls.notifications.push(message); return Promise.resolve(); },
             getURL(file) { return `moz-extension://test/${file}`; },
             onMessage: { addListener() {} },
         },
@@ -360,7 +363,7 @@ function createWebDavHarness({
             if (method === 'GET') {
                 calls.get.push({ name, url, cache: options.cache || null });
                 if (typeof onGet === 'function') {
-                    const override = onGet({ name, remote, response, options });
+                    const override = await onGet({ name, remote, response, options });
                     if (override) return override;
                 }
                 if (!Object.prototype.hasOwnProperty.call(remote.files, name)) return response(404);
@@ -369,18 +372,21 @@ function createWebDavHarness({
             if (method === 'PUT') {
                 const headers = options.headers || {};
                 const ifMatch = headers['If-Match'] || headers['if-match'] || null;
+                const ifNoneMatch = headers['If-None-Match'] || null;
                 calls.put.push({
                     name,
                     content: options.body,
                     contentType: headers['Content-Type'] || headers['content-type'] || null,
                     ifMatch,
+                    ifNoneMatch,
                 });
                 if (typeof onPut === 'function') {
-                    const override = onPut({ name, ifMatch, remote, response, options });
+                    const override = await onPut({ name, ifMatch, ifNoneMatch, remote, response, options });
                     if (override) return override;
                 }
                 const currentEtag = remote.etags[name] || null;
                 if (ifMatch && (/^W\//i.test(ifMatch) || ifMatch !== currentEtag)) return response(412);
+                if (ifNoneMatch === '*' && Object.prototype.hasOwnProperty.call(remote.files, name)) return response(412);
 
                 remote.files[name] = parseOrRaw(options.body);
                 putCounter += 1;
@@ -404,18 +410,27 @@ function createWebDavHarness({
         setTimeout,
         clearTimeout,
         Promise,
-        Date,
+        Date: clock,
         AFFOSroulette,
     });
 
-    const source = readBackgroundSource('\n;globalThis.__affoTest = { runSync };');
+    const source = readBackgroundSource('\n;globalThis.__affoTest = { runSync, connectWebDav, flushMeta: () => syncMetaQueue };');
     vm.runInContext(source, context, { filename: 'background.js' });
+    // Run each queued sync explicitly in these race tests for deterministic
+    // assertions between attempts; real storage listeners still track edits.
+    context.scheduleAutoSync = () => {};
 
     return {
         runSync: context.__affoTest.runSync,
         storageData: storage.data,
         calls,
         remote,
+        connectWebDav: context.__affoTest.connectWebDav,
+        async editLocal(values) {
+            await storage.local.set(values);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            await context.__affoTest.flushMeta();
+        },
     };
 }
 
@@ -1686,6 +1701,393 @@ describe('WebDAV sync revision handling', () => {
         const finalManifest = harness.remote.files['sync-manifest.json'];
         assert.equal(finalManifest.items['favorites.json'].modified, 900);
         assert.equal(finalManifest.items['other.json'].modified, 1500);
+    });
+});
+
+describe('WebDAV sync conflict recovery and concurrent local edits', () => {
+    const favorites = (name) => ({
+        affoFavorites: { [name]: { fontName: name, variableAxes: {} } },
+        affoFavoritesOrder: [name],
+    });
+    const seed = (modified = 300, name = 'Local') => ({
+        ...favorites(name),
+        affoSyncMeta: {
+            lastSync: 100,
+            items: { 'favorites.json': { modified, remoteRev: 'webdav-etag:"favorites-v1"' } },
+        },
+    });
+    const files = (modified = 100, name = 'Remote') => ({
+        'sync-manifest.json': { version: 1, lastSync: modified, items: { 'favorites.json': { modified } } },
+        'favorites.json': favorites(name),
+    });
+    const etags = () => ({ 'sync-manifest.json': '"manifest-v1"', 'favorites.json': '"favorites-v1"' });
+    const failures = (harness) => harness.calls.notifications.filter((message) => message.type === 'affoSyncFailed');
+
+    for (const asyncOnChanged of [false, true]) {
+        it(`keeps the successful upload revision when local edits arrive during PUT (async events: ${asyncOnChanged})`, async () => {
+            let edited = false;
+            const harness = createWebDavHarness({
+                localSeed: seed(), remoteFiles: files(), remoteEtags: etags(), asyncOnChanged,
+                async onPut({ name }) {
+                    if (name === 'favorites.json' && !edited) {
+                        edited = true;
+                        await harness.editLocal(favorites('EditedDuringUpload'));
+                    }
+                },
+            });
+            assert.equal((await harness.runSync()).ok, true);
+            const state = harness.storageData.affoSyncMeta.items['favorites.json'];
+            assert.ok(state.modified > 300);
+            assert.equal(state.remoteRev, `webdav-etag:${harness.remote.etags['favorites.json']}`);
+            assert.match(state.remoteHash, /^sha256:/);
+            assert.deepEqual(harness.storageData.affoFavorites, favorites('EditedDuringUpload').affoFavorites);
+            assert.equal((await harness.runSync()).ok, true);
+            assert.deepEqual(harness.remote.files['favorites.json'], favorites('EditedDuringUpload'));
+            assert.equal(failures(harness).length, 0);
+        });
+    }
+
+    for (const mode of ['merge', 'pull']) {
+        it(`preserves a local favorite edit while an incoming ${mode} is pending`, async () => {
+            let edited = false;
+            const harness = createWebDavHarness({
+                localSeed: seed(100), remoteFiles: files(200),
+                remoteEtags: { ...etags(), 'favorites.json': '"favorites-v2"' },
+                async onGet({ name }) {
+                    if (name === 'favorites.json' && !edited) {
+                        edited = true;
+                        await harness.editLocal(favorites('EditedDuringDownload'));
+                    }
+                },
+            });
+            const result = await harness.runSync({ mode });
+            assert.equal(result.ok, false, 'a genuine whole-file conflict must remain explicit');
+            assert.deepEqual(harness.storageData.affoFavorites, favorites('EditedDuringDownload').affoFavorites);
+            assert.deepEqual(harness.remote.files['favorites.json'], favorites('Remote'));
+            assert.equal(failures(harness).length, 1, 'only the final error is shown');
+            assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, 'webdav-etag:"favorites-v1"');
+        });
+    }
+
+    it('does not retry an incoming whole-file replacement over a local edit when the remote clock is ahead', async () => {
+        let reads = 0;
+        const harness = createWebDavHarness({
+            localSeed: seed(100), remoteFiles: files(5000),
+            remoteEtags: { ...etags(), 'favorites.json': '"ahead"' },
+            clock: class extends Date { static now() { return 1000; } },
+            async onGet({ name }) {
+                if (name !== 'favorites.json') return;
+                reads += 1;
+                if (reads === 1) await harness.editLocal(favorites('EditedDuringDownload'));
+            },
+        });
+        assert.equal((await harness.runSync()).ok, false);
+        assert.equal(reads, 1);
+        assert.deepEqual(harness.storageData.affoFavorites, favorites('EditedDuringDownload').affoFavorites);
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('Remote'));
+    });
+
+    for (const [key, filename, original, remoteValue, edit] of [
+        ['affoCustomFontsCss', 'custom-fonts.css', 'old css', 'remote css', 'edited css'],
+        ['affoKnownSerif', 'known-serif.json', ['Old'], ['Remote'], ['Edited']],
+        ['affoKnownSans', 'known-sans.json', ['Old'], ['Remote'], ['Edited']],
+        ['affoPreservedFonts', 'preserved-fonts.json', ['Old'], ['Remote'], ['Edited']],
+        ['affoCustomFontAxes', 'custom-font-axes.json', { Old: [] }, { Remote: [] }, { Edited: [] }],
+    ]) {
+        it(`preserves edits during a ${filename} download`, async () => {
+            let edited = false;
+            const harness = createWebDavHarness({
+                localSeed: {
+                    [key]: original,
+                    affoSyncMeta: { items: { [filename]: { modified: 100, remoteRev: 'webdav-etag:"v1"' } } },
+                },
+                remoteFiles: {
+                    'sync-manifest.json': { items: { [filename]: { modified: 200 } } },
+                    [filename]: remoteValue,
+                },
+                remoteEtags: { [filename]: '"v2"' },
+                async onGet({ name }) {
+                    if (name === filename && !edited) {
+                        edited = true;
+                        await harness.editLocal({ [key]: edit });
+                    }
+                },
+            });
+            assert.equal((await harness.runSync()).ok, false);
+            assert.deepEqual(harness.storageData[key], edit);
+            assert.deepEqual(harness.remote.files[filename], remoteValue);
+        });
+    }
+
+    it('recovers a changed ETag when the remote contents still match the acknowledged baseline', async () => {
+        const harness = createWebDavHarness({ localSeed: seed(), remoteFiles: files(), remoteEtags: etags() });
+        assert.equal((await harness.runSync()).ok, true);
+        harness.remote.etags['favorites.json'] = '"changed-etag-same-content"';
+        // Reformat JSON and reorder keys without changing its meaning.
+        harness.remote.files['favorites.json'] = JSON.stringify({
+            affoFavoritesOrder: ['Local'], affoFavorites: favorites('Local').affoFavorites,
+        });
+        await harness.editLocal(favorites('NextLocal'));
+        const before = harness.calls.put.length;
+        assert.equal((await harness.runSync()).ok, true);
+        const puts = harness.calls.put.slice(before).filter((call) => call.name === 'favorites.json');
+        assert.equal(puts.length, 2);
+        assert.equal(puts[1].ifMatch, '"changed-etag-same-content"');
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('NextLocal'));
+        assert.equal(failures(harness).length, 0);
+        assert.equal(harness.remote.files['sync-manifest.json'].items['favorites.json'].remoteHash, undefined);
+    });
+
+    it('does not mark two edits in the same millisecond as the same synced version', async () => {
+        let edited = false;
+        const harness = createWebDavHarness({
+            localSeed: seed(), remoteFiles: files(), remoteEtags: etags(),
+            clock: class extends Date { static now() { return 1000; } },
+            async onPut({ name }) {
+                if (name !== 'favorites.json' || edited) return;
+                edited = true;
+                await harness.editLocal(favorites('SecondEdit'));
+            },
+        });
+        await harness.editLocal(favorites('FirstEdit'));
+        assert.equal((await harness.runSync()).ok, true);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].modified, 1001);
+        assert.equal((await harness.runSync()).ok, true);
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('SecondEdit'));
+    });
+
+    it('syncs an explicitly cleared custom CSS file as empty content', async () => {
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoCustomFontsCss: '',
+                affoSyncMeta: { items: { 'custom-fonts.css': { modified: 300, remoteRev: 'webdav-etag:"css-v1"' } } },
+            },
+            remoteFiles: {
+                'sync-manifest.json': { items: { 'custom-fonts.css': { modified: 100 } } },
+                'custom-fonts.css': 'old css',
+            },
+            remoteEtags: { 'custom-fonts.css': '"css-v1"' },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.equal(harness.remote.files['custom-fonts.css'], '');
+    });
+
+    it('recognizes a previously completed upload without overwriting it again', async () => {
+        const harness = createWebDavHarness({
+            localSeed: seed(), remoteFiles: files(100, 'Local'),
+            remoteEtags: { ...etags(), 'favorites.json': '"already-uploaded"' },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.equal(harness.calls.put.filter((call) => call.name === 'favorites.json').length, 1);
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, 'webdav-etag:"already-uploaded"');
+    });
+
+    it('bounds retries and keeps both copies when a whole-file conflict cannot be resolved safely', async () => {
+        const harness = createWebDavHarness({
+            localSeed: seed(), remoteFiles: files(200),
+            remoteEtags: { ...etags(), 'favorites.json': '"other-device"' },
+        });
+        assert.equal((await harness.runSync()).ok, false);
+        const puts = harness.calls.put.filter((call) => call.name === 'favorites.json');
+        assert.equal(puts.length, 3);
+        assert.ok(puts.every((call) => call.ifMatch === '"favorites-v1"'));
+        assert.deepEqual(harness.storageData.affoFavorites, favorites('Local').affoFavorites);
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('Remote'));
+        assert.equal(failures(harness).length, 1);
+    });
+
+    it('re-reads a newer manifest after a conflict and safely pulls the newer remote value', async () => {
+        let changed = false;
+        const harness = createWebDavHarness({
+            localSeed: seed(), remoteFiles: files(), remoteEtags: etags(),
+            onPut({ name, remote }) {
+                if (name !== 'favorites.json' || changed) return;
+                changed = true;
+                remote.files['favorites.json'] = favorites('NewerRemote');
+                remote.etags['favorites.json'] = '"newer-remote"';
+                remote.files['sync-manifest.json'].items['favorites.json'] = { modified: 400 };
+                remote.etags['sync-manifest.json'] = '"newer-manifest"';
+            },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.deepEqual(harness.storageData.affoFavorites, favorites('NewerRemote').affoFavorites);
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('NewerRemote'));
+        assert.equal(failures(harness).length, 0);
+    });
+
+    it('does not bless a different value fetched after an upload with no response ETag', async () => {
+        let changed = false;
+        const harness = createWebDavHarness({
+            localSeed: seed(), remoteFiles: files(), remoteEtags: etags(), omitPutResponseEtag: true,
+            onGet({ name, remote }) {
+                if (name !== 'favorites.json' || changed) return;
+                changed = true;
+                remote.files[name] = favorites('InterveningRemoteEdit');
+                remote.etags[name] = '"foreign-revision"';
+            },
+        });
+        assert.equal((await harness.runSync()).ok, false);
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('InterveningRemoteEdit'));
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteRev, 'webdav-etag:"favorites-v1"');
+        assert.deepEqual(harness.storageData.affoFavorites, favorites('Local').affoFavorites);
+        assert.equal(failures(harness).length, 1);
+    });
+
+    it('protects the first upload from another device creating the same file', async () => {
+        let created = false;
+        const localSeed = seed();
+        delete localSeed.affoSyncMeta.items['favorites.json'].remoteRev;
+        const harness = createWebDavHarness({
+            localSeed, remoteFiles: {}, remoteEtags: {},
+            onPut({ name, ifNoneMatch, remote }) {
+                if (name !== 'favorites.json' || created) return;
+                assert.equal(ifNoneMatch, '*');
+                created = true;
+                remote.files[name] = favorites('OtherDeviceCreated');
+                remote.etags[name] = '"created-by-other-device"';
+            },
+        });
+        assert.equal((await harness.runSync()).ok, false);
+        assert.equal((await harness.runSync()).ok, false, 'subsequent manual sync must retain the absent baseline too');
+        assert.deepEqual(harness.remote.files['favorites.json'], favorites('OtherDeviceCreated'));
+        assert.equal(harness.storageData.affoSyncMeta.items['favorites.json'].remoteHash, 'missing');
+    });
+
+    for (const target of ['server', 'folder']) {
+        it(`clears old server revisions and fingerprints when changing the ${target}`, async () => {
+            const harness = createWebDavHarness({ localSeed: seed(), remoteFiles: files(), remoteEtags: etags() });
+            assert.equal((await harness.runSync()).ok, true);
+            assert.match(harness.storageData.affoSyncMeta.items['favorites.json'].remoteHash, /^sha256:/);
+            if (target === 'server') {
+                await harness.connectWebDav({ serverUrl: 'https://new.example/dav/', anonymous: true });
+            } else {
+                await harness.editLocal({ affoWebDavFolderSuffix: 'new' });
+            }
+            harness.remote.files = {};
+            harness.remote.etags = {};
+            const before = harness.calls.put.length;
+            assert.equal((await harness.runSync()).ok, true);
+            const put = harness.calls.put.slice(before).find((call) => call.name === 'favorites.json');
+            assert.equal(put.ifMatch, null);
+            assert.equal(put.ifNoneMatch, '*');
+            assert.deepEqual(harness.remote.files['favorites.json'], favorites('Local'));
+        });
+    }
+
+    it('leaves the active DAV baselines intact when changing the inactive Drive folder', async () => {
+        const harness = createWebDavHarness({ localSeed: seed(), remoteFiles: files(), remoteEtags: etags() });
+        assert.equal((await harness.runSync()).ok, true);
+        const before = JSON.parse(JSON.stringify(harness.storageData.affoSyncMeta));
+        await harness.editLocal({ affoGDriveFolderSuffix: 'unused' });
+        assert.deepEqual(harness.storageData.affoSyncMeta, before);
+    });
+
+    it('preserves compound Roulette edits made during a download', async () => {
+        let edited = false;
+        const remoteRoulette = { affoSubstackRoulette: false, affoSubstackRouletteSerif: ['Remote'], affoSubstackRouletteSans: [] };
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoSubstackRoulette: true, affoSubstackRouletteSerif: ['Original'], affoSubstackRouletteSans: [],
+                affoSyncMeta: { items: { 'substack-roulette.json': { modified: 100, remoteRev: 'webdav-etag:"old"' } } },
+            },
+            remoteFiles: {
+                'sync-manifest.json': { items: { 'substack-roulette.json': { modified: 200 } } },
+                'substack-roulette.json': remoteRoulette,
+            },
+            remoteEtags: { 'substack-roulette.json': '"new"' },
+            async onGet({ name }) {
+                if (name !== 'substack-roulette.json' || edited) return;
+                edited = true;
+                await harness.editLocal({ affoSubstackRouletteSerif: ['Edited'] });
+            },
+        });
+        assert.equal((await harness.runSync()).ok, false);
+        assert.equal(harness.storageData.affoSubstackRoulette, true);
+        assert.deepEqual(harness.storageData.affoSubstackRouletteSerif, ['Edited']);
+        assert.deepEqual(harness.remote.files['substack-roulette.json'], remoteRoulette);
+    });
+
+    it('re-merges local domain edits made while incoming domains are being fetched', async () => {
+        let edited = false;
+        const localConfig = { body: { fontName: 'Local', variableAxes: {} } };
+        const remoteConfig = { body: { fontName: 'Remote', variableAxes: {} } };
+        const harness = createWebDavHarness({
+            localSeed: { affoApplyMap: {}, affoApplyMapMeta: { version: 1, byOrigin: {} } },
+            remoteFiles: {
+                'sync-manifest.json': { items: {} },
+                'domains.json': { 'remote.example': remoteConfig },
+                'domains-meta.json': { version: 1, byOrigin: { 'remote.example': { modified: 200 } } },
+            },
+            remoteEtags: { 'domains.json': '"domains-v1"', 'domains-meta.json': '"meta-v1"' },
+            async onGet({ name }) {
+                if (name !== 'domains.json' || edited) return;
+                edited = true;
+                await harness.editLocal({ affoApplyMap: { 'local.example': localConfig } });
+            },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        const expected = { 'local.example': localConfig, 'remote.example': remoteConfig };
+        assert.deepEqual(harness.storageData.affoApplyMap, expected);
+        assert.deepEqual(harness.remote.files['domains.json'], expected);
+        assert.equal(failures(harness).length, 0);
+    });
+
+    it('re-merges a domain list after an ETag conflict without losing either addition', async () => {
+        let changed = false;
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoAggressiveDomains: ['local.example'],
+                affoAggressiveDomainsMeta: { version: 1, byOrigin: { 'local.example': { modified: 300 } } },
+            },
+            remoteFiles: {
+                'sync-manifest.json': { items: {} },
+                'aggressive-domains.json': [],
+                'aggressive-domains-meta.json': { version: 1, byOrigin: {} },
+            },
+            remoteEtags: { 'aggressive-domains.json': '"list-v1"', 'aggressive-domains-meta.json': '"meta-v1"' },
+            onPut({ name, remote }) {
+                if (name !== 'aggressive-domains.json' || changed) return;
+                changed = true;
+                remote.files[name] = ['remote.example'];
+                remote.files['aggressive-domains-meta.json'] = { version: 1, byOrigin: { 'remote.example': { modified: 400 } } };
+                remote.etags[name] = '"list-v2"';
+                remote.etags['aggressive-domains-meta.json'] = '"meta-v2"';
+            },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.deepEqual(harness.storageData.affoAggressiveDomains, ['local.example', 'remote.example']);
+        assert.deepEqual(harness.remote.files['aggressive-domains.json'], ['local.example', 'remote.example']);
+        assert.equal(failures(harness).length, 0);
+    });
+
+    it('re-merges domain settings after another device changes them during PUT', async () => {
+        let changed = false;
+        const localConfig = { body: { fontName: 'Local', variableAxes: {} } };
+        const remoteConfig = { body: { fontName: 'Remote', variableAxes: {} } };
+        const harness = createWebDavHarness({
+            localSeed: {
+                affoApplyMap: { 'local.example': localConfig },
+                affoApplyMapMeta: { version: 1, byOrigin: { 'local.example': { modified: 300 } } },
+            },
+            remoteFiles: { 'sync-manifest.json': { items: {} }, 'domains.json': {}, 'domains-meta.json': { version: 1, byOrigin: {} } },
+            remoteEtags: { 'domains.json': '"domains-v1"', 'domains-meta.json': '"meta-v1"' },
+            onPut({ name, remote }) {
+                if (name !== 'domains.json' || changed) return;
+                changed = true;
+                remote.files[name] = { 'remote.example': remoteConfig };
+                remote.files['domains-meta.json'] = { version: 1, byOrigin: { 'remote.example': { modified: 400 } } };
+                remote.etags[name] = '"domains-v2"';
+                remote.etags['domains-meta.json'] = '"meta-v2"';
+            },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        const expected = { 'local.example': localConfig, 'remote.example': remoteConfig };
+        assert.deepEqual(harness.storageData.affoApplyMap, expected);
+        assert.deepEqual(harness.remote.files['domains.json'], expected);
+        const puts = harness.calls.put.filter((call) => call.name === 'domains.json');
+        assert.equal(puts.length, 2);
+        assert.equal(puts[1].ifMatch, '"domains-v2"');
+        assert.equal(failures(harness).length, 0);
     });
 });
 
