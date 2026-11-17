@@ -593,12 +593,20 @@
     return _isSubstack;
   }
 
-  // Substack sometimes interrupts reading with an email signup welcome modal.
-  // Dismiss that specific modal through its own close control, leaving other
+  // Substack interrupts reading with email signup welcome and subscribe modals.
+  // Dismiss only those prompts through their own close controls, leaving other
   // dialogs and inline subscribe forms untouched.
+  function getSubstackSignupModalCloseButton() {
+    var welcomeClose = document.querySelector('[data-testid="close-welcome-modal"]');
+    if (welcomeClose) return welcomeClose;
+    var subscribeDialog = document.querySelector('[role="dialog"][aria-label="Subscribe modal"]');
+    if (!subscribeDialog) return null;
+    return subscribeDialog.querySelector('button[aria-label="close"], button[title="Close"]');
+  }
+
   function closeSubstackSignupModal() {
     if (!getIsSubstack()) return;
-    var closeButton = document.querySelector('[data-testid="close-welcome-modal"]');
+    var closeButton = getSubstackSignupModalCloseButton();
     if (!closeButton || closeButton.disabled || !closeButton.isConnected) return;
     try {
       closeButton.click();
@@ -607,17 +615,22 @@
 
   function observeSubstackSignupModal() {
     if (!getIsSubstack() || !window.MutationObserver || !document.documentElement) return;
+    var maxWaitMs = 120000;
+    var timeoutId = null;
     var observer = new MutationObserver(function () {
-      var closeButton = document.querySelector('[data-testid="close-welcome-modal"]');
+      var closeButton = getSubstackSignupModalCloseButton();
       if (!closeButton || closeButton.disabled || !closeButton.isConnected) return;
       observer.disconnect();
+      clearTimeout(timeoutId);
       try {
         closeButton.click();
       } catch (_) { }
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    timeoutId = setTimeout(function () {
+      observer.disconnect();
+    }, maxWaitMs);
     closeSubstackSignupModal();
-    if (!document.querySelector('[data-testid="close-welcome-modal"]')) observer.disconnect();
   }
 
   if (document.head && document.body) observeSubstackSignupModal();
