@@ -35,6 +35,25 @@ describe('site-detection-utils Substack detection', () => {
         );
     });
 
+    it('detects custom publication domains from Substack resources and publication URLs', () => {
+        assert.equal(
+            siteDetection.isSubstackSignals({
+                hostname: 'publication.example',
+                baseUrl: 'https://publication.example/',
+                pageUrls: ['https://publication.substack.com/'],
+                resourceUrls: []
+            }),
+            true
+        );
+        assert.equal(
+            siteDetection.isSubstackSignals({
+                hostname: 'publication.example',
+                resourceUrls: ['https://substackcdn.com/image/fetch/example.png']
+            }),
+            true
+        );
+    });
+
     it('ignores incidental author Substack links in JSON-LD', () => {
         const jsonLd = JSON.stringify({
             '@context': 'https://schema.org',

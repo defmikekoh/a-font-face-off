@@ -593,6 +593,35 @@
     return _isSubstack;
   }
 
+  // Substack sometimes interrupts reading with an email signup welcome modal.
+  // Dismiss that specific modal through its own close control, leaving other
+  // dialogs and inline subscribe forms untouched.
+  function closeSubstackSignupModal() {
+    if (!getIsSubstack()) return;
+    var closeButton = document.querySelector('[data-testid="close-welcome-modal"]');
+    if (!closeButton || closeButton.disabled || !closeButton.isConnected) return;
+    try {
+      closeButton.click();
+    } catch (_) { }
+  }
+
+  function observeSubstackSignupModal() {
+    if (!getIsSubstack() || !window.MutationObserver || !document.documentElement) return;
+    var observer = new MutationObserver(function () {
+      var closeButton = document.querySelector('[data-testid="close-welcome-modal"]');
+      if (!closeButton || closeButton.disabled || !closeButton.isConnected) return;
+      observer.disconnect();
+      try {
+        closeButton.click();
+      } catch (_) { }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    closeSubstackSignupModal();
+    if (!document.querySelector('[data-testid="close-welcome-modal"]')) observer.disconnect();
+  }
+
+  if (document.head && document.body) observeSubstackSignupModal();
+
   var SUBSTACK_ROULETTE_TARGET_TEXT_BRIGHTNESS = 54.8; // #363737
   var SUBSTACK_ROULETTE_BEIGE_STYLE_ID = 'a-font-face-off-style-substack-roulette-beige';
   var SUBSTACK_ROULETTE_DIMMING_STYLE_ID = 'a-font-face-off-style-substack-roulette-dimming';
