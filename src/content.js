@@ -410,6 +410,8 @@
   var substackRouletteBeigeDisabledDomains = [];
   var pendingSubstackRoulette = null;
   var substackRouletteActive = false;
+  var pendingDimmingTimer = null;
+  var dimmingGeneration = 0;
   try {
     browser.storage.local.get(['affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoSubstackRouletteBeigeDisabledDomains']).then(function (data) {
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -1077,6 +1079,9 @@
 
   function removeSubstackRouletteEnhancements() {
     substackRouletteActive = false;
+    clearTimeout(pendingDimmingTimer);
+    pendingDimmingTimer = null;
+    dimmingGeneration++;
     removeSubstackRouletteDimming();
     removeSubstackRouletteBeige();
   }
@@ -1120,14 +1125,19 @@
   }
 
   function scheduleSubstackRouletteDimming() {
-    setTimeout(function () {
+    if (!substackRouletteActive || pendingDimmingTimer !== null) return;
+    var generation = ++dimmingGeneration;
+    pendingDimmingTimer = setTimeout(function () {
+      pendingDimmingTimer = null;
       try { applySubstackRouletteDimming(); } catch (_) { }
+      // The settled pass already covers fonts that finished within the 250 ms window.
+      if (document.fonts && document.fonts.status === 'loading') {
+        document.fonts.ready.then(function () {
+          if (generation !== dimmingGeneration) return;
+          try { applySubstackRouletteDimming(); } catch (_) { }
+        }).catch(function () { });
+      }
     }, 250);
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function () {
-        try { applySubstackRouletteDimming(); } catch (_) { }
-      }).catch(function () { });
-    }
   }
 
   // --- Runtime css2 URL lookup ---
