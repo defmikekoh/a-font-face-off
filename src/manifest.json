@@ -31,25 +31,10 @@
         "site-detection-utils.js",
         "local-font-utils.js",
         "font-warm-utils.js",
-        "left-toolbar.js"
-      ],
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "browser-api.js",
-        "scope-utils.js",
-        "messaging-utils.js",
-        "sroulette-utils.js",
-        "site-detection-utils.js",
+        "left-toolbar.js",
         "content-sroulette-runtime.js",
         "font-face-utils.js",
         "font-swap-utils.js",
-        "local-font-utils.js",
         "content.js"
       ],
       "run_at": "document_start"
