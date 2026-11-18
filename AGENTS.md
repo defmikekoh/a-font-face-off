@@ -21,9 +21,24 @@ A Font Face-off is a shared Manifest V3 browser extension for Firefox and Chromi
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
 - Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.agents/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
 - The canonical desktop/Android extension-testing skill directory is `.agents/skills/desktop-testing/`; `.claude/skills/desktop-testing` is a symlink to it for Claude Code discovery. Edit the canonical `.agents` files rather than duplicating or relocating them without a deliberate compatibility change.
-- **Safety boundary:** Android Selenium/geckodriver clears the selected Firefox package data when creating a session. Disposable browser testing is pre-approved on Samsung Galaxy Note10 `RF8M81WSL1V` for Firefox Nightly (`org.mozilla.fenix`), Vivaldi Snapshot (`com.vivaldi.browser.snapshot`), and Edge Canary (`com.microsoft.emmx.canary`). Snapshot and Canary permission includes app/profile resets, force-stop/relaunch, local extension install/reload/removal, and the developer settings needed for extension testing. Vivaldi stable (`com.vivaldi.browser`), Edge stable, other browser packages, devices, and Android users/work profiles require new explicit approval for destructive testing. TCL NxtPaper 11 Plus `A06B4A57AA34353` with Firefox Nightly (`org.mozilla.fenix`) is also an authorized disposable test target, including app/profile resets, force-stop/relaunch, and local extension install/reload/removal; TCL Beta and other packages are not covered. The Firefox harness remains Firefox-only. (Tooling behavior, device specifics, and which paths are/aren't destructive are documented in the `desktop-testing` and `firefox-extension-debug` skills.)
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - ESLint config (`eslint.config.mjs`) uses flat config format — `files` patterns are relative to the config file. Use `src/` for extension source (e.g., `"src/*.js"`), `scripts/` for scripts, and `tests/` for tests; incorrect paths can silently leave rules unapplied.
+
+## Android test targets
+
+Standing approval for disposable AFFO testing covers these device and browser combinations in the primary Android user profile.
+
+| Device | Browsers |
+|---|---|
+| Samsung Galaxy Note10 `RF8M81WSL1V` | Firefox Nightly, Vivaldi Snapshot, Edge Canary |
+| Android 16 AVD `AFFO_Pixel_API36` on `emulator-5554` | Firefox Nightly, Vivaldi Snapshot, Edge Canary |
+| TCL NxtPaper 11 Plus `A06B4A57AA34353` | Firefox Nightly, Vivaldi Snapshot, Edge Canary |
+
+Use the exact package ID: Firefox Nightly `org.mozilla.fenix`, Vivaldi Snapshot `com.vivaldi.browser.snapshot`, or Edge Canary `com.microsoft.emmx.canary`. Verify the AVD name before a reset because another emulator can reuse the serial.
+
+Approved operations include app/profile resets, force-stop/relaunch, and local extension installation, reload, and removal. Browser developer settings needed for extension testing are also approved for all three browsers on the emulator and TCL, and for Snapshot and Canary on the Note10. Other device, package, or Android user/work-profile combinations require explicit approval for destructive testing.
+
+Android Selenium/geckodriver clears the selected Firefox package data when creating a session. Preserve the live session for ordinary inspection. See the [project testing skill](.agents/skills/desktop-testing/SKILL.md) for the Firefox and Chromium procedures.
 
 ## Source Files (in `src/` — no build step, no ES modules, raw JS served directly)
 

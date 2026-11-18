@@ -4,22 +4,9 @@ Use this reference for AFFO work in Edge Canary on Android: installing or
 updating the local CRX, inspecting pages or the native action popup with CDP,
 and verifying Edge-specific mobile layout or extension behavior.
 
-## Authorized disposable targets
+## Device setup
 
-The user authorizes disposable AFFO testing for Edge Canary on both the Note10 and configured Android emulator:
-
-```text
-Device:  RF8M81WSL1V or emulator-5554
-Package: com.microsoft.emmx.canary (Edge Canary)
-```
-
-This includes clearing Edge Canary app/profile data, force-stop and relaunch,
-installing, updating, reloading, or removing local AFFO builds, changing the
-Canary developer settings needed for extension testing, and driving the app
-with ADB. No additional reset confirmation is needed for these targets. The
-authorization does not cover Edge stable, another package, an unconfigured
-device, or another Android user/work profile. Do not sign this disposable profile into
-browser Sync.
+Check the [AFFO device and package permissions](../../../../AGENTS.md#android-test-targets) before a reset. Keep the disposable Canary profile signed out of browser Sync.
 
 Prefer preserving the current session for ordinary iteration. Clear the
 profile only when clean-install or clean-state behavior matters; a reset loses

@@ -1,6 +1,6 @@
 # Android native reload reproduction and Firefox profiling
 
-Use this reference for intermittent Firefox Android reload stalls where the user's browser UI path or sampling stacks matter. Verified on Note10 Nightly 158.0a1 in September 2026. The parent skill's device authorization and keep-awake rules apply.
+Use this reference for intermittent Firefox Android reload stalls where the user's browser UI path or sampling stacks matter. Verified on Note10 Nightly 158.0a1 in September 2026. Check the [AFFO device and package permissions](../../../../AGENTS.md#android-test-targets). Follow the [Note10 keep-awake procedure](../SKILL.md#keep-note10-awake-throughout-testing).
 
 ## Preserve the interaction being tested
 

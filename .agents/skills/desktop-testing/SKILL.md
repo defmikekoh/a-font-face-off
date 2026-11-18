@@ -13,7 +13,7 @@ This repo skill is canonical for AFFO-specific commands, selectors, storage seed
 
 Unless the user states otherwise, treat AFFO behavior questions and reported problems as occurring in Firefox Nightly on Android. Desktop Firefox Developer Edition is often a faster initial testing area for shared extension logic, deterministic regression tests, and site CSS investigation. When mobile layout, touch behavior, Firefox Android behavior, or final user-visible verification matters, confirm the result on Android Firefox Nightly rather than treating a desktop result as conclusive.
 
-For automated Android Firefox verification, use the authorized Firefox Nightly target documented below unless the user explicitly authorizes a different target.
+For automated Android Firefox verification, use one of the Firefox Nightly targets in [AGENTS.md](../../../AGENTS.md#android-test-targets) unless the user explicitly authorizes a different target.
 
 Consider `AFFO_Pixel_API36` for repeatable Android smoke tests and visual experiments when a specific physical device is not required. It runs actual Android browsers, rather than desktop mobile emulation. Firefox has the opt-in emulator smoke lane below; Vivaldi Snapshot uses the [emulator ADB/CDP workflow](references/vivaldi-snapshot.md#android-16-emulator). Emulator speed versus the Note10 has not been benchmarked; keep device-specific reproduction on the relevant phone.
 
@@ -241,29 +241,9 @@ Use `--dismiss` for a close control in the page and `--dismiss-frame '<iframe se
 
 ### Android Inspection
 
-#### Authorized Android Disposable Targets
+#### Android test target selection
 
-Android testing is disposable without additional approval for Firefox Nightly, Vivaldi Snapshot, and Edge Canary on both the Samsung Galaxy Note10 and the configured Android emulator:
-
-```text
-Firefox Nightly: org.mozilla.fenix
-Vivaldi Snapshot: com.vivaldi.browser.snapshot
-Edge Canary:     com.microsoft.emmx.canary
-```
-
-This includes force-stop/relaunch, app/profile-data clearing, and local extension install/reload/removal for AFFO testing. Use serial `RF8M81WSL1V` for the Note10 or `emulator-5554` for the configured emulator. Do not perform such operations against:
-
-- Any other browser package.
-- An unconfigured device or Android user/work profile.
-
-The configured Android 16 emulator is an authorized disposable target:
-
-```text
-Device:  emulator-5554 (AFFO_Pixel_API36, Android 16/API 36)
-Package: org.mozilla.fenix (Firefox Nightly)
-```
-
-Its Firefox profile may be cleared by `npm run test:android:emulator`.
+Check the [AFFO device and package permissions](../../../AGENTS.md#android-test-targets) before a reset or Android WebDriver session. For the emulator, verify that `adb -s emulator-5554 emu avd name` reports `AFFO_Pixel_API36`.
 
 The emulator does not have Google Play Store installed. When Firefox Nightly,
 Vivaldi Snapshot, or Edge Canary is missing or needs updating there, copy the
@@ -276,13 +256,9 @@ versions.
 The browser-specific references below contain the package names and any
 known split requirements.
 
-Obtain new explicit user approval before using any other device/package pair. Non-mutating ADB inspection such as checking connected devices, package versions, screenshots, and UI dumps is outside this reset-risk permission, but still target the intended serial explicitly.
-
 #### TCL NxtPaper 11 Plus — Firefox Nightly
 
-The user authorizes disposable testing on TCL NxtPaper 11 Plus `A06B4A57AA34353` (ADB model `9469X`) with Firefox Nightly `org.mozilla.fenix`. This includes Selenium/geckodriver sessions that clear package data, app/profile resets, force-stop/relaunch, and local extension install/reload/removal for AFFO and Essential Buttons Toolbar testing. Preserve existing sessions for ordinary inspection. Firefox Beta `org.mozilla.firefox_beta`, other packages, and Android users/work profiles are not included.
-
-The inspector's built-in allowlist currently names the Note10. For this already-authorized TCL pair, pass `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-data --allow-unapproved-target`; the override uses this standing authorization and does not require asking again. Keep ADB commands explicitly targeted. Record and restore any temporary awake/rotation settings in cleanup.
+For the TCL (ADB model `9469X`), pass `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-data --allow-unapproved-target`. The override is needed because the inspector's built-in allowlist names the Note10. Restore temporary awake/rotation settings in cleanup.
 
 #### Keep Note10 awake throughout testing
 
@@ -301,7 +277,7 @@ adb -s RF8M81WSL1V shell uiautomator dump /sdcard/affo-ui.xml
 adb -s RF8M81WSL1V pull /sdcard/affo-ui.xml ztemp/affo-ui.xml
 ```
 
-Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, installs, pushes, and forward changes—outside read-only ADB prefix approvals. Force-stop, installs, and package/profile clearing are authorized for the disposable browser/package pairs listed above; obtain approval for other targets.
+Inspect a pulled file with a separate local command such as `rg` or `sed`. Keep interactive or destructive actions—taps, text input, installs, pushes, and forward changes—outside read-only ADB prefix approvals.
 
 #### scrcpy visual companion
 
@@ -338,8 +314,6 @@ ADB UI dump/screenshot. Recordings are most useful when a failure involves a
 Firefox startup stall, missing/covered toolbar, popup-to-tab transition, touch
 target, keyboard, scroll, or other behavior that structured inspection cannot
 represent.
-
-The harness allowlist currently names the Note10 pair. The TCL Nightly pair documented above already has standing authorization for `--allow-unapproved-target`. Other targets require explicit authorization; `--allow-clear-package-data` alone is not sufficient.
 
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
 
@@ -378,7 +352,7 @@ child ADB processes, run it in an environment that can access the shared ADB
 daemon; if sandboxing blocks ADB startup, rerun with elevated execution
 approval.
 
-Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; use only the authorized Nightly device/package pairs documented above.
+Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; check the device/package pair in [AGENTS.md](../../../AGENTS.md#android-test-targets).
 
 Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
@@ -471,8 +445,6 @@ On Note10 Nightly 158.0a1 (September 2026), even `findElement`/`findElements` in
 
 ## Vivaldi Snapshot Android — device and emulator testing
 
-Vivaldi Snapshot is an authorized disposable AFFO target on the Note10 and configured Android emulator. This includes force-stop/relaunch, clearing Snapshot app/profile data, and installing/reloading the local AFFO Chromium build for tests. No additional reset confirmation is needed for these targets. Vivaldi stable (`com.vivaldi.browser`), other browser packages, and unconfigured devices or Android users/work profiles are outside this approval.
-
 Use resets for clean-install tests; preserve the test session for ordinary iteration. A Snapshot reset clears its tabs, settings, installed extensions, and login state. Do not sign the disposable profile into browser Sync.
 
 Read [Vivaldi Snapshot testing](references/vivaldi-snapshot.md) for the verified installation, CDP, and test workflow. `npm run build:chromium` generates the shared build at `ztemp/chromium-mv3-src/`. The Firefox geckodriver harness remains Firefox-only; do not pass the Vivaldi package to it.
@@ -482,7 +454,7 @@ Vivaldi Snapshot also passed the shared smoke suite and native-popup checks on `
 ## Chromium Android MV3
 
 Use the shared Chromium MV3 build for Edge Canary and Vivaldi Snapshot. For
-Edge-specific installation, disposable-profile authorization, CDP attachment,
+Edge-specific installation, CDP attachment,
 native-popup inspection, and layout verification, read
 [Edge Canary Android testing](references/edge-canary.md).
 
@@ -584,7 +556,7 @@ A corrected 0.37.1 trace checks `test -d /proc/PID` and can proceed to `Connecti
 
 ### Firefox Android `web-ext run` duplicate RDP sockets
 
-Only perform this cleanup against the pre-approved `RF8M81WSL1V` + `org.mozilla.fenix` target unless the user gives new explicit approval for another device/package pair.
+The commands below target Note10 Nightly. Check the project device scope before adapting them to another target.
 
 If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
 

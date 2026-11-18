@@ -1,6 +1,6 @@
 # Live Android Firefox inspection and Apply timing
 
-Use this workflow for an intermittent failure in an existing Nightly session, an unexpectedly installed AFFO copy, or slow Apply behavior. Prefer the seeded WebDriver harness when the test requires a fresh reproducible profile. The device/package authorization boundary remains in the parent skill.
+Use this workflow for an intermittent failure in an existing Nightly session, an unexpectedly installed AFFO copy, or slow Apply behavior. Prefer the seeded WebDriver harness when the test requires a fresh reproducible profile. Check the [AFFO device and package permissions](../../../../AGENTS.md#android-test-targets).
 
 ## Establish the actual session
 
