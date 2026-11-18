@@ -3195,12 +3195,10 @@ const AFFO_SCHEMA_VERSION = 1;
 
 async function migrateRemoveDuplicatedFields() {
     try {
-        const result = await browser.storage.local.get(['affoApplyMap', 'affoSchemaVersion']);
-        // Already migrated to the current schema — skip the full applyMap scan on
-        // every popup open. After the first run this is just a 2-key storage read.
-        if (Number(result.affoSchemaVersion) >= AFFO_SCHEMA_VERSION) return;
+        const { affoSchemaVersion } = await browser.storage.local.get('affoSchemaVersion');
+        if (Number(affoSchemaVersion) >= AFFO_SCHEMA_VERSION) return;
 
-        const applyMap = result.affoApplyMap;
+        const { affoApplyMap: applyMap } = await browser.storage.local.get('affoApplyMap');
         await browser.storage.local.remove('affoCss2UrlCache').catch(() => {});
         if (!applyMap || typeof applyMap !== 'object') {
             await browser.storage.local.set({ affoSchemaVersion: AFFO_SCHEMA_VERSION });
