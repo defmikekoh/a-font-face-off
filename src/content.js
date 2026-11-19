@@ -1721,16 +1721,22 @@
     return parent;
   }
 
-  function getHybridInlineMutationRoot(node) {
-    if (!usesHybridInlineTmiSelectors() || !node) return null;
-    var element = node.nodeType === 3 ? node.parentElement : node;
-    if (!element || element.nodeType !== 1 || !element.closest) return null;
-    if (node.nodeType === 3 && !elementHasOwnText(element)) return null;
-    if (node.nodeType === 1 && !isMeaningfulInlineAddedNode(node)) return null;
-    var selectors = ['serif', 'sans', 'mono'].filter(function (ft) {
+  function getHybridMutationSelector() {
+    if (!usesHybridInlineTmiSelectors()) return '';
+    return ['serif', 'sans', 'mono'].filter(function (ft) {
       return inlineConfigs[ft] || fontSizeScaleConfigs[ft];
-    }).map(getAffoSelector);
-    return selectors.length ? element.closest(selectors.join(', ')) : null;
+    }).map(getAffoSelector).join(', ');
+  }
+
+  function getInlineMutationRoot(node, hybridSelector) {
+    if (node.nodeType === 3) {
+      var streamRoot = getChatGptStreamTextRoot(node);
+      if (streamRoot) return streamRoot;
+      var parent = node.parentElement;
+      return hybridSelector && parent && elementHasOwnText(parent) ? parent.closest(hybridSelector) : null;
+    }
+    if (!isMeaningfulInlineAddedNode(node)) return null;
+    return (hybridSelector && node.closest(hybridSelector)) || node;
   }
 
   function ensureSharedDomObserver() {
@@ -1740,11 +1746,12 @@
 
       // Single pass over the batch: collect meaningful added subtree roots.
       var newRoots = null;
+      var hybridSelector = getHybridMutationSelector();
       for (var i = 0; i < muts.length; i++) {
         var m = muts[i];
         if (isInsideInteractiveSubtree(m.target)) continue;
         if (m.type === 'characterData') {
-          var textRoot = getChatGptStreamTextRoot(m.target) || getHybridInlineMutationRoot(m.target);
+          var textRoot = getInlineMutationRoot(m.target, hybridSelector);
           if (textRoot) {
             if (!newRoots) newRoots = [];
             newRoots.push(textRoot);
@@ -1756,10 +1763,10 @@
         for (var j = 0; j < added.length; j++) {
           var n = added[j];
           try {
-            var root = getChatGptStreamTextRoot(n) || getHybridInlineMutationRoot(n);
-            if (root || isMeaningfulInlineAddedNode(n)) {
+            var root = getInlineMutationRoot(n, hybridSelector);
+            if (root) {
               if (!newRoots) newRoots = [];
-              newRoots.push(root || n);
+              newRoots.push(root);
             }
           } catch (_) { }
         }
@@ -3085,19 +3092,14 @@
     return sel.split(',').map(function (s) { return s.trim() + HYBRID_GUARD; }).join(', ');
   }
 
-  function getHybridSelector(fontType) {
-    // For x.com, create selectors that capture the semantic intent but with broad coverage
-    if (fontType === 'sans') {
-      // Most x.com text is sans-serif, so target most text elements
-      return addHybridGuard('div[data-testid], span[data-testid], a[data-testid], button[data-testid], div[role], span[role], a[role], button[role], p, div:not([class*="icon"]):not([class*="svg"]), span:not([class*="icon"]):not([class*="svg"])');
-    } else if (fontType === 'serif') {
-      // For serif, target longer text content areas
-      return addHybridGuard('div[data-testid*="tweet"] span, div[data-testid*="text"] span, article span, p, blockquote, div[role="article"] span');
-    } else if (fontType === 'mono') {
-      // For mono, target code-like elements
-      return addHybridGuard('code, pre, span[style*="font-family"][style*="mono"], div[style*="font-family"][style*="mono"]');
-    }
+  var hybridSelectors = isXCom ? {
+    sans: addHybridGuard('div[data-testid], span[data-testid], a[data-testid], button[data-testid], div[role], span[role], a[role], button[role], p, div:not([class*="icon"]):not([class*="svg"]), span:not([class*="icon"]):not([class*="svg"])'),
+    serif: addHybridGuard('div[data-testid*="tweet"] span, div[data-testid*="text"] span, article span, p, blockquote, div[role="article"] span'),
+    mono: addHybridGuard('code, pre, span[style*="font-family"][style*="mono"], div[style*="font-family"][style*="mono"]')
+  } : null;
 
+  function getHybridSelector(fontType) {
+    if (hybridSelectors[fontType]) return hybridSelectors[fontType];
     // Fallback to marked elements
     return `[data-affo-font-type="${fontType}"]`;
   }

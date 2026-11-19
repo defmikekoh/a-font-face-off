@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const acorn = require('acorn');
 
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
-const names = new Set(['anyMutationConsumerActive', 'getChatGptStreamTextRoot', 'getHybridInlineMutationRoot', 'ensureSharedDomObserver',
+const names = new Set(['anyMutationConsumerActive', 'getChatGptStreamTextRoot', 'getInlineMutationRoot', 'getHybridMutationSelector', 'ensureSharedDomObserver',
     'maybeCleanupSharedDomObserver', 'dispatchMeaningfulMutations', 'isMeaningfulInlineAddedNode',
     'elementHasOwnText', 'directTextHasMinNonWhitespace', 'markTypesInRoots',
     'getMutationTmiTypes', 'drainMeaningfulMutations']);
@@ -293,4 +293,22 @@ test('disabling one type during a yielded scan leaves the other active type elig
     await done;
     assert.equal(roots[1].attrs.get('data-affo-font-type'), 'sans');
     assert.equal(roots[2].attrs.get('data-affo-font-type'), 'sans');
+});
+
+test('an X mutation burst resolves each active selector once and checks each added element once', () => {
+    const h = harness(false);
+    const ctx = h.context;
+    ctx.usesHybridInlineTmiSelectors = () => true;
+    ctx.inlineConfigs.sans = {};
+    ctx.fontSizeScaleConfigs.serif = {};
+    const selectors = [];
+    ctx.getAffoSelector = type => { selectors.push(type); return type; };
+    const root = paragraph();
+    let checks = 0;
+    ctx.isMeaningfulInlineAddedNode = el => { checks++; return el === root; };
+    root.closest = () => null;
+    h.mutate([{ type: 'childList', target: paragraph(), addedNodes: [root, ...Array.from({ length: 99 }, () => paragraph())] }]);
+    assert.deepEqual(selectors, ['serif', 'sans']);
+    assert.equal(checks, 100);
+    assert.deepEqual([...ctx.pendingMeaningfulRoots], [root]);
 });

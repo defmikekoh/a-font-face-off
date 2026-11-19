@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const acorn = require('acorn');
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
-const names = new Set(['elementHasOwnText', 'isHybridInlineTarget', 'filterInlineTmiTargets', 'getHybridInlineMutationRoot']);
+const names = new Set(['elementHasOwnText', 'isHybridInlineTarget', 'filterInlineTmiTargets', 'getInlineMutationRoot', 'getHybridMutationSelector']);
 const functions = [];
 function collect(node) {
     if (!node || typeof node !== 'object') return;
@@ -30,7 +30,7 @@ function harness() {
         getAffoSelector: type => type,
         INLINE_MEANINGFUL_IGNORE_TAGS: { SCRIPT: true, STYLE: true },
         inlineConfigs: { sans: {} }, fontSizeScaleConfigs: {},
-        isMeaningfulInlineAddedNode: () => true,
+        getChatGptStreamTextRoot: () => null, isMeaningfulInlineAddedNode: () => true,
     });
     vm.runInContext(functions.join('\n'), context);
     return context;
@@ -57,11 +57,11 @@ test('new short text and unmatched links revisit the nearest active candidate', 
     const link = node({ tag: 'A', text: 'Go', matches: false });
     link.closest = selector => { assert.equal(selector, 'sans'); return wrapper; };
     const text = { nodeType: 3, nodeValue: 'Go', parentElement: link };
-    assert.equal(h.getHybridInlineMutationRoot(text), wrapper);
-    assert.equal(h.getHybridInlineMutationRoot(link), wrapper);
+    assert.equal(h.getInlineMutationRoot(text, h.getHybridMutationSelector()), wrapper);
+    assert.equal(h.getInlineMutationRoot(link, h.getHybridMutationSelector()), wrapper);
     link.childNodes = [{ nodeType: 3, nodeValue: ' ' }];
-    assert.equal(h.getHybridInlineMutationRoot(text), null);
+    assert.equal(h.getInlineMutationRoot(text, h.getHybridMutationSelector()), null);
     h.inlineConfigs = {};
     h.fontSizeScaleConfigs = { sans: {} };
-    assert.equal(h.getHybridInlineMutationRoot(link), wrapper, 'Scale-only recovery still gets dynamic roots');
+    assert.equal(h.getInlineMutationRoot(link, h.getHybridMutationSelector()), wrapper, 'Scale-only recovery still gets dynamic roots');
 });
