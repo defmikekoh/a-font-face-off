@@ -16,6 +16,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 const ZTEMP = path.join(ROOT, 'ztemp');
 const DEFAULT_URL = 'https://en.wikipedia.org/wiki/Typography';
 const DEFAULT_SELECTORS = ['html', 'body', 'h1', 'p', '#affo-left-toolbar-iframe'];
+const { checkPageInfo } = require('../../../scripts/firefox-page-info');
 const TARGETS = new Set(['body', 'serif', 'sans', 'mono']);
 
 function usage() {
@@ -34,7 +35,7 @@ profile and inspects a target page. Build the XPI first with npm run build:lates
   --dismiss <css>           Click a page element before snapshots; repeatable
   --dismiss-frame <f>::<e>  Click an element inside an iframe before snapshots
   --dismiss-timeout <ms>    Wait per dismissal target (default: 5000)
-  --expect-affo             Fail if the AFFO marker is missing
+  --expect-affo             Require an AFFO top-frame reply matching the inspected URL
   --expect-toolbar          Fail if the left toolbar iframe is missing
   --timeout <ms>            Target navigation and script timeout (default: 20000)
   --out <ztemp/file.json>   Write JSON output under ztemp/
@@ -417,7 +418,7 @@ async function main() {
         report.dismissals = await performDismissals(driver, args);
         report.results = await collectSnapshots(driver, args);
         const final = report.results[report.results.length - 1].page;
-        if (args.expectAffo && !final.affoBase) throw new Error('AFFO marker was not found.');
+        if (args.expectAffo) final.pageInfo = await checkPageInfo(driver, final.url, args.timeout);
         if (args.expectToolbar && !final.toolbarFound) throw new Error('AFFO toolbar iframe was not found.');
         if (args.screenshot) {
             fs.mkdirSync(path.dirname(args.screenshot), { recursive: true });

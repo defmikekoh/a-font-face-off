@@ -2,6 +2,7 @@
 
 const { Builder, By, until } = require('selenium-webdriver');
 const firefox = require('selenium-webdriver/firefox');
+const { checkPageInfo } = require('./firefox-page-info');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -23,10 +24,6 @@ const DEFAULT_BOOKMARK_FILE = path.join(
     'references',
     'android-firefox-bookmarks.json',
 );
-const APPROVED_ANDROID_TARGET = Object.freeze({
-    serial: 'RF8M81WSL1V',
-    packageName: 'org.mozilla.fenix',
-});
 const ADB_COMMAND_TIMEOUT_MS = 10000;
 const DEFAULT_SEED_SERIF = 'Lora';
 const DEFAULT_SEED_SANS = 'Inter';
@@ -53,8 +50,8 @@ Options:
   --allow-clear-package-data
                             Acknowledge that Android geckodriver clears the selected
                             Firefox package data when creating a session
-  --allow-unapproved-target Permit a device/package other than the repo-approved Note10
-                            Nightly target; requires fresh explicit user approval
+  --allow-unapproved-target Allow an explicitly authorized target outside AGENTS.md standing approval
+  --wait-complete          Wait for document.readyState to reach complete (default accepts interactive)
   --preflight-only         Check device/package/wake/forward/socket state, then exit
                             without starting geckodriver or clearing Firefox data
   --xpi <path>             Extension XPI to install (default: web-ext-artifacts/latest.xpi)
@@ -129,6 +126,8 @@ function parseArgs(argv) {
             args.allowClearPackageData = true;
         } else if (arg === '--allow-unapproved-target') {
             args.allowUnapprovedTarget = true;
+        } else if (arg === '--wait-complete') {
+            args.waitComplete = true;
         } else if (arg === '--preflight-only') {
             args.preflightOnly = true;
         } else if (arg === '--xpi') {
@@ -245,18 +244,6 @@ function findExecutableOnPath(name) {
     return '';
 }
 
-function validateAndroidTarget(args) {
-    const isApprovedTarget = args.serial === APPROVED_ANDROID_TARGET.serial
-        && args.packageName === APPROVED_ANDROID_TARGET.packageName;
-    if (!isApprovedTarget && !args.allowUnapprovedTarget) {
-        throw new Error([
-            `Refusing unapproved Android Firefox target ${args.serial}/${args.packageName}.`,
-            `The repo-approved target is ${APPROVED_ANDROID_TARGET.serial}/${APPROVED_ANDROID_TARGET.packageName}.`,
-            'After obtaining fresh explicit user approval, pass --allow-unapproved-target.'
-        ].join(' '));
-    }
-}
-
 function runAdb(serial, adbArgs, options = {}) {
     return childProcess.execFileSync('adb', ['-s', serial, ...adbArgs], {
         encoding: 'utf8',
@@ -316,7 +303,20 @@ function collectDevicePreflight(args) {
         throw new Error(`ADB target ${args.serial} is in state ${state || 'unknown'}; expected device.`);
     }
 
-    const packagePath = runAdb(args.serial, ['shell', 'pm', 'path', args.packageName]);
+    const userId = runAdb(args.serial, ['shell', 'am', 'get-current-user']);
+    const avdName = args.serial.startsWith('emulator-')
+        ? runAdb(args.serial, ['emu', 'avd', 'name']).split(/\r?\n/)[0].trim()
+        : null;
+    const androidVersion = runAdb(args.serial, ['shell', 'getprop', 'ro.build.version.release']);
+    const approvedDevice = ['RF8M81WSL1V', 'A06B4A57AA34353'].includes(args.serial) ||
+        (args.serial === 'emulator-5554' && avdName === 'AFFO_Pixel_API36' && androidVersion === '16');
+    if (!(approvedDevice && args.packageName === 'org.mozilla.fenix' && userId === '0') && !args.allowUnapprovedTarget) {
+        throw new Error('Target outside standing approval: ' + JSON.stringify({
+            serial: args.serial, package: args.packageName, userId, avdName, androidVersion
+        }) + '. Use --allow-unapproved-target only with explicit approval for this target.');
+    }
+
+    const packagePath = runAdb(args.serial, ['shell', 'pm', 'path', '--user', userId, args.packageName]);
     if (!packagePath.startsWith('package:')) {
         throw new Error(`Firefox package ${args.packageName} is not installed on ${args.serial}.`);
     }
@@ -354,7 +354,9 @@ function collectDevicePreflight(args) {
     return {
         state,
         model: runAdb(args.serial, ['shell', 'getprop', 'ro.product.model']),
-        androidVersion: runAdb(args.serial, ['shell', 'getprop', 'ro.build.version.release']),
+        androidVersion,
+        userId,
+        avdName,
         packagePath,
         firefoxVersion: versionMatch ? versionMatch[1].trim() : '',
         existingForwards: forwards,
@@ -630,14 +632,13 @@ async function seedSubstackRouletteIfRequested(driver, args, report) {
     }
 }
 
-async function waitForDocument(driver, timeoutMs) {
+async function waitForDocument(driver, timeoutMs, waitComplete) {
     const startedAt = Date.now();
     let lastError = null;
     while (Date.now() - startedAt < timeoutMs) {
         try {
             const readyState = await driver.executeScript('return document.readyState');
-            if (readyState === 'interactive' || readyState === 'complete') {
-                await driver.sleep(1000);
+            if (readyState === 'complete' || (!waitComplete && readyState === 'interactive')) {
                 return readyState;
             }
         } catch (error) {
@@ -746,44 +747,6 @@ async function collectDomAndCss(driver, selectors) {
             selectors: selectorList.map(inspectElement),
         };
     }, selectors);
-}
-
-async function checkPageInfo(driver, expectedUrl, timeoutMs) {
-    const source = await driver.getWindowHandle();
-    await driver.setContext(firefox.Context.CHROME);
-    let target;
-    try {
-        // Read the inspected GeckoView tab ID before the probe tab takes focus.
-        target = await driver.executeScript(`
-            const policy = WebExtensionPolicy.getByID('a-font-face-off@example.com');
-            if (!policy) throw new Error('AFFO is not installed');
-            return { tabId: window.tab.id, probeUrl: policy.getURL('left-toolbar-iframe.html') };
-        `);
-    } finally {
-        await driver.setContext(firefox.Context.CONTENT);
-    }
-
-    // A top-level extension page has tabs.sendMessage even when the site hides the toolbar.
-    await driver.switchTo().newWindow('tab');
-    try {
-        await driver.get(target.probeUrl);
-        const reply = await driver.wait(() => driver.executeAsyncScript(function (tabId, done) {
-            browser.tabs.sendMessage(tabId, { type: 'affoGetPageInfo' }, { frameId: 0 }).then(
-                info => done(info || null),
-                error => done({ error: error.message })
-            );
-        }, target.tabId).then(result => {
-            if (result?.error?.includes('Receiving end does not exist')) return false;
-            if (result?.error) throw new Error(result.error);
-            return result;
-        }), timeoutMs, 'No affoGetPageInfo reply from ' + expectedUrl);
-        assert.equal(reply.ok, true, 'Content script must acknowledge affoGetPageInfo');
-        assert.equal(reply.href, expectedUrl, 'Content script must identify the inspected page');
-        return reply;
-    } finally {
-        await driver.close();
-        await driver.switchTo().window(source);
-    }
 }
 
 async function startFontFixture(serial) {
@@ -902,7 +865,6 @@ async function main() {
     let sessionCreated = false;
     let fixture;
     try {
-        validateAndroidTarget(args);
         report.devicePreflight = collectDevicePreflight(args);
         if (args.preflightOnly) {
             report.preflightOnly = true;
@@ -915,10 +877,10 @@ async function main() {
             if (args.testLineChange) fixture = await startFontFixture(args.serial);
             const inspectionUrl = args.url || fixture.url;
             await driver.get(inspectionUrl);
-            report.documentReadyState = await waitForDocument(driver, args.timeoutMs);
+            report.documentReadyState = await waitForDocument(driver, args.timeoutMs, args.waitComplete);
             if (await seedSubstackRouletteIfRequested(driver, args, report)) {
                 await driver.get(inspectionUrl);
-                report.documentReadyStateAfterSeed = await waitForDocument(driver, args.timeoutMs);
+                report.documentReadyStateAfterSeed = await waitForDocument(driver, args.timeoutMs, args.waitComplete);
             }
             if (args.settleMs > 0) {
                 await driver.sleep(args.settleMs);

@@ -9,6 +9,17 @@ Automated and semi-automated testing of the extension on desktop Firefox Develop
 
 This repo skill is canonical for AFFO-specific commands, selectors, storage seeds, popup/toolbar IDs, generated Edge MV3 artifacts, and known site examples. Use the global `firefox-extension-debug` skill for reusable Android Firefox safety boundaries, ADB patterns, CDP reconnaissance guidance, and GUI/DevTools route selection.
 
+## Choose a test surface
+
+| What to verify | Runner or route | Evidence |
+|---|---|---|
+| Firefox desktop popup interaction | `npm run test:integration`, or the relevant integration file after building | Assertions against the native toolbar popup and the affected page |
+| Content-script readiness on a URL | Desktop Firefox inspector or `inspect:android-firefox` with `--expect-affo` | The inspected tab’s top frame answers `affoGetPageInfo` with its own URL |
+| Reproducible Firefox Android touch behavior | `npm run test:android:emulator` or Android inspector with `--test-line-change` | Native control taps and resulting computed styles and highlight ranges |
+| A failure in an existing Firefox Android session | [Live-session inspection](references/live-session-inspection.md) | Failing page, current profile and actual extension build observed together |
+| Shared Chromium behavior | `npm run test:chrome` or prepared [Snapshot](references/vivaldi-snapshot.md) / [Canary](references/edge-canary.md) session | Extension-tab assertions and resulting page state |
+| Native Android popup geometry or visibility | Reproduce through the reported entry point | Device screenshot or UI tree alongside DOM measurements |
+
 ## Default Problem Target
 
 Unless the user states otherwise, treat AFFO behavior questions and reported problems as occurring in Firefox Nightly on Android. Desktop Firefox Developer Edition is often a faster initial testing area for shared extension logic, deterministic regression tests, and site CSS investigation. When mobile layout, touch behavior, Firefox Android behavior, or final user-visible verification matters, confirm the result on Android Firefox Nightly rather than treating a desktop result as conclusive.
@@ -46,17 +57,6 @@ Use geckodriver 0.37.1 or later for Firefox Android automation. If an older Home
 For desktop Firefox tests, Firefox Developer Edition must be installed at `/Applications/Firefox Developer Edition.app`.
 
 Android Firefox inspection also requires ADB and an authorized Android device.
-
-## AFFO Debugging Order
-
-1. Use code search, unit tests, lint, and local scripts first for source-level behavior.
-2. Use desktop Firefox Selenium/geckodriver for repeatable native-popup and shared content-script checks. Run `npm run test:chrome` for changes affecting Chromium MV3 behavior: the API adapter, background service worker, messaging, injection, DNR, or shared popup/apply/reset paths. For changes crossing both engines, use relevant Firefox integration tests plus Chrome smoke.
-3. For a bug in the current Android session, use the existing Firefox DevTools/RDP connection when available so its cache, settings, and failing page survive. Use the Android Firefox WebDriver harness for reproducible seeded runs; session creation clears the selected package data. Read [live-session inspection and Apply timing](references/live-session-inspection.md) for build checks, popup targeting, and completion evidence. For intermittent native reload hangs and Firefox sampling profiles, read [native reload reproduction and profiling](references/android-native-profiling.md).
-4. Use desktop Chrome through the Codex Chrome Extension when the user's real Chrome profile/session is the fastest way to inspect already-open or authenticated desktop pages: original DOM, selectors, overlays, console logs, screenshots, and baseline computed styles. Treat this as reconnaissance, and verify AFFO/Firefox-specific conclusions in Firefox.
-5. Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance: original DOM, selectors, layout, network, and baseline computed styles before or alongside Firefox verification.
-6. Use Vivaldi Snapshot on the Note10 or the configured Android 16 emulator for shared Chromium MV3 verification (see the Snapshot reference below for each target’s scope and setup), or Edge Canary for Edge-specific behavior; use CDP there for page and extension debugging where available, and verify Firefox-specific conclusions separately.
-7. Use ADB for coarse device state: screenshots, taps, URL/page confirmation, UI dumps, and extension iframe presence.
-8. Use Computer Use only for Mac GUI workflows such as Firefox Developer Edition prompts, `about:debugging`, DevTools panel navigation, or one-off visual workflow discovery.
 
 ## Running Tests
 
@@ -199,17 +199,7 @@ For Line Change browser commands, test surfaces, and expected results, see the
 
 ## Content Script Testing
 
-Run in content context (not `popupExec`):
-
-```js
-await driver.get('https://en.wikipedia.org/wiki/Typography');
-await driver.sleep(3000);
-
-const affoBase = await driver.executeScript(
-    "return document.documentElement.getAttribute('data-affo-base')"
-);
-// Returns 'serif', 'sans', or 'mono'
-```
+Both Firefox inspectors support `--expect-affo`. They capture the inspected tab ID before opening a temporary extension tab, send the request to frame zero, verify the reply URL, then return to the source tab. The page’s `data-affo-base` attribute remains diagnostic. DeepView can remove it during startup. The Android smoke suite checks the expected `sans` classification on its controlled Arial fixture.
 
 ### Reusable Desktop Page Inspector
 
@@ -263,11 +253,11 @@ known split requirements.
 
 #### TCL NxtPaper 11 Plus — Firefox Nightly
 
-For the TCL (ADB model `9469X`), pass `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-data --allow-unapproved-target`. The override is needed because the inspector's built-in allowlist names the Note10. Restore temporary awake/rotation settings in cleanup.
+Use `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-data`. The inspector checks the device, package and active primary user before session creation. For the approved emulator it also checks the AVD name and Android version. The dedicated emulator command enforces its fixed target. Use the general inspector for a separately authorized target.
 
 #### Keep Note10 awake throughout testing
 
-For every Note10 `RF8M81WSL1V` test, keep its screen awake throughout navigation, waits, profiling, and cleanup. This is the user's standing preference. Record the original `stay_on_while_plugged_in` value, enable `adb -s RF8M81WSL1V shell svc power stayon usb`, wake the screen, and keep USB power connected. Restore and verify the exact original value after testing, including failure paths; harnesses should use `try/finally`. Follow the [Note10 keep-awake procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing). The harness's one-time preflight wake does not keep the device awake for later waits. Exclude sleep-interrupted runs from performance comparisons.
+Follow the [whole-session power procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing) through cleanup. The inspector wakes the screen once during preflight.
 
 #### Approval-compatible Note10 ADB
 
@@ -349,13 +339,7 @@ For Firefox Nightly app updates specifically, use package
 version with `adb -s emulator-5554 shell dumpsys package org.mozilla.fenix`
 before starting the smoke lane.
 
-This builds the current XPI, clears only the emulator's Nightly profile,
-installs the add-on, opens the DeepView regression page, and asserts Android
-16, Firefox Nightly, add-on installation, document readiness, AFFO injection,
-article presence, and visible toolbar iframe state. Because the test launches
-child ADB processes, run it in an environment that can access the shared ADB
-daemon; if sandboxing blocks ADB startup, rerun with elevated execution
-approval.
+This builds the XPI and verifies the approved AVD identity before geckodriver starts. The smoke runner requests `--wait-complete` for DeepView and checks the page reply, article, and visible toolbar. It then exercises Line Change on the local font fixture. The general inspector accepts `interactive` or `complete` by default.
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; check the device/package pair in [AGENTS.md](../../../AGENTS.md#android-test-targets).
 
@@ -386,13 +370,6 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 On USA Today, an acquisition/modal overlay may be present at the same time as a functioning AFFO toolbar. Its observed mobile close-control selector is `.gnt_mol_xb`; do not treat the overlay itself as proof that the toolbar failed to inject or display.
 
-Speed/fidelity rule:
-- Use the Android Firefox harness when the answer must reflect Firefox Android, AFFO extension injection, extension storage, seeded settings, or final computed CSS with AFFO active.
-- Use desktop Chrome through the Codex Chrome Extension when an authenticated or already-open desktop Chrome page is the fastest way to inspect live page structure, overlays, console logs, screenshots, or baseline computed styles.
-- Use Android Chrome/Edge DevTools/CDP for quick mobile site reconnaissance and Chromium-family comparison: original DOM, selectors, layout, network, and baseline computed styles.
-- Use the Edge Canary Android MV3 prototype when the question is about the Chromium/Edge extension build, popup/options path, toolbar, Quick Pick, or sync behavior.
-- If Chrome or Edge reveals a selector or page structure, verify in Firefox before treating it as Firefox extension behavior; sites and engines can diverge.
-
 Storage-dependent features will not be configured unless the script seeds storage during the run. Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. For Substack Roulette checks, seed deterministic favorites before inspecting:
 
 ```bash
@@ -403,50 +380,12 @@ Use a seed font that differs from the site default when proving font application
 
 #### Inspecting the popup ITSELF on Note10 (panel vs page-font tab)
 
-`inspect:android-firefox` inspects the *web page* (content script), not the popup UI. The popup can render on different surfaces; identify and inspect the one used in the reported behavior:
+The default inspector collects page DOM and CSS. Add `--test-line-change` for the popup touch workflow. The popup can render on different surfaces; identify and inspect the one used in the reported behavior:
 
 - **Desktop**: a browser-action PANEL (sizes-to-content; CSS gives it a fixed `400x600`).
 - **Firefox Android**: full-viewport UI can be a native browser-action surface at `popup.html`, or an ordinary extension tab at `popup.html?domain=…&sourceTabId=…` created by `openPopupFallback` (toolbar/one-shot page-font flows). The native surface may be absent from RDP `listTabs` even while visible on the phone. Identify the actual surface with the device UI and, from a real extension context, `browser.extension.getViews()` and `browser.tabs.query({})`. Preserve the user's entry path when reproducing a UI-specific issue. `popup-context.js` keys mobile sizing off `/Android/i` in the UA → `html.affo-mobile`.
 
-To drive/inspect that popup tab with geckodriver, pin the add-on UUID to make extension origins and blob URLs deterministic, then trigger the real page flow and switch to its new window handle. Do not depend on direct WebDriver navigation to `moz-extension://`; current Fenix/geckodriver can reject it with `Navigation to ... is not allowed in this context`.
-
-```js
-const UUID = '11111111-2222-3333-4444-555555555555';
-options.setPreference('extensions.webextensions.uuids',
-  JSON.stringify({ 'a-font-face-off@example.com': UUID }));
-await driver.installAddon('web-ext-artifacts/latest.xpi', true);
-
-const handlesBefore = await driver.getAllWindowHandles();
-// Trigger the actual WhatFont Face-off or toolbar openPopup flow here.
-const popupHandle = await driver.wait(async () => {
-  const handles = await driver.getAllWindowHandles();
-  return handles.find(handle => !handlesBefore.includes(handle)) || false;
-}, 10000);
-await driver.switchTo().window(popupHandle);
-```
-
-Fenix may classify the resulting extension tab as a privileged browsing context. In that context, `executeScript` and `executeAsyncScript` can fail with `not supported for privileged browsing contexts`. Try native WebDriver element commands when supported:
-
-```js
-const { By, until } = require('selenium-webdriver');
-const topDisplay = await driver.wait(until.elementLocated(By.id('top-font-display')), 15000);
-const topFont = ((await topDisplay.getProperty('textContent')) || '').trim();
-const previewStyle = await driver.findElement(By.id('top-font-text')).getDomAttribute('style');
-const activeMode = await driver.findElement(By.css('[data-mode].active')).getDomAttribute('data-mode');
-```
-
-Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()` returns an empty string for elements hidden by the current panel layout. Prefer `getDomAttribute(...)` for literal attributes and `getProperty(...)` for DOM properties; avoid helpers that fall back to injected JavaScript in the privileged tab.
-
-On Note10 Nightly 158.0a1 (September 2026), even `findElement`/`findElements` in a popup tab could fail with `The command does not support browsing contexts in privileged scope`. If element commands are rejected too, use fresh ADB UI nodes/screenshots for visible controls or an available RDP extension target; do not keep retrying the same unsupported WebDriver path. See [native interaction and profiling](references/android-native-profiling.md).
-
-**Note10 measurement gotchas (learned the hard way):**
-
-- **A screenshot is authoritative, `getBoundingClientRect` is NOT.** Rect math caps at `innerHeight`, so it CANNOT see whitespace *below* the popup — a too-short body reads `gripsBottom === innerHeight` (gap 0) while a device screenshot clearly shows a gap. Always confirm popup fill/anchoring with the separate `shell screencap` and `pull` commands above.
-- **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
-- **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
-- **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
-- **Device asleep → `Failed to decode response from marionette` or stalled navigation.** Follow the Note10 whole-session keep-awake procedure above; the harness preflight wake alone is insufficient.
-- **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.
+On the Android 16 emulator with Nightly 159, `--expect-affo` enables geckodriver system access, resolves the installed extension URL and probes from a temporary extension tab. The production popup can stay closed. For touch behavior, `--test-line-change` opens the real popup tab from the fixture, taps controls through ADB and verifies the effects in the source page. For earlier privileged-context limitations and viewport measurements, see the [Note10 observations](references/android-page-verification.md#earlier-note10-popup-observations-and-inspection-examples).
 
 ## Vivaldi Snapshot Android — device and emulator testing
 

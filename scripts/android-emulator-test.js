@@ -8,6 +8,8 @@ const path = require('node:path');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const serial = process.env.AFFO_ANDROID_EMULATOR_SERIAL || 'emulator-5554';
 const packageName = process.env.AFFO_ANDROID_EMULATOR_PACKAGE || 'org.mozilla.fenix';
+assert.equal(serial, 'emulator-5554', 'The emulator suite targets AFFO_Pixel_API36 on emulator-5554');
+assert.equal(packageName, 'org.mozilla.fenix', 'The emulator suite targets Firefox Nightly');
 const reportPath = path.join(ROOT_DIR, 'ztemp', 'android-emulator-smoke.json');
 const url = 'https://www.thedeepview.com/articles/for-ai-builders-pixel-11-pro-fold-is-the-phone-to-beat';
 
@@ -16,7 +18,7 @@ const inspectorArgs = [
     '--serial', serial,
     '--package', packageName,
     '--allow-clear-package-data',
-    '--allow-unapproved-target',
+    '--wait-complete',
     '--skip-bookmarks',
     '--url', url,
     '--expect-affo',
@@ -29,6 +31,7 @@ const inspectorArgs = [
 
 const result = childProcess.spawnSync(process.execPath, inspectorArgs, {
     cwd: ROOT_DIR,
+    env: { ...process.env, AFFO_ANDROID_ALLOW_UNAPPROVED_TARGET: '0' },
     encoding: 'utf8',
     stdio: 'inherit',
 });

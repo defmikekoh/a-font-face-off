@@ -75,3 +75,45 @@ allowed; the default blocks `thedeepview.com`. Changing test storage does not
 change the source default. Compare reload scroll displacement with AFFO
 uninstalled, using the same page and reload method, before attributing it to the
 extension. An unreproduced intermittent failure is not proof of a fix.
+
+## Earlier Note10 popup observations and inspection examples
+
+To drive/inspect that popup tab with geckodriver, pin the add-on UUID to make extension origins and blob URLs deterministic, then trigger the real page flow and switch to its new window handle. Do not depend on direct WebDriver navigation to `moz-extension://`; the ordinary session on the tested build could reject it with `Navigation to ... is not allowed in this context`.
+
+```js
+const UUID = '11111111-2222-3333-4444-555555555555';
+options.setPreference('extensions.webextensions.uuids',
+  JSON.stringify({ 'a-font-face-off@example.com': UUID }));
+await driver.installAddon('web-ext-artifacts/latest.xpi', true);
+
+const handlesBefore = await driver.getAllWindowHandles();
+// Trigger the actual WhatFont Face-off or toolbar openPopup flow here.
+const popupHandle = await driver.wait(async () => {
+  const handles = await driver.getAllWindowHandles();
+  return handles.find(handle => !handlesBefore.includes(handle)) || false;
+}, 10000);
+await driver.switchTo().window(popupHandle);
+```
+
+Fenix may classify the resulting extension tab as a privileged browsing context. In that context, `executeScript` and `executeAsyncScript` can fail with `not supported for privileged browsing contexts`. Try native WebDriver element commands when supported:
+
+```js
+const { By, until } = require('selenium-webdriver');
+const topDisplay = await driver.wait(until.elementLocated(By.id('top-font-display')), 15000);
+const topFont = ((await topDisplay.getProperty('textContent')) || '').trim();
+const previewStyle = await driver.findElement(By.id('top-font-text')).getDomAttribute('style');
+const activeMode = await driver.findElement(By.css('[data-mode].active')).getDomAttribute('data-mode');
+```
+
+Use `getProperty('textContent')` for hidden popup controls. Selenium `getText()` returns an empty string for elements hidden by the current panel layout. Prefer `getDomAttribute(...)` for literal attributes and `getProperty(...)` for DOM properties; avoid helpers that fall back to injected JavaScript in the privileged tab.
+
+On Note10 Nightly 158.0a1 (September 2026), even `findElement`/`findElements` in a popup tab could fail with `The command does not support browsing contexts in privileged scope`. If element commands are rejected too, use fresh ADB UI nodes/screenshots for visible controls or an available RDP extension target; do not keep retrying the same unsupported WebDriver path. See [native interaction and profiling](android-native-profiling.md).
+
+**Note10 measurement gotchas (learned the hard way):**
+
+- **A screenshot is authoritative, `getBoundingClientRect` is NOT.** Rect math caps at `innerHeight`, so it CANNOT see whitespace *below* the popup — a too-short body reads `gripsBottom === innerHeight` (gap 0) while a device screenshot clearly shows a gap. Always confirm popup fill/anchoring with the separate ADB screencap and pull commands.
+- **The "extension added" banner is a temporary-install artifact.** Every geckodriver/web-ext run shows it (fresh temporary add-on); it adds dev-only bottom chrome and dismissing it doesn't always reclaim the space. A permanent (AMO) install has no banner. Don't chase whitespace that's really this banner.
+- **geckodriver resets the Nightly profile each run** → address bar returns to the top; you canNOT reproduce a user's bottom-toolbar or other profile settings this way. `web-ext run` uses the real profile (so newly-added files like `popup-context.js` need a full `web-ext run` restart, not a hot-reload).
+- **Viewport units misreport in the extension tab:** `dvh`/`svh`/`innerHeight`/`fixed;bottom:0` all = the area above the system nav (~634 on Note10); `lvh`/`vh`/`outerH` = the full window (~690). The popup body uses `calc(100dvh + env(safe-area-inset-bottom))` to fill edge-to-edge. `@media(pointer:fine)` is unreliable — the S-Pen trips it.
+- **Device asleep → `Failed to decode response from marionette` or stalled navigation.** Follow the Note10 [whole-session keep-awake procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing); the harness preflight wake alone is insufficient.
+- **Don't leave a geckodriver session idling** (e.g. a long `driver.sleep` to "leave it open") — it looks like a hang and the user may kill it.

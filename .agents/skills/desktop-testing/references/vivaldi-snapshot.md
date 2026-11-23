@@ -40,14 +40,14 @@ adb -s RF8M81WSL1V shell pidof com.vivaldi.browser.snapshot
 adb -s RF8M81WSL1V shell cat /proc/net/unix
 ```
 
-Match the actual Snapshot PID to `chrome_devtools_remote_<PID>`. Other browsers may expose `chrome_devtools_remote` or another PID socket. Do not guess which one belongs to Snapshot. Forward the observed literal socket to a dedicated local port, for example:
+List the available sockets first. Snapshot has used both `chrome_devtools_remote_<PID>` and `chrome_devtools_remote` on the Note10. If the unsuffixed socket is listed, one example is:
 
 ```bash
-adb -s RF8M81WSL1V forward tcp:9235 localabstract:chrome_devtools_remote_7017
-curl -s http://127.0.0.1:9235/json
+adb -s RF8M81WSL1V forward tcp:9235 localabstract:chrome_devtools_remote
+curl -s http://127.0.0.1:9235/json/version
 ```
 
-`7017` is a past observation, not a fixed PID. Rediscover it after relaunching Snapshot. Localhost HTTP and WebSocket connections may require execution outside the Codex sandbox.
+Require `Android-Package` to equal `com.vivaldi.browser.snapshot` before interacting with any target. If the endpoint fails or identifies another browser, check the other observed candidate matching Snapshot's PID and verify again. Then read `/json` for the test tabs. Rediscover sockets after a relaunch.
 
 ## Runtime inspection and regression script
 
@@ -136,8 +136,7 @@ Blocking and declined notifications. Inspect fresh UI nodes before tapping.
 ### Extension loading and CDP
 
 - Discover sockets anew. The emulator exposed **`chrome_devtools_remote`** with
-  no PID suffix, unlike the Note10's observed PID-suffixed socket. Confirm the
-  forwarded `/json` targets belong to Vivaldi before interacting. Port **9245**
+  no PID suffix. Verify the `Android-Package` at `/json/version` before interacting. Port **9245**
   was used to keep emulator CDP separate from Note10 port 9235.
 - An Android VIEW intent for `vivaldi://extensions` could not resolve. Navigating
   an existing Vivaldi page through CDP `Page.navigate` worked. Inside that page,
