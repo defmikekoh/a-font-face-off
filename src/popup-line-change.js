@@ -111,6 +111,7 @@
         const data = await browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']);
         const config = data.affoSubstackRoulette === false ? null : pickPoolConfig(data, pool);
         if (config) await applyFontConfig('line', config);
+        el('line-font-name').textContent = AFFOSroulette.getPoolLabel(pool);
         el('line-font-display').textContent = AFFOSroulette.getPoolLabel(pool);
         el('line-font-display').dataset.affoSroulettePool = pool;
         updateButtons();
