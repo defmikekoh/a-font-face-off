@@ -154,3 +154,17 @@ current hostname from Wait For It; Wait For It remains in Options.
 The former Apply Early setting and its sync files are no longer consumed.
 Old allowlists cannot express the new exclusion policy and are not inverted or
 migrated; all domains start early unless explicitly added to the new list.
+
+## Line Change
+
+`content-line-change.js` groups visible, nonblank text nodes by their immediate
+owner and reads each owner's first computed font family. For example, selecting
+Arial matches `Arial, sans-serif` and skips `Georgia, Arial, serif`. Each scan
+restores previous Line Change styles before measuring, so replacing Arial with
+Georgia does not make that text eligible for a Georgia rule.
+
+Highlight builds CSS Highlight ranges from those text nodes. Apply uses the same
+family comparison and writes the saved target properties to the owners. Child
+elements retain their original inherited properties where needed. While rules or
+a highlight are active, DOM changes trigger a new scan. Clear highlight removes
+the page marking independently of saved rules.

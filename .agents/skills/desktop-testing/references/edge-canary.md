@@ -124,7 +124,12 @@ Drive popup modes semantically through CDP when repeated physical taps would
 close or obscure the panel:
 
 ```js
-document.querySelector('[data-mode="body-contact"]').click();
+const shared = document.querySelector('#shared-mode-tab');
+if (shared.dataset.mode === 'line-change') {
+    shared.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }));
+} else {
+    shared.click();
+}
 document.querySelector('[data-mode="faceoff"]').click();
 document.querySelector('[data-mode="third-man-in"]').click();
 ```

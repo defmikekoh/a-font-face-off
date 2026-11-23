@@ -4,6 +4,8 @@ const { Builder, By, until } = require('selenium-webdriver');
 const firefox = require('selenium-webdriver/firefox');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
+const http = require('node:http');
+const assert = require('node:assert/strict');
 const path = require('node:path');
 const {
     loadBookmarkList,
@@ -61,7 +63,8 @@ Options:
   --bookmarks <path>       JSON bookmark list restored after reset
                             (default: .agents/skills/desktop-testing/references/android-firefox-bookmarks.json)
   --skip-bookmarks         Do not restore the configured bookmarks after reset
-  --expect-affo            Exit non-zero if the AFFO content script marker is missing
+  --test-line-change       Exercise the native Line Change popup on a local font fixture
+  --expect-affo            Require a content-script reply with the inspected page URL
   --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config
   --seed-serif <name>      Serif favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SERIF})
   --seed-sans <name>       Sans favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SANS})
@@ -138,6 +141,8 @@ function parseArgs(argv) {
             args.bookmarkFile = path.resolve(requireValue(argv, ++i, arg));
         } else if (arg === '--skip-bookmarks') {
             args.seedBookmarks = false;
+        } else if (arg === '--test-line-change') {
+            args.testLineChange = true;
         } else if (arg === '--expect-affo') {
             args.expectAffo = true;
         } else if (arg === '--seed-substack-roulette') {
@@ -166,6 +171,9 @@ function parseArgs(argv) {
     }
 
     if (args.help) return args;
+    if (args.testLineChange && !argv.includes('--url') && !process.env.AFFO_ANDROID_URL) {
+        args.url = null;
+    }
 
     if (!Number.isFinite(args.timeoutMs) || args.timeoutMs <= 0) {
         throw new Error('--timeout must be a positive number');
@@ -389,6 +397,8 @@ async function createAndroidFirefoxDriver(args) {
     const service = new firefox.ServiceBuilder(geckodriverPath)
         .enableVerboseLogging(true)
         .setStdio(['ignore', geckodriverLogFd, geckodriverLogFd]);
+
+    if (args.expectAffo) service.addArguments('--allow-system-access');
 
     let driver;
     try {
@@ -738,6 +748,121 @@ async function collectDomAndCss(driver, selectors) {
     }, selectors);
 }
 
+async function checkPageInfo(driver, expectedUrl, timeoutMs) {
+    const source = await driver.getWindowHandle();
+    await driver.setContext(firefox.Context.CHROME);
+    let target;
+    try {
+        // Read the inspected GeckoView tab ID before the probe tab takes focus.
+        target = await driver.executeScript(`
+            const policy = WebExtensionPolicy.getByID('a-font-face-off@example.com');
+            if (!policy) throw new Error('AFFO is not installed');
+            return { tabId: window.tab.id, probeUrl: policy.getURL('left-toolbar-iframe.html') };
+        `);
+    } finally {
+        await driver.setContext(firefox.Context.CONTENT);
+    }
+
+    // A top-level extension page has tabs.sendMessage even when the site hides the toolbar.
+    await driver.switchTo().newWindow('tab');
+    try {
+        await driver.get(target.probeUrl);
+        const reply = await driver.wait(() => driver.executeAsyncScript(function (tabId, done) {
+            browser.tabs.sendMessage(tabId, { type: 'affoGetPageInfo' }, { frameId: 0 }).then(
+                info => done(info || null),
+                error => done({ error: error.message })
+            );
+        }, target.tabId).then(result => {
+            if (result?.error?.includes('Receiving end does not exist')) return false;
+            if (result?.error) throw new Error(result.error);
+            return result;
+        }), timeoutMs, 'No affoGetPageInfo reply from ' + expectedUrl);
+        assert.equal(reply.ok, true, 'Content script must acknowledge affoGetPageInfo');
+        assert.equal(reply.href, expectedUrl, 'Content script must identify the inspected page');
+        return reply;
+    } finally {
+        await driver.close();
+        await driver.switchTo().window(source);
+    }
+}
+
+async function startFontFixture(serial) {
+    const server = http.createServer((_request, response) => {
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        response.end(`<!doctype html><html><head><title>AFFO font fixture</title></head>
+            <body style="font-family: Arial, sans-serif">
+                <p id="first">First</p>
+                <p id="fallback" style="font-family: Georgia, Arial, serif">Fallback</p>
+            </body></html>`);
+    });
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    let port;
+    try {
+        port = runAdb(serial, ['reverse', 'tcp:0', 'tcp:' + server.address().port]);
+    } catch (error) {
+        server.close();
+        throw error;
+    }
+    return {
+        url: 'http://127.0.0.1:' + port + '/',
+        close() {
+            server.close();
+            runAdb(serial, ['reverse', '--remove', 'tcp:' + port]);
+        },
+    };
+}
+
+async function testLineChange(driver, args, url) {
+    if (await driver.getCurrentUrl() !== url) await driver.get(url);
+    const base = await driver.wait(() => driver.executeScript(
+        "return document.documentElement.getAttribute('data-affo-base')"
+    ), args.timeoutMs, 'Missing base classification on the local Arial fixture');
+    assert.equal(base, 'sans', 'The Arial, sans-serif fixture should be classified as sans');
+    const source = await driver.getWindowHandle();
+    const open = () => driver.executeScript("window.postMessage({type:'openPopup'}, '*')");
+    const find = label => driver.wait(() => {
+        const nodes = dumpFenixUi(args);
+        const prompt = nodes.find(node => ['Okay, Got It', 'Okay'].includes(node.text));
+        if (prompt) {
+            tapUiNode(args, prompt);
+            return false;
+        }
+        return nodes.find(node => node.enabled === 'true' &&
+            [node.text, node['content-desc'], node['resource-id']].includes(label));
+    }, 30000, 'Missing Android control ' + label);
+    const tap = async label => tapUiNode(args, await find(label));
+    await open();
+    const preview = await find('line-preview-title');
+    const buttons = await find('line-apply');
+    const substitutions = await find('line-substitutions-title');
+    assert.ok(preview.bounds.bottom <= buttons.bounds.top && buttons.bounds.bottom <= substitutions.bounds.top,
+        JSON.stringify([preview.bounds, buttons.bounds, substitutions.bounds]));
+    await tap('line-out-grip');
+    await find('line-source');
+    await tap('line-in-grip');
+    await find('line-font-display');
+    await tap('line-in-grip');
+    await tap('Apply');
+    const remove = 'Remove substitution for Arial';
+    await find(remove);
+    await tap('Highlight');
+    await driver.wait(async () => (await driver.getAllWindowHandles()).length === 1, 15000, 'Highlight closes the popup tab');
+    await driver.switchTo().window(source);
+    const read = script => driver.executeScript('return ' + script);
+    assert.deepEqual(await read("[...CSS.highlights.get('affo-line-change')].map(range => range.startContainer.parentElement.id)"), ['first']);
+    assert.equal(await read("getComputedStyle(document.getElementById('first')).fontFamily"), 'Georgia');
+    assert.match(await read("getComputedStyle(document.getElementById('fallback')).fontFamily"), /Georgia,.*Arial/);
+    await tap('Clear highlight');
+    await driver.wait(() => read("!CSS.highlights.has('affo-line-change')"), 10000);
+    await open();
+    await tap(remove);
+    await driver.wait(() => read("getComputedStyle(document.getElementById('first')).fontFamily.startsWith('Arial')"), 10000);
+    return { base, checked: ['section order', 'grips', 'Apply', 'Highlight on source page', 'Clear highlight', 'remove substitution'] };
+}
+
 async function main() {
     const args = parseArgs(process.argv.slice(2));
     if (args.help) {
@@ -775,6 +900,7 @@ async function main() {
     let driver;
     let geckodriverLogFd;
     let sessionCreated = false;
+    let fixture;
     try {
         validateAndroidTarget(args);
         report.devicePreflight = collectDevicePreflight(args);
@@ -786,10 +912,12 @@ async function main() {
             geckodriverLogFd = driverContext.geckodriverLogFd;
             sessionCreated = true;
             await installAddonIfRequested(driver, args, report);
-            await driver.get(args.url);
+            if (args.testLineChange) fixture = await startFontFixture(args.serial);
+            const inspectionUrl = args.url || fixture.url;
+            await driver.get(inspectionUrl);
             report.documentReadyState = await waitForDocument(driver, args.timeoutMs);
             if (await seedSubstackRouletteIfRequested(driver, args, report)) {
-                await driver.get(args.url);
+                await driver.get(inspectionUrl);
                 report.documentReadyStateAfterSeed = await waitForDocument(driver, args.timeoutMs);
             }
             if (args.settleMs > 0) {
@@ -797,11 +925,10 @@ async function main() {
             }
             dismissFenixStartupPrompts(args, report, 'inspection');
             report.inspection = await collectDomAndCss(driver, args.selectors);
-
-            if (args.expectAffo && !report.inspection.affo.htmlDataAffoBase) {
-                report.expectAffoFailure = 'Missing documentElement[data-affo-base]; AFFO content script was not observed.';
-                throw new Error(report.expectAffoFailure);
+            if (args.expectAffo) {
+                report.inspection.affo.pageInfo = await checkPageInfo(driver, report.inspection.url, args.timeoutMs);
             }
+            if (args.testLineChange) report.lineChange = await testLineChange(driver, args, fixture.url);
         }
     } catch (error) {
         report.error = error.message;
@@ -815,6 +942,7 @@ async function main() {
                 report.quitError = error.message;
             }
         }
+        if (fixture) fixture.close();
         if (geckodriverLogFd != null) {
             fs.closeSync(geckodriverLogFd);
         }

@@ -17,7 +17,7 @@ Verified with Snapshot 8.2.4147.50 on Android 12. Check the installed version ea
    adb -s RF8M81WSL1V shell pm clear com.vivaldi.browser.snapshot
    ```
 
-3. Copy the build contents (the `/.` matters when updating an existing directory):
+3. For an existing install, check the unpacked path in the extension manager and use its matching device directory. Reload AFFO after copying so Snapshot reads new manifest content-script entries. Copy the build contents (the `/.` matters when updating an existing directory):
 
    ```bash
    adb -s RF8M81WSL1V push ztemp/chromium-mv3-src/. /sdcard/Download/affo-mv3

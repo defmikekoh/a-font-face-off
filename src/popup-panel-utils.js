@@ -9,12 +9,14 @@
   }
 
   var MODE_CONFIG = {
+    'line-change': { positions: [], stateKeys: {}, useDomain: true },
     'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
     faceoff: { positions: ['top', 'bottom'], stateKeys: { top: 'topFont', bottom: 'bottomFont' }, useDomain: false },
     'third-man-in': { positions: ['serif', 'sans', 'mono'], stateKeys: { serif: 'serifFont', sans: 'sansFont', mono: 'monoFont' }, useDomain: true }
   };
 
   var PANEL_HEADINGS = {
+    line: 'Sub in',
     top: 'Top Font',
     bottom: 'Bottom Font',
     serif: 'Serif',
@@ -29,6 +31,7 @@
   function noop() {}
 
   function getPanelLabel(position) {
+    if (position === 'line') return 'Sub in';
     if (position === 'body') return 'Body';
     if (position === 'top') return 'Top';
     if (position === 'bottom') return 'Bottom';

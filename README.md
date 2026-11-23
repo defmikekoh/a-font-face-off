@@ -16,9 +16,10 @@ Pick any Google Font at runtime, tune variable axes (weight, width, optical size
 
 I created this extension because looking at the Spectral font on my Android tablet on long articles made my eyes bleed.
 
-## Three Ways to Use It
+## Four Ways to Use It
 
-- **Body Contact** — Swap the reading font on any page.
+- **Line Change** — Replace one original page font family at a time. Open **Sub out** to choose the family and **Sub in** to choose its replacement and font settings. Tap **Highlight** to see the matching text on the page, then **Apply** to save the rule for the current scope. Remove individual rules with the trash buttons under **Substitutions**.
+- **Body Contact** — Swap the reading font on any page. Long-press the shared Line Change tab to switch to Body Contact, or use Shift+Enter when the tab has keyboard focus.
 - **Face-off** — Compare two fonts side-by-side in the popup. Pure comparison, no page changes.
 - **Third Man In** — Three panels for Serif, Sans, and Mono. Each targets its font family type on the page independently.
 

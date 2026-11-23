@@ -78,7 +78,7 @@ test('slider bursts, text commits, axis reset, and immediate popup close preserv
         await openPopup(driver);
         const stored = await popupExec(driver, `return browser.storage.local.get('affoUIState');`);
         assert.equal(stored.affoUIState.faceoff.topFont.lineHeight, 2.17);
-        // AFFO intentionally reopens in Body Contact rather than remembering Face-off.
+        // Select Face-off explicitly before checking its saved slider.
         await popupExec(driver, "return performModeSwitch('faceoff');");
         await driver.wait(async () => popupExec(driver, `return !!getCurrentUIConfig('top');`), 15000);
         assert.equal(await popupExec(driver, `return getCurrentUIConfig('top').lineHeight;`), 2.17);

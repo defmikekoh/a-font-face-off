@@ -35,8 +35,10 @@
         "content-sroulette-runtime.js",
         "font-face-utils.js",
         "font-swap-utils.js",
+        "content-line-change.js",
         "content.js"
       ],
+      "css": ["line-change.css"],
       "run_at": "document_start"
     }
   ],

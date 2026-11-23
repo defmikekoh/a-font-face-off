@@ -128,6 +128,7 @@ html.affo-mobile.affo-popup-panel.affo-edge-panel body {
 .family-reset-btn:hover { background: #757575; transform: scale(1.05); }
 body.view-faceoff .family-reset-btn { display: none; }
 body.view-body-contact .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
+body.view-line-change .family-reset-btn,
 body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: center; justify-content: center; }
 .font-family-display:hover, .font-family-display:focus {
     outline: none;
@@ -297,8 +298,9 @@ body.view-third-man-in .family-reset-btn { display: inline-flex; align-items: ce
 }
 
 /* Authentic NHL zone widths */
-.mode-tab[data-mode="body-contact"] {
+#shared-mode-tab {
     flex: 0 0 37.5%; /* Left zone - 75ft out of 200ft */
+    padding-left: 36px;
 }
 
 .mode-tab[data-mode="faceoff"] {
@@ -676,7 +678,8 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     }
 }
 
-/* Third Man In mode panels */
+/* TMI and Line Change use the same left and right panels. */
+#line-out-controls,
 #serif-font-controls {
     left: 0;
     transform: translateX(-100%);
@@ -687,6 +690,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     display: none; /* Ensure completely hidden when not in use */
 }
 
+#line-out-controls.visible,
 #serif-font-controls.visible {
     transform: translateX(0);
     display: flex; /* Show and position when visible */
@@ -707,6 +711,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     display: flex; /* Show and position when visible */
 }
 
+#line-font-controls,
 #sans-font-controls {
     right: 0;
     transform: translateX(100%);
@@ -717,6 +722,7 @@ body.view-third-man-in .third-man-in-center-stack .centered-grip .grip-handle {
     display: none; /* Ensure completely hidden when not in use */
 }
 
+#line-font-controls.visible,
 #sans-font-controls.visible {
     transform: translateX(0);
     display: flex; /* Show and position when visible */
@@ -833,6 +839,8 @@ body.view-third-man-in #font-comparison.serif-panel-open.sans-panel-open {
     }
 
     /* Third Man In mode: mobile panels at 80% width */
+    #line-out-controls,
+    #line-font-controls,
     #serif-font-controls,
     #sans-font-controls {
         width: 80%; /* 80% width for serif and sans panels */
@@ -890,7 +898,8 @@ body.view-third-man-in .third-man-in-content.active .third-man-in-center-stack .
     color: #212529;
 }
 
-.font-section h3 {
+.font-section h3,
+#line-rink h3 {
     font-size: 16px;
     font-weight: bold;
     text-align: center;
@@ -3498,3 +3507,48 @@ body.view-faceoff .favorites-container {
 .numeric-trigger:focus {
     outline: none;
 }
+
+#shared-mode-tab { touch-action: manipulation; user-select: none; }
+.line-change-content.active { justify-content: space-between; }
+#line-out-controls > h2, #line-font-controls > h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+#line-out-controls > h2::before, #line-font-controls > h2::before {
+    content: "";
+    width: 38px;
+    height: 36px;
+    background: center / contain no-repeat;
+}
+#line-out-controls > h2::before { background-image: url("icons/line-change-out.png"); }
+#line-font-controls > h2::before { background-image: url("icons/line-change-in.png"); }
+#line-rink { display: none; }
+body.view-line-change .center-line-separator { display: none; }
+body.view-line-change #body-domain-section.domain-display-rink { display: block !important; }
+body.view-line-change #line-rink { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
+#line-rink > section { flex: 1 0 auto; padding: 0 20px 16px; background: inherit; }
+#line-rink > section:first-child { flex: none; padding-bottom: 4px; }
+#line-rink > .blue-line-separator { display: block; flex-shrink: 0; }
+.line-matchup {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding-inline: 34px;
+    overflow-wrap: anywhere;
+}
+.line-font-pair { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.line-font-pair img { width: 28px; height: 28px; object-fit: contain; flex: none; }
+#line-font-text { margin: 16px 0; }
+.line-actions { display: flex; gap: 8px; }
+.line-actions button { flex: 1; min-height: 40px; }
+#line-highlight[aria-pressed=true] { background: #ffe471; color: #171a13; }
+#line-rules { padding: 0; margin: 8px 0; }
+#line-rules li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; overflow-wrap: anywhere; }
+#line-rules button { min-height: 40px; }
+#line-source { width: 100%; }
+#line-source, #line-source option { font: inherit; }
+#save-modal-config, .edit-favorite-preview { white-space: pre-line; }

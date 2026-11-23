@@ -95,6 +95,7 @@ Per-panel font setting history, not persisted to storage. Remembers axis/control
 Data-driven mode metadata defined in `popup-panel-utils.js` and used by `saveExtensionStateImmediate`, `performModeSwitch`, and `modeHasAppliedSettings` instead of per-mode if/else branches.
 ```javascript
 {
+    'line-change': { positions: [], stateKeys: {}, useDomain: true },
     'body-contact': { positions: ['body'], stateKeys: { body: 'bodyFont' }, useDomain: true },
     'faceoff': { positions: ['top', 'bottom'], stateKeys: { top: 'topFont', bottom: 'bottomFont' }, useDomain: false },
     'third-man-in': { positions: ['serif', 'sans', 'mono'], stateKeys: { serif: 'serifFont', sans: 'sansFont', mono: 'monoFont' }, useDomain: true }
@@ -105,7 +106,7 @@ Data-driven mode metadata defined in `popup-panel-utils.js` and used by `saveExt
 Routing table mapping `(mode, panelId)` → `{ apply, unapply }` functions. Replaces mode-branching if/else chains in `applyPanelConfiguration()` and `unapplyPanelConfiguration()`.
 
 ### Panel Positions
-All six positions: body, top, bottom, serif, sans, mono. Only body-font-controls exists in HTML; the other five are cloned via `cloneControlPanel(position)` at startup.
+The body controls supply the template for top, bottom, serif, sans, mono, and the Line Change replacement editor (`line`). Line Change restores the target configuration from the selected rule.
 
 ## Button State Logic
 
@@ -158,3 +159,30 @@ responsive and touch-state rules retain their cascade roles.
 ## Font Application
 
 - `applyAllThirdManInFonts()`: Apply all Third Man In font changes using `saveBatchApplyStateForOrigin()` (1 storage write instead of N) with parallel CSS application
+
+### Line Change and Body Contact
+
+The first tab opens Line Change unless the resolved scope already has Body Contact
+settings. Hold the tab (or press Shift+Enter while focused) to switch its mode.
+Line Change, Body Contact, and TMI share the existing settings-clearing dialog.
+Face-off can be visited while retaining applied substitutions.
+
+The left **Sub out** grip opens the original-family list. The right **Sub in**
+grip opens the replacement editor, including load and save favorites. Each panel
+has its skater icon beside the title. The pencil between the grips opens the
+favorites editor. The goal above the grips displays the active scope.
+
+The middle rink stacks **Preview** above **Substitutions**. Both headings share
+the TMI heading underline and spacing. Preview centers the proposed font change
+between the skater icons, followed by sample text, Highlight, Apply, and any
+status message. A 4 px gap separates this content from the TMI blue divider.
+Substitutions uses the remaining space and lists saved rules for the current scope.
+Each row has a Favorites-style trash button labeled with its source family.
+
+The Sub in editor clones the standard font controls into the `line` position and
+uses the same picker, configuration restoration, preview, and payload builder.
+The page content script inventories the first computed family on visible text
+owners after restoring its own overrides. Highlight uses ranges for their text
+nodes, and Apply styles those owners. Android returns to the page on Highlight.
+Clear highlight occupies the inspector's toolbar slot while active, or appears
+on the page when the toolbar is absent.

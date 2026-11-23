@@ -65,7 +65,6 @@
   var currentOrigin = location.hostname;
   var activePathScope = currentOrigin;
   var pathScopeGeneration = 0;
-  var hasDirectoryScopes = false;
 
   // Dev-mode logging: build step sets AFFO_DEBUG = false for production
   var AFFO_DEBUG = true;
@@ -2002,7 +2001,6 @@
   }
 
   function rememberOriginalInlineProperty(el, prop) {
-    if (!hasDirectoryScopes) return;
     if (!el.__affoOriginalInline) el.__affoOriginalInline = new Map();
     if (!el.__affoOriginalInline.has(prop)) {
       el.__affoOriginalInline.set(prop, [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)]);
@@ -2413,35 +2411,12 @@
     return promise;
   }
 
-  async function applyInlineStylesNow(fontConfig, fontType) {
-    elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
-    var inlineTimer = createAffoTimer('Inline apply ' + fontType + ' ' + (fontConfig.fontName || ''));
-    sharedInlineLastActivityAt = Date.now();
-
-    // Remove this type from shared inline config registry (will be re-added below)
-    delete inlineConfigs[fontType];
-    // If no types remain, tear down shared observer and timers
-    if (Object.keys(inlineConfigs).length === 0) {
-      cleanupSharedInlineInfra();
-    }
-
-    // For domains with restrictive CSP (like x.com), provide fallback fonts
-    var fallbackChain = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
-
-    // Add common system fonts as fallbacks for better compatibility
-    if (fontType === 'serif') {
-      fallbackChain = 'Georgia, "Times New Roman", Times, serif';
-    } else if (fontType === 'mono') {
-      fallbackChain = '"Courier New", Courier, monospace';
-    } else {
-      fallbackChain = 'Arial, Helvetica, sans-serif';
-    }
-
+  function buildInlineFontProperties(fontConfig, fallbackChain) {
     var cssPropsObject = {};
 
     // Only include font-family if fontName is actually set
     if (fontConfig.fontName && fontConfig.fontName !== 'undefined') {
-      cssPropsObject['font-family'] = `"${fontConfig.fontName}", ${fallbackChain}`;
+      cssPropsObject['font-family'] = fallbackChain ? `"${fontConfig.fontName}", ${fallbackChain}` : globalThis.CSS.escape(fontConfig.fontName);
     }
 
     // Include absolute fontSize if present. Scaled sizes are computed per element below.
@@ -2469,10 +2444,40 @@
 
     // All axes in font-variation-settings (bypasses @font-face descriptor clamping)
     var inlineCustomAxes = buildAllAxisSettings(fontConfig);
-    var inlineBoldAxes = buildBoldAxisSettings(fontConfig, 700);
     if (inlineCustomAxes.length > 0) {
       cssPropsObject['font-variation-settings'] = inlineCustomAxes.join(', ');
     }
+
+    return cssPropsObject;
+  }
+
+  async function applyInlineStylesNow(fontConfig, fontType) {
+    elementLog(`Applying inline styles for ${fontType}:`, fontConfig.fontName);
+    var inlineTimer = createAffoTimer('Inline apply ' + fontType + ' ' + (fontConfig.fontName || ''));
+    sharedInlineLastActivityAt = Date.now();
+
+    // Remove this type from shared inline config registry (will be re-added below)
+    delete inlineConfigs[fontType];
+    // If no types remain, tear down shared observer and timers
+    if (Object.keys(inlineConfigs).length === 0) {
+      cleanupSharedInlineInfra();
+    }
+
+    // For domains with restrictive CSP (like x.com), provide fallback fonts
+    var fallbackChain = fontType === 'serif' ? 'serif' : fontType === 'mono' ? 'monospace' : 'sans-serif';
+
+    // Add common system fonts as fallbacks for better compatibility
+    if (fontType === 'serif') {
+      fallbackChain = 'Georgia, "Times New Roman", Times, serif';
+    } else if (fontType === 'mono') {
+      fallbackChain = '"Courier New", Courier, monospace';
+    } else {
+      fallbackChain = 'Arial, Helvetica, sans-serif';
+    }
+
+    var cssPropsObject = buildInlineFontProperties(fontConfig, fallbackChain);
+    var inlineEffectiveWeight = getRequestedCssWeight(fontConfig);
+    var inlineBoldAxes = buildBoldAxisSettings(fontConfig, 700);
 
     var inlineConfig = {
       cssPropsObject: cssPropsObject,
@@ -3186,6 +3191,8 @@
 
     return loadingPromise;
   }
+
+  globalThis.AFFOLineChange.connect({ loadFont, buildInlineFontProperties });
 
   var configuredFontReadyPromises = {};
   var preparedFontSwapAnchors = {};
@@ -5285,7 +5292,6 @@
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
       activePathScope = globalThis.AFFOScopeUtils.resolveKey(map, location);
-      hasDirectoryScopes = Object.keys(map).some(function (key) { return key.startsWith(currentOrigin + '/'); });
       if (!entry) {
         lastReappliedEntry = null;
         requestSrouletteCssRemoval();
@@ -5430,11 +5436,23 @@
 
   // History APIs run in the page realm on some browsers, so the background also
   // signals URL changes. Compare resolved keys to avoid touching same-scope navigation.
+  function restoreProtectedInlineStyles() {
+    document.querySelectorAll('[data-affo-protected], [data-affo-color]').forEach(function (el) {
+      var originals = el.__affoOriginalInline;
+      clearAffoProtection(el, true);
+      if (originals) originals.forEach(function (value, prop) {
+        if (value[0]) el.style.setProperty(prop, value[0], value[1]);
+        else el.style.removeProperty(prop);
+      });
+      delete el.__affoOriginalInline;
+    });
+  }
+
   async function refreshPathScope() {
     var data = await browser.storage.local.get('affoApplyMap');
     var map = data.affoApplyMap || {};
-    hasDirectoryScopes = Object.keys(map).some(function (key) { return key.startsWith(currentOrigin + '/'); });
     var key = globalThis.AFFOScopeUtils.resolveKey(map, location);
+    globalThis.AFFOLineChange.configure(map);
     if (key === activePathScope) return;
     activePathScope = key;
     var generation = ++pathScopeGeneration;
@@ -5451,15 +5469,7 @@
       var style = document.getElementById('a-font-face-off-style-' + type);
       if (style) style.remove();
     });
-    document.querySelectorAll('[data-affo-protected], [data-affo-color]').forEach(function (el) {
-      var originals = el.__affoOriginalInline;
-      clearAffoProtection(el, true);
-      if (originals) originals.forEach(function (value, prop) {
-        if (value[0]) el.style.setProperty(prop, value[0], value[1]);
-        else el.style.removeProperty(prop);
-      });
-      delete el.__affoOriginalInline;
-    });
+    restoreProtectedInlineStyles();
     lastReappliedEntry = null;
     var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
     if (!entry || waitForItDomains.includes(currentOrigin)) return;
@@ -5778,8 +5788,10 @@
             });
           } catch (e) { }
 
-          debugLog('Restored original page fonts');
-          sendResponse({ success: true });
+          restoreProtectedInlineStyles();
+          sendBackgroundMessage({ type: 'affoClearPageCss' }).then(sendResponse)
+            .catch(error => sendResponse({ success: false, error: error.message }));
+          return true;
         } catch (error) {
           console.error('Error restoring original:', error);
           sendResponse({ success: false, error: error.message });

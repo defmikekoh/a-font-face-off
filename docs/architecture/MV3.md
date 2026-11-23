@@ -83,3 +83,20 @@ not a site's script execution. Keep native-popup and Android Vivaldi checks for
 browser chrome, touch, and mobile layout coverage.
 
 References: [Mozilla MV3 migration guide](https://extensionworkshop.com/documentation/develop/manifest-v3-migration-guide/), [scripting.insertCSS](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/scripting/insertCSS), [scripting.executeScript](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/scripting/executeScript).
+
+## Line Change regression checks
+
+| Browser surface | Command | Checks |
+|---|---|---|
+| Firefox desktop toolbar popup | `npm run test:integration` | Preview spacing, shared tab, original-family Highlight, Apply, independent removal |
+| Chrome for Testing extension tab | `npm run test:chrome` | Section headings and divider, original-family matching, full replacement parameters, conflict confirmation and cancellation |
+| Firefox Nightly Android popup tab | `npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --test-line-change --expect-affo` | Opens the popup from a local font fixture, operates both grips, applies a rule, follows Highlight back to the page, clears it, and removes the saved rule |
+| Chromium Android extension tab | `node scripts/test-android-chromium.js --endpoint http://127.0.0.1:9235 --extension-id ID` | Shared Preview layout and an Apply/remove round trip in the prepared browser session |
+
+The Android 16 emulator lane (`npm run test:android:emulator`) checks the DeepView article and toolbar, then runs the same Nightly touch checks on a loopback fixture served through ADB reverse. The fixture declares `Arial, sans-serif` on its body so the suite can assert the page's base classification at startup. Android `--expect-affo` sends `affoGetPageInfo` to the inspected tab’s top frame and verifies the reply URL. The DOM marker is recorded for diagnostics because sites can remove it.
+
+Build the current XPI with `npm run build:latest` before the Nightly command.
+Android Firefox WebDriver resets the selected package. Use an approved disposable
+target. For Chromium Android, install the current build and prepare the example.com,
+popup, and extensions-manager tabs as described in the
+[Vivaldi Snapshot procedure](../../.agents/skills/desktop-testing/references/vivaldi-snapshot.md).

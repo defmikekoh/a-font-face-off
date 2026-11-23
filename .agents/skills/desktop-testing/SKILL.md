@@ -169,24 +169,29 @@ Uses `node:test` (same runner as unit tests). The `.itest.js` extension keeps th
 ## UI Elements
 
 ### Modes
-- Selector: `[data-mode="body-contact"]`, `[data-mode="faceoff"]`, `[data-mode="third-man-in"]`
+- The first tab, `#shared-mode-tab`, has `data-mode="line-change"` or `data-mode="body-contact"` according to its selected mode. Long-press it or send Shift+Enter to switch. The other two tabs use `data-mode="faceoff"` and `data-mode="third-man-in"`.
 - Active class: `.active`
 - Body-contact auto-opens the body controls panel (no grip click needed)
 
 ### Font Displays
+- `#line-source` (Sub out family list), `#line-font-display` (Sub in picker)
 - `#body-font-display` (Body Contact)
 - `#top-font-display`, `#bottom-font-display` (Face-off)
 - `#serif-font-display`, `#sans-font-display`, `#mono-font-display` (Third Man In)
 
 ### Grips
+- `#line-out-grip` (left), `#line-in-grip` (right), `#edit-favorites-line` (center)
 - `#body-font-grip` (Body Contact)
 - `#top-font-grip`, `#bottom-font-grip` (Face-off)
 - `#serif-font-grip`, `#sans-font-grip`, `#mono-font-grip` (Third Man In)
 
 ### Controls Panels
-- `#body-font-controls` is the only panel in HTML; top/bottom/serif/sans/mono are cloned from it at startup via `cloneControlPanel(position)`
-- All panels share identical structure: font display, size/line-height/weight sliders with text inputs and value displays, color selector, axes container, footer with favorite buttons + apply/reset
+- `#body-font-controls` supplies the template for top, bottom, serif, sans, mono, and the Line Change Sub in editor. Sub out has its own list panel.
+- The standard font editors share controls for font display, size/line-height/weight sliders with text inputs and value displays, color selector, axes container, footer with favorite buttons + apply/reset
 - Visibility toggled via `.visible` CSS class (use `togglePanel(position)`)
+
+For Line Change browser commands, test surfaces, and expected results, see the
+[desktop and Android regression checks](../../../docs/architecture/MV3.md#line-change-regression-checks).
 
 ### Font Picker
 - Modal: `#font-picker-modal`

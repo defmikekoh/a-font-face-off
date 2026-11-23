@@ -2,6 +2,8 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, teardown, openPopup, closePopup, popupExec, TEST_PAGE } = require('./selenium-helper');
 
+const { readLineChangeLayout, assertLineChangeLayout } = require('./line-change-layout');
+
 let driver;
 let profileDir;
 
@@ -46,7 +48,12 @@ describe('Integration tests', () => {
             return Array.from(document.querySelectorAll('[data-mode]'))
                 .map(t => t.dataset.mode).sort();
         `);
-        assert.deepEqual(modes, ['body-contact', 'faceoff', 'third-man-in']);
+        assert.deepEqual(modes, ['faceoff', 'line-change', 'third-man-in']);
+    });
+
+    it('shows a compact Preview above the applied substitutions in the native popup', async () => {
+        await driver.wait(() => popupExec(driver, "return document.querySelector('#line-source').options.length > 0 && !document.querySelector('#line-apply').disabled"), 15000);
+        assertLineChangeLayout(assert, await popupExec(driver, `return (${readLineChangeLayout})();`));
     });
 
     it('switches to faceoff mode and has cloned panels', async () => {
@@ -275,7 +282,7 @@ describe('Integration tests', () => {
     });
 
     it('switches to body-contact mode', async () => {
-        await popupExec(driver, 'document.querySelector(\'[data-mode="body-contact"]\').click()');
+        await popupExec(driver, "document.querySelector('#shared-mode-tab').dispatchEvent(new KeyboardEvent('keydown', { key:'Enter', shiftKey:true }))");
         await driver.sleep(500);
 
         const active = await popupExec(driver,
@@ -290,8 +297,9 @@ describe('Integration tests', () => {
         await driver.sleep(300);
         await openPopup(driver);
 
-        await popupExec(driver, 'document.querySelector(\'[data-mode="body-contact"]\').click()');
-        await driver.sleep(500);
+        await driver.wait(() => popupExec(driver, "return !!document.querySelector('#line-source option') && !document.querySelector('#line-source').disabled"), 15000);
+        await popupExec(driver, "document.querySelector('#shared-mode-tab').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }))");
+        await driver.wait(() => popupExec(driver, "return document.body.classList.contains('view-body-contact') && document.querySelector('#body-font-controls').classList.contains('visible')"), 5000);
 
         const hasVisible = await popupExec(driver, `
             const panel = document.getElementById('body-font-controls');

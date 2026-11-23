@@ -198,7 +198,7 @@ function create(popup) {
             }
         }
 
-        return lines.join('<br>');
+        return lines.join('\n');
     }
 
     function normalizeFavoriteSearch(str) {
@@ -213,7 +213,7 @@ function create(popup) {
             name,
             config && config.fontName,
             generateFavoritePreview(config),
-            generateDetailedFavoritePreview(config).replace(/<br>/g, ' ')
+            generateDetailedFavoritePreview(config).replace(/\n/g, ' ')
         ].join(' ').toLowerCase();
 
         return searchable.includes(q);
@@ -368,7 +368,7 @@ function create(popup) {
             }
         }
 
-        return lines.join('<br>');
+        return lines.join('\n');
     }
 
     // ── Save Modal ──────────────────────────────────────────────────────────────
@@ -387,7 +387,7 @@ function create(popup) {
         const preview = generateConfigPreview(position);
 
         nameInput.value = suggestedName;
-        configPreview.innerHTML = preview;
+        configPreview.textContent = preview;
 
         // Store the position for when save is clicked
         modal.setAttribute('data-position', position);
@@ -689,7 +689,7 @@ function create(popup) {
 
                 const previewDiv = document.createElement('div');
                 previewDiv.className = 'edit-favorite-preview';
-                previewDiv.innerHTML = generateDetailedFavoritePreview(config);
+                previewDiv.textContent = generateDetailedFavoritePreview(config);
 
                 item.appendChild(drag);
                 info.appendChild(nameDiv);
@@ -1142,6 +1142,8 @@ function create(popup) {
             editFavoritesBodyBtn.addEventListener('click', showEditFavoritesModal);
         }
 
+        document.getElementById('edit-favorites-line')?.addEventListener('click', showEditFavoritesModal);
+
         const editFavoritesTmiBtn = document.getElementById('edit-favorites-tmi');
         if (editFavoritesTmiBtn) {
             editFavoritesTmiBtn.addEventListener('click', showEditFavoritesModal);
@@ -1162,7 +1164,7 @@ function create(popup) {
             }
         });
 
-        for (const position of ['top', 'bottom', 'body', 'serif', 'sans', 'mono']) {
+        for (const position of ['top', 'bottom', 'body', 'serif', 'sans', 'mono', 'line']) {
             setupSaveFavorite(position);
             setupLoadFavorite(position);
         }

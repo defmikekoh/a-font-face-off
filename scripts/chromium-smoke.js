@@ -3,6 +3,7 @@
 
 // Shared assertions for disposable desktop and Android Chromium sessions.
 /* global WebSocket, fetch, clearTimeout */
+const { readLineChangeLayout, assertLineChangeLayout } = require('../tests/line-change-layout');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -85,12 +86,66 @@ async function runChromiumSmoke({endpoint, extensionId, output, desktop = false,
         await until(() => page.evaluate('document.documentElement?.getAttribute("data-affo-base")'), 'content script');
         record('MV3 installation and content script', { tabId });
 
+        await page.evaluate(`document.body.insertAdjacentHTML('beforeend', '<p id="affo-test-a" style="font-family:Arial,sans-serif">First</p><p id="affo-test-g" style="font-family:Georgia,Arial,serif">Second</p>')`);
+        await popup.evaluate("switchMode('line-change', true)");
+        await until(() => popup.evaluate("Array.from(document.querySelector('#line-source').options, o => o.value).includes('Arial') && !document.querySelector('#line-apply').disabled"), 'Line Change inventory');
+        assertLineChangeLayout(assert, await popup.evaluate(`(${readLineChangeLayout})()`));
+        record('Compact Line Change Preview and Substitutions layout');
         if (desktop) {
+            await popup.evaluate("document.querySelector('#line-source').value='Arial'; document.querySelector('#line-highlight').click()");
+            const marked = () => page.evaluate("Array.from(CSS.highlights.get('affo-line-change') || [], r => r.startContainer.parentElement.id)");
+            await until(async () => (await marked()).includes('affo-test-a'), 'original Arial highlighted');
+            assert.ok(!(await marked()).includes('affo-test-g'));
+            await popup.evaluate("applyFontConfig('line',{fontName:'Georgia', fontSource:'local', fontSize:27,letterSpacing:0}).then(()=>document.querySelector('#line-apply').click())");
+            await until(() => page.evaluate("getComputedStyle(document.querySelector('#affo-test-a')).fontFamily === 'Georgia'"), 'Arial substitution');
+            assert.equal(await page.evaluate("getComputedStyle(document.querySelector('#affo-test-a')).fontSize"), '27px');
+            await until(() => popup.evaluate("!!document.querySelector('#line-rules button')"), 'saved substitution');
+            await until(() => popup.evaluate("!document.querySelector('#line-source').disabled"), 'source editor ready');
+            await popup.evaluate("const source=document.querySelector('#line-source'); source.value='Georgia'; source.dispatchEvent(new Event('change'))");
+            await until(async () => (await marked()).includes('affo-test-g'), 'original Georgia highlighted after substitution');
+            assert.ok(!(await marked()).includes('affo-test-a'));
+            const originalSize = await page.evaluate("parseFloat(getComputedStyle(document.querySelector('#affo-test-g')).fontSize)");
+            await popup.evaluate("applyFontConfig('line',{fontName:'Lora',fontSizeScale:125,fontWeight:600,fontStyle:'italic',fontColor:'#FF0000',lineHeight:1.8,letterSpacing:0.04,variableAxes:{wght:530}}).then(()=>document.querySelector('#line-apply').click())");
+            await until(() => popup.evaluate("document.querySelectorAll('#line-rules button').length === 2 && !document.querySelector('#line-source').disabled"), 'two independent substitutions');
+            const styles = await page.evaluate(`(() => {const s=getComputedStyle(document.querySelector('#affo-test-g'));return [s.fontFamily,s.fontSize,s.fontWeight,s.fontStyle,s.color,s.lineHeight,s.letterSpacing,s.fontVariationSettings]})()`);
+            assert.deepEqual(styles, ['Lora', originalSize * 1.25 + 'px', '600', 'italic', 'rgb(255, 0, 0)', originalSize * 1.25 * 1.8 + 'px', originalSize * 1.25 * .04 + 'px', '"wght" 530']);
+            await popup.evaluate("document.querySelector('#line-rules button').click()");
+            await until(() => page.evaluate("getComputedStyle(document.querySelector('#affo-test-a')).fontFamily.startsWith('Arial')"), 'independent removal');
+            assert.equal(await page.evaluate("getComputedStyle(document.querySelector('#affo-test-g')).fontFamily"), 'Lora');
+            await until(() => popup.evaluate("document.querySelectorAll('#line-rules button').length === 1 && !document.querySelector('#line-source').disabled"), 'remaining substitution');
+            await popup.evaluate("document.querySelector('[data-mode=third-man-in]').click()");
+            await until(() => popup.evaluate("document.querySelector('#custom-confirm').classList.contains('visible')"), 'mode conflict confirmation');
+            await popup.evaluate("document.querySelector('#custom-confirm-cancel').click()");
+            assert.equal(await popup.evaluate('currentViewMode'), 'line-change');
+            assert.equal(await page.evaluate("getComputedStyle(document.querySelector('#affo-test-g')).fontFamily"), 'Lora');
+            await popup.evaluate("document.querySelector('[data-mode=third-man-in]').click()");
+            await until(() => popup.evaluate("document.querySelector('#custom-confirm').classList.contains('visible')"), 'repeat confirmation');
+            await popup.evaluate("document.querySelector('#custom-confirm-ok').click()");
+            await until(() => page.evaluate("getComputedStyle(document.querySelector('#affo-test-g')).fontFamily.startsWith('Georgia')"), 'restore after confirmed switch');
+            await until(() => popup.evaluate("currentViewMode === 'third-man-in' && !document.body.classList.contains('mode-switching')"), 'confirmed mode switch');
+            record('Line Change original families, highlight, full font configs, and independent removal');
             for (const mode of ['faceoff', 'third-man-in', 'body-contact']) {
-                await popup.evaluate(`document.querySelector('[data-mode="${mode}"]').click()`);
+                if (mode === 'body-contact') await popup.evaluate("document.querySelector('#shared-mode-tab').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true}))");
+                else await popup.evaluate(`document.querySelector('[data-mode="${mode}"]').click()`);
                 await until(() => popup.evaluate(`!document.body.classList.contains('mode-switching') && currentViewMode === '${mode}' && document.body.classList.contains('view-${mode}') && document.querySelector('[data-mode="${mode}"]').classList.contains('active')`), `${mode} UI`);
             }
+            await popup.evaluate("switchMode('line-change')");
+            assert.ok(await popup.evaluate(`(() => {
+                const button = document.querySelector('#line-apply');
+                const bounds = button.getBoundingClientRect();
+                return document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2) === button;
+            })()`), 'Body Contact panel overlay releases Line Change touch targets');
+            await popup.evaluate("switchMode('body-contact')");
             record('Desktop popup mode switching', {surface: 'extension tab', modes: ['faceoff', 'third-man-in', 'body-contact']});
+        } else {
+            await popup.evaluate("document.querySelector('#line-source').value = 'Arial'; document.querySelector('#line-apply').click()");
+            await until(() => page.evaluate("getComputedStyle(document.querySelector('#affo-test-a')).fontFamily === 'Georgia'"), 'Android Arial substitution');
+            const trash = '#line-rules button[aria-label="Remove substitution for Arial"]';
+            await until(() => popup.evaluate(`document.querySelector('${trash}')?.textContent === '🗑️' && !document.querySelector('#line-source').disabled`), 'Android substitution trash button');
+            await popup.evaluate(`document.querySelector('${trash}').click()`);
+            await until(() => page.evaluate("getComputedStyle(document.querySelector('#affo-test-a')).fontFamily.startsWith('Arial')"), 'Android substitution removed');
+            await popup.evaluate("switchMode('body-contact')");
+            record('Android Line Change Apply and removal');
         }
         const originalFont = await page.evaluate("getComputedStyle(document.querySelector('p')).fontFamily");
         const applied = await popup.evaluate(`applyFontToPage('body',{fontName:'Lora',variableAxes:{}})`);

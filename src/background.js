@@ -3185,6 +3185,9 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const result = await browser.storage.local.get([APPLY_MAP_KEY, AGGRESSIVE_DOMAINS_KEY]);
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (sender.tab && sender.tab.url) origin = globalThis.AFFOScopeUtils.resolveKey(applyMap, sender.tab.url);
+        if (applyMap[origin]?.lineChange?.length) {
+          return { success: false, error: 'Switch modes in the popup to clear Line Change substitutions.' };
+        }
         if (!applyMap[origin]) applyMap[origin] = {};
         applyMap[origin][position] = payload;
         clearSrouletteIntentForTarget(applyMap[origin], position);
@@ -3225,6 +3228,9 @@ async function handleAffoRuntimeMessage(msg, sender) {
         const result = await browser.storage.local.get(APPLY_MAP_KEY);
         const applyMap = result[APPLY_MAP_KEY] || {};
         if (sender.tab && sender.tab.url) origin = globalThis.AFFOScopeUtils.resolveKey(applyMap, sender.tab.url);
+        if (applyMap[origin]?.lineChange?.length) {
+          return { success: false, error: 'Switch modes in the popup to clear Line Change substitutions.' };
+        }
         if (!applyMap[origin]) applyMap[origin] = {};
 
         if (!setSrouletteIntentForTarget(applyMap[origin], position, pool)) {

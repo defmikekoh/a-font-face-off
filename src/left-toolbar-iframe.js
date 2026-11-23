@@ -298,7 +298,24 @@
     
     // Listen for messages from parent window
     window.addEventListener('message', function(event) {
-        if (event.data.type === 'updateStyles') {
+        if (event.data?.type === 'affoLineHighlight' && event.source === parent) {
+            const inspector = document.getElementById('whatfont-button');
+            let clear = document.getElementById('line-clear');
+            if (!clear) {
+                clear = document.createElement('button');
+                clear.id = 'line-clear';
+                clear.className = 'toolbar-button';
+                clear.title = 'Clear highlight';
+                clear.setAttribute('aria-label', clear.title);
+                clear.textContent = '✕';
+                clear.style.background = '#ffe471';
+                clear.style.color = '#171a13';
+                clear.onclick = () => parent.postMessage({ type: 'affoClearLineHighlight' }, '*');
+                inspector.after(clear);
+            }
+            inspector.style.display = event.data.active ? 'none' : 'flex';
+            clear.style.display = event.data.active ? 'block' : 'none';
+        } else if (event.data.type === 'updateStyles') {
             const styles = event.data.styles;
             applyTransparency(styles.transparency);
         } else if (event.data.type === 'updateIconTheme') {

@@ -108,6 +108,7 @@ function applyViewMode(forceView) {
         // Toggle body classes so CSS can react
         try {
             affoDebugLog(`🔄 applyViewMode: Toggling body classes for ${currentViewMode}`);
+            document.body.classList.toggle('view-line-change', currentViewMode === 'line-change');
             document.body.classList.toggle('view-faceoff', currentViewMode === 'faceoff');
             document.body.classList.toggle('view-body-contact', currentViewMode === 'body-contact');
             document.body.classList.toggle('view-third-man-in', currentViewMode === 'third-man-in');
@@ -159,6 +160,7 @@ function applyViewMode(forceView) {
 
 // Load settings for the current view mode
 async function loadModeSettings(options = {}) {
+    if (currentViewMode === 'line-change') return globalThis.AFFOLineChangePopup.open();
     const skipPageReapply = !!options.skipPageReapply;
     const callTime = Date.now();
     affoDebugLog('loadModeSettings called at', callTime, ', currentViewMode:', currentViewMode);
@@ -3152,7 +3154,7 @@ function getPositionCallbacks(position) {
         return { preview: () => applyFont(position), buttons: () => updateBodyButtons(), save: false };
     if (['serif', 'sans', 'mono'].includes(position))
         return { preview: () => applyFont(position), buttons: () => updateAllThirdManInButtons(position), save: false };
-    if (['top', 'bottom'].includes(position))
+    if (['top', 'bottom', 'line'].includes(position))
         return { preview: () => applyFont(position), buttons: null, save: false };
     return null;
 }
@@ -3390,7 +3392,7 @@ function setSroulettePanelControlsDisabled(position, disabled) {
 function getPanelPositionFromElement(element) {
     const panel = element && element.closest('.controls-panel');
     if (!panel) return null;
-    const match = panel.id.match(/^(top|bottom|body|serif|sans|mono)-font-controls$/);
+    const match = panel.id.match(/^(top|bottom|body|serif|sans|mono|line)-font-controls$/);
     return match ? match[1] : null;
 }
 
@@ -3568,7 +3570,10 @@ async function initializePopup() {
     }
 
     // Clone body panel to create top/bottom/serif/sans/mono panels
-    ['top', 'bottom', 'serif', 'mono', 'sans'].forEach(cloneControlPanel);
+    ['top', 'bottom', 'serif', 'mono', 'sans', 'line'].forEach(cloneControlPanel);
+    const lineEditor = document.getElementById('line-font-controls');
+    lineEditor.querySelector('.footer-actions').remove();
+    document.getElementById('font-preview-rink').appendChild(lineEditor);
 
     // Run migration to clean up old data
     await migrateRemoveDuplicatedFields();
@@ -3682,7 +3687,7 @@ function setupBasicFontControls() {
 
     // Body color reset button
     // Color reset buttons — factory for all positions
-    ['body', 'serif', 'sans', 'mono', 'top', 'bottom'].forEach(position => {
+    ['body', 'serif', 'sans', 'mono', 'top', 'bottom', 'line'].forEach(position => {
         const btn = document.getElementById(`${position}-color-reset`);
         if (!btn) return;
         const callbacks = getPositionCallbacks(position);
@@ -3750,7 +3755,7 @@ function setupBasicFontControls() {
     }
 
     const decimalFormat = v => Number(v).toFixed(2).replace(/\.00$/, '');
-    const ALL_POSITIONS = ['top', 'bottom', 'body', 'serif', 'sans', 'mono'];
+    const ALL_POSITIONS = ['top', 'bottom', 'body', 'serif', 'sans', 'mono', 'line'];
 
     // Font-size slider + text input handlers
     ALL_POSITIONS.forEach(pos => {
@@ -3982,7 +3987,7 @@ function setupControlResetListeners() {
 
                         // Update buttons after reset to show Reset All if needed
                         updateAllThirdManInButtons();
-                    } else if (['top', 'bottom'].includes(position)) {
+                    } else if (['top', 'bottom', 'line'].includes(position)) {
                         // Face-off mode: Reset display and preview
                         affoDebugLog('Face-off reset for position:', position);
                         const fontGroup = fontDisplay.closest('.control-group');
@@ -4356,55 +4361,15 @@ function updateActiveTab(mode) {
 }
 
 // Determine the correct initial mode based on domain storage to avoid warnings
-function determineInitialMode() {
-    if (pendingFaceoffPageFontDraft) {
-        currentViewMode = 'faceoff';
-        return Promise.resolve();
-    }
-
-    return getActiveOrigin().then(origin => {
-        if (!origin) {
-            // No origin - default to body mode
-            currentViewMode = 'body-contact';
-            return Promise.resolve();
-        }
-
-        return getApplyMapForOrigin(origin).then(domainData => {
-            if (!domainData) {
-                // No domain data - check saved mode preference or default to body
-                return browser.storage.local.get(['affoCurrentMode']).then(result => {
-                    currentViewMode = result.affoCurrentMode || 'body-contact';
-                    affoDebugLog('determineInitialMode: No domain data, using saved mode:', currentViewMode);
-                });
-            }
-
-            // Domain has data - determine mode based on what's applied
-            const hasBodyFont = !!(domainData.body || hasBodySrouletteIntent(domainData));
-            const hasThirdManFonts = !!(domainData.serif || domainData.sans || domainData.mono || hasTmiSrouletteIntent(domainData));
-
-            if (hasThirdManFonts && !hasBodyFont) {
-                // Only Third Man In fonts applied
-                currentViewMode = 'third-man-in';
-                affoDebugLog('determineInitialMode: Domain has Third Man In fonts, starting in third-man-in mode');
-            } else if (hasBodyFont && !hasThirdManFonts) {
-                // Only body font applied
-                currentViewMode = 'body-contact';
-                affoDebugLog('determineInitialMode: Domain has body font, starting in body-contact mode');
-            } else if (hasBodyFont && hasThirdManFonts) {
-                // Both applied - prefer user's last saved mode or default to body
-                return browser.storage.local.get(['affoCurrentMode']).then(result => {
-                    currentViewMode = result.affoCurrentMode || 'body-contact';
-                    affoDebugLog('determineInitialMode: Domain has both font types, using saved mode:', currentViewMode);
-                });
-            } else {
-                // No fonts applied - use saved mode preference or default
-                return browser.storage.local.get(['affoCurrentMode']).then(result => {
-                    currentViewMode = result.affoCurrentMode || 'body-contact';
-                    affoDebugLog('determineInitialMode: No fonts applied, using saved mode:', currentViewMode);
-                });
-            }
-        });
-    });
+async function determineInitialMode() {
+    const entry = await getApplyMapForOrigin(await getActiveOrigin());
+    const shared = entry && (entry.body || hasBodySrouletteIntent(entry)) ? 'body-contact' : 'line-change';
+    globalThis.AFFOLineChangePopup.setSharedMode(shared);
+    const saved = await browser.storage.local.get('affoCurrentMode');
+    if (pendingFaceoffPageFontDraft) currentViewMode = 'faceoff';
+    else if (entry && (entry.serif || entry.sans || entry.mono || hasTmiSrouletteIntent(entry))) currentViewMode = 'third-man-in';
+    else if (entry?.lineChange?.length || shared === 'body-contact') currentViewMode = shared;
+    else currentViewMode = ['third-man-in', 'faceoff'].includes(saved.affoCurrentMode) ? saved.affoCurrentMode : shared;
 }
 
 // Reset Third Man In UI to defaults before restoration
@@ -4579,6 +4544,7 @@ function modeHasAppliedSettings(mode) {
 
         return getApplyMapForOrigin(origin).then(domainData => {
             if (!domainData) return false;
+            if (mode === 'line-change') return !!domainData.lineChange?.length;
             if (mode === 'third-man-in' && hasTmiSrouletteIntent(domainData)) return true;
             if (mode === 'body-contact' && hasBodySrouletteIntent(domainData)) return true;
             return modeConfig.positions.some(pos => !!domainData[pos]);
@@ -4589,6 +4555,7 @@ function modeHasAppliedSettings(mode) {
 // Get display name for mode
 function getModeDisplayName(mode) {
     switch (mode) {
+        case 'line-change': return 'Line Change';
         case 'body-contact': return 'Body Contact';
         case 'faceoff': return 'Face-off';
         case 'third-man-in': return 'Third Man In';
@@ -4656,19 +4623,13 @@ function resetFontPreviews() {
 }
 
 // Clear domain settings for all modes
-function clearAllDomainSettings() {
-    return getActiveOrigin().then(origin => {
-        if (!origin) return;
-
-        return clearApplyMapForOrigin(origin).then(() => {
-            sendMessageToTargetTab({
-                action: 'restoreOriginal',
-                origin: origin
-            });
-        });
-    }).catch(error => {
-        console.error('Error clearing domain settings:', error);
-    });
+async function clearAllDomainSettings() {
+    const origin = await getActiveOrigin();
+    if (!origin) return;
+    await clearApplyMapForOrigin(origin);
+    const result = await sendMessageToTargetTab({ action: 'restoreOriginal', origin });
+    if (result?.success === false) throw new Error(result.error);
+    for (const position of Object.keys(appliedCssActive)) appliedCssActive[position] = null;
 }
 
 async function switchMode(newMode, forceInit = false, options = {}) {
@@ -4678,68 +4639,23 @@ async function switchMode(newMode, forceInit = false, options = {}) {
         return;
     }
 
-    // Show confirmation modal when switching between incompatible modes that save domain settings
-    // OR when switching from faceoff to a mode that would conflict with existing domain settings
-    // BUT NOT during initial mode determination (when currentViewMode is null)
-    const showModal = currentViewMode !== null && (
-        (currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
-        (currentViewMode === 'third-man-in' && newMode === 'body-contact') ||
-        (currentViewMode === 'faceoff' && (newMode === 'body-contact' || newMode === 'third-man-in'))
-    );
-
-    if (showModal) {
-        let shouldShowConfirmation = false;
-
-        if ((currentViewMode === 'body-contact' && newMode === 'third-man-in') ||
-            (currentViewMode === 'third-man-in' && newMode === 'body-contact')) {
-            // For incompatible modes, check if either has settings
-            const [currentHasSettings, targetHasSettings] = await Promise.all([
-                modeHasAppliedSettings(currentViewMode),
-                modeHasAppliedSettings(newMode)
-            ]);
-            shouldShowConfirmation = currentHasSettings || targetHasSettings;
-        } else if (currentViewMode === 'faceoff') {
-            // For faceoff -> other modes, check if the OPPOSITE incompatible mode has settings
-            // that would be lost when domain data is cleared
-            if (newMode === 'body-contact') {
-                // Switching to body-contact: check if third-man-in has settings that would be lost
-                const oppositeHasSettings = await modeHasAppliedSettings('third-man-in');
-                shouldShowConfirmation = oppositeHasSettings;
-            } else if (newMode === 'third-man-in') {
-                // Switching to third-man-in: check if body-contact has settings that would be lost
-                const oppositeHasSettings = await modeHasAppliedSettings('body-contact');
-                shouldShowConfirmation = oppositeHasSettings;
-            }
-        }
-
-        if (shouldShowConfirmation) {
-            // Show confirmation modal
-            const currentDisplayName = getModeDisplayName(currentViewMode);
-            const newDisplayName = getModeDisplayName(newMode);
-
+    const pageModes = ['body-contact', 'line-change', 'third-man-in'];
+    if (currentViewMode && currentViewMode !== newMode && pageModes.includes(newMode)) {
+        const conflicts = await Promise.all(pageModes.filter(mode => mode !== newMode).map(modeHasAppliedSettings));
+        if (conflicts.some(Boolean)) {
             const confirmed = await showCustomConfirm(
-                `Switching from\n${currentDisplayName} mode to ${newDisplayName} mode\nwill clear saved settings for the domain. Proceed?`
+                `Switching from\n${getModeDisplayName(currentViewMode)} mode to ${getModeDisplayName(newMode)} mode\nwill clear saved settings for the domain. Proceed?`
             );
-
-            if (!confirmed) {
-                return; // User cancelled, don't switch
-            }
-
-            // Clear all domain settings when switching between body-contact and third-man-in
+            if (!confirmed) return;
             await clearAllDomainSettings();
-            // Reset font previews after clearing domain data
-            resetFontPreviews();
-            await performModeSwitch(newMode, options);
-        } else {
-            // Reset font previews when switching modes without domain clearing
-            resetFontPreviews();
-            await performModeSwitch(newMode, options);
+            globalThis.AFFOLineChangePopup.setSharedMode('line-change');
         }
-    } else {
-        // Reset font previews when switching modes without confirmation
-        resetFontPreviews();
-        await performModeSwitch(newMode, options);
     }
+    if (currentViewMode === 'line-change' && newMode !== currentViewMode) {
+        await sendMessageToTargetTab({ type: 'affoLineChange', action: 'clear' });
+    }
+    resetFontPreviews();
+    await performModeSwitch(newMode, options);
 }
 
 async function performModeSwitch(newMode, options = {}) {
@@ -4777,6 +4693,8 @@ async function performModeSwitch(newMode, options = {}) {
             panel.classList.remove('visible');
         });
 
+        document.getElementById('panel-overlay').classList.remove('visible');
+
         // Show new mode content
         const newModeContent = document.querySelector(`.${newMode}-content`);
         affoDebugLog(`🔄 performModeSwitch: Looking for mode content with selector: .${newMode}-content`);
@@ -4794,6 +4712,7 @@ async function performModeSwitch(newMode, options = {}) {
         }
 
         // Activate new mode tab
+        if (newMode === 'body-contact' || newMode === 'line-change') globalThis.AFFOLineChangePopup.setSharedMode(newMode);
         const newModeTab = document.querySelector(`.mode-tab[data-mode="${newMode}"]`);
         if (newModeTab) {
             newModeTab.classList.add('active');
@@ -4876,7 +4795,7 @@ async function performModeSwitch(newMode, options = {}) {
 function initializeModeInterface() {
     affoDebugLog('initializeModeInterface starting, current currentViewMode:', currentViewMode);
     affoDebugLog('initializeModeInterface: Body classes at start:', document.body.className);
-    // Allow mode persistence for Third Man In, but default others to body-contact
+    // Keep the legacy TMI preference after resolving the initial scope.
     return browser.storage.local.get('affoCurrentMode').then(result => {
         const savedMode = result.affoCurrentMode;
         affoDebugLog('Saved mode from browser.storage.local:', savedMode);
@@ -4885,13 +4804,14 @@ function initializeModeInterface() {
             // Don't set currentViewMode here - let switchMode handle the full transition
             return Promise.resolve();
         } else if (savedMode) {
-            affoDebugLog('Clearing non-third-man-in saved mode, defaulting to body-contact mode');
+            affoDebugLog('Clearing legacy saved mode after resolving the initial scope');
             return browser.storage.local.remove('affoCurrentMode');
         }
         return Promise.resolve();
     }).then(() => {
         affoDebugLog('Final currentViewMode after loading:', currentViewMode);
 
+        globalThis.AFFOLineChangePopup.bind();
         // Set up mode tab event listeners
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -4905,7 +4825,7 @@ function initializeModeInterface() {
         return browser.storage.local.get('affoCurrentMode');
     }).then(async (_result) => {
         // Mode was already determined by determineInitialMode(), just use it
-        const targetMode = currentViewMode || 'body-contact';
+        const targetMode = currentViewMode || 'line-change';
         affoDebugLog('About to call switchMode with:', targetMode);
         await switchMode(targetMode, true, { skipPageReapply: true }); // Force initialization to set up panel visibility
 

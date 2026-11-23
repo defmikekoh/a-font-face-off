@@ -580,6 +580,8 @@
                     transparency: options.transparency
                 }
             }, '*');
+            this.dataset.affoToolbarLoaded = 'true';
+            this.contentWindow.postMessage({ type: 'affoLineHighlight', active: !!globalThis.AFFOLineChange?.highlighting }, '*');
             sendWaitForItStateToIframe();
         });
         
@@ -661,6 +663,9 @@
 
 
         switch (event.data.type) {
+            case 'affoClearLineHighlight':
+                if (leftToolbarIframe && event.source === leftToolbarIframe.contentWindow) globalThis.AFFOLineChange.clearHighlight();
+                break;
             case 'initWhatFont':
                 handleInitWhatFont();
                 break;

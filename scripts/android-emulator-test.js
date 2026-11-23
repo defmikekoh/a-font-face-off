@@ -20,6 +20,7 @@ const inspectorArgs = [
     '--skip-bookmarks',
     '--url', url,
     '--expect-affo',
+    '--test-line-change',
     '--settle', '5000',
     '--selector', 'article',
     '--selector', '#affo-left-toolbar-iframe',
@@ -40,7 +41,8 @@ assert.equal(report.devicePreflight.androidVersion, '16', 'Emulator must run And
 assert.match(report.devicePreflight.packagePath, /org\.mozilla\.fenix/, 'Firefox Nightly must be installed');
 assert.equal(report.addonInstall.success, true, 'AFFO XPI must install on the emulator');
 assert.equal(report.documentReadyState, 'complete', 'DeepView must reach document ready');
-assert.equal(report.inspection.affo.htmlDataAffoBase, 'sans', 'AFFO must classify DeepView as sans');
+assert.equal(report.inspection.affo.pageInfo.href, report.inspection.url, 'AFFO must answer on the DeepView article');
+assert.equal(report.lineChange.base, 'sans', 'AFFO must classify the controlled font fixture as sans');
 
 const article = report.inspection.selectors.find((item) => item.selector === 'article');
 const toolbar = report.inspection.selectors.find((item) => item.selector === '#affo-left-toolbar-iframe');

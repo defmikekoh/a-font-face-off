@@ -270,7 +270,7 @@ describe('Quick-pick favorites feature', { concurrency: false }, () => {
             metrics.frameHeight > 0,
             `Toolbar iframe should never remain at its zero-height bootstrap value: ${JSON.stringify(metrics)}`
         );
-        assert.equal(metrics.buttonCount, 6, 'Toolbar should keep all six button elements available in the iframe');
+        assert.equal(metrics.buttonCount, 7, 'Toolbar includes the alternate Clear highlight button');
         assert.equal(
             metrics.visibleButtonCount,
             expectedVisibleButtonCount,

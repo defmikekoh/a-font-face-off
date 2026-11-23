@@ -114,7 +114,7 @@
         <div class="goal-crease-right"></div>
         <div class="goal-box-left"></div>
         <div class="goal-box-right"></div>
-        <button class="mode-tab" data-mode="body-contact">Body Contact</button>
+        <button class="mode-tab" id="shared-mode-tab" data-mode="line-change" title="Hold to switch between Line Change and Body Contact">Line Change</button>
         <button class="mode-tab" data-mode="faceoff">
             <span class="faceoff-circle" aria-hidden="true"></span>
             <span class="face-text">FACE</span>
@@ -160,6 +160,18 @@
             </div>
         </div>
 
+        <div class="mode-content line-change-content">
+            <button type="button" class="grip-area" id="line-out-grip" aria-expanded="false" aria-controls="line-out-controls">
+                <span class="grip-handle" aria-hidden="true">≡</span>
+                <span class="grip-label">Sub out</span>
+            </button>
+            <button id="edit-favorites-line" class="favorite-btn edit-btn" aria-label="Edit favorites" title="Edit favorites">✏️</button>
+            <button type="button" class="grip-area" id="line-in-grip" aria-expanded="false" aria-controls="line-font-controls">
+                <span class="grip-handle" aria-hidden="true">≡</span>
+                <span class="grip-label">Sub in</span>
+            </button>
+        </div>
+
         <!-- Third Man In mode: serif, centered mono, sans, edit fav -->
         <div class="mode-content third-man-in-content">
             <div class="grip-area" id="serif-font-grip" data-panel="serif">
@@ -186,10 +198,32 @@
          (#font-comparison) and the slide-in control panels, which are positioned
          relative to THIS box (top:0/bottom:0) rather than hardcoded tab/bar offsets. -->
     <div id="preview-region">
+        <button id="open-options-button" class="popup-options-button" type="button" title="Settings" aria-label="Settings">⚙</button>
     <!-- Font Comparison Area -->
     <div id="font-comparison">
-        <button id="open-options-button" class="popup-options-button" type="button" title="Settings" aria-label="Settings">⚙</button>
         <div id="font-preview-rink">
+        <section id="line-rink" aria-label="Line Change">
+            <section aria-labelledby="line-preview-title">
+                <h3 id="line-preview-title">Preview</h3>
+                <div class="line-matchup">
+                    <span class="line-font-pair"><img src="icons/line-change-out.png" alt=""><span id="line-source-name"></span></span>
+                    <span>→</span>
+                    <span class="line-font-pair"><span id="line-font-name">Select a font</span><img src="icons/line-change-in.png" alt=""></span>
+                </div>
+                <p id="line-font-text">The quick brown fox jumps over the lazy dog.</p>
+                <div class="line-actions"><button id="line-highlight" aria-pressed="false">Highlight</button><button id="line-apply">Apply</button></div>
+                <div id="line-status" role="status"></div>
+            </section>
+            <div class="blue-line-separator" aria-hidden="true"></div>
+            <section aria-labelledby="line-substitutions-title">
+                <h3 id="line-substitutions-title">Substitutions</h3>
+                <ul id="line-rules" aria-labelledby="line-substitutions-title"></ul>
+            </section>
+        </section>
+        <section id="line-out-controls" class="controls-panel" aria-labelledby="line-source-label">
+            <h2><label id="line-source-label" for="line-source">Sub out</label></h2>
+            <div class="panel-body"><select id="line-source" size="8"></select></div>
+        </section>
         <!-- Top section -->
         <div class="font-section" id="top-font-section">
             <h3 id="top-font-name">Roboto Flex</h3>
@@ -402,6 +436,7 @@
     <script src="favorites.js"></script>
     <script src="font-picker.js"></script>
     <script src="messaging-utils.js"></script>
+    <script src="popup-line-change.js"></script>
     <script src="popup.js"></script>
 
     <!-- Font Picker Modal -->

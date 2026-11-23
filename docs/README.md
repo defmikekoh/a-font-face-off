@@ -6,6 +6,10 @@ Organized documentation for the A Font Face-off extension.
 
 - [DATA_STRUCTURES.md](architecture/DATA_STRUCTURES.md) - Comprehensive storage systems, data structures, state management, and async architecture
 
+- [Popup modes and controls](architecture/POPUP.md#line-change-and-body-contact)
+- [Line Change page matching](architecture/CONTENT_SCRIPT.md#line-change)
+- [Desktop and Android Line Change checks](architecture/MV3.md#line-change-regression-checks)
+
 ## Fonts
 
 - [application-flow.md](fonts/application-flow.md) - How fonts are applied to web pages, performance details, and implementation overview

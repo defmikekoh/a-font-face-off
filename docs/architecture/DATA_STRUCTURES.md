@@ -465,3 +465,14 @@ If the extension behaves unexpectedly, clear stored data:
 1. **UI State**: Clear `affoUIState` from browser.storage.local
 2. **Domain Storage**: Clear `affoApplyMap` from browser.storage.local
 3. **Mode Persistence**: Clear `affoCurrentMode` from browser.storage.local
+
+### Line Change
+
+A scope entry can contain `lineChange: [{ source: "Arial", target: { fontName: "Lora", letterSpacing: 0 } }]`.
+Each source is the first family of the page's computed font stack, compared
+case-insensitively before substitutions. Each target uses the existing domain font payload, including optional size or size scale,
+weight, style, line height, spacing, color, local source, and variable axes.
+Line Change uses the same hostname and longest-directory resolution as Body
+Contact and TMI. Removing the last substitution preserves an empty directory
+scope. Body Contact, TMI, and their Sroulette settings are exclusive with Line
+Change. Highlight state belongs to the live document and is never stored.

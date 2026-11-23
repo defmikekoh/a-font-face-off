@@ -167,20 +167,14 @@ function create(popup) {
             buildList('');
             modal.classList.add('visible');
             // Reflect expanded state on trigger for accessibility and chevron rotation
-            if (position === 'top') {
-                topTrigger && topTrigger.setAttribute('aria-expanded', 'true');
-            } else {
-                bottomTrigger && bottomTrigger.setAttribute('aria-expanded', 'true');
-            }
+            trigger?.setAttribute('aria-expanded', 'true');
             // Do not autofocus the search input to avoid popping mobile keyboards
             setTimeout(() => { if (closeBtn) closeBtn.focus(); }, 0);
         }
 
         function close() {
             modal.classList.remove('visible');
-            // Reset expanded state on both triggers
-            topTrigger && topTrigger.setAttribute('aria-expanded', 'false');
-            bottomTrigger && bottomTrigger.setAttribute('aria-expanded', 'false');
+            document.getElementById(`${currentPosition}-font-display`)?.setAttribute('aria-expanded', 'false');
         }
 
         // Build once per catalog/favorites change. Search only toggles rows whose
@@ -367,6 +361,11 @@ function create(popup) {
 
         // Listeners
         const triggerOpen = (pos) => () => open(pos);
+        const lineTrigger = document.getElementById('line-font-display');
+        lineTrigger?.addEventListener('click', triggerOpen('line'));
+        lineTrigger?.addEventListener('keydown', event => {
+            if (['Enter', ' ', 'ArrowDown'].includes(event.key)) { event.preventDefault(); open('line'); }
+        });
         topTrigger?.addEventListener('click', triggerOpen('top'));
         bottomTrigger?.addEventListener('click', triggerOpen('bottom'));
         bodyTrigger?.addEventListener('click', triggerOpen('body')); // Body panel uses body position

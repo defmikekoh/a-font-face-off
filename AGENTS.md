@@ -67,8 +67,9 @@ Android Selenium/geckodriver clears the selected Firefox package data when creat
 | `src/custom-fonts.css` | @font-face rules for non-Google custom fonts |
 | `src/data/gf-axis-registry.json` | Google Fonts metadata (~2.4MB, updated via `npm run gf:update`) |
 
-## Three View Modes
+## Four View Modes
 
+- **Line Change** — Substitutes specific original first font families using independent rules in the resolved domain or directory scope. The shared tab switches between Line Change and Body Contact on long-press or Shift+Enter. See `src/popup-line-change.js` and `src/content-line-change.js`.
 - **Body Contact** — Single font applied to body text (excludes headings, code, nav, etc.). Per-origin persistence via `affoApplyMap`.
 - **Face-off** — Split-screen font comparison inside the popup. No page interaction.
 - **Third Man In (TMI)** — Three panels (Serif, Sans, Mono) each targeting their font family type on the page via element walker.
