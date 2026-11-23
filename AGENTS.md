@@ -19,7 +19,7 @@ A Font Face-off is a shared Manifest V3 browser extension for Firefox and Chromi
 ## Development Guidelines
 
 - `docs/architecture/DATA_STRUCTURES.md` should be a point of reference and updated accordingly when data structures change.
-- Don't run `web-ext run` — it opens an interactive browser you can't control. Tell the user to run it for manual testing. For programmatic inspection, use `npm run build:latest` + Selenium/geckodriver (see `.agents/skills/desktop-testing/`) or ADB for Android devices (see the `firefox-extension-debug` and `android-use` skills).
+- Use `npm run build:latest` + Selenium/geckodriver for fresh, reproducible Firefox tests. For testing against the live Android Firefox profile, use `web-ext run -t firefox-android` with ADB for native UI and DevTools/RDP for page and extension inspection. Reuse an existing live session for ordinary inspection; Android geckodriver clears package data when creating a session. Follow `.agents/skills/desktop-testing/` and the approved device/package scope below.
 - The canonical desktop/Android extension-testing skill directory is `.agents/skills/desktop-testing/`; `.claude/skills/desktop-testing` is a symlink to it for Claude Code discovery. Edit the canonical `.agents` files rather than duplicating or relocating them without a deliberate compatibility change.
 - Generally, don't create fallbacks to fix errors unless specifically told to.
 - ESLint config (`eslint.config.mjs`) uses flat config format — `files` patterns are relative to the config file. Use `src/` for extension source (e.g., `"src/*.js"`), `scripts/` for scripts, and `tests/` for tests; incorrect paths can silently leave rules unapplied.

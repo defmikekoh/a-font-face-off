@@ -312,7 +312,11 @@ represent.
 
 `web-ext run -t firefox-android` is a distinct path. It uses the live Fenix profile and may install/remove a temporary extension, but in observed Note10 use it has not reset Nightly settings; `--adb-remove-old-artifacts` removes web-ext staging artifacts, not Firefox app data.
 
-For real Android Firefox DOM and computed-style inspection on the approved target, use:
+Use WebDriver for fresh, reproducible tests. For testing against the live Android Firefox profile, agents may run `web-ext run -t firefox-android` on an approved device/package and use ADB for native UI plus DevTools/RDP for page and extension inspection. Reuse an existing live session for ordinary inspection and verify the loaded extension revision; see [live-session inspection](references/live-session-inspection.md).
+
+Do not enable **Remote debugging via USB** through the Firefox UI as routine setup or restoration after a profile reset. It is possible, but the user considers the UI workflow too slow; use it only when an unusual debugging need specifically requires DevTools/RDP and no suitable existing connection is available. Ordinary WebDriver testing does not require this toggle. On 2026-11-23, a Note10 reset followed by Settings search for `remote` and UI enablement took 59 seconds through verification, including agent/tool overhead; the final toggle was verified 2.9 seconds after the tap. This is a deliberate workflow choice, not a claim that UI enablement is unsupported.
+
+For fresh Android Firefox DOM and computed-style inspection on the approved target, use:
 
 ```bash
 geckodriver --version  # require 0.37.1 or later for Android
@@ -504,7 +508,7 @@ A corrected 0.37.1 trace checks `test -d /proc/PID` and can proceed to `Connecti
 
 The commands below target Note10 Nightly. Check the project device scope before adapting them to another target.
 
-If the user runs `web-ext run -t firefox-android` and gets `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
+If `web-ext run -t firefox-android` reports `Unexpected multiple RDP sockets`, inspect and clear stale forwards before retrying:
 
 ```bash
 adb -s RF8M81WSL1V forward --list
@@ -513,4 +517,4 @@ adb -s RF8M81WSL1V shell am force-stop org.mozilla.fenix
 adb -s RF8M81WSL1V shell cat /proc/net/unix
 ```
 
-Inspect the final command's output for duplicate `org.mozilla.fenix/...firefox-debugger-socket` rows before retrying. Forward removal and force-stop are state-changing and should receive specific approval; do not place them under the read-only Note10 prefixes. If sockets remain after force-stop, a device reboot is the blunt recovery.
+Inspect the final command's output for duplicate `org.mozilla.fenix/...firefox-debugger-socket` rows before retrying. Remove only forwards verified to be stale and associated with the affected test session. Force-stop/relaunch of the approved device/package combinations is covered by the standing approval in [AGENTS.md](../../../AGENTS.md#android-test-targets); do not request approval again for those operations. Other targets require explicit approval for destructive testing. If sockets remain after force-stop, a device reboot is a broader recovery action requiring separate approval.

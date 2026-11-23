@@ -21,6 +21,8 @@ Report an observation at 12 seconds as “settled when checked at 12 seconds,”
 
 Existing ADB forwards do not prove a live debugger socket. Check the current socket/connection first. In the verified fresh Nightly session, setting `devtools.debugger.remote-enabled` in Selenium alone did not expose RDP; enabling **Settings → Remote debugging via USB** did. Use fresh actor IDs from the active connection.
 
+Per the user's testing preference, never perform that UI enablement as routine setup after a reset. Although it works, it is too slow for the normal workflow. Reserve it for an unusual debugging need that specifically requires DevTools/RDP and cannot use an existing connection; ordinary WebDriver tests do not need it. If such a need arises, Settings search for `remote` reaches the toggle without scrolling through the settings list.
+
 Prefer Firefox DevTools' profiler when available. For a direct RDP client, the verified protocol was:
 
 1. Root `getRoot` exposes `perfActor`; query `getSupportedFeatures` and `isActive`.
