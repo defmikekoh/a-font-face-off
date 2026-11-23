@@ -1900,6 +1900,10 @@ body.mode-switching #panel-grips {
     opacity: 0.62;
 }
 
+#line-font-controls.sroulette-applied .panel-body {
+    opacity: 0.62;
+}
+
 .controls-panel.sroulette-applied .font-family-display,
 .controls-panel.sroulette-applied input,
 .controls-panel.sroulette-applied select {

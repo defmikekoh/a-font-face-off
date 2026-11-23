@@ -104,6 +104,7 @@
     async function selectPool(pool) {
         if (!AFFOSroulette.isPool(pool)) return;
         selectedPool = pool;
+        el('line-font-controls').classList.add('sroulette-applied');
         el('line-font-display').textContent = AFFOSroulette.getPoolLabel(pool);
         el('line-font-display').dataset.affoSroulettePool = pool;
         el('line-font-display').classList.remove('placeholder');
@@ -117,6 +118,7 @@
 
     function clearPool() {
         selectedPool = null;
+        el('line-font-controls').classList.remove('sroulette-applied');
         delete el('line-font-display').dataset.affoSroulettePool;
     }
 
