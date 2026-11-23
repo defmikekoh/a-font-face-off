@@ -1424,9 +1424,11 @@
                 btn.style.setProperty('position', 'relative', 'important');
                 btn.style.setProperty('overflow', 'hidden', 'important');
 
-                const leftHint = document.createElement('div');
-                leftHint.style.cssText = 'position: absolute !important; left: 0 !important; top: 0 !important; bottom: 0 !important; width: 50% !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; border-left: none !important; border-top: none !important; border-bottom: none !important; margin: 0 !important; padding: 0 !important;';
-                btn.appendChild(leftHint);
+                [33.333, 66.666].forEach(left => {
+                    const divider = document.createElement('div');
+                    divider.style.cssText = `position: absolute !important; left: ${left}% !important; top: 0 !important; bottom: 0 !important; width: 0 !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; margin: 0 !important; padding: 0 !important;`;
+                    btn.appendChild(divider);
+                });
 
                 const contentWrapper = document.createElement('div');
                 contentWrapper.style.cssText = 'flex: 1 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; padding: 4px 16px !important; pointer-events: none !important; gap: 2px !important;';
@@ -1446,23 +1448,29 @@
                 btn.onclick = (event) => {
                     const buttonRect = btn.getBoundingClientRect();
                     const clickX = event.clientX - buttonRect.left;
-                    const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
+                    const relativeX = clickX / buttonRect.width;
+                    const position = relativeX < 1 / 3 ? 'serif' : relativeX < 2 / 3 ? 'line' : 'sans';
                     const label = getSrouletteLabel(pool);
 
                     setQuickPickButtonsDisabled(true);
-                    setQuickPickMessage(message, `Applying ${label} to ${position}...`);
+                    setQuickPickMessage(message, position === 'line'
+                        ? `Adding ${label} as a Line Change substitution...`
+                        : `Applying ${label} to ${position}...`);
 
                     sendRuntimeMessageWithRetry({
-                        type: 'quickApplySroulette',
+                        type: position === 'line' ? 'quickApplyLineChangeFavorite' : 'quickApplySroulette',
                         origin: currentOrigin,
                         pool,
-                        position
+                        position,
+                        fontConfig: null
                     }).then(response => {
                         if (response && response.success) {
-                            showQuickPickSuccessThenClose(message, `Applied ${label} to ${position}.`);
+                            showQuickPickSuccessThenClose(message, position === 'line'
+                                ? `Added ${response.source} → ${label} in Line Change.`
+                                : `Applied ${label} to ${position}.`);
                         } else {
                             console.error('[Left Toolbar] Sroulette application failed:', response?.error);
-                            setQuickPickMessage(message, 'Failed to apply Sroulette. Try again.', { color: QUICK_PICK_ERROR_COLOR });
+                            setQuickPickMessage(message, response?.error || 'Failed to apply Sroulette. Try again.', { color: QUICK_PICK_ERROR_COLOR });
                             setQuickPickButtonsDisabled(false);
                         }
                     }).catch(err => {
@@ -1472,7 +1480,7 @@
                     });
                 };
 
-                btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
+                btn.title = 'Click left third for Serif, middle third for Line Change, right third for Sans';
                 btn.style.setProperty('cursor', 'pointer', 'important');
             });
         }
@@ -1500,10 +1508,12 @@
             btn.style.setProperty('position', 'relative', 'important');
             btn.style.setProperty('overflow', 'hidden', 'important');
 
-            // Left side indicator (serif)
-            const leftHint = document.createElement('div');
-            leftHint.style.cssText = 'position: absolute !important; left: 0 !important; top: 0 !important; bottom: 0 !important; width: 50% !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; border-left: none !important; border-top: none !important; border-bottom: none !important; margin: 0 !important; padding: 0 !important;';
-            btn.appendChild(leftHint);
+            // Divide each favorite into Serif, Line Change, and Sans click zones.
+            [33.333, 66.666].forEach(left => {
+                const divider = document.createElement('div');
+                divider.style.cssText = `position: absolute !important; left: ${left}% !important; top: 0 !important; bottom: 0 !important; width: 0 !important; pointer-events: none !important; border-right: 1px dashed #dee2e6 !important; margin: 0 !important; padding: 0 !important;`;
+                btn.appendChild(divider);
+            });
 
             // Content wrapper (centered text)
             const contentWrapper = document.createElement('div');
@@ -1528,26 +1538,32 @@
             contentWrapper.appendChild(previewEl);
             btn.appendChild(contentWrapper);
 
-            // Click handler — left half = serif, right half = sans
+            // Click handler — left third = serif, center = Line Change, right third = sans.
             btn.onclick = (event) => {
                 const buttonRect = btn.getBoundingClientRect();
                 const clickX = event.clientX - buttonRect.left;
-                const position = clickX < buttonRect.width / 2 ? 'serif' : 'sans';
+                const relativeX = clickX / buttonRect.width;
+                const position = relativeX < 1 / 3 ? 'serif' : relativeX < 2 / 3 ? 'line' : 'sans';
 
                 setQuickPickButtonsDisabled(true);
-                setQuickPickMessage(message, `Applying ${fav.fontName || `Font ${i + 1}`} to ${position}...`);
+                const fontName = fav.fontName || `Font ${i + 1}`;
+                setQuickPickMessage(message, position === 'line'
+                    ? `Adding ${fontName} as a Line Change substitution...`
+                    : `Applying ${fontName} to ${position}...`);
 
                 sendRuntimeMessageWithRetry({
-                    type: 'quickApplyFavorite',
+                    type: position === 'line' ? 'quickApplyLineChangeFavorite' : 'quickApplyFavorite',
                     origin: currentOrigin,
                     fontConfig: fav,
                     position: position
                 }).then(response => {
                     if (response && response.success) {
-                        showQuickPickSuccessThenClose(message, `Applied ${fav.fontName || `Font ${i + 1}`} to ${position}.`);
+                        showQuickPickSuccessThenClose(message, position === 'line'
+                            ? `Added ${response.source} → ${fontName} in Line Change.`
+                            : `Applied ${fontName} to ${position}.`);
                     } else {
                         console.error('[Left Toolbar] Font application failed:', response?.error);
-                        setQuickPickMessage(message, 'Failed to apply font. Try again.', { color: QUICK_PICK_ERROR_COLOR });
+                        setQuickPickMessage(message, response?.error || 'Failed to apply font. Try again.', { color: QUICK_PICK_ERROR_COLOR });
                         setQuickPickButtonsDisabled(false);
                     }
                 }).catch(err => {
@@ -1557,7 +1573,7 @@
                 });
             };
 
-            btn.title = '\u2190 Click left for serif | Click right for sans-serif \u2192';
+            btn.title = 'Click left third for Serif, middle third for Line Change, right third for Sans';
             btn.style.setProperty('cursor', 'pointer', 'important');
         }
     }

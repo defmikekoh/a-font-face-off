@@ -3549,6 +3549,20 @@ body.view-line-change #line-rink { display: flex; flex-direction: column; flex: 
 #line-font-text { margin: 16px 0; }
 .line-actions { display: flex; gap: 8px; }
 .line-actions button { flex: 1; min-height: 40px; }
+.line-actions .apply-btn { display: block; }
+#line-highlight {
+    padding: 6px 10px;
+    background: transparent;
+    color: #171a13;
+    border: 1px solid #c9cdd1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+#line-highlight:hover { border-color: #aeb4b9; }
+#line-highlight[aria-pressed="true"] { background: #ffe471; border-color: #e4c94f; }
 #line-highlight[aria-pressed=true] { background: #ffe471; color: #171a13; }
 #line-rules { padding: 0; margin: 8px 0; }
 #line-rules li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; overflow-wrap: anywhere; }

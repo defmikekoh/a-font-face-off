@@ -143,6 +143,15 @@ function formatAffoBrowserActionTitleEntry(entry, abbreviate) {
 }
 
 function formatAffoBrowserActionTitle(domainData) {
+    const firstLineChangeRule = Array.isArray(domainData && domainData.lineChange)
+        ? domainData.lineChange[0]
+        : null;
+    const firstLineChangeTarget = firstLineChangeRule && firstLineChangeRule.target;
+    const firstLineChangeFont = firstLineChangeTarget && (firstLineChangeTarget.kind === 'sroulette'
+        ? getAffoSroulettePoolLabel(firstLineChangeTarget.pool)
+        : getAffoTitleFontName(firstLineChangeTarget));
+    if (firstLineChangeFont) return `${AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX} LC: ${firstLineChangeFont}`;
+
     const entries = getAffoBrowserActionTitleEntries(domainData);
     if (!entries.length) return AFFO_BROWSER_ACTION_DEFAULT_TITLE;
 

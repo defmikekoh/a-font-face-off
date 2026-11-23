@@ -189,6 +189,27 @@ describe('formatAffoBrowserActionTitle', () => {
         );
     });
 
+    it('shows the first Line Change Sub in font', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                lineChange: [
+                    { source: 'Arial', target: { fontName: 'Merriweather' } },
+                    { source: 'Georgia', target: { fontName: 'Roboto Slab' } },
+                ],
+            }),
+            'AFFO - LC: Merriweather'
+        );
+    });
+
+    it('shows the first Line Change Sroulette pool label', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                lineChange: [{ source: 'Arial', target: { kind: 'sroulette', pool: 'serif' } }],
+            }),
+            'AFFO - LC: Sroulette Serif'
+        );
+    });
+
     it('shows prefix-only entries for applied non-family settings', () => {
         assert.equal(
             formatAffoBrowserActionTitle({ serif: { fontName: null, lineHeight: 1.4 } }),

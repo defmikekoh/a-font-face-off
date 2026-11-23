@@ -3217,6 +3217,59 @@ async function handleAffoRuntimeMessage(msg, sender) {
       }
     }
 
+    // Add a single Line Change rule using the page's currently predominant font
+    // as Sub out and the tapped favorite as Sub in.
+    if (msg.type === 'quickApplyLineChangeFavorite') {
+      try {
+        const { fontConfig, pool } = msg;
+        const tab = sender.tab;
+        const srouletteTarget = globalThis.AFFOSroulette.isPool(pool);
+        if ((!srouletteTarget && (!fontConfig || !fontConfig.fontName)) || !tab?.id || !tab.url) {
+          return { success: false, error: 'Missing required parameters' };
+        }
+
+        const state = await browser.tabs.sendMessage(tab.id, { type: 'affoLineChange', action: 'list' });
+        const source = String(state?.preferredFamily || '').trim();
+        if (!source) return { success: false, error: 'Could not detect a predominant page font.' };
+
+        const result = await browser.storage.local.get(APPLY_MAP_KEY);
+        const applyMap = result[APPLY_MAP_KEY] || {};
+        const origin = globalThis.AFFOScopeUtils.resolveKey(applyMap, tab.url);
+        const entry = applyMap[origin] || {};
+        if (entry.body || entry.serif || entry.sans || entry.mono || entry.sroulette) {
+          return { success: false, error: 'Switch modes in the popup to clear existing font settings first.' };
+        }
+
+        let target;
+        if (srouletteTarget) {
+          target = { kind: 'sroulette', pool };
+        } else {
+          target = { fontName: fontConfig.fontName };
+          if (fontConfig.fontSizeScale != null) target.fontSizeScale = fontConfig.fontSizeScale;
+          else if (fontConfig.fontSize) target.fontSize = fontConfig.fontSize;
+          if (fontConfig.lineHeight) target.lineHeight = fontConfig.lineHeight;
+          if (fontConfig.letterSpacing != null) target.letterSpacing = fontConfig.letterSpacing;
+          if (fontConfig.fontWeight) target.fontWeight = fontConfig.fontWeight;
+          if (fontConfig.fontStyle === 'italic') target.fontStyle = 'italic';
+          if (fontConfig.fontColor) target.fontColor = fontConfig.fontColor;
+          if (fontConfig.variableAxes) target.variableAxes = fontConfig.variableAxes;
+          if (fontConfig.fontSource === 'local') target.fontSource = 'local';
+        }
+
+        entry.lineChange = [{ source, target }];
+        applyMap[origin] = entry;
+        await browser.storage.local.set({ [APPLY_MAP_KEY]: applyMap });
+        return {
+          success: true,
+          source,
+          fontName: srouletteTarget ? globalThis.AFFOSroulette.getPoolLabel(pool) : target.fontName
+        };
+      } catch (e) {
+        console.error('[AFFO Background] Quick-apply Line Change failed:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
     // Handle quick-apply Sroulette intent from toolbar. The stored value is only
     // the synced on/off intent; content.js resolves a fresh random font locally.
     if (msg.type === 'quickApplySroulette') {
