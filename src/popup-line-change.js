@@ -12,6 +12,28 @@
     let mappings = [];
     let highlighted = '';
     let busy = false;
+    let selectedSource = '';
+
+    function sourceList() { return el('line-source'); }
+
+    function renderSources(families) {
+        const list = sourceList();
+        list.replaceChildren(...families.map(name => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'line-source-option';
+            option.setAttribute('role', 'option');
+            option.setAttribute('aria-selected', String(name === selectedSource));
+            option.textContent = name;
+            option.disabled = busy;
+            option.onclick = () => run(async () => {
+                selectedSource = name;
+                renderSources(families);
+                await sourceChanged();
+            });
+            return option;
+        }));
+    }
 
     function setSharedMode(mode) {
         const tab = el('shared-mode-tab');
@@ -20,8 +42,9 @@
     }
 
     function updateButtons() {
-        const source = el('line-source').value;
-        el('line-source').disabled = busy;
+        const source = selectedSource;
+        sourceList().setAttribute('aria-disabled', String(busy));
+        sourceList().querySelectorAll('button').forEach(option => { option.disabled = busy; });
         el('line-source-name').textContent = source || 'Sub out';
         el('line-highlight').disabled = busy || !source;
         el('line-highlight').setAttribute('aria-pressed', String(!!source && highlighted === source));
@@ -58,7 +81,7 @@
     }
 
     async function selectSource() {
-        const source = el('line-source').value;
+        const source = selectedSource;
         const rule = mappings.find(item => item.source.toLowerCase() === source.toLowerCase());
         await applyFontConfig('line', rule?.target || { fontName: 'Georgia', fontSource: 'local' });
         updateButtons();
@@ -66,16 +89,14 @@
 
     async function refresh() {
         const state = await page('list');
-        const selected = el('line-source').value;
+        const selected = selectedSource;
         scope = state.scope;
         mappings = state.rules;
         highlighted = state.highlightFamily;
         el('body-domain-display').textContent = scope;
-        const options = names => names.map(name => new window.Option(name, name));
-        el('line-source').replaceChildren(...options(state.families));
-        const desired = highlighted || selected;
-        if (state.families.includes(desired)) el('line-source').value = desired;
-        else el('line-source').selectedIndex = 0;
+        const desired = highlighted || selected || state.preferredFamily;
+        selectedSource = state.families.includes(desired) ? desired : (state.families[0] || '');
+        renderSources(state.families);
         el('line-rules').replaceChildren(...mappings.map(rule => {
             const row = document.createElement('li');
             const remove = document.createElement('button');
@@ -103,7 +124,7 @@
 
     async function sourceChanged() {
         await selectSource();
-        if (highlighted) highlighted = (await page('select', el('line-source').value)).highlightFamily;
+        if (highlighted) highlighted = (await page('select', selectedSource)).highlightFamily;
     }
 
     function bind() {
@@ -129,14 +150,13 @@
             const grip = el('line-' + side + '-grip');
             grip.onclick = () => setPanel(grip.getAttribute('aria-expanded') === 'true' ? null : side);
         }
-        el('line-source').onchange = () => run(sourceChanged);
         el('line-apply').onclick = () => run(async () => {
             const target = await buildPayload('line');
             if (!target?.fontName) throw new Error('Choose a Sub in font.');
-            await edit(el('line-source').value, target);
+            await edit(selectedSource, target);
         });
         el('line-highlight').onclick = () => run(async () => {
-            highlighted = (await page('toggle', el('line-source').value)).highlightFamily;
+            highlighted = (await page('toggle', selectedSource)).highlightFamily;
             if (highlighted && document.documentElement.classList.contains('affo-mobile')) {
                 const tab = await getTargetTabForPopup();
                 if (window.sourceTabId && tab) await browser.tabs.update(tab.id, { active:true });
@@ -149,6 +169,7 @@
         scope = null;
         mappings = [];
         setPanel(null);
+        selectedSource = '';
         for (const id of ['line-source','line-rules']) el(id).replaceChildren();
         await refresh();
     }) };

@@ -100,6 +100,7 @@
         observer.disconnect();
         restoreStyles();
         const families = new Map();
+        const familyCoverage = new Map();
         const active = !!(rules.length || highlightFamily);
         if ((active || list) && document.body) {
             const replacements = new Map(rules.map(rule => [normalize(rule.source), rule.target]));
@@ -129,6 +130,10 @@
                 const name = (first[1] || first[2] || first[3]).trim().replace(/\\(["'\\])/g, '$1');
                 const key = normalize(name);
                 families.set(key, name);
+                const readableCharacters = nodes.reduce((total, text) => total + (text.data.match(/\S/g) || []).length, 0);
+                const coverage = familyCoverage.get(key) || { name, characters: 0 };
+                coverage.characters += readableCharacters;
+                familyCoverage.set(key, coverage);
                 const stack = css.fontFamily.split(',').map(part => part.trim().replace(/["']/g, '').toLowerCase());
                 if (stack.some(part => preservedFonts.has(part))) continue;
                 const config = replacements.get(key);
@@ -182,7 +187,9 @@
         }
         updateClearControl();
         if (active) observer.observe(document, { subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['class','style','hidden'] });
-        return { families: [...families.values()].sort(), highlightFamily, rules, scope };
+        const preferredFamily = [...familyCoverage.values()]
+            .sort((a, b) => b.characters - a.characters || a.name.localeCompare(b.name))[0]?.name || '';
+        return { families: [...families.values()].sort(), preferredFamily, highlightFamily, rules, scope };
     }
 
     function configure(map) {

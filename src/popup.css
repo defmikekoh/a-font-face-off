@@ -3550,5 +3550,20 @@ body.view-line-change #line-rink { display: flex; flex-direction: column; flex: 
 #line-rules li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; overflow-wrap: anywhere; }
 #line-rules button { min-height: 40px; }
 #line-source { width: 100%; }
-#line-source, #line-source option { font: inherit; }
+.line-source-option {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-color, #ddd);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.line-source-option[aria-selected="true"] { background: var(--selected-background, rgba(80, 130, 220, .18)); font-weight: 600; }
+.line-source-option:disabled { opacity: .65; }
 #save-modal-config, .edit-favorite-preview { white-space: pre-line; }
