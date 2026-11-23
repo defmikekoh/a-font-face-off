@@ -907,6 +907,31 @@
     }
   }
 
+  async function saveSubstackRouletteLineChange() {
+    const statusEl = document.getElementById('status-substack-roulette-line-change');
+    try {
+      const lines = document.getElementById('substack-roulette-line-change-rules').value.split(/\r?\n/);
+      const rules = [];
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const parts = line.split(/\s*(?:→|->)\s*/);
+        if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
+          throw new Error(`Invalid rule: ${line}. Use “original font → replacement”.`);
+        }
+        rules.push({ source: parts[0].trim(), target: parts[1].trim() });
+      }
+      await browser.storage.local.set({
+        affoSubstackRouletteLineChangeEnabled: document.getElementById('substack-roulette-line-change-enabled').checked,
+        affoSubstackRouletteLineChangeRules: rules
+      });
+      statusEl.textContent = 'Saved';
+      setTimeout(() => { statusEl.textContent = ''; }, 1500);
+    } catch (error) {
+      statusEl.textContent = 'Error: ' + (error.message || error);
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   // ─── Cloud Sync UI ───────────────────────────────────────────────────
 
   function getSyncFolderPreviewText(suffix) {
@@ -1216,6 +1241,8 @@
         'affoSubstackRoulette',
         'affoSubstackRouletteSerif',
         'affoSubstackRouletteSans',
+        'affoSubstackRouletteLineChangeEnabled',
+        'affoSubstackRouletteLineChangeRules',
         'affoSubstackRouletteBeigeDisabledDomains',
         'affoFavorites',
         'affoFavoritesOrder',
@@ -1256,6 +1283,9 @@
 
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
+      document.getElementById('substack-roulette-line-change-enabled').checked = data.affoSubstackRouletteLineChangeEnabled !== false;
+      document.getElementById('substack-roulette-line-change-rules').value = (Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }])
+        .map(rule => `${rule.source} -> ${rule.target}`).join('\n');
       renderSubstackRouletteTable(
         data.affoFavorites || {},
         data.affoFavoritesOrder || [],
@@ -1693,6 +1723,8 @@
 
       // Reset Substack Roulette
       document.getElementById('substack-roulette-enabled').checked = true;
+      document.getElementById('substack-roulette-line-change-enabled').checked = true;
+      document.getElementById('substack-roulette-line-change-rules').value = 'Spectral -> Sroulette Serif';
       const rouletteTbody = document.getElementById('substack-roulette-tbody');
       if (rouletteTbody) rouletteTbody.innerHTML = '';
       const rouletteEmpty = document.getElementById('substack-roulette-empty');
@@ -1754,6 +1786,7 @@
     document.getElementById('save-block-javascript').addEventListener('click', saveBlockJavaScript);
     document.getElementById('reset-block-javascript').addEventListener('click', resetBlockJavaScript);
     document.getElementById('save-substack-roulette').addEventListener('click', saveSubstackRoulette);
+    document.getElementById('save-substack-roulette-line-change').addEventListener('click', saveSubstackRouletteLineChange);
     document.getElementById('save-toolbar').addEventListener('click', function() {
       saveToolbar();
       updatePreviewAfterSave();

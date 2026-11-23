@@ -13,6 +13,13 @@
     let highlighted = '';
     let busy = false;
     let selectedSource = '';
+    let selectedPool = null;
+
+    function pickPoolConfig(data, pool) {
+        const names = Array.isArray(data[ AFFOSroulette.getPoolStorageKey(pool) ]) ? data[ AFFOSroulette.getPoolStorageKey(pool) ] : [];
+        const valid = names.map(name => data.affoFavorites && data.affoFavorites[name]).filter(config => config && config.fontName);
+        return valid.length ? valid[Math.floor(Math.random() * valid.length)] : null;
+    }
 
     function sourceList() { return el('line-source'); }
 
@@ -83,8 +90,34 @@
     async function selectSource() {
         const source = selectedSource;
         const rule = mappings.find(item => item.source.toLowerCase() === source.toLowerCase());
+        selectedPool = rule?.target?.kind === 'sroulette' ? rule.target.pool : null;
+        const display = el('line-font-display');
+        if (selectedPool) {
+            await selectPool(selectedPool);
+            return;
+        }
+        delete display.dataset.affoSroulettePool;
         await applyFontConfig('line', rule?.target || { fontName: 'Georgia', fontSource: 'local' });
         updateButtons();
+    }
+
+    async function selectPool(pool) {
+        if (!AFFOSroulette.isPool(pool)) return;
+        selectedPool = pool;
+        el('line-font-display').textContent = AFFOSroulette.getPoolLabel(pool);
+        el('line-font-display').dataset.affoSroulettePool = pool;
+        el('line-font-display').classList.remove('placeholder');
+        const data = await browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']);
+        const config = data.affoSubstackRoulette === false ? null : pickPoolConfig(data, pool);
+        if (config) await applyFontConfig('line', config);
+        el('line-font-display').textContent = AFFOSroulette.getPoolLabel(pool);
+        el('line-font-display').dataset.affoSroulettePool = pool;
+        updateButtons();
+    }
+
+    function clearPool() {
+        selectedPool = null;
+        delete el('line-font-display').dataset.affoSroulettePool;
     }
 
     async function refresh() {
@@ -105,10 +138,14 @@
             remove.title = 'Remove substitution for ' + rule.source;
             remove.setAttribute('aria-label', remove.title);
             remove.onclick = () => run(() => edit(rule.source, null));
-            row.append(rule.source + ' → ' + rule.target.fontName, remove);
+            row.append(rule.source + ' → ' + (rule.target.kind === 'sroulette' ? AFFOSroulette.getPoolLabel(rule.target.pool) : rule.target.fontName), remove);
             return row;
         }));
         await selectSource();
+        if (!mappings.some(item => item.source.toLowerCase() === selectedSource.toLowerCase())) {
+            const poolData = await browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']);
+            if (AFFOSroulette.getValidPoolInfoFromData(poolData, 'serif').available) await selectPool('serif');
+        }
         if (!state.families.length) el('line-status').textContent = 'No page text found.';
     }
 
@@ -151,8 +188,8 @@
             grip.onclick = () => setPanel(grip.getAttribute('aria-expanded') === 'true' ? null : side);
         }
         el('line-apply').onclick = () => run(async () => {
-            const target = await buildPayload('line');
-            if (!target?.fontName) throw new Error('Choose a Sub in font.');
+            const target = selectedPool ? { kind: 'sroulette', pool: selectedPool } : await buildPayload('line');
+            if (!target?.fontName && !(target?.kind === 'sroulette' && AFFOSroulette.isPool(target.pool))) throw new Error('Choose a Sub in font.');
             await edit(selectedSource, target);
         });
         el('line-highlight').onclick = () => run(async () => {
@@ -165,7 +202,7 @@
         });
     }
 
-    globalThis.AFFOLineChangePopup = { setSharedMode, bind, open: () => run(async () => {
+    globalThis.AFFOLineChangePopup = { setSharedMode, bind, selectPool, clearPool, open: () => run(async () => {
         scope = null;
         mappings = [];
         setPanel(null);

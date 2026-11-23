@@ -161,6 +161,8 @@ and are excluded from local-storage exports and cloud sync.
 | `affoSubstackRoulette` | Substack roulette master toggle | `true` (default) |
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
+| `affoSubstackRouletteLineChangeEnabled` | Use global font-specific Line Change rules instead of native Substack serif/sans sampling | `true` (default) |
+| `affoSubstackRouletteLineChangeRules` | Source/replacement font pairs applied by the Substack Line Change mode | `[{ source: "Spectral", target: "Sroulette Serif" }]` |
 | `affoSubstackRouletteBeigeDisabledDomains` | Domains where Substack Roulette keeps original backgrounds instead of applying the default beige layer | `["example.substack.com"]` |
 | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin sync metadata for Substack Roulette beige disabled domains | `{ version: 1, byOrigin: { "example.substack.com": { modified: 1700000000000 } } }` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
@@ -241,7 +243,7 @@ The cache keeps the existing 1-year TTL and 80MB cap. Expiry maintenance is defe
 | `substack-beige-disabled-domains.json` | `affoSubstackRouletteBeigeDisabledDomains` | Substack Roulette beige disabled domain list |
 | `substack-beige-disabled-domains-meta.json` | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin merge metadata for Substack Roulette beige disabled domain list |
 | `preserved-fonts.json` | `affoPreservedFonts` | Icon font families never replaced |
-| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` | Roulette toggle + serif/sans name pools. Roulette applies a beige page layer by default unless the domain is listed in `affoSubstackRouletteBeigeDisabledDomains`; overly light roulette-applied main text is clamped to `#363737` at render time. |
+| `substack-roulette.json` | `affoSubstackRoulette` + `affoSubstackRouletteSerif` + `affoSubstackRouletteSans` + `affoSubstackRouletteLineChangeEnabled` + `affoSubstackRouletteLineChangeRules` | Roulette toggle and pools, optional font-specific Line Change rules, beige preference, and legacy brightness behavior. |
 
 See `docs/architecture/SYNC.md` for backend interface details and sync algorithm.
 
@@ -468,7 +470,7 @@ If the extension behaves unexpectedly, clear stored data:
 
 ### Line Change
 
-A scope entry can contain `lineChange: [{ source: "Arial", target: { fontName: "Lora", letterSpacing: 0 } }]`.
+A scope entry can contain `lineChange: [{ source: "Arial", target: { fontName: "Lora", letterSpacing: 0 } }]`. A target can also be a pool intent: `{ kind: "sroulette", pool: "serif" }` or `{ kind: "sroulette", pool: "sans" }`. Pool targets keep only the intent in storage; the page resolves a favorite from that pool at runtime.
 Each source is the first family of the page's computed font stack, compared
 case-insensitively before substitutions. Each target uses the existing domain font payload, including optional size or size scale,
 weight, style, line height, spacing, color, local source, and variable axes.

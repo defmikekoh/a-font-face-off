@@ -3554,7 +3554,19 @@ const fontPicker = AFFOFontPicker.create({
     getCurrentUIConfig,
     updateBodyButtons,
     updateAllThirdManInButtons,
-    favorites
+    favorites,
+    selectSroulettePool(position, pool) {
+        if (position === 'line') {
+            globalThis.AFFOLineChangePopup?.selectPool(pool);
+            return;
+        }
+        markPanelAsSroulette(position, pool);
+        if (position === 'body') updateBodyButtons();
+        else updateAllThirdManInButtons(position);
+    },
+    clearSroulettePool(position) {
+        if (position === 'line') globalThis.AFFOLineChangePopup?.clearPool();
+    }
 });
 
 async function initializePopup() {

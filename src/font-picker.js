@@ -138,8 +138,6 @@ function create(popup) {
 
         async function open(position) {
             const trigger = document.getElementById(`${position}-font-display`);
-            if (trigger && trigger.dataset && trigger.dataset.affoSroulettePool) return;
-
             currentPosition = position;
             titleEl.textContent = `Select ${popup.getPanelLabel(position)} Font`;
             await popup.ensureCustomFontsLoaded();
@@ -149,6 +147,9 @@ function create(popup) {
             }
             // Refresh before caching the catalog for this opening.
             await favorites.loadFavoritesFromStorage();
+            const poolData = await browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']);
+            const pools = ['serif', 'sans'].filter(pool => AFFOSroulette.getValidPoolInfoFromData(poolData, pool).available);
+            popup.currentPools = ['body', 'serif', 'sans', 'mono', 'line'].includes(position) ? pools : [];
             const gf = getKnownGoogleFamilies();
             const set = new Set();
             const list = [];
@@ -182,7 +183,8 @@ function create(popup) {
         function prepareList() {
             const favNames = Array.from(new Set(Object.values(favorites.getSavedFavorites() || {})
                 .map(cfg => cfg && cfg.fontName).filter(Boolean)));
-            const nextKey = JSON.stringify([families, favNames, popup.CUSTOM_FONTS, popup.LOCAL_FONTS]);
+            const poolNames = popup.currentPools || [];
+            const nextKey = JSON.stringify([families, favNames, popup.CUSTOM_FONTS, popup.LOCAL_FONTS, poolNames]);
             if (nextKey === catalogKey) return;
             catalogKey = nextKey;
             lastQuery = null;
@@ -191,6 +193,7 @@ function create(popup) {
             const favoriteNames = favNames.filter(name => !custom.has(name) && !local.has(name));
             const favoriteSet = new Set(favoriteNames);
             const sections = new Map();
+            if (poolNames.length) sections.set('Sroulette Pools', poolNames.map(pool => AFFOSroulette.getPoolLabel(pool)));
             if (favoriteNames.length) sections.set('Favorites', favoriteNames);
             families.forEach(name => {
                 if (favoriteSet.has(name)) return;
@@ -198,7 +201,7 @@ function create(popup) {
                 if (!sections.has(key)) sections.set(key, []);
                 sections.get(key).push(name);
             });
-            const order = ['Pinned', 'Local', 'Favorites', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#']
+            const order = ['Pinned', 'Local', 'Favorites', 'Sroulette Pools', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#']
                 .filter(key => sections.has(key));
             const listFragment = document.createDocumentFragment();
             const railFragment = document.createDocumentFragment();
@@ -214,10 +217,12 @@ function create(popup) {
                     node.setAttribute('role', 'option');
                     node.textContent = name;
                     listFragment.appendChild(node);
+                    const pool = ['serif', 'sans'].find(candidate => AFFOSroulette.getPoolLabel(candidate) === name);
+                    if (pool) node.dataset.sroulettePool = pool;
                     return { node, searchName: normalize(name) };
                 });
                 let letter = null;
-                if (key !== 'Pinned' && key !== 'Local' && key !== 'Favorites') {
+                if (key !== 'Pinned' && key !== 'Local' && key !== 'Favorites' && key !== 'Sroulette Pools') {
                     letter = document.createElement('span');
                     letter.className = 'rail-letter';
                     letter.textContent = key;
@@ -248,7 +253,12 @@ function create(popup) {
 
         listEl.addEventListener('click', event => {
             const item = event.target.closest('.font-picker-item');
-            if (item && listEl.contains(item) && !item.hidden) selectFont(item.textContent);
+            if (item && listEl.contains(item) && !item.hidden) {
+                if (item.dataset.sroulettePool) {
+                    popup.selectSroulettePool(currentPosition, item.dataset.sroulettePool);
+                    close();
+                } else selectFont(item.textContent);
+            }
         });
         railEl.addEventListener('click', event => {
             const letter = event.target.closest('.rail-letter');
@@ -259,6 +269,7 @@ function create(popup) {
 
     async function selectFont(name) {
         affoDebugLog(`selectFont: Selecting "${name}" for position "${currentPosition}"`);
+        if (currentPosition === 'line') popup.clearSroulettePool('line');
 
         try {
             // Display element is now the source of truth - no need to manage select options

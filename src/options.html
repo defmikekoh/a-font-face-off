@@ -997,7 +997,24 @@
         <button id="save-substack-roulette">Save Roulette Settings</button>
         <span id="status-substack-roulette" class="status"></span>
       </div>
-      <div class="hint">When visiting a Substack page with no saved font settings, randomly applies one serif and one sans favorite from the checked lists. New random fonts on each page load. If the roulette-applied main text is lighter than `#363737`, AFFO darkens it just enough to land at that target.</div>
+      <div class="hint">When visiting a Substack page with no saved font settings, randomly applies one serif and one sans favorite from the checked lists if Substack Roulette Line Change is off. New random fonts on each page load. If the roulette-applied main text is lighter than `#363737`, AFFO darkens it just enough to land at that target.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Substack Roulette Line Change</div>
+      <label style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+        <input id="substack-roulette-line-change-enabled" type="checkbox" checked>
+        Use font substitution rules
+      </label>
+      <div style="margin-top: 10px;">
+        <label for="substack-roulette-line-change-rules" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">Font rules</label>
+        <textarea id="substack-roulette-line-change-rules" placeholder="Spectral -> Sroulette Serif"></textarea>
+        <div class="hint">One rule per line: original font -> replacement. Replacements can be font names or Sroulette Serif/Sans. When enabled, these rules replace the automatic serif/sans roulette fonts on Substack pages without saved font settings.</div>
+      </div>
+      <div class="row">
+        <button id="save-substack-roulette-line-change">Save Line Change Settings</button>
+        <span id="status-substack-roulette-line-change" class="status"></span>
+      </div>
     </div>
 
     <div class="section">

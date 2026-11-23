@@ -25,8 +25,8 @@ const DEFAULT_BOOKMARK_FILE = path.join(
     'android-firefox-bookmarks.json',
 );
 const ADB_COMMAND_TIMEOUT_MS = 10000;
-const DEFAULT_SEED_SERIF = 'Lora';
-const DEFAULT_SEED_SANS = 'Inter';
+const DEFAULT_SEED_SERIF = 'Charis';
+const DEFAULT_SEED_SANS = 'Andika';
 const DEFAULT_SELECTORS = [
     'body',
     'h1',
@@ -62,7 +62,9 @@ Options:
   --skip-bookmarks         Do not restore the configured bookmarks after reset
   --test-line-change       Exercise the native Line Change popup on a local font fixture
   --expect-affo            Require a content-script reply with the inspected page URL
-  --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config
+  --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config (default after reset)
+  --skip-substack-roulette-seed
+                            Leave extension storage at its post-reset defaults
   --seed-serif <name>      Serif favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SERIF})
   --seed-sans <name>       Sans favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SANS})
   --selector <css>         Selector to inspect; may be repeated
@@ -77,7 +79,7 @@ Options:
 Examples:
   npm run build:latest
   npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-clear-package-data --url https://example.com --expect-affo
-  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector p
+  npm run inspect:android-firefox -- --serial DEVICE_ID --package TEST_ONLY_FIREFOX_PACKAGE --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --settle 15000 --selector html --selector p
 `);
 }
 
@@ -98,7 +100,7 @@ function parseArgs(argv) {
             : DEFAULT_BOOKMARK_FILE,
         seedBookmarks: process.env.AFFO_ANDROID_SKIP_BOOKMARKS !== '1',
         expectAffo: process.env.AFFO_ANDROID_EXPECT_AFFO === '1',
-        seedSubstackRoulette: process.env.AFFO_ANDROID_SEED_SUBSTACK_ROULETTE === '1',
+        seedSubstackRoulette: process.env.AFFO_ANDROID_SKIP_SUBSTACK_ROULETTE_SEED !== '1',
         seedSerif: process.env.AFFO_ANDROID_SEED_SERIF || DEFAULT_SEED_SERIF,
         seedSans: process.env.AFFO_ANDROID_SEED_SANS || DEFAULT_SEED_SANS,
         selectors: [],
@@ -146,6 +148,8 @@ function parseArgs(argv) {
             args.expectAffo = true;
         } else if (arg === '--seed-substack-roulette') {
             args.seedSubstackRoulette = true;
+        } else if (arg === '--skip-substack-roulette-seed') {
+            args.seedSubstackRoulette = false;
         } else if (arg === '--seed-serif') {
             args.seedSerif = requireValue(argv, ++i, arg);
         } else if (arg === '--seed-sans') {
@@ -551,9 +555,11 @@ function buildSubstackRouletteSeed(args) {
         affoSubstackRoulette: true,
         affoSubstackRouletteSerif: [serif],
         affoSubstackRouletteSans: [sans],
+        affoSubstackRouletteLineChangeEnabled: true,
+        affoSubstackRouletteLineChangeRules: [{ source: 'Spectral', target: 'Sroulette Serif' }],
         affoFavorites: {
             [serif]: {
-                fontName: serif,
+                fontName: serif === 'Charis' ? 'Charis SIL' : serif,
                 variableAxes: {},
             },
             [sans]: {
@@ -565,7 +571,7 @@ function buildSubstackRouletteSeed(args) {
 }
 
 async function seedSubstackRouletteIfRequested(driver, args, report) {
-    if (!args.seedSubstackRoulette) return false;
+    if (!args.seedSubstackRoulette || args.skipAddon) return false;
 
     const seed = buildSubstackRouletteSeed(args);
     report.storageSeed = {

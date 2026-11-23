@@ -409,6 +409,9 @@
   var substackRouletteBeigeDisabledDomains = [];
   var pendingSubstackRoulette = null;
   var substackRouletteActive = false;
+  var substackRouletteEnabled = true;
+  var substackRouletteLineChangeEnabled = true;
+  var substackRouletteLineChangeRules = [{ source: 'Spectral', target: 'Sroulette Serif' }];
   var pendingDimmingTimer = null;
   var dimmingGeneration = 0;
   try {
@@ -592,6 +595,27 @@
       _isSubstack = AFFOSiteDetection.isSubstackDocument(document, location, window);
     } catch (_) { }
     return _isSubstack;
+  }
+
+  function configureActiveLineChange(map, forceRefresh) {
+    var entry = globalThis.AFFOScopeUtils.getEntry(map || {}, location);
+    if (getIsSubstack() && !entry && substackRouletteEnabled && substackRouletteLineChangeEnabled) {
+      var scope = globalThis.AFFOScopeUtils.resolveKey(map || {}, location) || location.hostname;
+      var rules = substackRouletteLineChangeRules.map(function (rule) {
+        var targetName = String(rule.target || '').trim();
+        var pool = targetName.toLowerCase() === 'sroulette serif' ? 'serif'
+          : targetName.toLowerCase() === 'sroulette sans' ? 'sans' : null;
+        return {
+          source: String(rule.source || '').trim(),
+          target: pool ? { kind: 'sroulette', pool: pool } : { fontName: targetName }
+        };
+      }).filter(function (rule) { return rule.source && (rule.target.fontName || rule.target.pool); });
+      var syntheticMap = {};
+      syntheticMap[scope] = { lineChange: rules };
+      globalThis.AFFOLineChange.configure(syntheticMap, forceRefresh);
+      return;
+    }
+    globalThis.AFFOLineChange.configure(map || {}, forceRefresh);
   }
 
   // Substack interrupts reading with email signup welcome and subscribe modals.
@@ -5267,7 +5291,7 @@
     if (!window || !window.location || !/^https?:/.test(location.protocol)) return;
     var origin = location.hostname;
 
-    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoLocalFonts']).then(function (data) {
+    browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteLineChangeEnabled', 'affoSubstackRouletteLineChangeRules', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites', 'affoFontFaceOnlyDomains', 'affoInlineApplyDomains', 'affoAggressiveDomains', 'affoWaitForItDomains', 'affoIgnoreCommentsDomains', 'affoLocalFonts']).then(function (data) {
       // Ensure domain lists are populated before any reapply logic runs
       // (the earlier fire-and-forget load at script top may not have resolved yet)
       if (Array.isArray(data.affoFontFaceOnlyDomains)) {
@@ -5290,8 +5314,12 @@
       }
       localFontNames = normalizeLocalFontsValue(data.affoLocalFonts || []);
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
+      substackRouletteEnabled = data.affoSubstackRoulette !== false;
+      substackRouletteLineChangeEnabled = data.affoSubstackRouletteLineChangeEnabled !== false;
+      substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }];
       var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
       activePathScope = globalThis.AFFOScopeUtils.resolveKey(map, location);
+      configureActiveLineChange(map, true);
       if (!entry) {
         lastReappliedEntry = null;
         requestSrouletteCssRemoval();
@@ -5302,6 +5330,11 @@
         ['a-font-face-off-style-body', 'a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) { try { var n = document.getElementById(id); if (n) n.remove(); } catch (e) { } });
         removeSubstackRouletteEnhancements();
         maybeStopNonAggressiveStyleOrderChaser();
+
+        if (getIsSubstack() && substackRouletteEnabled && substackRouletteLineChangeEnabled) {
+          applySubstackRouletteBeige();
+          return;
+        }
 
         // --- Substack Roulette ---
         // Only meaningful on Substack documents; skip all setup (closure,
@@ -5452,7 +5485,7 @@
     var data = await browser.storage.local.get('affoApplyMap');
     var map = data.affoApplyMap || {};
     var key = globalThis.AFFOScopeUtils.resolveKey(map, location);
-    globalThis.AFFOLineChange.configure(map);
+    configureActiveLineChange(map);
     if (key === activePathScope) return;
     activePathScope = key;
     var generation = ++pathScopeGeneration;
@@ -5508,6 +5541,8 @@
           changes.affoSubstackRoulette ||
           changes.affoSubstackRouletteSerif ||
           changes.affoSubstackRouletteSans ||
+          changes.affoSubstackRouletteLineChangeEnabled ||
+          changes.affoSubstackRouletteLineChangeRules ||
           changes.affoFavorites
         );
         if (!changes.affoApplyMap) {
@@ -5553,9 +5588,13 @@
             return;
           }
           if (!rouletteKeysChanged) return;
-          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites']).then(function (data) {
+          browser.storage.local.get(['affoApplyMap', 'affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoSubstackRouletteLineChangeEnabled', 'affoSubstackRouletteLineChangeRules', 'affoSubstackRouletteBeigeDisabledDomains', 'affoFavorites']).then(function (data) {
             try {
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
+              substackRouletteEnabled = data.affoSubstackRoulette !== false;
+              substackRouletteLineChangeEnabled = data.affoSubstackRouletteLineChangeEnabled !== false;
+              substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }];
+              configureActiveLineChange(map, true);
               var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
               if (entry && hasSrouletteIntent(entry)) {
                 ['a-font-face-off-style-serif', 'a-font-face-off-style-sans', 'a-font-face-off-style-mono'].forEach(function (id) {
@@ -5572,6 +5611,12 @@
                 return;
               }
               if (!getIsSubstack() || entry) return;
+              if (substackRouletteEnabled && substackRouletteLineChangeEnabled) {
+                substackRouletteActive = false;
+                removeSubstackRouletteDimming();
+                applySubstackRouletteBeige();
+                return;
+              }
               substackRouletteBeigeDisabledDomains = Array.isArray(data.affoSubstackRouletteBeigeDisabledDomains) ? data.affoSubstackRouletteBeigeDisabledDomains : [];
               var rouletteEnabled = data.affoSubstackRoulette !== false;
               var rouletteSerif = Array.isArray(data.affoSubstackRouletteSerif) ? data.affoSubstackRouletteSerif : [];
@@ -5601,6 +5646,7 @@
         var newMap = changes.affoApplyMap.newValue || {};
         var oldEntry = globalThis.AFFOScopeUtils.getEntry(oldMap, location);
         var entry = globalThis.AFFOScopeUtils.getEntry(newMap, location);
+        globalThis.AFFOLineChange.configure(newMap);
         if (globalThis.AFFOScopeUtils.resolveKey(newMap, location) !== activePathScope) {
           refreshPathScope().catch(debugWarn);
           return;

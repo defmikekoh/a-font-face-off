@@ -343,6 +343,8 @@ This builds the XPI and verifies the approved AVD identity before geckodriver st
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; check the device/package pair in [AGENTS.md](../../../AGENTS.md#android-test-targets).
 
+Every reset inspection seeds AFFO with favorite **Charis** (font family Charis SIL) in the Sroulette Serif pool and **Andika** in the Sroulette Sans pool. It also seeds Substack Roulette Line Change enabled with the default `Spectral -> Sroulette Serif` rule. Use `--skip-substack-roulette-seed` when a clean extension-storage state is specifically needed; `--seed-serif` and `--seed-sans` still allow one-run overrides.
+
 Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
 After the reset and WebDriver inspection, the harness automatically restores the bookmarks maintained in [references/android-firefox-bookmarks.json](references/android-firefox-bookmarks.json). Restoration runs after `driver.quit()`, when Nightly has returned from geckodriver's temporary GeckoView surface to its normal fresh profile. Fenix does not support the WebExtensions bookmarks API and keeps its bookmark store outside Gecko's Places database, so the harness launches with `automationtest=true`, dismisses any observed VPN/CFR prompt, opens each listed URL, and uses resource/description-based ADB UI nodes to select **More options → Bookmark page**. It requires a visible `Saved in “Bookmarks”` confirmation, records the result in the JSON report, and force-stops Nightly afterward. This is a short, deterministic page-menu flow; do not replace it with fixed tap coordinates. Use `--skip-bookmarks` when a clean bookmark state is part of the test, or `--bookmarks <path>` for a deliberate alternate JSON list. Update the maintained list when the user asks to preserve another recurring Android Nightly test page.
@@ -370,13 +372,13 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 On USA Today, an acquisition/modal overlay may be present at the same time as a functioning AFFO toolbar. Its observed mobile close-control selector is `.gnt_mol_xb`; do not treat the overlay itself as proof that the toolbar failed to inject or display.
 
-Storage-dependent features will not be configured unless the script seeds storage during the run. Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. For Substack Roulette checks, seed deterministic favorites before inspecting:
+Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. The inspector automatically seeds deterministic roulette favorites and Line Change settings before inspection:
 
 ```bash
-npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --seed-substack-roulette --seed-serif Lora --seed-sans Inter --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
 ```
 
-Use a seed font that differs from the site default when proving font application. On Substack, `Lora` is a better serif proof than `Spectral` because many Substack pages already use Spectral.
+The default Serif pool favorite is named `Charis` and uses the Google Fonts family `Charis SIL`; Sans uses `Andika`. Use `--skip-substack-roulette-seed` for an intentionally clean extension-storage run.
 
 #### Inspecting the popup ITSELF on Note10 (panel vs page-font tab)
 

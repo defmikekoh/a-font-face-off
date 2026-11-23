@@ -5,6 +5,7 @@
     const highlightName = 'affo-line-change';
     let highlightFamily = '';
     let rules = [];
+    let resolvedRules = [];
     let runtime;
     let scope;
     let markVisible = false;
@@ -103,7 +104,7 @@
         const familyCoverage = new Map();
         const active = !!(rules.length || highlightFamily);
         if ((active || list) && document.body) {
-            const replacements = new Map(rules.map(rule => [normalize(rule.source), rule.target]));
+            const replacements = new Map(resolvedRules.map(rule => [normalize(rule.source), rule.target]));
             const groups = new Map();
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
@@ -192,17 +193,31 @@
         return { families: [...families.values()].sort(), preferredFamily, highlightFamily, rules, scope };
     }
 
-    function configure(map) {
+    function configure(map, forceRefresh = false) {
         const key = globalThis.AFFOScopeUtils.resolveKey(map, location);
         const entry = map[key] || {};
         const next = entry.lineChange || [];
         const clear = highlightFamily && (scope !== key || entry.body || entry.serif || entry.sans || entry.mono || entry.sroulette);
-        if (scope === key && !clear && JSON.stringify(next) === JSON.stringify(rules)) return;
+        if (!forceRefresh && scope === key && !clear && JSON.stringify(next) === JSON.stringify(rules)) return;
         if (clear) highlightFamily = '';
         scope = key;
         rules = next;
+        resolvedRules = next.filter(rule => rule.target && rule.target.kind !== 'sroulette');
+        const poolRules = next.filter(rule => rule.target && rule.target.kind === 'sroulette');
+        if (poolRules.length) {
+            browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']).then(data => {
+                if (scope !== key || rules !== next) return;
+                const materialized = poolRules.map(rule => {
+                    const config = AFFOContentSroulette.pickFontConfig(data, rule.target.pool);
+                    return config ? { source: rule.source, target: config } : null;
+                }).filter(Boolean);
+                resolvedRules = resolvedRules.concat(materialized);
+                if (runtime) materialized.forEach(rule => runtime.loadFont(rule.target, 'line-change'));
+                scan();
+            }).catch(() => {});
+        }
         if (runtime) {
-            for (const rule of rules) runtime.loadFont(rule.target, 'line-change');
+            for (const rule of resolvedRules) runtime.loadFont(rule.target, 'line-change');
         }
         scan();
     }
@@ -215,7 +230,7 @@
         clearHighlight,
         connect(helpers) {
             runtime = helpers;
-            for (const rule of rules) runtime.loadFont(rule.target, 'line-change');
+            for (const rule of resolvedRules) runtime.loadFont(rule.target, 'line-change');
             if (rules.length) scan();
         },
         get highlighting() { return !!highlightFamily; }

@@ -73,6 +73,8 @@ const CUSTOM_FONT_AXES_KEY = 'affoCustomFontAxes';
 const SUBSTACK_ROULETTE_KEY = 'affoSubstackRoulette';
 const SUBSTACK_ROULETTE_SERIF_KEY = 'affoSubstackRouletteSerif';
 const SUBSTACK_ROULETTE_SANS_KEY = 'affoSubstackRouletteSans';
+const SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY = 'affoSubstackRouletteLineChangeEnabled';
+const SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY = 'affoSubstackRouletteLineChangeRules';
 const SYNC_ALARM_NAME = 'affoPeriodicSync';
 const SYNC_ALARM_PERIOD_MINUTES = 60; // 1 hour
 const SYNC_OPTIONAL_DATA_COLLECTION = ['browsingActivity', 'authenticationInfo', 'technicalAndInteraction'];
@@ -2251,11 +2253,13 @@ async function runSyncAttempt(options = {}) {
 
   // Whole-file settings share snapshot guards and revision recovery so every
   // incoming value is checked against the local values read before networking.
-  const rouletteKeys = [SUBSTACK_ROULETTE_KEY, SUBSTACK_ROULETTE_SERIF_KEY, SUBSTACK_ROULETTE_SANS_KEY];
+  const rouletteKeys = [SUBSTACK_ROULETTE_KEY, SUBSTACK_ROULETTE_SERIF_KEY, SUBSTACK_ROULETTE_SANS_KEY, SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY, SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY];
   const rouletteValues = (stored) => ({
     [SUBSTACK_ROULETTE_KEY]: stored[SUBSTACK_ROULETTE_KEY] !== false,
     [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SERIF_KEY]) ? stored[SUBSTACK_ROULETTE_SERIF_KEY] : [],
-    [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : []
+    [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : [],
+    [SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY]: stored[SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY] !== false,
+    [SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]) ? stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY] : [{ source: 'Spectral', target: 'Sroulette Serif' }]
   });
   const favoriteValues = (stored) => {
     const { favorites, favoritesOrder } = sanitizeFavoritesForSync(stored[FAVORITES_KEY], stored[FAVORITES_ORDER_KEY]);
@@ -3459,7 +3463,9 @@ browser.storage.onChanged.addListener(async (changes, area) => {
   {
     const rouletteChanged = (changes[SUBSTACK_ROULETTE_KEY] && isUserChange(SUBSTACK_ROULETTE_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_KEY]))
       || (changes[SUBSTACK_ROULETTE_SERIF_KEY] && isUserChange(SUBSTACK_ROULETTE_SERIF_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_SERIF_KEY]))
-      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && isUserChange(SUBSTACK_ROULETTE_SANS_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]));
+      || (changes[SUBSTACK_ROULETTE_SANS_KEY] && isUserChange(SUBSTACK_ROULETTE_SANS_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_SANS_KEY]))
+      || (changes[SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY] && isUserChange(SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY]))
+      || (changes[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY] && isUserChange(SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY) && storageValueChanged(changes[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]));
     if (rouletteChanged) {
       markLocalItemModified(SYNC_SUBSTACK_ROULETTE_NAME).then(() => scheduleAutoSync());
     }

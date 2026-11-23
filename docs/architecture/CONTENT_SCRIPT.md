@@ -157,11 +157,21 @@ migrated; all domains start early unless explicitly added to the new list.
 
 ## Line Change
 
+Line Change rules may target a concrete font config or a Sroulette pool intent.
+Pool intents are sampled from the corresponding favorite pool at runtime and are
+not replaced with the sampled config in storage.
+
 `content-line-change.js` groups visible, nonblank text nodes by their immediate
 owner and reads each owner's first computed font family. For example, selecting
 Arial matches `Arial, sans-serif` and skips `Georgia, Arial, serif`. Each scan
 restores previous Line Change styles before measuring, so replacing Arial with
 Georgia does not make that text eligible for a Georgia rule.
+
+The Advanced Options setting **Substack Roulette Line Change** supplies a
+global source/replacement rule list on Substack pages with no saved domain font
+entry. When enabled, it replaces native serif/sans roulette sampling; targets
+may be font names or the Sroulette Serif/Sans pools. Roulette's beige background
+preference remains active.
 
 Before matching, Line Change applies the shared font-application exclusions:
 heading trees, code and syntax highlighting, page chrome and controls, ARIA
