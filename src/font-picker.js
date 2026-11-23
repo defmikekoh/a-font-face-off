@@ -1,3 +1,4 @@
+/* global AFFOSroulette */
 /* AFFOFontPicker: private UI state with explicit popup callbacks and live state getters. */
 (function(root) {
 'use strict';
