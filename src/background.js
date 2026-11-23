@@ -2259,7 +2259,11 @@ async function runSyncAttempt(options = {}) {
     [SUBSTACK_ROULETTE_SERIF_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SERIF_KEY]) ? stored[SUBSTACK_ROULETTE_SERIF_KEY] : [],
     [SUBSTACK_ROULETTE_SANS_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_SANS_KEY]) ? stored[SUBSTACK_ROULETTE_SANS_KEY] : [],
     [SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY]: stored[SUBSTACK_ROULETTE_LINE_CHANGE_ENABLED_KEY] !== false,
-    [SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]) ? stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY] : [{ source: 'Spectral', target: 'Sroulette Serif' }]
+    [SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]: Array.isArray(stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY]) ? stored[SUBSTACK_ROULETTE_LINE_CHANGE_RULES_KEY] : [
+      { source: 'Spectral', target: 'Sroulette Serif' },
+      { source: 'Roboto Slab', target: 'Sroulette Serif' },
+      { source: 'SF Pro Display', target: 'Sroulette Sans' }
+    ]
   });
   const favoriteValues = (stored) => {
     const { favorites, favoritesOrder } = sanitizeFavoritesForSync(stored[FAVORITES_KEY], stored[FAVORITES_ORDER_KEY]);

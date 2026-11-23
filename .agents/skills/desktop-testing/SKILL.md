@@ -347,7 +347,19 @@ This builds the XPI and verifies the approved AVD identity before geckodriver st
 
 Important: Unlike the `web-ext run` workflow, the Selenium/geckodriver harness clears package data when creating an Android session. The script requires `--allow-clear-package-data` as an explicit acknowledgement; check the device/package pair in [AGENTS.md](../../../AGENTS.md#android-test-targets).
 
-Every reset inspection seeds AFFO with favorite **Charis** (font family Charis SIL) in the Sroulette Serif pool and **Andika** in the Sroulette Sans pool. It also seeds Substack Roulette Line Change enabled with the default `Spectral -> Sroulette Serif` rule. Use `--skip-substack-roulette-seed` when a clean extension-storage state is specifically needed; `--seed-serif` and `--seed-sans` still allow one-run overrides.
+WebDriver inspections are unseeded by default. Only when a test explicitly passes `--seed-substack-roulette`, the temporary profile is seeded with favorite **Charis** (font family Charis SIL) in the Sroulette Serif pool and **Andika** in the Sroulette Sans pool. It also seeds Substack Roulette Line Change enabled with the default `Spectral -> Sroulette Serif` rule. Use `--skip-substack-roulette-seed` when a clean extension-storage state is specifically needed; `--seed-serif` and `--seed-sans` still allow one-run overrides.
+
+These extension-storage seeds belong to geckodriver's temporary profile, not the normal Fenix profile subsequently used by `web-ext`. A successful `storageSeed.confirmedValues` report verifies only the WebDriver session; it does not establish persistent post-reset favorites. After quitting the temporary session, the harness restores bookmarks and separately restores favorites/pools in normal Fenix through `scripts/android-firefox-normal-profile.js`. The helper starts normal Fenix with a temporary GeckoView Marionette configuration and attaches geckodriver using `--connect-existing`, with no Android capabilities and no package-data reset. It checks the actual `/files/mozilla/` profile path, installs AFFO temporarily, merges the favorites, then restarts and reinstalls AFFO to verify persistence without writing again. It removes its configuration and forward, restores the prior Android debug-app and Note10 power settings, and leaves Nightly stopped. Run `web-ext` again to install the temporary extension for normal use; its stored choices persist. This does not enable Remote debugging via USB through the UI. Existing GeckoView configuration is a conflict to resolve, not a file to overwrite. Do not run another data-clearing WebDriver session to inspect that installation.
+
+The usual post-reset favorite/pool defaults belong in the normal Fenix profile used by `web-ext`, once AFFO is installed there; they do not belong in ordinary temporary WebDriver sessions. Enable Sroulette and make Charis the sole selected member of the Serif pool and Andika the sole selected member of the Sans pool, so each pool deterministically uses that font. The storage values are `affoSubstackRoulette: true`, `affoSubstackRouletteSerif: ['Charis']`, `affoSubstackRouletteSans: ['Andika']`, and favorites `Charis: { fontName: 'Charis SIL', variableAxes: {} }` and `Andika: { fontName: 'Andika', variableAxes: {} }`. Preserve unrelated favorites if restoring into nonempty storage. Verify the stored values through an available extension context. Skip this setup for explicit clean-storage, no-addon, browser-only, or conflicting font-configuration tests; do not enable Remote debugging via USB through the UI solely to seed these defaults.
+
+Use `--skip-normal-profile-seed` for a reset that intentionally leaves normal-profile extension storage empty, or `--skip-addon` for no-addon tests (which also skips restoration). `--skip-substack-roulette-seed` affects only the temporary test session. To restore the normal-profile defaults without another reset:
+
+```bash
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --restore-normal-profile-only --out ztemp/normal-fenix-restored.json
+```
+
+Check `normalProfileSeed.success`, `profile`, `confirmedValues`, and `afterRestart` in the report. Unlike `storageSeed`, these describe the normal Fenix profile. A restoration failure makes the command fail; do not report successful persistent setup based only on the temporary session.
 
 Before starting geckodriver, the script verifies the ADB transport and package, wakes the device, attempts a non-bypassing keyguard dismissal, records device/Firefox versions, and reports existing forwards and debugger sockets. It installs `web-ext-artifacts/latest.xpi` temporarily by default, opens the target URL, and writes JSON with AFFO markers plus computed CSS for selected selectors. Because Android geckodriver clears package data when the session starts, use `--skip-addon` only for no-addon/baseline page inspection or deliberately unusual sessions where add-on installation is handled another way.
 
@@ -376,13 +388,13 @@ npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fe
 
 On USA Today, an acquisition/modal overlay may be present at the same time as a functioning AFFO toolbar. Its observed mobile close-control selector is `.gnt_mol_xb`; do not treat the overlay itself as proof that the toolbar failed to inject or display.
 
-Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. The inspector automatically seeds deterministic roulette favorites and Line Change settings before inspection:
+Do not rely on pre-existing Nightly profile state in the Android WebDriver path because session creation clears package data. For tests that specifically need deterministic roulette favorites and Line Change settings, opt in explicitly with `--seed-substack-roulette`:
 
 ```bash
-npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --expect-affo --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
+npm run inspect:android-firefox -- --serial RF8M81WSL1V --package org.mozilla.fenix --allow-clear-package-data --url https://scottsumner.substack.com/p/the-odd-disappearance-of-the-business --seed-substack-roulette --expect-affo --settle 15000 --selector html --selector body --selector p --out ztemp/substack-seeded.json
 ```
 
-The default Serif pool favorite is named `Charis` and uses the Google Fonts family `Charis SIL`; Sans uses `Andika`. Use `--skip-substack-roulette-seed` for an intentionally clean extension-storage run.
+The default Serif pool favorite is named `Charis` and uses the Google Fonts family `Charis SIL`; Sans uses `Andika`. Omit `--seed-substack-roulette` for ordinary runs.
 
 #### Inspecting the popup ITSELF on Note10 (panel vs page-font tab)
 

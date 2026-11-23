@@ -1284,7 +1284,11 @@
       // Load Substack Roulette settings
       document.getElementById('substack-roulette-enabled').checked = data.affoSubstackRoulette !== false;
       document.getElementById('substack-roulette-line-change-enabled').checked = data.affoSubstackRouletteLineChangeEnabled !== false;
-      document.getElementById('substack-roulette-line-change-rules').value = (Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }])
+      document.getElementById('substack-roulette-line-change-rules').value = (Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [
+        { source: 'Spectral', target: 'Sroulette Serif' },
+        { source: 'Roboto Slab', target: 'Sroulette Serif' },
+        { source: 'SF Pro Display', target: 'Sroulette Sans' }
+      ])
         .map(rule => `${rule.source} -> ${rule.target}`).join('\n');
       renderSubstackRouletteTable(
         data.affoFavorites || {},
@@ -1724,7 +1728,7 @@
       // Reset Substack Roulette
       document.getElementById('substack-roulette-enabled').checked = true;
       document.getElementById('substack-roulette-line-change-enabled').checked = true;
-      document.getElementById('substack-roulette-line-change-rules').value = 'Spectral -> Sroulette Serif';
+      document.getElementById('substack-roulette-line-change-rules').value = 'Spectral -> Sroulette Serif\nRoboto Slab -> Sroulette Serif\nSF Pro Display -> Sroulette Sans';
       const rouletteTbody = document.getElementById('substack-roulette-tbody');
       if (rouletteTbody) rouletteTbody.innerHTML = '';
       const rouletteEmpty = document.getElementById('substack-roulette-empty');

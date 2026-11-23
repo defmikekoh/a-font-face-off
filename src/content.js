@@ -411,7 +411,11 @@
   var substackRouletteActive = false;
   var substackRouletteEnabled = true;
   var substackRouletteLineChangeEnabled = true;
-  var substackRouletteLineChangeRules = [{ source: 'Spectral', target: 'Sroulette Serif' }];
+  var substackRouletteLineChangeRules = [
+    { source: 'Spectral', target: 'Sroulette Serif' },
+    { source: 'Roboto Slab', target: 'Sroulette Serif' },
+    { source: 'SF Pro Display', target: 'Sroulette Sans' }
+  ];
   var pendingDimmingTimer = null;
   var dimmingGeneration = 0;
   try {
@@ -5316,7 +5320,11 @@
       var map = data && data.affoApplyMap ? data.affoApplyMap : {};
       substackRouletteEnabled = data.affoSubstackRoulette !== false;
       substackRouletteLineChangeEnabled = data.affoSubstackRouletteLineChangeEnabled !== false;
-      substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }];
+      substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [
+        { source: 'Spectral', target: 'Sroulette Serif' },
+        { source: 'Roboto Slab', target: 'Sroulette Serif' },
+        { source: 'SF Pro Display', target: 'Sroulette Sans' }
+      ];
       var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
       activePathScope = globalThis.AFFOScopeUtils.resolveKey(map, location);
       configureActiveLineChange(map, true);
@@ -5593,7 +5601,11 @@
               var map = data && data.affoApplyMap ? data.affoApplyMap : {};
               substackRouletteEnabled = data.affoSubstackRoulette !== false;
               substackRouletteLineChangeEnabled = data.affoSubstackRouletteLineChangeEnabled !== false;
-              substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [{ source: 'Spectral', target: 'Sroulette Serif' }];
+              substackRouletteLineChangeRules = Array.isArray(data.affoSubstackRouletteLineChangeRules) ? data.affoSubstackRouletteLineChangeRules : [
+                { source: 'Spectral', target: 'Sroulette Serif' },
+                { source: 'Roboto Slab', target: 'Sroulette Serif' },
+                { source: 'SF Pro Display', target: 'Sroulette Sans' }
+              ];
               configureActiveLineChange(map, true);
               var entry = globalThis.AFFOScopeUtils.getEntry(map, location);
               if (entry && hasSrouletteIntent(entry)) {

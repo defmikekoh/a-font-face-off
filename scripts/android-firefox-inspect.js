@@ -3,6 +3,7 @@
 const { Builder, By, until } = require('selenium-webdriver');
 const firefox = require('selenium-webdriver/firefox');
 const { checkPageInfo } = require('./firefox-page-info');
+const { restoreNormalProfile } = require('./android-firefox-normal-profile');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -62,7 +63,11 @@ Options:
   --skip-bookmarks         Do not restore the configured bookmarks after reset
   --test-line-change       Exercise the native Line Change popup on a local font fixture
   --expect-affo            Require a content-script reply with the inspected page URL
-  --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config (default after reset)
+  --restore-normal-profile-only
+                            Restore normal-profile favorites without clearing package data
+  --skip-normal-profile-seed
+                            Skip normal Fenix Charis/Andika restoration after reset
+  --seed-substack-roulette Seed extension storage with deterministic Substack Roulette config (opt-in, temporary profile only)
   --skip-substack-roulette-seed
                             Leave extension storage at its post-reset defaults
   --seed-serif <name>      Serif favorite to seed for Substack Roulette (default: ${DEFAULT_SEED_SERIF})
@@ -100,7 +105,9 @@ function parseArgs(argv) {
             : DEFAULT_BOOKMARK_FILE,
         seedBookmarks: process.env.AFFO_ANDROID_SKIP_BOOKMARKS !== '1',
         expectAffo: process.env.AFFO_ANDROID_EXPECT_AFFO === '1',
-        seedSubstackRoulette: process.env.AFFO_ANDROID_SKIP_SUBSTACK_ROULETTE_SEED !== '1',
+        seedSubstackRoulette: false,
+        seedNormalProfile: true,
+        restoreNormalProfileOnly: false,
         seedSerif: process.env.AFFO_ANDROID_SEED_SERIF || DEFAULT_SEED_SERIF,
         seedSans: process.env.AFFO_ANDROID_SEED_SANS || DEFAULT_SEED_SANS,
         selectors: [],
@@ -146,6 +153,10 @@ function parseArgs(argv) {
             args.testLineChange = true;
         } else if (arg === '--expect-affo') {
             args.expectAffo = true;
+        } else if (arg === '--restore-normal-profile-only') {
+            args.restoreNormalProfileOnly = true;
+        } else if (arg === '--skip-normal-profile-seed') {
+            args.seedNormalProfile = false;
         } else if (arg === '--seed-substack-roulette') {
             args.seedSubstackRoulette = true;
         } else if (arg === '--skip-substack-roulette-seed') {
@@ -187,7 +198,7 @@ function parseArgs(argv) {
     if (!args.packageName.trim()) {
         throw new Error('--package is required. Use a dedicated Firefox Android installation/profile reserved for automation.');
     }
-    if (!args.preflightOnly && !args.allowClearPackageData) {
+    if (!args.preflightOnly && !args.restoreNormalProfileOnly && !args.allowClearPackageData) {
         throw new Error([
             'Refusing to launch Firefox Android without --allow-clear-package-data.',
             'Android geckodriver clears the selected app package data during session creation.',
@@ -859,6 +870,8 @@ async function main() {
             bookmarkFile: args.bookmarkFile,
             expectAffo: args.expectAffo,
             seedSubstackRoulette: args.seedSubstackRoulette,
+            seedNormalProfile: args.seedNormalProfile,
+            restoreNormalProfileOnly: args.restoreNormalProfileOnly,
             seedSerif: args.seedSerif,
             seedSans: args.seedSans,
             settleMs: args.settleMs,
@@ -874,6 +887,8 @@ async function main() {
         report.devicePreflight = collectDevicePreflight(args);
         if (args.preflightOnly) {
             report.preflightOnly = true;
+        } else if (args.restoreNormalProfileOnly) {
+            await restoreNormalProfile(args, report, runAdb);
         } else {
             const driverContext = await createAndroidFirefoxDriver(args);
             driver = driverContext.driver;
@@ -918,16 +933,22 @@ async function main() {
             try {
                 restoreBookmarksIfRequested(args, report);
             } catch (error) {
-                report.bookmarkSeed = {
-                    ...(report.bookmarkSeed || {}),
-                    success: false,
-                    error: error.message,
-                };
+                report.bookmarkSeed = { ...(report.bookmarkSeed || {}), success: false, error: error.message };
                 if (!report.error) {
                     report.error = error.message;
                     report.stack = error.stack;
                     process.exitCode = 1;
                 }
+            }
+            try {
+                await restoreNormalProfile(args, report, runAdb);
+            } catch (error) {
+                report.normalProfileSeed = { ...report.normalProfileSeed, success: false, error: error.message };
+                if (!report.error) {
+                    report.error = error.message;
+                    report.stack = error.stack;
+                }
+                process.exitCode = 1;
             }
         }
     }
@@ -946,7 +967,11 @@ async function main() {
     }
 }
 
-main().catch((error) => {
-    console.error(error.stack || error.message);
-    process.exitCode = 1;
-});
+if (require.main === module) {
+    main().catch((error) => {
+        console.error(error.stack || error.message);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = { parseArgs };

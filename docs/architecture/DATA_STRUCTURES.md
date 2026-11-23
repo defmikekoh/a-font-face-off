@@ -162,7 +162,7 @@ and are excluded from local-storage exports and cloud sync.
 | `affoSubstackRouletteSerif` | Favorite names checked for roulette serif pool | `["Spectral", "Lora"]` |
 | `affoSubstackRouletteSans` | Favorite names checked for roulette sans pool | `["Inter", "Source Sans 3"]` |
 | `affoSubstackRouletteLineChangeEnabled` | Use global font-specific Line Change rules instead of native Substack serif/sans sampling | `true` (default) |
-| `affoSubstackRouletteLineChangeRules` | Source/replacement font pairs applied by the Substack Line Change mode | `[{ source: "Spectral", target: "Sroulette Serif" }]` |
+| `affoSubstackRouletteLineChangeRules` | Source/replacement font pairs applied by the Substack Line Change mode | `[{ source: "Spectral", target: "Sroulette Serif" }, { source: "Roboto Slab", target: "Sroulette Serif" }, { source: "SF Pro Display", target: "Sroulette Sans" }]` |
 | `affoSubstackRouletteBeigeDisabledDomains` | Domains where Substack Roulette keeps original backgrounds instead of applying the default beige layer | `["example.substack.com"]` |
 | `affoSubstackRouletteBeigeDisabledDomainsMeta` | Per-origin sync metadata for Substack Roulette beige disabled domains | `{ version: 1, byOrigin: { "example.substack.com": { modified: 1700000000000 } } }` |
 | `affoSyncBackend` | Active sync backend | `"gdrive"` or `"webdav"` |
