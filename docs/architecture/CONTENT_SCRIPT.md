@@ -163,6 +163,15 @@ Arial matches `Arial, sans-serif` and skips `Georgia, Arial, serif`. Each scan
 restores previous Line Change styles before measuring, so replacing Arial with
 Georgia does not make that text eligible for a Georgia rule.
 
+Before matching, Line Change applies the shared font-application exclusions:
+heading trees, code and syntax highlighting, page chrome and controls, ARIA
+landmarks, guarded extension UI, drop caps, article decks, fixed-position UI,
+WhatFont overlays, metadata/widget patterns, configured comment views, and
+preserved font families. Its text-owner scan and first-family source matching
+remain Line Change-specific; it does not use TMI's serif/sans/mono classification
+or marker attributes. On ChatGPT, Line Change is scoped to main content and
+excludes the same UI subtrees as TMI.
+
 Highlight builds CSS Highlight ranges from those text nodes. Apply uses the same
 family comparison and writes the saved target properties to the owners. Child
 elements retain their original inherited properties where needed. While rules or

@@ -10,8 +10,50 @@
     let markVisible = false;
     let clearButton;
     let pendingFrame;
+    let preservedFonts = new Set();
+    let ignoreCommentsDomains = [];
+    const deckHints = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
+    const deckAttrs = ['id', 'class', 'data-testid', 'itemprop', 'name'];
     const observer = new MutationObserver(schedule);
     const normalize = name => name.toLowerCase();
+
+    function isProtectedDropCap(el) {
+        if (!el || /^(P|LI|BLOCKQUOTE)$/.test(el.tagName)) return false;
+        if (el.matches('[style*="var(--drop-cap" i], [style*="initial-letter" i], [class~="drop-cap" i], [class~="dropcap" i], [class~="drop_cap" i], [data-testid*="drop-cap" i], [data-testid*="dropcap" i]')) return true;
+        if (!el.hasAttribute('data-drop-cap') && !el.hasAttribute('data-dropcap')) return false;
+        return !el.matches(':is([data-drop-cap], [data-dropcap]):has(> :is(p, li, blockquote) ~ :is(p, li, blockquote))');
+    }
+
+    function isArticleDeck(el) {
+        if (!el || !/^(P|DIV)$/.test(el.tagName)) return false;
+        const header = el.closest('article header');
+        if (!header) return false;
+        const hints = deckAttrs.map(attr => el.getAttribute(attr) || '').join(' ').toLowerCase();
+        if (!deckHints.some(hint => hints.includes(hint))) return el.matches('#fullBleedHeaderContent header p');
+        return el.tagName !== 'DIV' || el.querySelectorAll('p, li, blockquote, ul, ol').length <= 1;
+    }
+
+    function isExcluded(el) {
+        if (el.closest('script,style,noscript,template,[data-affo-guard],.no-affo,#affo-quick-pick-overlay')) return true;
+        if (el.closest('h1,h2,h3,h4,h5,h6,nav,header,footer:not(article footer),aside,form,button,input,select,textarea,label,figcaption,[role="navigation"],[role="banner"],[role="contentinfo"],[role="complementary"],[role="dialog"],[aria-modal="true"],[role="toolbar"],[role="button"],[contenteditable]:not([contenteditable="false"]),[role="textbox"],.post-header,.main-menu,[class*="topBar"]')) return true;
+        if (ignoreCommentsDomains.includes(location.hostname) && el.closest('.comments-page')) return true;
+        if (el.closest('[class~="hljs"],[class~="token"],[class~="prettyprint"],[class~="prettyprinted"],[class~="sourceCode"],[class~="wp-block-code"],[class~="wp-block-preformatted"],[class~="terminal"],[class*="language-"]')) return true;
+        const classText = typeof el.className === 'string' ? el.className.toLowerCase() : '';
+        if (/\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption|small-caps|smallcaps|smcp|widget|dropdown|modal|tooltip|advertisement|whatfont)\b/.test(classText)) return true;
+        if (/(?:^|[-_])(byline|author|date|meta)(?:[-_]|$)/.test(classText)) return true;
+        if (/whatfont/i.test(el.id || '')) return true;
+        if (el.closest('[class*="drop-cap" i],[class~="dropcap" i],[class~="drop_cap" i],[data-drop-cap],[data-dropcap],[data-testid*="drop-cap" i],[data-testid*="dropcap" i]')) {
+            let node = el;
+            while (node && node !== document.body) { if (isProtectedDropCap(node)) return true; node = node.parentElement; }
+        }
+        let node = el;
+        while (node && node !== document.body) { if (isArticleDeck(node)) return true; node = node.parentElement; }
+        for (node = el; node && node !== document.body; node = node.parentElement) {
+            if (getComputedStyle(node).position === 'fixed') return true;
+        }
+        if (/^(chatgpt\.com|.+\.chatgpt\.com)$/i.test(location.hostname) && !el.closest('main,[role="main"]')) return true;
+        return false;
+    }
 
     function schedule() {
         if (!pendingFrame) pendingFrame = requestAnimationFrame(() => scan());
@@ -66,7 +108,7 @@
             let node;
             while ((node = walker.nextNode())) {
                 const el = node.parentElement;
-                if (!node.data.trim() || !el?.style || el.closest('script,style,noscript,template,[data-affo-guard],#affo-quick-pick-overlay')) continue;
+                if (!node.data.trim() || !el?.style || isExcluded(el)) continue;
                 if (!groups.has(el)) groups.set(el, []);
                 groups.get(el).push(node);
             }
@@ -87,6 +129,8 @@
                 const name = (first[1] || first[2] || first[3]).trim().replace(/\\(["'\\])/g, '$1');
                 const key = normalize(name);
                 families.set(key, name);
+                const stack = css.fontFamily.split(',').map(part => part.trim().replace(/["']/g, '').toLowerCase());
+                if (stack.some(part => preservedFonts.has(part))) continue;
                 const config = replacements.get(key);
                 if (config && runtime) {
                     const props = runtime.buildInlineFontProperties(config);
@@ -181,9 +225,20 @@
         return true;
     });
     browser.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.affoApplyMap) configure(changes.affoApplyMap.newValue || {});
+        if (area !== 'local') return;
+        if (changes.affoApplyMap) configure(changes.affoApplyMap.newValue || {});
+        if (changes.affoPreservedFonts) {
+            preservedFonts = new Set((changes.affoPreservedFonts.newValue || []).map(value => String(value || '').toLowerCase().trim()));
+            schedule();
+        }
+        if (changes.affoIgnoreCommentsDomains) {
+            ignoreCommentsDomains = changes.affoIgnoreCommentsDomains.newValue || [];
+            schedule();
+        }
     });
-    browser.storage.local.get('affoApplyMap').then(data => {
+    browser.storage.local.get(['affoApplyMap', 'affoPreservedFonts', 'affoIgnoreCommentsDomains']).then(data => {
+        preservedFonts = new Set((data.affoPreservedFonts || []).map(value => String(value || '').toLowerCase().trim()));
+        ignoreCommentsDomains = data.affoIgnoreCommentsDomains || [];
         if (scope === undefined) configure(data.affoApplyMap || {});
     });
 })();
