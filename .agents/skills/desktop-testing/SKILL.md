@@ -257,7 +257,7 @@ Use `--serial A06B4A57AA34353 --package org.mozilla.fenix --allow-clear-package-
 
 #### Keep Note10 awake throughout testing
 
-Follow the [whole-session power procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing) through cleanup. The inspector wakes the screen once during preflight.
+Follow the [whole-session power procedure](/Users/mike/.agents/skills/android-use/SKILL.md#keep-note10-awake-during-testing) through cleanup. Turn USB stay-awake off (`0`) at the end of every run, including failed runs. The inspector wakes the screen once during preflight.
 
 #### Approval-compatible Note10 ADB
 
