@@ -91,13 +91,11 @@
         const source = selectedSource;
         const rule = mappings.find(item => item.source.toLowerCase() === source.toLowerCase());
         selectedPool = rule?.target?.kind === 'sroulette' ? rule.target.pool : null;
-        const display = el('line-font-display');
         if (selectedPool) {
             await selectPool(selectedPool);
             return;
         }
-        delete display.dataset.affoSroulettePool;
-        await applyFontConfig('line', rule?.target || { fontName: 'Georgia', fontSource: 'local' });
+        await selectFont(rule?.target || { fontName: 'Georgia', fontSource: 'local' });
         updateButtons();
     }
 
@@ -111,6 +109,7 @@
         const data = await browser.storage.local.get(['affoSubstackRoulette', 'affoSubstackRouletteSerif', 'affoSubstackRouletteSans', 'affoFavorites']);
         const config = data.affoSubstackRoulette === false ? null : pickPoolConfig(data, pool);
         if (config) await applyFontConfig('line', config);
+        el('line-font-controls').classList.add('sroulette-applied');
         el('line-font-name').textContent = AFFOSroulette.getPoolLabel(pool);
         el('line-font-display').textContent = AFFOSroulette.getPoolLabel(pool);
         el('line-font-display').dataset.affoSroulettePool = pool;
@@ -121,6 +120,11 @@
         selectedPool = null;
         el('line-font-controls').classList.remove('sroulette-applied');
         delete el('line-font-display').dataset.affoSroulettePool;
+    }
+
+    function selectFont(config) {
+        clearPool();
+        return applyFontConfig('line', config);
     }
 
     async function refresh() {
@@ -205,7 +209,7 @@
         });
     }
 
-    globalThis.AFFOLineChangePopup = { setSharedMode, bind, selectPool, clearPool, open: () => run(async () => {
+    globalThis.AFFOLineChangePopup = { setSharedMode, bind, selectPool, clearPool, selectFont, open: () => run(async () => {
         scope = null;
         mappings = [];
         setPanel(null);

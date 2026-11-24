@@ -38,7 +38,8 @@
         if (el.closest('script,style,noscript,template,[data-affo-guard],.no-affo,#affo-quick-pick-overlay')) return true;
         if (el.closest('h1,h2,h3,h4,h5,h6,nav,header,footer:not(article footer),aside,form,button,input,select,textarea,label,figcaption,[role="navigation"],[role="banner"],[role="contentinfo"],[role="complementary"],[role="dialog"],[aria-modal="true"],[role="toolbar"],[role="button"],[contenteditable]:not([contenteditable="false"]),[role="textbox"],.post-header,.main-menu,[class*="topBar"]')) return true;
         if (ignoreCommentsDomains.includes(location.hostname) && el.closest('.comments-page')) return true;
-        if (el.closest('[class~="hljs"],[class~="token"],[class~="prettyprint"],[class~="prettyprinted"],[class~="sourceCode"],[class~="wp-block-code"],[class~="wp-block-preformatted"],[class~="terminal"],[class*="language-"]')) return true;
+        const codeContainer = el.closest('[class~="hljs"],[class~="token"],[class~="prettyprint"],[class~="prettyprinted"],[class~="sourceCode"],[class~="wp-block-code"],[class~="wp-block-preformatted"],[class~="terminal"],[class*="language-"]');
+        if (codeContainer && codeContainer !== document.documentElement && codeContainer !== document.body) return true;
         const classText = typeof el.className === 'string' ? el.className.toLowerCase() : '';
         if (/\b(nav|menu|header|footer|sidebar|toolbar|breadcrumb|caption|small-caps|smallcaps|smcp|widget|dropdown|modal|tooltip|advertisement|whatfont)\b/.test(classText)) return true;
         if (/(?:^|[-_])(byline|author|date|meta)(?:[-_]|$)/.test(classText)) return true;

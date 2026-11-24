@@ -1895,9 +1895,8 @@ async function applyFontConfig(position, config) {
         rememberLocalFontName(config.fontName);
     }
 
-    if (position === 'body' || position === 'serif' || position === 'sans' || position === 'mono') {
+    if (position === 'body' || position === 'serif' || position === 'sans' || position === 'mono' || position === 'line') {
         affoDebugLog(`applyFontConfig called for ${position}:`, config);
-        console.trace('applyFontConfig call stack');
         clearSroulettePanelState(position);
     }
     // Set font family; an unset family displays Default.
@@ -3534,6 +3533,7 @@ const favorites = AFFOFavorites.create({
     getTargetTabForPopup,
     getEffectiveFontDefinition,
     applyFontConfig,
+    selectLineFont(config) { return globalThis.AFFOLineChangePopup.selectFont(config); },
     markPanelAsSroulette,
     updateBodyButtons,
     updateAllThirdManInButtons,

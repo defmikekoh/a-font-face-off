@@ -579,7 +579,11 @@ function create(popup) {
                     if (config) {
                         try {
                             // Apply font config and wait for completion
-                            await popup.applyFontConfig(position, config);
+                            if (position === 'line' && typeof popup.selectLineFont === 'function') {
+                                await popup.selectLineFont(config);
+                            } else {
+                                await popup.applyFontConfig(position, config);
+                            }
                             affoDebugLog(`Favorite loaded and applied for ${position}`);
 
                             // Update Apply button visibility after loading favorite (now that control groups are updated)
