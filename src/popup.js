@@ -4002,6 +4002,7 @@ function setupControlResetListeners() {
                     } else if (['top', 'bottom', 'line'].includes(position)) {
                         // Face-off mode: Reset display and preview
                         affoDebugLog('Face-off reset for position:', position);
+                        if (position === 'line') globalThis.AFFOLineChangePopup?.clearPool();
                         const fontGroup = fontDisplay.closest('.control-group');
                         fontDisplay.textContent = 'Default';
                         fontDisplay.classList.add('placeholder');
