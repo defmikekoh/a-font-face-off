@@ -458,11 +458,9 @@ Do not use Computer Use for repeatable popup/content-script regression checks, r
 
 ### Firefox Developer Edition updates
 
-Whenever desktop testing indicates that Firefox Developer Edition needs an update—because it is outdated, has a pending or stuck update, lacks compatibility required by the current tooling, or shows symptoms plausibly caused by updater state—pause testing and prompt the user to update FDE, quit it completely, and restart it. Do not perform the application update on the user's behalf, silently work around the required update, or continue drawing conclusions from the affected FDE run.
+Repeated helper prompts, Selenium startup failures, or a page reload that hangs with the AFFO left toolbar missing warrant checking the installed FDE version and updater state. If FDE is current and the updater is healthy, continue normal page, extension, and geckodriver diagnostics.
 
-Relevant symptoms include repeated helper prompts, browser/Selenium startup failures attributable to the installed FDE version, and page loads or reloads that appear to hang while the expected AFFO left toolbar is absent. These symptoms are diagnostic triggers, not proof by themselves; check available version/update evidence before declaring that an update is required.
-
-Resume desktop testing after the user confirms the update/restart. If FDE is already current and the behavior persists, continue with normal page, extension, and geckodriver diagnostics. This rule is specific to desktop Firefox Developer Edition; do not use it to redirect Android Firefox Nightly failures.
+When desktop testing requires an FDE update, pause the affected run and update Firefox Developer Edition yourself using its built-in updater. Restart FDE to finish installation, verify the installed build and updater state, then rerun the affected test. Ask the user to intervene only if a required permission or authentication prompt needs their input. This procedure applies only to desktop Firefox Developer Edition.
 
 ### Repeated macOS "Install Helper" prompts
 
@@ -475,7 +473,7 @@ APP="/Applications/Firefox Developer Edition.app"
 CACHE="$HOME/Library/Caches/Mozilla/updates/Applications/Firefox Developer Edition"
 
 defaults read "$APP/Contents/Info" CFBundleShortVersionString
-defaults read "$APP/Contents/Info" MozillaBuildID
+rg '^(Version|BuildID)=' "$APP/Contents/Resources/application.ini"
 test -f "$CACHE/active-update.xml" && cat "$CACHE/active-update.xml"
 find "$CACHE" -maxdepth 3 -name update.status -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
 ```
