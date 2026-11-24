@@ -1974,8 +1974,20 @@ describe('WebDAV sync conflict recovery and concurrent local edits', () => {
         });
     }
 
+    it('keeps the last successful sync when saving the same effective WebDAV folder', async () => {
+        const harness = createWebDavHarness({
+            localSeed: { ...seed(), affoGDriveFolderSuffix: 'shared' },
+            remoteFiles: files(), remoteEtags: etags(),
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        const before = JSON.parse(JSON.stringify(harness.storageData.affoSyncMeta));
+        assert.ok(before.lastSync > 100);
+        await harness.editLocal({ affoWebDavFolderSuffix: 'shared' });
+        assert.deepEqual(harness.storageData.affoSyncMeta, before);
+    });
+
     it('leaves the active DAV baselines intact when changing the inactive Drive folder', async () => {
-        const harness = createWebDavHarness({ localSeed: seed(), remoteFiles: files(), remoteEtags: etags() });
+        const harness = createWebDavHarness({ localSeed: { ...seed(), affoWebDavFolderSuffix: '' }, remoteFiles: files(), remoteEtags: etags() });
         assert.equal((await harness.runSync()).ok, true);
         const before = JSON.parse(JSON.stringify(harness.storageData.affoSyncMeta));
         await harness.editLocal({ affoGDriveFolderSuffix: 'unused' });

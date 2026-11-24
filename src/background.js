@@ -1333,12 +1333,16 @@ async function getAppFolderName() {
   return buildSyncFolderName(suffix);
 }
 
-async function getWebDavFolderName() {
-  const data = await browser.storage.local.get([WEBDAV_FOLDER_SUFFIX_KEY, GDRIVE_FOLDER_SUFFIX_KEY]);
+function resolveWebDavFolderName(data) {
   const suffix = data[WEBDAV_FOLDER_SUFFIX_KEY] !== undefined
     ? data[WEBDAV_FOLDER_SUFFIX_KEY]
     : data[GDRIVE_FOLDER_SUFFIX_KEY];
   return buildSyncFolderName(suffix);
+}
+
+async function getWebDavFolderName() {
+  const data = await browser.storage.local.get([WEBDAV_FOLDER_SUFFIX_KEY, GDRIVE_FOLDER_SUFFIX_KEY]);
+  return resolveWebDavFolderName(data);
 }
 
 async function findFolder(name, parentId) {
@@ -3331,12 +3335,21 @@ browser.storage.onChanged.addListener(async (changes, area) => {
     (config.serverUrl || '').trim().replace(/\/+$/, ''),
     config.anonymous ? '' : config.username || ''
   ]);
-  if ((changes[WEBDAV_CONFIG_KEY]?.oldValue
-      && davIdentity(changes[WEBDAV_CONFIG_KEY].oldValue) !== davIdentity(changes[WEBDAV_CONFIG_KEY].newValue))
-      || changes[WEBDAV_FOLDER_SUFFIX_KEY] || changes[GDRIVE_FOLDER_SUFFIX_KEY]) {
-    const activeBackend = (await browser.storage.local.get(SYNC_BACKEND_KEY))[SYNC_BACKEND_KEY];
-    if ((activeBackend === 'webdav' && (changes[WEBDAV_CONFIG_KEY] || changes[WEBDAV_FOLDER_SUFFIX_KEY]))
-        || (activeBackend === 'gdrive' && changes[GDRIVE_FOLDER_SUFFIX_KEY])) {
+  const davConfigChange = changes[WEBDAV_CONFIG_KEY];
+  const davIdentityChanged = davConfigChange?.oldValue
+    && davIdentity(davConfigChange.oldValue) !== davIdentity(davConfigChange.newValue);
+  const driveSuffixChange = changes[GDRIVE_FOLDER_SUFFIX_KEY];
+  const driveFolderChanged = driveSuffixChange
+    && buildSyncFolderName(driveSuffixChange.oldValue) !== buildSyncFolderName(driveSuffixChange.newValue);
+  if (davIdentityChanged || changes[WEBDAV_FOLDER_SUFFIX_KEY] || driveFolderChanged) {
+    const current = await browser.storage.local.get([SYNC_BACKEND_KEY, WEBDAV_FOLDER_SUFFIX_KEY, GDRIVE_FOLDER_SUFFIX_KEY]);
+    const previous = { ...current };
+    for (const key of [WEBDAV_FOLDER_SUFFIX_KEY, GDRIVE_FOLDER_SUFFIX_KEY]) {
+      if (changes[key]) previous[key] = changes[key].oldValue;
+    }
+    if ((current[SYNC_BACKEND_KEY] === 'webdav'
+        && (davIdentityChanged || resolveWebDavFolderName(previous) !== resolveWebDavFolderName(current)))
+        || (current[SYNC_BACKEND_KEY] === 'gdrive' && driveFolderChanged)) {
       await queueSyncMetaMutation(clearSyncRemoteState);
     }
   }
@@ -3351,7 +3364,7 @@ browser.storage.onChanged.addListener(async (changes, area) => {
       affoDebugWarn('[AFFO Background] Failed to update Block JavaScript dynamic rule:', error);
     }
   }
-  if (changes[GDRIVE_FOLDER_SUFFIX_KEY]) {
+  if (driveFolderChanged) {
     cachedAppFolderId = null;
   }
   if (changes.gfMetadataCache || changes.gfMetadataTimestamp) {
