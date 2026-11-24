@@ -351,6 +351,59 @@ describe('background WhatFont Face-off draft', () => {
     });
 });
 
+describe('Line Change Quick Pick', () => {
+    const sender = { tab: { id: 7, url: 'https://example.com/wiki/article' } };
+    const domain = { body: { fontName: 'Parent font' } };
+    const favorite = { fontName: 'Georgia', fontSource: 'local', fontSizeScale: 120, letterSpacing: 0 };
+
+    for (const [name, selection, target] of [
+        ['favorite', { fontConfig: { ...favorite, fontSize: 16 } }, favorite],
+        ['pool', { pool: 'sans' }, { kind: 'sroulette', pool: 'sans' }],
+    ]) {
+        it(`uses the predominant family and stores the ${name} in the resolved directory`, async () => {
+            const { context, storage } = loadBackground({ affoApplyMap: {
+                'example.com': domain, 'example.com/wiki/': {},
+            } });
+            context.browser.tabs.sendMessage = async (id, message) => {
+                assert.equal(id, sender.tab.id);
+                assert.deepEqual(clone(message), { type: 'affoLineChange', action: 'list' });
+                return { families: ['Arial', 'Spectral'], preferredFamily: 'Spectral' };
+            };
+            const result = await context.self.affoHandleRuntimeMessage({
+                type: 'quickApplyLineChangeFavorite', ...selection,
+            }, sender);
+            assert.equal(result.success, true, result.error);
+            assert.deepEqual(storage.data.affoApplyMap, {
+                'example.com': domain,
+                'example.com/wiki/': { lineChange: [{ source: 'Spectral', target }] },
+            });
+        });
+    }
+
+    it('refuses conflicting Quick Pick modes without changing the saved settings', async () => {
+        const map = {
+            'example.com': domain,
+            'example.com/wiki/': { lineChange: [{ source: 'Arial', target: favorite }] },
+        };
+        const { context, storage } = loadBackground({ affoApplyMap: map });
+        context.browser.tabs.sendMessage = async () => ({ preferredFamily: 'Arial' });
+        const handle = context.self.affoHandleRuntimeMessage;
+        for (const selection of [
+            { type: 'quickApplyFavorite', fontConfig: favorite },
+            { type: 'quickApplySroulette', pool: 'sans' },
+        ]) {
+            const result = await handle({ ...selection, origin: 'example.com', position: 'body' }, sender);
+            assert.equal(result.success, false);
+            assert.match(result.error, /Line Change/);
+        }
+        const result = await handle({ type: 'quickApplyLineChangeFavorite', fontConfig: favorite },
+            { tab: { id: 7, url: 'https://example.com/' } });
+        assert.equal(result.success, false);
+        assert.match(result.error, /existing font settings/);
+        assert.deepEqual(storage.data.affoApplyMap, map);
+    });
+});
+
 describe('background quick-pick Sroulette', () => {
     it('resolves Quick Pick and action titles from the longest directory scope', async () => {
         const { context, storage } = loadBackground({ affoApplyMap: {

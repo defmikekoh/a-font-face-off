@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const { setup, teardown, openPopup, closePopup, popupExec } = require('./selenium-helper');
 
 test('native popup highlights original families and removes each scoped substitution independently', async () => {
@@ -77,6 +78,103 @@ test('loading a Line Change favorite clears the default Sroulette target and kee
             return getActiveOrigin().then(scope => browser.storage.local.get('affoApplyMap').then(({affoApplyMap}) =>
                 affoApplyMap?.[scope]?.lineChange?.[0]?.target?.fontName === 'Lora'));
         `), 10000);
+    } finally {
+        await teardown(driver, profileDir);
+    }
+});
+
+test('parameter-only Line Change follows visible text through page edits and restores original sizes', async () => {
+    const { driver, profileDir } = await setup();
+    const popup = script => popupExec(driver, script);
+    const sizes = () => driver.executeScript(`
+        return ['story', 'aside-font', 'heading', 'detail'].map(id =>
+            getComputedStyle(document.getElementById(id)).fontSize);
+    `);
+    try {
+        await driver.executeScript(`
+            document.body.innerHTML = '<article style="font:20px Georgia,serif">' +
+                '<p id="story" style="font-size:20px!important">The predominant family owns this long paragraph.' +
+                '<span id="aside-font" style="font-family:Arial">Aside</span></p>' +
+                '<p id="detail" style="font-size:12px">Details</p>' +
+                '<h2 id="heading" style="font:20px Verdana">Excluded heading</h2>' +
+                '<span hidden style="font-family:Verdana">Hidden text</span></article>';
+        `);
+        await openPopup(driver);
+        await driver.wait(() => popup("return !!document.querySelector('#line-source button') && !document.querySelector('#line-apply').disabled"), 15000);
+        assert.equal(await popup("return document.querySelector('#line-source-name').textContent"), 'Georgia');
+        assert.deepEqual(await popup("return Array.from(document.querySelectorAll('#line-source button'), b => b.textContent)"), ['Arial', 'Georgia']);
+
+        await popup("return AFFOLineChangePopup.selectFont({})");
+        await popup("document.querySelector('#line-apply').click()");
+        await driver.wait(() => popup("return document.querySelector('#line-status').textContent.includes('Choose a font or parameter')"), 5000);
+        await popup("return AFFOLineChangePopup.selectFont({fontSizeScale:150})");
+        await popup("document.querySelector('#line-apply').click()");
+        await driver.wait(async () => (await sizes())[0] === '30px', 10000);
+        assert.deepEqual(await sizes(), ['30px', '20px', '20px', '18px']);
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#story')).fontFamily"), 'Georgia, serif');
+        await driver.wait(() => popup("return document.querySelector('#line-rules li')?.textContent.includes('Default (parameters only)')"), 10000);
+
+        await driver.executeScript(`
+            const extra = document.createElement('p');
+            extra.id = 'added';
+            extra.textContent = 'New paragraph';
+            document.querySelector('article').append(extra);
+            document.querySelector('#detail').style.fontSize = '16px';
+        `);
+        await driver.wait(() => driver.executeScript("return getComputedStyle(document.querySelector('#added')).fontSize === '30px'"), 10000);
+        assert.deepEqual(await sizes(), ['30px', '20px', '20px', '24px']);
+        await popup("document.querySelector('#line-rules button').click()");
+        await driver.wait(async () => (await sizes())[0] === '20px', 10000);
+        assert.deepEqual(await sizes(), ['20px', '20px', '20px', '16px']);
+        assert.equal(await driver.executeScript("return document.querySelector('#story').style.getPropertyPriority('font-size')"), 'important');
+    } finally {
+        await teardown(driver, profileDir);
+    }
+});
+
+test('Substack defaults sample both pools while a saved directory uses its own substitutions', async t => {
+    const server = http.createServer((_req, res) => {
+        res.setHeader('Content-Type', 'text/html');
+        res.end(`<!doctype html><meta name="generator" content="Substack"><article>
+            <p style="font-family:Spectral">Story</p>
+            <p style="font-family:'Roboto Slab'">Second paragraph</p>
+            <p style="font-family:'SF Pro Display'">Third paragraph</p>
+        </article>`);
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const { driver, profileDir } = await setup();
+    const base = 'http://127.0.0.1:' + server.address().port;
+    const map = { '127.0.0.1/saved/': { lineChange: [
+        { source: 'Spectral', target: { fontName: 'Verdana', fontSource: 'local' } },
+    ] } };
+    const waitForFamilies = async expected => {
+        let families;
+        await driver.wait(async () => {
+            families = await driver.executeScript(`
+                return Array.from(document.querySelectorAll('article p'), p => getComputedStyle(p).fontFamily.replace(/^['"]|['"]$/g, ''));
+            `);
+            return families.length === expected.length && families.every((name, index) => name === expected[index]);
+        }, 10000, () => 'Expected ' + expected.join(', ') + ', observed ' + families.join(', '));
+    };
+    try {
+        await openPopup(driver);
+        await popupExec(driver, `return browser.storage.local.set({
+            affoApplyMap: ${JSON.stringify(map)},
+            affoFavorites: {
+                Book: {fontName:'Georgia', fontSource:'local'},
+                News: {fontName:'Arial', fontSource:'local'}
+            },
+            affoSubstackRouletteSerif: ['Book'],
+            affoSubstackRouletteSans: ['News']
+        })`);
+        await closePopup(driver);
+        await driver.get(base + '/story');
+        await waitForFamilies(['Georgia', 'Georgia', 'Arial']);
+        await driver.get(base + '/saved/story');
+        await waitForFamilies(['Verdana', 'Roboto Slab', 'SF Pro Display']);
+        await openPopup(driver);
+        assert.deepEqual(await popupExec(driver, "return browser.storage.local.get('affoApplyMap').then(data => data.affoApplyMap)"), map);
     } finally {
         await teardown(driver, profileDir);
     }

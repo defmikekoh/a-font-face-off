@@ -1,4 +1,4 @@
-/* global sendMessageToTargetTab, switchMode, getTargetTabForPopup, getActiveOrigin, buildPayload, applyFontConfig */
+/* global sendMessageToTargetTab, switchMode, getTargetTabForPopup, getActiveOrigin, buildPayload, applyFontConfig, applyFont */
 (() => {
     'use strict';
     const el = id => document.getElementById(id);

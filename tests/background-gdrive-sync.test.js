@@ -1994,6 +1994,46 @@ describe('WebDAV sync conflict recovery and concurrent local edits', () => {
         assert.deepEqual(harness.storageData.affoSyncMeta, before);
     });
 
+    it('clears WebDAV baselines when the inherited Drive folder changes', async () => {
+        const harness = createWebDavHarness({
+            localSeed: { ...seed(), affoGDriveFolderSuffix: 'old' },
+            remoteFiles: files(), remoteEtags: etags(),
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        const item = () => harness.storageData.affoSyncMeta.items['favorites.json'];
+        assert.ok(item().remoteRev);
+        assert.ok(item().remoteHash);
+        const modified = item().modified;
+        await harness.editLocal({ affoGDriveFolderSuffix: 'new' });
+        assert.equal(harness.storageData.affoSyncMeta.lastSync, 0);
+        assert.equal(item().remoteRev, undefined);
+        assert.equal(item().remoteHash, undefined);
+        assert.equal(item().modified, modified);
+    });
+
+    it('downloads Line Change roulette settings and uploads later local edits', async () => {
+        const filename = 'substack-roulette.json';
+        const originalRules = [{ source: 'Custom font', target: 'Sroulette Sans' }];
+        const harness = createWebDavHarness({
+            localSeed: { affoSyncMeta: { items: {} } },
+            remoteFiles: {
+                'sync-manifest.json': { items: { [filename]: { modified: 200 } } },
+                [filename]: {
+                    affoSubstackRouletteLineChangeEnabled: false,
+                    affoSubstackRouletteLineChangeRules: originalRules,
+                },
+            },
+            remoteEtags: { [filename]: '"v1"' },
+        });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.equal(harness.storageData.affoSubstackRouletteLineChangeEnabled, false);
+        assert.deepEqual(harness.storageData.affoSubstackRouletteLineChangeRules, originalRules);
+        await harness.editLocal({ affoSubstackRouletteLineChangeRules: [] });
+        assert.equal((await harness.runSync()).ok, true);
+        assert.deepEqual(harness.remote.files[filename].affoSubstackRouletteLineChangeRules, []);
+        assert.equal(harness.remote.files[filename].affoSubstackRouletteLineChangeEnabled, false);
+    });
+
     it('preserves compound Roulette edits made during a download', async () => {
         let edited = false;
         const remoteRoulette = { affoSubstackRoulette: false, affoSubstackRouletteSerif: ['Remote'], affoSubstackRouletteSans: [] };
