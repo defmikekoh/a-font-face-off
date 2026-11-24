@@ -21,6 +21,13 @@
         return valid.length ? valid[Math.floor(Math.random() * valid.length)] : null;
     }
 
+    function hasTargetSetting(target) {
+        return !!target && (target.kind === 'sroulette' || !!target.fontName ||
+            target.fontSize != null || target.fontSizeScale != null || target.lineHeight != null ||
+            target.letterSpacing != null || target.fontWeight != null || target.fontStyle === 'italic' ||
+            !!target.fontColor || Object.keys(target.variableAxes || {}).length > 0);
+    }
+
     function sourceList() { return el('line-source'); }
 
     function renderSources(families) {
@@ -124,7 +131,13 @@
 
     function selectFont(config) {
         clearPool();
-        return applyFontConfig('line', config);
+        // Resetting the family to Default can leave the previous Sroulette
+        // label in the preview until the next control event. Refresh it as
+        // part of the family selection so parameter-only edits preview the
+        // page's generic serif stack immediately.
+        return applyFontConfig('line', config).then(() => {
+            if (typeof applyFont === 'function') applyFont('line');
+        });
     }
 
     async function refresh() {
@@ -145,7 +158,7 @@
             remove.title = 'Remove substitution for ' + rule.source;
             remove.setAttribute('aria-label', remove.title);
             remove.onclick = () => run(() => edit(rule.source, null));
-            row.append(rule.source + ' → ' + (rule.target.kind === 'sroulette' ? AFFOSroulette.getPoolLabel(rule.target.pool) : rule.target.fontName), remove);
+            row.append(rule.source + ' → ' + (rule.target.kind === 'sroulette' ? AFFOSroulette.getPoolLabel(rule.target.pool) : (rule.target.fontName || 'Default (parameters only)')), remove);
             return row;
         }));
         await selectSource();
@@ -196,7 +209,7 @@
         }
         el('line-apply').onclick = () => run(async () => {
             const target = selectedPool ? { kind: 'sroulette', pool: selectedPool } : await buildPayload('line');
-            if (!target?.fontName && !(target?.kind === 'sroulette' && AFFOSroulette.isPool(target.pool))) throw new Error('Choose a Sub in font.');
+            if (!hasTargetSetting(target) || (target.kind === 'sroulette' && !AFFOSroulette.isPool(target.pool))) throw new Error('Choose a font or parameter to apply.');
             await edit(selectedSource, target);
         });
         el('line-highlight').onclick = () => run(async () => {
