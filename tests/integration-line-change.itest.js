@@ -7,7 +7,7 @@ test('native popup highlights original families and removes each scoped substitu
     const { driver, profileDir } = await setup();
     const popup = script => popupExec(driver, script);
     const page = script => driver.executeScript('return ' + script);
-    const ready = () => driver.wait(() => popup("return !!document.querySelector('#line-source button') && !document.querySelector('#line-apply').disabled"), 15000);
+    const ready = () => driver.wait(() => popup("return !!document.querySelector('#line-source button:not(:disabled)')"), 15000);
     const marks = () => page("Array.from(CSS.highlights.get('affo-line-change') || [], range => range.startContainer.parentElement.id)");
     const family = id => page(`getComputedStyle(document.getElementById('${id}')).fontFamily`);
     try {
@@ -61,6 +61,12 @@ test('loading a Line Change favorite clears the default Sroulette target and kee
         await closePopup(driver);
         await openPopup(driver);
         await driver.wait(() => popup("return document.getElementById('line-font-display').dataset.affoSroulettePool === 'serif' && !document.getElementById('line-apply').disabled"), 15000);
+        await popup("document.getElementById('line-apply').click()");
+        await driver.wait(() => popup(`
+            const apply = document.getElementById('line-apply');
+            return apply.disabled && apply.textContent === 'No Sub' &&
+                !document.querySelector('#line-source button').disabled;
+        `), 10000);
         await popup(`
             document.getElementById('line-in-grip').click();
             document.getElementById('line-load-favorite-bar').click();
@@ -73,6 +79,7 @@ test('loading a Line Change favorite clears the default Sroulette target and kee
                 !document.getElementById('line-font-controls').classList.contains('sroulette-applied');
         `), 10000);
         assert.equal(await popup("return document.getElementById('line-font-size').disabled"), false);
+        assert.equal(await popup("return document.getElementById('line-apply').textContent"), 'Replace Sub ↓');
         await popup("document.getElementById('line-apply').click()");
         await driver.wait(() => popup(`
             return getActiveOrigin().then(scope => browser.storage.local.get('affoApplyMap').then(({affoApplyMap}) =>

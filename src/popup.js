@@ -2779,7 +2779,7 @@ function unapplyThirdManInFont(fontType) {
 }
 
 // Unified payload builder for domain storage/content script consumption.
-async function buildPayload(position, providedConfig = null) {
+function buildPayload(position, providedConfig = null) {
     const cfg = normalizeConfig(providedConfig || getCurrentUIConfig(position));
     if (!cfg) return null;
 
@@ -2930,6 +2930,7 @@ function updateStyleAxesHint(position, config) {
 
 function applyFont(position, { saveState = true } = {}) {
     const cfg = getCurrentUIConfig(position);
+    if (position === 'line') globalThis.AFFOLineChangePopup.updateButtons();
     updateWeightOverrideHint(position, cfg);
     updateStyleAxesHint(position, cfg);
     const textElement = document.getElementById(`${position}-font-text`);

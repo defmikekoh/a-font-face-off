@@ -1,4 +1,4 @@
-/* global sendMessageToTargetTab, switchMode, getTargetTabForPopup, getActiveOrigin, buildPayload, applyFontConfig, applyFont */
+/* global sendMessageToTargetTab, switchMode, getTargetTabForPopup, getActiveOrigin, buildPayload, configsEqual, applyFontConfig, applyFont */
 (() => {
     'use strict';
     const el = id => document.getElementById(id);
@@ -26,6 +26,18 @@
             target.fontSize != null || target.fontSizeScale != null || target.lineHeight != null ||
             target.letterSpacing != null || target.fontWeight != null || target.fontStyle === 'italic' ||
             !!target.fontColor || Object.keys(target.variableAxes || {}).length > 0);
+    }
+
+    function getPreviewTarget() {
+        return selectedPool ? { kind: 'sroulette', pool: selectedPool } : buildPayload('line');
+    }
+
+    function targetsEqual(saved, preview) {
+        if (!saved || !preview) return false;
+        if (saved.kind === 'sroulette' || preview.kind === 'sroulette') {
+            return saved.kind === preview.kind && saved.pool === preview.pool;
+        }
+        return saved.fontSource === preview.fontSource && configsEqual(saved, preview);
     }
 
     function sourceList() { return el('line-source'); }
@@ -57,12 +69,17 @@
 
     function updateButtons() {
         const source = selectedSource;
+        const rule = mappings.find(item => item.source.toLowerCase() === source.toLowerCase());
+        const replacing = !!rule;
+        const noSub = replacing && targetsEqual(rule.target, getPreviewTarget());
         sourceList().setAttribute('aria-disabled', String(busy));
         sourceList().querySelectorAll('button').forEach(option => { option.disabled = busy; });
         el('line-source-name').textContent = source || 'Sub out';
         el('line-highlight').disabled = busy || !source;
         el('line-highlight').setAttribute('aria-pressed', String(!!source && highlighted === source));
-        el('line-apply').disabled = busy || !source;
+        el('line-apply').textContent = noSub ? 'No Sub' : replacing ? 'Replace Sub ↓' : 'Add Sub ↓';
+        el('line-apply').disabled = busy || !source || noSub;
+        el('line-apply').classList.toggle('line-no-sub', noSub);
     }
 
     async function run(action) {
@@ -152,13 +169,26 @@
         renderSources(state.families);
         el('line-rules').replaceChildren(...mappings.map(rule => {
             const row = document.createElement('li');
+            const select = document.createElement('button');
+            select.type = 'button';
+            select.className = 'line-rule-select';
+            select.textContent = rule.source + ' → ' + (rule.target.kind === 'sroulette' ? AFFOSroulette.getPoolLabel(rule.target.pool) : (rule.target.fontName || 'Default (parameters only)'));
+            select.setAttribute('aria-pressed', String(rule.source.toLowerCase() === selectedSource.toLowerCase()));
+            select.onclick = () => run(async () => {
+                selectedSource = rule.source;
+                renderSources(state.families);
+                await refreshRuleSelection();
+                await selectSource();
+                if (highlighted) highlighted = (await page('select', selectedSource)).highlightFamily;
+                updateButtons();
+            });
             const remove = document.createElement('button');
             remove.className = 'delete-favorite-btn';
             remove.textContent = '🗑️';
             remove.title = 'Remove substitution for ' + rule.source;
             remove.setAttribute('aria-label', remove.title);
             remove.onclick = () => run(() => edit(rule.source, null));
-            row.append(rule.source + ' → ' + (rule.target.kind === 'sroulette' ? AFFOSroulette.getPoolLabel(rule.target.pool) : (rule.target.fontName || 'Default (parameters only)')), remove);
+            row.append(select, remove);
             return row;
         }));
         await selectSource();
@@ -167,6 +197,13 @@
             if (AFFOSroulette.getValidPoolInfoFromData(poolData, 'serif').available) await selectPool('serif');
         }
         if (!state.families.length) el('line-status').textContent = 'No page text found.';
+    }
+
+    async function refreshRuleSelection() {
+        el('line-rules').querySelectorAll('.line-rule-select').forEach(button => {
+            const source = button.textContent.split(' → ')[0];
+            button.setAttribute('aria-pressed', String(source.toLowerCase() === selectedSource.toLowerCase()));
+        });
     }
 
     function setPanel(active) {
@@ -185,6 +222,9 @@
     }
 
     function bind() {
+        for (const type of ['input', 'change']) {
+            el('line-font-controls').addEventListener(type, updateButtons);
+        }
         const tab = el('shared-mode-tab');
         let timer;
         let held = false;
@@ -208,7 +248,8 @@
             grip.onclick = () => setPanel(grip.getAttribute('aria-expanded') === 'true' ? null : side);
         }
         el('line-apply').onclick = () => run(async () => {
-            const target = selectedPool ? { kind: 'sroulette', pool: selectedPool } : await buildPayload('line');
+            if (el('line-apply').classList.contains('line-no-sub')) return;
+            const target = getPreviewTarget();
             if (!hasTargetSetting(target) || (target.kind === 'sroulette' && !AFFOSroulette.isPool(target.pool))) throw new Error('Choose a font or parameter to apply.');
             await edit(selectedSource, target);
         });
@@ -222,7 +263,7 @@
         });
     }
 
-    globalThis.AFFOLineChangePopup = { setSharedMode, bind, selectPool, clearPool, selectFont, open: () => run(async () => {
+    globalThis.AFFOLineChangePopup = { setSharedMode, bind, selectPool, clearPool, selectFont, updateButtons, open: () => run(async () => {
         scope = null;
         mappings = [];
         setPanel(null);

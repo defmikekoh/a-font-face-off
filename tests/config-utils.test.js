@@ -197,7 +197,7 @@ describe('formatAffoBrowserActionTitle', () => {
                     { source: 'Georgia', target: { fontName: 'Roboto Slab' } },
                 ],
             }),
-            'AFFO - LC: Merriweather'
+            'AFFO - LC (2): Merriweather'
         );
     });
 
