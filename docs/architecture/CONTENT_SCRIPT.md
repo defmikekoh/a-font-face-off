@@ -61,7 +61,7 @@ var pendingElementWalkerChunks = {};     // fontType → one-shot continuation f
 - While waiting for a required scan, popup polling dispatches `affo-continue-walker` through `executeScript`, advancing at most one pending 8ms chunk. Firefox Android can suspend source-tab timers while its extension UI is open. The continuation cancels its scheduled timer and runs only once, so returning to the page cannot replay consumed work. Ordinary page-driven scans continue through timers.
 - `knownSerifFonts`, `knownSansFonts`, `preservedFonts` are `Set` objects (O(1) `.has()` lookup instead of O(n) `indexOf`)
 - Recheck control: ordinary small pages get one 700ms safety pass; ChatGPT relies on scoped mutation marking. `document.fonts.ready` is registered only while `document.fonts.status === "loading"`. Fonts becoming ready before the pending safety pass share that pass without moving its deadline; fonts becoming ready afterward still trigger a separate recheck. Pages without a timed pass retain their font-ready recheck.
-- ChatGPT walks start at `<main>` and only classify candidates inside `[data-message-author-role]`; sidebar history and the composer are outside the work scope
+- ChatGPT's initial walk covers each visible, non-overlapping `main` or `[role="main"]` root. Hidden app shells, sidebar history, and the composer are outside that walk.
 - ChatGPT's shared observer also watches `characterData` and added text nodes for active non-inline TMI types. Text arriving in an initially empty/short paragraph queues only its unmarked text-owning parent. Pending roots are deduplicated; ChatGPT flushes within a 250ms batch window instead of delaying until streaming stops. Once marked, later tokens do not queue another walk. Other domains retain child-list-only observation and trailing debounce.
 
 ### Key Functions
@@ -179,8 +179,9 @@ landmarks, guarded extension UI, drop caps, article decks, fixed-position UI,
 WhatFont overlays, metadata/widget patterns, configured comment views, and
 preserved font families. Its text-owner scan and first-family source matching
 remain Line Change-specific; it does not use TMI's serif/sans/mono classification
-or marker attributes. On ChatGPT, Line Change is scoped to main content and
-excludes the same UI subtrees as TMI.
+or marker attributes. On ChatGPT, Line Change starts its text scans at the same
+visible main roots as TMI and skips unrelated document mutations. It still
+rescans when content roots are mounted, removed, or revealed.
 
 Highlight builds CSS Highlight ranges from those text nodes. Apply uses the same
 family comparison and writes the saved target properties to the owners. Child

@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(require.resolve('../src/content.js'), 'utf8');
 
-function createWalker() {
+function createWalker(roots = [[0, 1, 2]]) {
     const listeners = new Map();
     const timers = new Map();
     const marked = [];
@@ -17,10 +17,10 @@ function createWalker() {
         document: {
             body: {},
             addEventListener: (name, callback) => listeners.set(name, callback),
-            createTreeWalker() {
+            createTreeWalker(root) {
                 scans++;
                 let index = 0;
-                return { nextNode: () => index < 3 ? { tagName: 'P', index: index++ } : null };
+                return { nextNode: () => index < root.length ? { tagName: 'P', index: root[index++] } : null };
             },
         },
         NodeFilter: { SHOW_ELEMENT: 1 },
@@ -34,7 +34,7 @@ function createWalker() {
         elementWalkerInFlight: {},
         usesHybridInlineTmiSelectors: () => false,
         resetFixedPositionUiCache() {},
-        getElementWalkerRoot: () => null,
+        getElementWalkerRoots: () => roots,
         isTmiPrunedSubtreeRoot: () => false,
         isInsideChatGptContent: () => true,
         elementMayOwnTmiText: () => true,
@@ -48,7 +48,7 @@ function createWalker() {
     });
     // Execute the real scheduler, walker, and popup event bridge with page timers
     // deliberately suspended, matching the Firefox Android source-tab condition.
-    const scheduler = source.slice(source.indexOf('  var pendingElementWalkerChunks ='), source.indexOf('  function getElementWalkerRoot()'));
+    const scheduler = source.slice(source.indexOf('  var pendingElementWalkerChunks ='), source.indexOf('  function getElementWalkerRoots()'));
     const walker = source.slice(source.indexOf('  function runElementWalkerAll('), source.indexOf('  function resetWalkerStateForEntry('));
     const bridge = source.slice(source.indexOf('  window.__affoWalkerDone ='), source.indexOf('  // Stable font-swap bridge'));
     vm.runInContext(scheduler + walker + bridge, context);
@@ -60,6 +60,15 @@ function createWalker() {
 }
 
 describe('popup TMI walker bridge', () => {
+    it('continues across multiple content roots in the same scan', async () => {
+        const harness = createWalker([[0], [], [1, 2]]);
+        const completion = harness.context.runElementWalkerAll(['sans']);
+        for (let index = 0; index < 3; index++) harness.dispatch('affo-continue-walker', 'sans');
+        await completion;
+        assert.deepEqual(harness.marked, [0, 1, 2]);
+        assert.equal(harness.scans, 3);
+        assert.equal(harness.context.pendingElementWalkerChunks.sans, undefined);
+    });
     it('skips computed-style reads outside main content while preserving chunk progress', async () => {
         const harness = createWalker();
         const reads = [];

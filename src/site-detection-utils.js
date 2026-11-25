@@ -17,6 +17,31 @@
     return host === domain || host.endsWith('.' + domain);
   }
 
+  var CHATGPT_CONTENT_ROOT_SELECTOR = ':is(main, [role="main"])';
+
+  function isChatGptHost(hostname) {
+    return isHostOrSubdomain(hostname, 'chatgpt.com');
+  }
+
+  function getVisibleChatGptContentRoots(documentRef) {
+    var roots = [];
+    var view = documentRef.defaultView;
+    for (var root of documentRef.querySelectorAll('body ' + CHATGPT_CONTENT_ROOT_SELECTOR)) {
+      if (roots.some(function(parent) { return parent.contains(root); })) continue;
+
+      // A hidden shell can leave its children's own computed display intact.
+      // Check ancestors, including when the semantic root uses display:contents.
+      var node = root;
+      for (; node; node = node.parentElement) {
+        var style = view.getComputedStyle(node);
+        if (style.display === 'none' || style.contentVisibility === 'hidden' ||
+            (node === root && style.visibility !== 'visible')) break;
+      }
+      if (!node) roots.push(root);
+    }
+    return roots;
+  }
+
   function isSubstackPublicationHost(hostname) {
     return isHostOrSubdomain(hostname, 'substack.com');
   }
@@ -200,7 +225,10 @@
   }
 
   root.AFFOSiteDetection = {
+    CHATGPT_CONTENT_ROOT_SELECTOR: CHATGPT_CONTENT_ROOT_SELECTOR,
+    getVisibleChatGptContentRoots: getVisibleChatGptContentRoots,
     hasSubstackGenerator: hasSubstackGenerator,
+    isChatGptHost: isChatGptHost,
     isSubstackAssetHost: isSubstackAssetHost,
     isSubstackDocument: isSubstackDocument,
     isSubstackPublicationHost: isSubstackPublicationHost,

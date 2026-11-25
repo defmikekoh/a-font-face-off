@@ -3,6 +3,36 @@ const assert = require('node:assert/strict');
 
 const siteDetection = require('../src/site-detection-utils.js');
 
+describe('site-detection-utils ChatGPT content roots', () => {
+    it('skips hidden app shells and avoids walking nested main landmarks twice', () => {
+        function element(parentElement, display = 'block') {
+            return {
+                parentElement,
+                style: { display, visibility: 'visible' },
+                contains(node) {
+                    for (; node; node = node.parentElement) if (node === this) return true;
+                    return false;
+                }
+            };
+        }
+        const body = element(null);
+        const hiddenShell = element(body, 'none');
+        const hiddenMain = element(hiddenShell);
+        const hiddenNestedMain = element(hiddenMain);
+        const visibleMain = element(body);
+        const visibleNestedMain = element(visibleMain);
+        const visibleRoleMain = element(body, 'contents');
+        const document = {
+            defaultView: { getComputedStyle: node => node.style },
+            querySelectorAll: () => [hiddenMain, hiddenNestedMain, visibleMain, visibleNestedMain, visibleRoleMain]
+        };
+
+        assert.deepEqual(siteDetection.getVisibleChatGptContentRoots(document), [visibleMain, visibleRoleMain]);
+        hiddenShell.style.display = 'block';
+        assert.deepEqual(siteDetection.getVisibleChatGptContentRoots(document), [hiddenMain, visibleMain, visibleRoleMain]);
+    });
+});
+
 describe('site-detection-utils Substack detection', () => {
     it('detects Substack from page-level host and URL signals', () => {
         assert.equal(siteDetection.isSubstackPublicationHost('scottsumner.substack.com'), true);

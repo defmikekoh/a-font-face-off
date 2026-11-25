@@ -13,9 +13,14 @@
     let pendingFrame;
     let preservedFonts = new Set();
     let ignoreCommentsDomains = [];
+    const isChatGpt = AFFOSiteDetection.isChatGptHost(location.hostname);
+    const chatGptRootSelector = AFFOSiteDetection.CHATGPT_CONTENT_ROOT_SELECTOR;
+    let chatGptScanRoots = [];
     const deckHints = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
     const deckAttrs = ['id', 'class', 'data-testid', 'itemprop', 'name'];
-    const observer = new MutationObserver(schedule);
+    const observer = new MutationObserver(records => {
+        if (!isChatGpt || records.some(affectsChatGptContent)) schedule();
+    });
     const normalize = name => name.toLowerCase();
 
     function isProtectedDropCap(el) {
@@ -53,8 +58,20 @@
         for (node = el; node && node !== document.body; node = node.parentElement) {
             if (getComputedStyle(node).position === 'fixed') return true;
         }
-        if (/^(chatgpt\.com|.+\.chatgpt\.com)$/i.test(location.hostname) && !el.closest('main,[role="main"]')) return true;
         return false;
+    }
+
+    function containsChatGptRoot(node) {
+        return node.nodeType === 1 && (node.matches(chatGptRootSelector) || !!node.querySelector(chatGptRootSelector));
+    }
+
+    function affectsChatGptContent(record) {
+        if (chatGptScanRoots.some(root => root.contains(record.target))) return true;
+        // Ancestor visibility changes can reveal an already mounted main.
+        if (record.type === 'attributes') return containsChatGptRoot(record.target);
+        if (record.type !== 'childList') return false;
+        return Array.from(record.addedNodes).some(containsChatGptRoot) ||
+            Array.from(record.removedNodes).some(node => chatGptScanRoots.some(root => node.contains(root)));
     }
 
     function schedule() {
@@ -104,16 +121,20 @@
         const families = new Map();
         const familyCoverage = new Map();
         const active = !!(rules.length || highlightFamily);
+        chatGptScanRoots = [];
         if ((active || list) && document.body) {
             const replacements = new Map(resolvedRules.map(rule => [normalize(rule.source), rule.target]));
             const groups = new Map();
-            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-            let node;
-            while ((node = walker.nextNode())) {
-                const el = node.parentElement;
-                if (!node.data.trim() || !el?.style || isExcluded(el)) continue;
-                if (!groups.has(el)) groups.set(el, []);
-                groups.get(el).push(node);
+            if (isChatGpt) chatGptScanRoots = AFFOSiteDetection.getVisibleChatGptContentRoots(document);
+            for (const root of isChatGpt ? chatGptScanRoots : [document.body]) {
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    const el = node.parentElement;
+                    if (!node.data.trim() || !el?.style || isExcluded(el)) continue;
+                    if (!groups.has(el)) groups.set(el, []);
+                    groups.get(el).push(node);
+                }
             }
             const ranges = [];
             const changes = new Map();
@@ -188,7 +209,11 @@
             markVisible = false;
         }
         updateClearControl();
-        if (active) observer.observe(document, { subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['class','style','hidden'] });
+        if (active) {
+            const attributeFilter = ['class', 'style', 'hidden'];
+            if (isChatGpt) attributeFilter.push('role');
+            observer.observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter });
+        }
         const preferredFamily = [...familyCoverage.values()]
             .sort((a, b) => b.characters - a.characters || a.name.localeCompare(b.name))[0]?.name || '';
         return { families: [...families.values()].sort(), preferredFamily, highlightFamily, rules, scope };

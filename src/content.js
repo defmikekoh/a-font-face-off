@@ -1326,9 +1326,9 @@
   }
 
   var isXCom = isHostOrSubdomain(currentOrigin, 'x.com') || isHostOrSubdomain(currentOrigin, 'twitter.com');
-  var isChatGpt = isHostOrSubdomain(currentOrigin, 'chatgpt.com');
+  var isChatGpt = AFFOSiteDetection.isChatGptHost(currentOrigin);
   // Use semantic application content, independent of private message markup.
-  var CHATGPT_CONTENT_ROOT_SELECTOR = ':is(main, [role="main"])';
+  var CHATGPT_CONTENT_ROOT_SELECTOR = AFFOSiteDetection.CHATGPT_CONTENT_ROOT_SELECTOR;
   var CHATGPT_UI_SELECTOR = 'header, [role="toolbar"], [role="button"], [contenteditable]:not([contenteditable="false"]), [role="textbox"], input, select, textarea, label, [role="dialog"], [aria-modal="true"]';
   var CHATGPT_UI_EXCLUDE = ':not(:is(' + CHATGPT_UI_SELECTOR + ')):not(:is(' + CHATGPT_UI_SELECTOR + ') *)';
   var BODY_UI_SUBTREE_EXCLUDE = ':not(nav):not(nav *):not(footer):not(footer *):not(aside):not(aside *):not(form):not(form *):not([role="navigation"]):not([role="navigation"] *):not([role="banner"]):not([role="banner"] *):not([role="contentinfo"]):not([role="contentinfo"] *):not([role="complementary"]):not([role="complementary"] *)';
@@ -4946,11 +4946,8 @@
     timerId = setTimeout(resume, 0);
   }
 
-  function getElementWalkerRoot() {
-    if (isChatGpt) {
-      return document.querySelector(CHATGPT_CONTENT_ROOT_SELECTOR) || document.body;
-    }
-    return document.body;
+  function getElementWalkerRoots() {
+    return isChatGpt ? AFFOSiteDetection.getVisibleChatGptContentRoots(document) : [document.body];
   }
 
   // Schedule delayed rechecks after initial walker completes
@@ -5032,16 +5029,15 @@
         // Walk elements that can actually own TMI text. Avoid node.textContent
         // here; reading full subtrees in TreeWalker.acceptNode is expensive on
         // large pages because it happens for every element.
-        var walker = document.createTreeWalker(
-          getElementWalkerRoot(),
-          NodeFilter.SHOW_ELEMENT,
-          {
-            acceptNode: function (node) {
-              if (isTmiPrunedSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
-              return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-            }
+        var filter = {
+          acceptNode: function (node) {
+            if (isTmiPrunedSubtreeRoot(node)) return NodeFilter.FILTER_REJECT;
+            return elementMayOwnTmiText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
           }
-        );
+        };
+        var roots = getElementWalkerRoots();
+        var rootIndex = 0;
+        var walker = null;
 
         var totalElements = 0;
         var markedCounts = {};
@@ -5049,40 +5045,30 @@
 
         function processChunk() {
           var chunkStartedAt = getAffoNow();
-          var element;
-
-          while ((element = walker.nextNode())) {
-            // Reject out-of-scope text before reading computed styles.
-            if (!isInsideChatGptContent(element)) {
-              if (getAffoNow() - chunkStartedAt >= WALKER_YIELD_BUDGET_MS) break;
+          while (walker || rootIndex < roots.length) {
+            if (!walker) walker = document.createTreeWalker(roots[rootIndex++], NodeFilter.SHOW_ELEMENT, filter);
+            var element = walker.nextNode();
+            if (!element) {
+              walker = null;
               continue;
             }
-            // Single getComputedStyle call per element — used for both visibility check and font type detection
-            var cs;
-            var shouldMark = true;
-            if (element.tagName !== 'BODY') {
+            // Reject out-of-scope text before reading computed styles.
+            if (isInsideChatGptContent(element)) {
+              // Use the same computed style for visibility and font classification.
               try {
-                cs = window.getComputedStyle(element);
-                if (cs.display === 'none' || cs.visibility === 'hidden') shouldMark = false;
-              } catch (_) { shouldMark = false; }
-            } else {
-              try { cs = window.getComputedStyle(element); } catch (_) { shouldMark = false; }
+                var cs = window.getComputedStyle(element);
+              } catch (_) { cs = null; }
+              if (cs && (element.tagName === 'BODY' || (cs.display !== 'none' && cs.visibility !== 'hidden'))) {
+                totalElements++;
+                markElementForTypes(element, cs, typeSet, markedCounts);
+              }
             }
-
-            if (shouldMark) {
-              totalElements++;
-              markElementForTypes(element, cs, typeSet, markedCounts);
+            if (getAffoNow() - chunkStartedAt >= WALKER_YIELD_BUDGET_MS) {
+              scheduleElementWalkerChunk(typesToWalk, processChunk);
+              return;
             }
-            if (getAffoNow() - chunkStartedAt >= WALKER_YIELD_BUDGET_MS) break;
           }
-
-          if (element) {
-            // More elements to process — yield to main thread then continue
-            scheduleElementWalkerChunk(typesToWalk, processChunk);
-          } else {
-            // Walker finished
-            finishWalk();
-          }
+          finishWalk();
         }
 
         function finishWalk() {
