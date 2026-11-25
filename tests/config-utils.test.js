@@ -210,6 +210,15 @@ describe('formatAffoBrowserActionTitle', () => {
         );
     });
 
+    it('labels parameter-only Line Change substitutions as Default (po)', () => {
+        assert.equal(
+            formatAffoBrowserActionTitle({
+                lineChange: [{ source: 'Arial', target: { fontSize: 18 } }],
+            }),
+            'AFFO - LC: Default (po)'
+        );
+    });
+
     it('shows prefix-only entries for applied non-family settings', () => {
         assert.equal(
             formatAffoBrowserActionTitle({ serif: { fontName: null, lineHeight: 1.4 } }),

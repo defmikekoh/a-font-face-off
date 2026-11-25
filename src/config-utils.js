@@ -151,6 +151,9 @@ function formatAffoBrowserActionTitle(domainData) {
         ? getAffoSroulettePoolLabel(firstLineChangeTarget.pool)
         : getAffoTitleFontName(firstLineChangeTarget));
     if (firstLineChangeFont) return `${AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX} LC: ${firstLineChangeFont}`;
+    if (firstLineChangeTarget && hasAffoAppliedFontSetting(firstLineChangeTarget)) {
+        return `${AFFO_BROWSER_ACTION_APPLIED_TITLE_PREFIX} LC: Default (po)`;
+    }
 
     const entries = getAffoBrowserActionTitleEntries(domainData);
     if (!entries.length) return AFFO_BROWSER_ACTION_DEFAULT_TITLE;
