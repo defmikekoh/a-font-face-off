@@ -3568,7 +3568,7 @@ body.view-line-change #line-rink { display: flex; flex-direction: column; flex: 
 #line-rules { padding: 0; margin: 8px 0; }
 #line-rules li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; overflow-wrap: anywhere; }
 #line-rules button { min-height: 40px; }
-#line-rules .line-rule-select { flex: 1; min-width: 0; padding: 6px 10px; text-align: left; overflow-wrap: anywhere; background: rgba(0, 51, 160, 0.1); border-radius: 6px; }
+#line-rules .line-rule-select { flex: 1; min-width: 0; padding: 6px 10px; text-align: left; overflow-wrap: anywhere; background: rgba(0, 51, 160, 0.04); border-radius: 6px; }
 #line-rules .line-rule-select[aria-pressed="true"] { outline: 1px solid var(--accent-color, #4a90e2); }
 #line-source { width: 100%; }
 .line-source-option {
