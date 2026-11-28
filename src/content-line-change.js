@@ -14,6 +14,7 @@
     let preservedFonts = new Set();
     let ignoreCommentsDomains = [];
     const isChatGpt = AFFOSiteDetection.isChatGptHost(location.hostname);
+    const isSubstack = AFFOSiteDetection.isSubstackDocument(document, location, window);
     const chatGptRootSelector = AFFOSiteDetection.CHATGPT_CONTENT_ROOT_SELECTOR;
     let chatGptScanRoots = [];
     const deckHints = ['summary', 'subtitle', 'dek', 'deck', 'standfirst', 'subheadline', 'excerpt'];
@@ -41,6 +42,7 @@
 
     function isExcluded(el) {
         if (el.closest('script,style,noscript,template,[data-affo-guard],.no-affo,#affo-quick-pick-overlay')) return true;
+        if (isSubstack && isSubstackPrimaryButtonText(el)) return true;
         if (el.closest('h1,h2,h3,h4,h5,h6,nav,header,footer:not(article footer),aside,form,button,input,select,textarea,label,figcaption,[role="navigation"],[role="banner"],[role="contentinfo"],[role="complementary"],[role="dialog"],[aria-modal="true"],[role="toolbar"],[role="button"],[contenteditable]:not([contenteditable="false"]),[role="textbox"],.post-header,.main-menu,[class*="topBar"]')) return true;
         if (ignoreCommentsDomains.includes(location.hostname) && el.closest('.comments-page')) return true;
         const codeContainer = el.closest('[class~="hljs"],[class~="token"],[class~="prettyprint"],[class~="prettyprinted"],[class~="sourceCode"],[class~="wp-block-code"],[class~="wp-block-preformatted"],[class~="terminal"],[class*="language-"]');
@@ -59,6 +61,14 @@
             if (getComputedStyle(node).position === 'fixed') return true;
         }
         return false;
+    }
+
+    function isSubstackPrimaryButtonText(el) {
+        const wrapper = el.closest('p.button-wrapper');
+        if (!wrapper) return false;
+        const link = Array.from(wrapper.children).find(child => child.tagName === 'A' && child.classList.contains('button') && child.classList.contains('primary'));
+        if (!link || !Array.from(link.children).some(child => child.tagName === 'SPAN')) return false;
+        return el === link || link.contains(el) || el === wrapper;
     }
 
     function containsChatGptRoot(node) {
