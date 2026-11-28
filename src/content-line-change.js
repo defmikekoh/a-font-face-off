@@ -188,7 +188,10 @@
                 const config = replacements.get(normalize(name));
                 if (!config || stack.some(part => preservedFonts.has(part))) continue;
                 const props = runtime.buildInlineFontProperties(config);
-                if (props['font-family']) changes.set(paragraph, { 'font-family': props['font-family'] });
+                const lineBoxProps = {};
+                if (props['font-family']) lineBoxProps['font-family'] = props['font-family'];
+                if (props['line-height']) lineBoxProps['line-height'] = props['line-height'];
+                if (Object.keys(lineBoxProps).length) changes.set(paragraph, lineBoxProps);
             }
             // Preserve inheritance across nested stacks. An unmatched child of a
             // changed text owner must retain its original size, color, and axes.

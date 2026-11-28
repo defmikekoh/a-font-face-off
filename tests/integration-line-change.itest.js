@@ -8,19 +8,22 @@ test('Line Change updates the line box of paragraphs whose text is nested', asyn
     const popup = script => popupExec(driver, script);
     try {
         await driver.executeScript(`document.body.innerHTML = '<article style="font:20px/1.6 Georgia">' +
-            '<p id="nested"><span>Some prose </span><a href="#">linked text</a>' +
+            '<p id="nested"><span>Some prose </span><a href="#">linked text</a><em id="matching">italic text</em>' +
             '<em style="font-family:Verdana">different family</em></p></article>'`);
         await openPopup(driver);
         await driver.wait(() => popup("return !!document.querySelector('#line-source button') && !document.querySelector('#line-apply').disabled"), 15000);
         await popup("Array.from(document.querySelectorAll('#line-source button')).find(button => button.textContent === 'Georgia').click()");
         await driver.wait(() => popup("return !document.querySelector('#line-apply').disabled"), 10000);
-        await popup("return AFFOLineChangePopup.selectFont({fontName:'Arial',fontSource:'local'})");
+        await popup("return AFFOLineChangePopup.selectFont({fontName:'Arial',fontSource:'local',lineHeight:1.3})");
         await popup("document.querySelector('#line-apply').click()");
         await driver.wait(() => driver.executeScript("return getComputedStyle(document.querySelector('#nested')).fontFamily === 'Arial'"), 10000, 'Paragraph font was not replaced');
-        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#nested em')).fontFamily"), 'Verdana');
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#nested')).lineHeight"), '26px');
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#matching')).lineHeight"), '26px');
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#nested em:not(#matching)')).fontFamily"), 'Verdana');
         await driver.wait(() => popup("return !!document.querySelector('#line-rules button[aria-label=\"Remove substitution for Georgia\"]')"), 10000);
         await popup("document.querySelector('#line-rules button[aria-label=\"Remove substitution for Georgia\"]').click()");
         await driver.wait(() => driver.executeScript("return getComputedStyle(document.querySelector('#nested')).fontFamily.includes('Georgia')"), 10000, 'Paragraph font was not restored');
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#nested')).lineHeight"), '32px');
     } finally {
         await teardown(driver, profileDir);
     }
