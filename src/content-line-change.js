@@ -174,6 +174,22 @@
                     }
                 }
             }
+            // A paragraph can contain only inline text owners. Its own font still
+            // contributes a line-box strut, so replace it when its original
+            // family has a rule, even though it owns no direct text node.
+            const paragraphs = new Set([...changes.keys()].map(el => el.closest('p')).filter(Boolean));
+            for (const paragraph of paragraphs) {
+                if (changes.has(paragraph) || isExcluded(paragraph)) continue;
+                const css = getComputedStyle(paragraph);
+                const first = css.fontFamily.match(/^(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^,]+))/);
+                if (!first) continue;
+                const name = (first[1] || first[2] || first[3]).trim().replace(/\\(["'\\])/g, '$1');
+                const stack = css.fontFamily.split(',').map(part => part.trim().replace(/["']/g, '').toLowerCase());
+                const config = replacements.get(normalize(name));
+                if (!config || stack.some(part => preservedFonts.has(part))) continue;
+                const props = runtime.buildInlineFontProperties(config);
+                if (props['font-family']) changes.set(paragraph, { 'font-family': props['font-family'] });
+            }
             // Preserve inheritance across nested stacks. An unmatched child of a
             // changed text owner must retain its original size, color, and axes.
             for (const [el, props] of [...changes]) {

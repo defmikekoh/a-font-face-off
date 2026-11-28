@@ -3,6 +3,29 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { setup, teardown, openPopup, closePopup, popupExec } = require('./selenium-helper');
 
+test('Line Change updates the line box of paragraphs whose text is nested', async () => {
+    const { driver, profileDir } = await setup();
+    const popup = script => popupExec(driver, script);
+    try {
+        await driver.executeScript(`document.body.innerHTML = '<article style="font:20px/1.6 Georgia">' +
+            '<p id="nested"><span>Some prose </span><a href="#">linked text</a>' +
+            '<em style="font-family:Verdana">different family</em></p></article>'`);
+        await openPopup(driver);
+        await driver.wait(() => popup("return !!document.querySelector('#line-source button') && !document.querySelector('#line-apply').disabled"), 15000);
+        await popup("Array.from(document.querySelectorAll('#line-source button')).find(button => button.textContent === 'Georgia').click()");
+        await driver.wait(() => popup("return !document.querySelector('#line-apply').disabled"), 10000);
+        await popup("return AFFOLineChangePopup.selectFont({fontName:'Arial',fontSource:'local'})");
+        await popup("document.querySelector('#line-apply').click()");
+        await driver.wait(() => driver.executeScript("return getComputedStyle(document.querySelector('#nested')).fontFamily === 'Arial'"), 10000, 'Paragraph font was not replaced');
+        assert.equal(await driver.executeScript("return getComputedStyle(document.querySelector('#nested em')).fontFamily"), 'Verdana');
+        await driver.wait(() => popup("return !!document.querySelector('#line-rules button[aria-label=\"Remove substitution for Georgia\"]')"), 10000);
+        await popup("document.querySelector('#line-rules button[aria-label=\"Remove substitution for Georgia\"]').click()");
+        await driver.wait(() => driver.executeScript("return getComputedStyle(document.querySelector('#nested')).fontFamily.includes('Georgia')"), 10000, 'Paragraph font was not restored');
+    } finally {
+        await teardown(driver, profileDir);
+    }
+});
+
 test('native popup highlights original families and removes each scoped substitution independently', async () => {
     const { driver, profileDir } = await setup();
     const popup = script => popupExec(driver, script);
